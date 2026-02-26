@@ -1,38 +1,32 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
-
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/role.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
-
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
-
   final AppController controller;
   final String conversationId;
-
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
-
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
   late Conversation _conversation;
   Color? _accent;
   bool _sending = false;
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
-
   @override
   void initState() {
     super.initState();
@@ -55,17 +49,14 @@ class _ChatPageState extends State<ChatPage> {
     _ensureOpeningMessage();
     _loadAccent();
   }
-
   @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
-
   Role? get _role => widget.controller.getRoleById(_conversation.roleId);
   World? get _world => widget.controller.getWorldById(_conversation.worldId);
-
   Future<void> _ensureOpeningMessage() async {
     if (_conversation.messages.isNotEmpty) {
       return;
@@ -87,7 +78,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-
   Future<void> _loadAccent() async {
     final Role? role = _role;
     final String? path = role?.images['square'];
@@ -106,7 +96,6 @@ class _ChatPageState extends State<ChatPage> {
       _accent = palette.dominantColor?.color;
     });
   }
-
   Future<void> _send() async {
     final String text = _inputController.text.trim();
     if (text.isEmpty) {
@@ -138,7 +127,6 @@ class _ChatPageState extends State<ChatPage> {
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
     _inputController.clear();
-
     final List<ConversationMessage> updated = <ConversationMessage>[..._conversation.messages, userMessage];
     _conversation = _conversation.copyWith(messages: updated);
     await widget.controller.upsertConversation(_conversation);
@@ -147,7 +135,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-
     setState(() => _sending = true);
     final String assistantId = DateTime.now().microsecondsSinceEpoch.toString();
     ConversationMessage assistantMessage = ConversationMessage(
@@ -165,7 +152,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-
     await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
       baseUrl: baseUrl,
       apiKey: apiKey,
@@ -196,13 +182,11 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {});
       _scrollToBottom();
     }
-
     if (!mounted) {
       return;
     }
     setState(() => _sending = false);
   }
-
   String _buildSystemPrompt() {
     final Role? role = _role;
     final World? world = _world;
@@ -248,7 +232,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     return system.toString().trim();
   }
-
   List<Map<String, String>> _buildMessagesFrom(
     List<ConversationMessage> messages, {
     String? extraUserText,
@@ -269,11 +252,9 @@ class _ChatPageState extends State<ChatPage> {
     }
     return payload;
   }
-
   List<Map<String, String>> _buildMessages() {
     return _buildMessagesFrom(_conversation.messages);
   }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -286,7 +267,153 @@ class _ChatPageState extends State<ChatPage> {
       );
     });
   }
-
+  Future<List<_ChatSnapshot>> _loadSnapshots() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') ?? '';
+    if (raw.isEmpty) {
+      return <_ChatSnapshot>[];
+    }
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map(_ChatSnapshot.fromJson)
+            .toList();
+      }
+    } catch (_) {}
+    return <_ChatSnapshot>[];
+  }
+  Future<void> _saveSnapshots(List<_ChatSnapshot> snapshots) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String raw = jsonEncode(snapshots.map((_) => _.toJson()).toList());
+    await prefs.setString('$_snapshotKeyPrefix${_conversation.id}', raw);
+  }
+  Future<void> _manageSnapshots() async {
+    final List<_ChatSnapshot> snapshots = await _loadSnapshots();
+    final String? action = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('??'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: snapshots.isEmpty
+                ? const Text('????')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: snapshots.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final _ChatSnapshot snapshot = snapshots[index];
+                      final DateTime time = DateTime.fromMillisecondsSinceEpoch(snapshot.timestamp);
+                      return ListTile(
+                        title: Text(snapshot.name),
+                        subtitle: Text(time.toString().substring(0, 19)),
+                        onTap: () => Navigator.of(context).pop('load:$index'),
+                      );
+                    },
+                  ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('??'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop('create'),
+              child: const Text('????'),
+            ),
+          ],
+        );
+      },
+    );
+    if (action == null) {
+      return;
+    }
+    if (action == 'create') {
+      final String defaultName = '?? ${DateTime.now().toString().substring(0, 19)}';
+      final TextEditingController controller = TextEditingController(text: defaultName);
+      final String? name = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('????'),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(hintText: '????'),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('??'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+                child: const Text('??'),
+              ),
+            ],
+          );
+        },
+      );
+      if (name == null || name.trim().isEmpty) {
+        return;
+      }
+      snapshots.insert(
+        0,
+        _ChatSnapshot(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          name: name.trim(),
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          data: _conversation.toJson(),
+        ),
+      );
+      await _saveSnapshots(snapshots);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('?????')),
+      );
+      return;
+    }
+    if (action.startsWith('load:')) {
+      final int index = int.tryParse(action.split(':').last) ?? -1;
+      if (index < 0 || index >= snapshots.length) {
+        return;
+      }
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('??????'),
+            content: const Text('?????????????????????'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('??'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('??'),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) {
+        return;
+      }
+      final Map<String, dynamic> data = Map<String, dynamic>.from(snapshots[index].data);
+      data['id'] = _conversation.id;
+      _conversation = Conversation.fromJson(data);
+      await widget.controller.upsertConversation(_conversation);
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      _scrollToBottom();
+    }
+  }
   Future<void> _showMessageMenu({
     required Offset position,
     required String text,
@@ -388,7 +515,6 @@ class _ChatPageState extends State<ChatPage> {
       await Share.share(text);
     }
   }
-
   Future<void> _continueFromContext() async {
     if (_sending) {
       return;
@@ -423,7 +549,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-
     final List<Map<String, String>> payload = _buildMessagesFrom(
       _conversation.messages.where((ConversationMessage m) => m.id != assistantId).toList(),
       extraUserText: '继续',
@@ -458,13 +583,11 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {});
       _scrollToBottom();
     }
-
     if (!mounted) {
       return;
     }
     setState(() => _sending = false);
   }
-
   Future<void> _retryAssistantAt(int index) async {
     if (_sending) {
       return;
@@ -482,11 +605,9 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-
     final List<ConversationMessage> contextMessages =
         _conversation.messages.take(index).toList();
     final List<Map<String, String>> payload = _buildMessagesFrom(contextMessages);
-
     setState(() => _sending = true);
     List<String> results = await _generateRetries(payload, model, apiKey, baseUrl);
     if (results.isEmpty) {
@@ -502,17 +623,14 @@ class _ChatPageState extends State<ChatPage> {
       }
       return;
     }
-
     _retryAlternatives.putIfAbsent(target.id, () => <String>[]);
     _retryAlternatives[target.id]!.addAll(results);
-
     if (!mounted) {
       return;
     }
     setState(() => _sending = false);
     await _showRetryPicker(index);
   }
-
   Future<List<String>> _generateRetries(
     List<Map<String, String>> payload,
     String model,
@@ -538,7 +656,6 @@ class _ChatPageState extends State<ChatPage> {
       return <String>[];
     }
   }
-
   Future<List<String>> _generateRetriesSequential(
     List<Map<String, String>> payload,
     String model,
@@ -563,7 +680,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     return results;
   }
-
   Future<void> _showRetryPicker(int index) async {
     final ConversationMessage target = _conversation.messages[index];
     final List<String> options = _retryAlternatives[target.id] ?? <String>[];
@@ -614,7 +730,6 @@ class _ChatPageState extends State<ChatPage> {
         );
       },
     );
-
     if (selected == null) {
       return;
     }
@@ -635,7 +750,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-
   Future<void> _editAssistantAt(int index) async {
     final ConversationMessage target = _conversation.messages[index];
     final TextEditingController controller = TextEditingController(text: target.text);
@@ -679,7 +793,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-
   Future<void> _rollbackTo(int index) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -711,7 +824,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-
   Future<void> _toggleBackground() async {
     final String next = _conversation.backgroundMode == 'image' ? 'none' : 'image';
     _conversation = _conversation.copyWith(backgroundMode: next);
@@ -721,25 +833,27 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-
   @override
   Widget build(BuildContext context) {
     final Role? role = _role;
     final Color schemeColor = _accent ?? Theme.of(context).colorScheme.primary;
     final Color userBubble = schemeColor.withValues(alpha: 0.18);
     final Color assistantBubble = Theme.of(context).colorScheme.surfaceContainerHighest;
-
     final Size size = MediaQuery.of(context).size;
     final bool useLandscape = size.width >= size.height;
     final String? bgPath = useLandscape ? role?.images['landscape'] : role?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' && bgPath != null && bgPath.isNotEmpty;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
         actions: <Widget>[
           IconButton(
-            tooltip: _conversation.backgroundMode == 'image' ? '关闭背景图' : '开启背景图',
+            tooltip: '?????',
+            onPressed: _scrollToBottom,
+            icon: const Icon(Icons.vertical_align_bottom),
+          ),
+          IconButton(
+            tooltip: _conversation.backgroundMode == 'image' ? '?????' : '?????',
             onPressed: _toggleBackground,
             icon: Icon(_conversation.backgroundMode == 'image' ? Icons.image_not_supported : Icons.image),
           ),
@@ -837,9 +951,29 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        tooltip: '??',
+                        onSelected: (String value) async {
+                          if (value == 'archive') {
+                            await _manageSnapshots();
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'archive',
+                            child: ListTile(
+                              leading: Icon(Icons.save),
+                              title: Text('??'),
+                            ),
+                          ),
+                        ],
+                        child: const Icon(Icons.more_horiz),
+                      ),
+                      const SizedBox(width: 8),
                       FilledButton(
                         onPressed: _sending ? null : _send,
-                        child: Text(_sending ? '发送中...' : '发送'),
+                        child: Text(_sending ? '???...' : '??'),
+                      ),
                       ),
                     ],
                   ),
@@ -849,6 +983,35 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
+    );
+  }
+}
+class _ChatSnapshot {
+  const _ChatSnapshot({
+    required this.id,
+    required this.name,
+    required this.timestamp,
+    required this.data,
+  });
+  final String id;
+  final String name;
+  final int timestamp;
+  final Map<String, dynamic> data;
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'name': name,
+      'timestamp': timestamp,
+      'data': data,
+    };
+  }
+  static _ChatSnapshot fromJson(Map<String, dynamic> json) {
+    return _ChatSnapshot(
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? '',
+      timestamp: (json['timestamp'] as int?) ?? 0,
+      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) ??
+          <String, dynamic>{},
     );
   }
 }
