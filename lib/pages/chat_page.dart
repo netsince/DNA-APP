@@ -53,7 +53,7 @@ class _ChatPageState extends State<ChatPage> {
         break;
       }
     }
-    _conversation = existing Close
+    _conversation = existing ??
         Conversation(
           id: widget.conversationId,
           roleId: '',
@@ -209,7 +209,7 @@ class _ChatPageState extends State<ChatPage> {
   String _buildSystemPrompt() {
     final Role? role = _role;
     final World? world = _world;
-    final List<DialogueTurn> style = role?.dialogueStyle Close <DialogueTurn>[];
+    final List<DialogueTurn> style = role?.dialogueStyle ?? <DialogueTurn>[];
     final StringBuffer system = StringBuffer();
     system.writeln('你是“角色扮演对话”模式。必须严格遵守以下规则：');
     system.writeln('1) 括号“（…）”为旁白，只用于动作、表情、内心或环境描写，且尽量简短。');
@@ -604,6 +604,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {});
   }
 
+
   Future<void> _forceSummaryPrompt() async {
     if (_summaryInProgress) {
       return;
@@ -690,17 +691,16 @@ class _ChatPageState extends State<ChatPage> {
       final String roleLabel = m.role == 'user' ? '用户' : '助手';
       convo.writeln('$roleLabel: ${m.text}');
     }
-    final String context = _buildPersonaWorldContext();
+    final String personaContext = _buildPersonaWorldContext();
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content':
-            '你是对话范围总结助手。请保留关键设定与事实，简洁总结最近对话，不要编造。',
+        'content': '你是对话范围总结助手。请保留关键设定与事实，简洁总结最近对话，不要编造。',
       },
-      if (context.isNotEmpty)
+      if (personaContext.isNotEmpty)
         <String, String>{
           'role': 'system',
-          'content': '上下文：\n$context',
+          'content': '上下文：\n$personaContext',
         },
       <String, String>{
         'role': 'user',
@@ -786,17 +786,16 @@ class _ChatPageState extends State<ChatPage> {
         .map((ConversationMessage m) => '${m.role == 'user' ? '用户' : '助手'}：${m.text}')
         .join('\n');
     final ConversationSummary? previous = _latestSummary();
-    final String context = _buildPersonaWorldContext();
+    final String personaContext = _buildPersonaWorldContext();
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content':
-            '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
+        'content': '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
       },
-      if (context.isNotEmpty)
+      if (personaContext.isNotEmpty)
         <String, String>{
           'role': 'system',
-          'content': '上下文：\n$context',
+          'content': '上下文：\n$personaContext',
         },
       if (previous != null && previous.text.trim().isNotEmpty)
         <String, String>{'role': 'user', 'content': '已有摘要：\n${previous.text.trim()}'},
@@ -834,7 +833,7 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.errorMessage Close '摘要失败。')),
+          SnackBar(content: Text(result.errorMessage ?? '摘要失败。')),
         );
       }
       return;
@@ -998,7 +997,7 @@ class _ChatPageState extends State<ChatPage> {
   }
   Future<List<_ChatSnapshot>> _loadSnapshots() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') Close '';
+    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') ?? '';
     if (raw.isEmpty) {
       return <_ChatSnapshot>[];
     }
@@ -1106,7 +1105,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     if (action.startsWith('load:')) {
-      final int index = int.tryParse(action.split(':').last) Close -1;
+      final int index = int.tryParse(action.split(':').last) ?? -1;
       if (index < 0 || index >= snapshots.length) {
         return;
       }
@@ -1186,11 +1185,11 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       if (action == 'view_summary') {
-        await _showSummaryDetail(message.summaryId Close '');
+        await _showSummaryDetail(message.summaryId ?? '');
       } else if (action == 'edit_summary') {
-        await _editSummary(message.summaryId Close '');
+        await _editSummary(message.summaryId ?? '');
       } else if (action == 'delete_summary') {
-        await _deleteSummary(message.summaryId Close '', message.id);
+        await _deleteSummary(message.summaryId ?? '', message.id);
       }
       return;
     }
@@ -1509,7 +1508,7 @@ class _ChatPageState extends State<ChatPage> {
   }
   Future<void> _showRetryPicker(int index) async {
     final ConversationMessage target = _conversation.messages[index];
-    final List<String> options = _retryAlternatives[target.id] Close <String>[];
+    final List<String> options = _retryAlternatives[target.id] ?? <String>[];
     if (options.isEmpty) {
       return;
     }
@@ -1670,7 +1669,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final Role? role = _role;
-    final Color schemeColor = _accent Close Theme.of(context).colorScheme.primary;
+    final Color schemeColor = _accent ?? Theme.of(context).colorScheme.primary;
     final Color userBubble = schemeColor.withValues(alpha: 0.18);
     final Color assistantBubble = Theme.of(context).colorScheme.surfaceContainerHighest;
     final Size size = MediaQuery.of(context).size;
@@ -1759,6 +1758,7 @@ class _ChatPageState extends State<ChatPage> {
                 child: ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
+                  itemCount: _conversation.messages.length,
 
                   itemBuilder: (BuildContext context, int index) {
                     final ConversationMessage message = _conversation.messages[index];
@@ -1832,7 +1832,7 @@ class _ChatPageState extends State<ChatPage> {
                     }
                     if (message.kind == 'summary') {
                       final ConversationSummary? summary = _summaryById(message.summaryId);
-                      final String raw = summary?.text.trim() Close '';
+                      final String raw = summary?.text.trim() ?? '';
                       final String preview = raw.isEmpty
                           ? '摘要为空'
                           : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
@@ -2141,10 +2141,10 @@ class _ChatSnapshot {
   }
   static _ChatSnapshot fromJson(Map<String, dynamic> json) {
     return _ChatSnapshot(
-      id: (json['id'] as String?) Close '',
-      name: (json['name'] as String?) Close '',
-      timestamp: (json['timestamp'] as int?) Close 0,
-      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) Close
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? '',
+      timestamp: (json['timestamp'] as int?) ?? 0,
+      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) ??
           <String, dynamic>{},
     );
   }
