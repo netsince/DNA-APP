@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:tiktoken/tiktoken.dart';
 import '../utils/id_utils.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
@@ -23,9 +24,17 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   late Conversation _conversation;
   Color? _accent;
   bool _sending = false;
+  bool _searching = false;
+  bool _showTokenCounts = false;
+  int _searchMatchIndex = -1;
+  final Map<String, GlobalKey> _messageKeys = <String, GlobalKey>{};
+  final Map<String, _TokenCacheEntry> _tokenCache = <String, _TokenCacheEntry>{};
+  Encoding? _tokenEncoding;
+  String? _tokenEncodingModel;
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
   static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
@@ -55,6 +64,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
   Role? get _role => widget.controller.getRoleById(_conversation.roleId);
@@ -268,6 +278,142 @@ class _ChatPageState extends State<ChatPage> {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  void _toggleSearch() {
+    final bool next = !_searching;
+    setState(() {
+      _searching = next;
+      if (!next) {
+        _searchController.clear();
+        _searchMatchIndex = -1;
+      }
+    });
+    if (next) {
+      _updateSearch(_searchController.text);
+    }
+  }
+
+  void _updateSearch(String raw) {
+    final String query = raw.trim();
+    final List<int> matches = _computeSearchMatches(query);
+    if (query.isEmpty) {
+      setState(() => _searchMatchIndex = -1);
+      return;
+    }
+    setState(() {
+      _searchMatchIndex = matches.isEmpty ? -1 : 0;
+    });
+    if (_searchMatchIndex >= 0) {
+      _jumpToMessageIndex(matches[_searchMatchIndex]);
+    }
+  }
+
+  List<int> _computeSearchMatches(String query) {
+    if (query.isEmpty) {
+      return <int>[];
+    }
+    final String lowerQuery = query.toLowerCase();
+    final List<int> matches = <int>[];
+    for (int i = 0; i < _conversation.messages.length; i++) {
+      final String text = _conversation.messages[i].text;
+      if (text.toLowerCase().contains(lowerQuery)) {
+        matches.add(i);
+      }
+    }
+    return matches;
+  }
+
+  void _navigateMatch(int delta) {
+    final String query = _searchController.text.trim();
+    final List<int> matches = _computeSearchMatches(query);
+    if (matches.isEmpty) {
+      setState(() => _searchMatchIndex = -1);
+      return;
+    }
+    final int nextIndex = _searchMatchIndex < 0
+        ? 0
+        : (((_searchMatchIndex + delta) % matches.length) + matches.length) % matches.length;
+    setState(() => _searchMatchIndex = nextIndex);
+    _jumpToMessageIndex(matches[nextIndex]);
+  }
+
+  void _jumpToMessageIndex(int messageIndex) {
+    if (messageIndex < 0 || messageIndex >= _conversation.messages.length) {
+      return;
+    }
+    final String id = _conversation.messages[messageIndex].id;
+    final GlobalKey? key = _messageKeys[id];
+    if (key == null || key.currentContext == null) {
+      return;
+    }
+    Scrollable.ensureVisible(
+      key.currentContext!,
+      alignment: 0.3,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Encoding _ensureEncoding() {
+    final String model = widget.controller.settings.selectedModel;
+    if (_tokenEncoding == null || _tokenEncodingModel != model) {
+      try {
+        _tokenEncoding = encodingForModel(model);
+      } catch (_) {
+        _tokenEncoding = getEncoding('cl100k_base');
+      }
+      _tokenEncodingModel = model;
+      _tokenCache.clear();
+    }
+    return _tokenEncoding!;
+  }
+
+  int _countTokens(String messageId, String text) {
+    final _TokenCacheEntry? cached = _tokenCache[messageId];
+    if (cached != null && cached.text == text) {
+      return cached.count;
+    }
+    if (text.isEmpty) {
+      _tokenCache[messageId] = const _TokenCacheEntry(text: '', count: 0);
+      return 0;
+    }
+    final Encoding encoding = _ensureEncoding();
+    final int count = encoding.encode(text).length;
+    _tokenCache[messageId] = _TokenCacheEntry(text: text, count: count);
+    return count;
+  }
+
+  TextSpan _buildHighlightedText(BuildContext context, String text) {
+    final String query = _searchController.text.trim();
+    final TextStyle base = DefaultTextStyle.of(context).style;
+    if (query.isEmpty) {
+      return TextSpan(text: text, style: base);
+    }
+    final String lowerText = text.toLowerCase();
+    final String lowerQuery = query.toLowerCase();
+    int start = 0;
+    final List<InlineSpan> spans = <InlineSpan>[];
+    while (true) {
+      final int index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start), style: base));
+        break;
+      }
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index), style: base));
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + query.length),
+          style: base.copyWith(
+            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+          ),
+        ),
+      );
+      start = index + query.length;
+    }
+    return TextSpan(children: spans, style: base);
   }
   Future<List<_ChatSnapshot>> _loadSnapshots() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -858,21 +1004,66 @@ class _ChatPageState extends State<ChatPage> {
     final bool useLandscape = size.width >= size.height;
     final String? bgPath = useLandscape ? role?.images['landscape'] : role?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' && bgPath != null && bgPath.isNotEmpty;
+    final String searchQuery = _searchController.text.trim();
+    final List<int> searchMatches =
+        _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
+    final bool hasMatches = searchMatches.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
-        title: Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: '回到底部',
-            onPressed: _scrollToBottom,
-            icon: const Icon(Icons.vertical_align_bottom),
-          ),
-          IconButton(
-            tooltip: _conversation.backgroundMode == 'image' ? '关闭背景图' : '显示背景图',
-            onPressed: _toggleBackground,
-            icon: Icon(_conversation.backgroundMode == 'image' ? Icons.image_not_supported : Icons.image),
-          ),
-        ],
+        title: _searching
+            ? Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: '搜索消息',
+                        border: InputBorder.none,
+                      ),
+                      textInputAction: TextInputAction.search,
+                      onChanged: _updateSearch,
+                    ),
+                  ),
+                  Text(
+                    hasMatches && _searchMatchIndex >= 0
+                        ? '${_searchMatchIndex + 1}/${searchMatches.length}'
+                        : '0/0',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              )
+            : Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
+        actions: _searching
+            ? <Widget>[
+                IconButton(
+                  tooltip: '上一个',
+                  onPressed: hasMatches ? () => _navigateMatch(-1) : null,
+                  icon: const Icon(Icons.keyboard_arrow_up),
+                ),
+                IconButton(
+                  tooltip: '下一个',
+                  onPressed: hasMatches ? () => _navigateMatch(1) : null,
+                  icon: const Icon(Icons.keyboard_arrow_down),
+                ),
+                IconButton(
+                  tooltip: '关闭搜索',
+                  onPressed: _toggleSearch,
+                  icon: const Icon(Icons.close),
+                ),
+              ]
+            : <Widget>[
+                IconButton(
+                  tooltip: '回到底部',
+                  onPressed: _scrollToBottom,
+                  icon: const Icon(Icons.vertical_align_bottom),
+                ),
+                IconButton(
+                  tooltip: _conversation.backgroundMode == 'image' ? '关闭背景图' : '显示背景图',
+                  onPressed: _toggleBackground,
+                  icon: Icon(_conversation.backgroundMode == 'image' ? Icons.image_not_supported : Icons.image),
+                ),
+              ],
       ),
       body: Stack(
         children: <Widget>[
@@ -901,7 +1092,13 @@ class _ChatPageState extends State<ChatPage> {
                     final bool isUser = message.role == 'user';
                     final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
                     final Color bubbleColor = isUser ? userBubble : assistantBubble;
+                    final GlobalKey key =
+                        _messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
+                    final int charCount = message.text.runes.length;
+                    final int tokenCount =
+                        _showTokenCounts ? _countTokens(message.id, message.text) : 0;
                     return Align(
+                      key: key,
                       alignment: alignment,
                       child: GestureDetector(
                         onLongPressStart: (LongPressStartDetails details) {
@@ -928,7 +1125,25 @@ class _ChatPageState extends State<ChatPage> {
                             color: bubbleColor,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(message.text),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              RichText(text: _buildHighlightedText(context, message.text)),
+                              if (message.text.isNotEmpty && _showTokenCounts) ...<Widget>[
+                                const SizedBox(height: 6),
+                                Text(
+                                  '字数 $charCount / Token $tokenCount',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -971,9 +1186,29 @@ class _ChatPageState extends State<ChatPage> {
                         onSelected: (String value) async {
                           if (value == 'archive') {
                             await _manageSnapshots();
+                          } else if (value == 'search') {
+                            _toggleSearch();
+                          } else if (value == 'tokens') {
+                            setState(() => _showTokenCounts = !_showTokenCounts);
                           }
                         },
                         itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                          CheckedPopupMenuItem<String>(
+                            value: 'search',
+                            checked: _searching,
+                            child: const ListTile(
+                              leading: Icon(Icons.search),
+                              title: Text('消息搜索'),
+                            ),
+                          ),
+                          CheckedPopupMenuItem<String>(
+                            value: 'tokens',
+                            checked: _showTokenCounts,
+                            child: const ListTile(
+                              leading: Icon(Icons.numbers),
+                              title: Text('显示字数/Token'),
+                            ),
+                          ),
                           const PopupMenuItem<String>(
                             value: 'archive',
                             child: ListTile(
@@ -999,6 +1234,13 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
+}
+
+class _TokenCacheEntry {
+  const _TokenCacheEntry({required this.text, required this.count});
+
+  final String text;
+  final int count;
 }
 class _ChatSnapshot {
   const _ChatSnapshot({
