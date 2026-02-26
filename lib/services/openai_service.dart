@@ -228,6 +228,10 @@ class OpenAiService {
             if (choices is List && choices.isNotEmpty) {
               final Object? delta = (choices.first as Map<String, dynamic>)['delta'];
               if (delta is Map<String, dynamic>) {
+                final String? reasoning = delta['reasoning_content'] as String?;
+                if (reasoning != null && reasoning.isNotEmpty) {
+                  yield '<think>$reasoning</think>';
+                }
                 final String? content = delta['content'] as String?;
                 if (content != null && content.isNotEmpty) {
                   yield content;

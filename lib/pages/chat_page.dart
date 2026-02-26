@@ -189,7 +189,7 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
-      assistantMessage = assistantMessage.copyWith(text: state.visible);
+      assistantMessage = assistantMessage.copyWith(text: state.visible.trim());
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
@@ -529,7 +529,7 @@ class _ChatPageState extends State<ChatPage> {
         state.inThought = false;
       }
     }
-    _thoughtsByMessageId[messageId] = _ThoughtEntry(text: state.thought);
+    _thoughtsByMessageId[messageId] = _ThoughtEntry(text: state.thought.trim());
     return state;
   }
 
@@ -1487,7 +1487,7 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
-      assistantMessage = assistantMessage.copyWith(text: state.visible);
+      assistantMessage = assistantMessage.copyWith(text: state.visible.trim());
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
