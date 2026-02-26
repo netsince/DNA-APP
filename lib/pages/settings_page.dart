@@ -25,6 +25,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<String> _models = <String>[];
   String? _selectedModel;
   bool _autoSummaryPrompt = true;
+  bool _retrySequential = false;
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _summaryTurnController = TextEditingController(
       text: settings.summaryTurnInterval.toString(),
     );
+    _retrySequential = settings.retrySequential;
   }
 
   @override
@@ -189,6 +191,16 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _saveRetryStrategy() async {
+    await widget.controller.saveRetryStrategy(retrySequential: _retrySequential);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('重说策略已保存。')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -284,6 +296,33 @@ class _SettingsPageState extends State<SettingsPage> {
                           FilledButton(
                             onPressed: _saveSummarySettings,
                             child: const Text('保存摘要设置'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('多次发送策略', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('多个请求按顺序单次执行'),
+                            subtitle: const Text('开启后重说会顺序发送三次请求。关闭则并发请求三次。'),
+                            value: _retrySequential,
+                            onChanged: (bool value) {
+                              setState(() => _retrySequential = value);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: _saveRetryStrategy,
+                            child: const Text('保存多次发送策略'),
                           ),
                         ],
                       ),

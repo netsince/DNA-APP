@@ -9,6 +9,7 @@ class SettingsService {
   static const String _oobeKey = 'completed_oobe';
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
   static const String _summaryTurnIntervalKey = 'summary_turn_interval';
+  static const String _retrySequentialKey = 'retry_sequential';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -19,6 +20,7 @@ class SettingsService {
       completedOobe: prefs.getBool(_oobeKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
       summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
+      retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
     );
   }
 
@@ -30,5 +32,6 @@ class SettingsService {
     await prefs.setBool(_oobeKey, settings.completedOobe);
     await prefs.setBool(_autoSummaryPromptKey, settings.autoSummaryPrompt);
     await prefs.setInt(_summaryTurnIntervalKey, settings.summaryTurnInterval);
+    await prefs.setBool(_retrySequentialKey, settings.retrySequential);
   }
 }

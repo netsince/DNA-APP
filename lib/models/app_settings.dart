@@ -6,6 +6,7 @@
     required this.completedOobe,
     required this.autoSummaryPrompt,
     required this.summaryTurnInterval,
+    required this.retrySequential,
   });
 
   factory AppSettings.empty() {
@@ -16,6 +17,7 @@
       completedOobe: false,
       autoSummaryPrompt: true,
       summaryTurnInterval: 200,
+      retrySequential: false,
     );
   }
 
@@ -25,6 +27,7 @@
   final bool completedOobe;
   final bool autoSummaryPrompt;
   final int summaryTurnInterval;
+  final bool retrySequential;
 
   AppSettings copyWith({
     String? baseUrl,
@@ -33,6 +36,7 @@
     bool? completedOobe,
     bool? autoSummaryPrompt,
     int? summaryTurnInterval,
+    bool? retrySequential,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -41,6 +45,7 @@
       completedOobe: completedOobe ?? this.completedOobe,
       autoSummaryPrompt: autoSummaryPrompt ?? this.autoSummaryPrompt,
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
+      retrySequential: retrySequential ?? this.retrySequential,
     );
   }
 }

@@ -40,6 +40,8 @@ class _ChatPageState extends State<ChatPage> {
   int? _cancelledSummaryTaskId;
   _PendingSummary? _pendingSummary;
   bool _rangeSummaryInProgress = false;
+  final Map<String, _ThoughtEntry> _thoughtsByMessageId = <String, _ThoughtEntry>{};
+  final Map<String, _StreamParseState> _streamParseStates = <String, _StreamParseState>{};
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
   static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
@@ -186,7 +188,8 @@ class _ChatPageState extends State<ChatPage> {
         );
         return;
       }
-      assistantMessage = assistantMessage.copyWith(text: assistantMessage.text + chunk);
+      final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
+      assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
@@ -306,9 +309,10 @@ class _ChatPageState extends State<ChatPage> {
       if (message.kind != 'message') {
         continue;
       }
+      final String content = _stripThoughtTags(message.text);
       payload.add(<String, String>{
         'role': message.role,
-        'content': message.text,
+        'content': content,
       });
     }
     if (extraUserText != null && extraUserText.trim().isNotEmpty) {
@@ -470,6 +474,96 @@ class _ChatPageState extends State<ChatPage> {
       start = index + query.length;
     }
     return TextSpan(children: spans, style: base);
+  }
+
+  _TagMatch? _findTag(String buffer, List<String> tags) {
+    final String lower = buffer.toLowerCase();
+    int bestIndex = -1;
+    String? bestTag;
+    for (final String tag in tags) {
+      final int idx = lower.indexOf(tag);
+      if (idx == -1) {
+        continue;
+      }
+      if (bestIndex == -1 || idx < bestIndex) {
+        bestIndex = idx;
+        bestTag = tag;
+      }
+    }
+    if (bestIndex == -1 || bestTag == null) {
+      return null;
+    }
+    return _TagMatch(index: bestIndex, tag: bestTag);
+  }
+
+  _StreamParseState _consumeStreamChunk(String messageId, String chunk) {
+    final _StreamParseState state =
+        _streamParseStates.putIfAbsent(messageId, () => _StreamParseState());
+    state.buffer += chunk;
+    const List<String> openTags = <String>['<think>', '<analysis>', '<thought>'];
+    const List<String> closeTags = <String>['</think>', '</analysis>', '</thought>'];
+    while (state.buffer.isNotEmpty) {
+      if (!state.inThought) {
+        final _TagMatch? open = _findTag(state.buffer, openTags);
+        if (open == null) {
+          state.visible += state.buffer;
+          state.buffer = '';
+          break;
+        }
+        if (open.index > 0) {
+          state.visible += state.buffer.substring(0, open.index);
+        }
+        state.buffer = state.buffer.substring(open.index + open.tag.length);
+        state.inThought = true;
+      } else {
+        final _TagMatch? close = _findTag(state.buffer, closeTags);
+        if (close == null) {
+          state.thought += state.buffer;
+          state.buffer = '';
+          break;
+        }
+        if (close.index > 0) {
+          state.thought += state.buffer.substring(0, close.index);
+        }
+        state.buffer = state.buffer.substring(close.index + close.tag.length);
+        state.inThought = false;
+      }
+    }
+    _thoughtsByMessageId[messageId] = _ThoughtEntry(text: state.thought);
+    return state;
+  }
+
+  String _stripThoughtTags(String text) {
+    if (text.isEmpty) {
+      return text;
+    }
+    const List<String> openTags = <String>['<think>', '<analysis>', '<thought>'];
+    const List<String> closeTags = <String>['</think>', '</analysis>', '</thought>'];
+    String buffer = text;
+    bool inThought = false;
+    final StringBuffer out = StringBuffer();
+    while (buffer.isNotEmpty) {
+      if (!inThought) {
+        final _TagMatch? open = _findTag(buffer, openTags);
+        if (open == null) {
+          out.write(buffer);
+          break;
+        }
+        if (open.index > 0) {
+          out.write(buffer.substring(0, open.index));
+        }
+        buffer = buffer.substring(open.index + open.tag.length);
+        inThought = true;
+      } else {
+        final _TagMatch? close = _findTag(buffer, closeTags);
+        if (close == null) {
+          break;
+        }
+        buffer = buffer.substring(close.index + close.tag.length);
+        inThought = false;
+      }
+    }
+    return out.toString();
   }
 
   int _totalTurnCount() {
@@ -1392,7 +1486,8 @@ class _ChatPageState extends State<ChatPage> {
         );
         return;
       }
-      assistantMessage = assistantMessage.copyWith(text: assistantMessage.text + chunk);
+      final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
+      assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
@@ -1435,9 +1530,11 @@ class _ChatPageState extends State<ChatPage> {
       includeSummary: slice.includeSummary,
     );
     setState(() => _sending = true);
-    List<String> results = await _generateRetries(payload, model, apiKey, baseUrl);
-    if (results.isEmpty) {
+    List<String> results = <String>[];
+    if (widget.controller.settings.retrySequential) {
       results = await _generateRetriesSequential(payload, model, apiKey, baseUrl);
+    } else {
+      results = await _generateRetries(payload, model, apiKey, baseUrl);
     }
     if (results.isEmpty) {
       _retryDisabled.add(target.id);
@@ -1907,6 +2004,8 @@ class _ChatPageState extends State<ChatPage> {
                     final int charCount = message.text.runes.length;
                     final int tokenCount =
                         _showTokenCounts ? _countTokens(message.id, message.text) : 0;
+                    final String thoughtText =
+                        _thoughtsByMessageId[message.id]?.text.trim() ?? '';
                     return Align(
                       key: key,
                       alignment: alignment,
@@ -1938,6 +2037,28 @@ class _ChatPageState extends State<ChatPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
                               RichText(text: _buildHighlightedText(context, message.text)),
+                              if (thoughtText.isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 8),
+                                Theme(
+                                  data: Theme.of(context).copyWith(
+                                    dividerColor: Colors.transparent,
+                                  ),
+                                  child: ExpansionTile(
+                                    tilePadding: EdgeInsets.zero,
+                                    childrenPadding: const EdgeInsets.only(top: 6),
+                                    title: const Text('思考内容'),
+                                    children: <Widget>[
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          thoughtText,
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               if (message.text.isNotEmpty && _showTokenCounts) ...<Widget>[
                                 const SizedBox(height: 6),
                                 Text(
@@ -2118,6 +2239,26 @@ class _TokenCacheEntry {
 
   final String text;
   final int count;
+}
+
+class _ThoughtEntry {
+  const _ThoughtEntry({required this.text});
+
+  final String text;
+}
+
+class _StreamParseState {
+  String buffer = '';
+  String visible = '';
+  String thought = '';
+  bool inThought = false;
+}
+
+class _TagMatch {
+  const _TagMatch({required this.index, required this.tag});
+
+  final int index;
+  final String tag;
 }
 
 class _ChatSnapshot {
