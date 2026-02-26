@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -12,36 +12,38 @@ import 'services/conversation_service.dart';
 import 'state/app_controller.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  final controller = AppController(
-    settingsService: SettingsService(),
-    openAiService: OpenAiService(),
-    roleService: RoleService(),
-    worldService: WorldService(),
-    conversationService: ConversationService(),
-  );
-  await controller.initialize();
-
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-  };
-  ErrorWidget.builder = (FlutterErrorDetails details) {
-    return Material(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            '发生错误，应用已切换到保护界面。\n${details.exceptionAsString()}',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  };
-
   runZonedGuarded(
-    () => runApp(DnaApp(controller: controller)),
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      final controller = AppController(
+        settingsService: SettingsService(),
+        openAiService: OpenAiService(),
+        roleService: RoleService(),
+        worldService: WorldService(),
+        conversationService: ConversationService(),
+      );
+      await controller.initialize();
+
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+      };
+      ErrorWidget.builder = (FlutterErrorDetails details) {
+        return Material(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                '发生错误，应用已切换到保护界面。\n${details.exceptionAsString()}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        );
+      };
+
+      runApp(DnaApp(controller: controller));
+    },
     (Object error, StackTrace stackTrace) {
       debugPrint('Uncaught zone error: $error\n$stackTrace');
     },
@@ -63,10 +65,24 @@ class DnaApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
         useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
         useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       home: AppRoot(controller: controller),
     );
