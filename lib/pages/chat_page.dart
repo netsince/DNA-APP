@@ -67,6 +67,7 @@ class _ChatPageState extends State<ChatPage> {
         );
     _ensureOpeningMessage();
     _loadAccent();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
   @override
   void dispose() {
@@ -189,7 +190,7 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
-      assistantMessage = assistantMessage.copyWith(text: state.visible.trim());
+      assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
@@ -206,6 +207,17 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) {
       return;
     }
+    final String trimmed = assistantMessage.text.trim();
+    if (trimmed != assistantMessage.text) {
+      assistantMessage = assistantMessage.copyWith(text: trimmed);
+      _conversation = _conversation.copyWith(
+        messages: <ConversationMessage>[
+          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
+          assistantMessage,
+        ],
+      );
+      await widget.controller.upsertConversation(_conversation);
+    }
     setState(() => _sending = false);
     await _maybePromptSummary();
   }
@@ -217,7 +229,7 @@ class _ChatPageState extends State<ChatPage> {
     system.writeln('你是“角色扮演对话”模式。必须严格遵守以下规则：');
     system.writeln('1) 括号“（…）”为旁白，只用于动作、表情、内心或环境描写，且尽量简短。');
     system.writeln('2) 每次回复只写一句话，不换行、不分段，不使用多句并列。');
-    system.writeln('3) “**…**”仅用于音效/环境声/拟声。');
+    system.writeln('3) “*…*”仅用于音效/环境声/拟声。');
     system.writeln('4) 不写故事片段，不展开叙事，不总结背景，不进行长篇描写。');
     system.writeln('5) 必须紧跟用户意图与上一句对话推进互动：要么回应，要么提一个简短问题。');
     system.writeln('6) 不替用户决定行动，不抢戏，不替用户续写其内心。');
@@ -1487,7 +1499,7 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
-      assistantMessage = assistantMessage.copyWith(text: state.visible.trim());
+      assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
           ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
@@ -1503,6 +1515,17 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (!mounted) {
       return;
+    }
+    final String trimmed = assistantMessage.text.trim();
+    if (trimmed != assistantMessage.text) {
+      assistantMessage = assistantMessage.copyWith(text: trimmed);
+      _conversation = _conversation.copyWith(
+        messages: <ConversationMessage>[
+          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
+          assistantMessage,
+        ],
+      );
+      await widget.controller.upsertConversation(_conversation);
     }
     setState(() => _sending = false);
     await _maybePromptSummary();
