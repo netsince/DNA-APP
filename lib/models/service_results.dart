@@ -1,0 +1,15 @@
+class ApiCheckResult {
+  const ApiCheckResult({required this.success, required this.message});
+
+  final bool success;
+  final String message;
+}
+
+class ModelFetchResult {
+  const ModelFetchResult({required this.models, this.errorMessage});
+
+  final List<String> models;
+  final String? errorMessage;
+
+  bool get success => errorMessage == null;
+}
