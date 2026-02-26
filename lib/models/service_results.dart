@@ -13,3 +13,11 @@ class ModelFetchResult {
 
   bool get success => errorMessage == null;
 }
+
+class ChatCompletionResult {
+  const ChatCompletionResult({required this.success, this.content, this.errorMessage});
+
+  final bool success;
+  final String? content;
+  final String? errorMessage;
+}

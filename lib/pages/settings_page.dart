@@ -3,7 +3,6 @@
 import '../models/service_results.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
-import 'dialogue_style_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.controller});
@@ -299,22 +298,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.chat_bubble_outline),
-                      title: const Text('对话风格'),
-                      subtitle: const Text('编辑“我一句你一句”的对话风格。'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) => DialogueStylePage(controller: widget.controller),
-                          ),
-                        );
-                      },
                     ),
                   ),
                   const SizedBox(height: 12),

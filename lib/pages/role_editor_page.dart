@@ -6,7 +6,9 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/role.dart';
+import '../models/dialogue_style.dart';
 import '../state/app_controller.dart';
+import 'dialogue_style_page.dart';
 
 class RoleEditorPage extends StatefulWidget {
   const RoleEditorPage({super.key, required this.controller, this.role});
@@ -28,6 +30,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
   late String _gender;
   late String _roleId;
   Map<String, String> _images = <String, String>{};
+  List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
     _tagsController = TextEditingController(text: (role?.tags ?? <String>[]).join(', '));
     _gender = role?.gender ?? '无性';
     _images = Map<String, String>.from(role?.images ?? <String, String>{});
+    _dialogueStyle = List<DialogueTurn>.from(role?.dialogueStyle ?? <DialogueTurn>[]);
   }
 
   @override
@@ -118,6 +122,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
       opening: _openingController.text.trim(),
       tags: _parseTags(_tagsController.text),
       images: _images,
+      dialogueStyle: _dialogueStyle,
     );
     await widget.controller.upsertRole(role);
     if (!mounted) {
@@ -179,6 +184,39 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text('人设栏目', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final Role current = Role(
+                        id: _roleId,
+                        name: _nameController.text.trim(),
+                        gender: _gender,
+                        persona: _personaController.text.trim(),
+                        intro: _introController.text.trim(),
+                        opening: _openingController.text.trim(),
+                        tags: _parseTags(_tagsController.text),
+                        images: _images,
+                        dialogueStyle: _dialogueStyle,
+                      );
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (BuildContext context) => DialogueStylePage(
+                            controller: widget.controller,
+                            role: current,
+                          ),
+                        ),
+                      );
+                      if (!mounted) {
+                        return;
+                      }
+                      final Role? updated = widget.controller.getRoleById(_roleId);
+                      setState(() {
+                        _dialogueStyle = List<DialogueTurn>.from(updated?.dialogueStyle ?? _dialogueStyle);
+                      });
+                    },
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('对话风格'),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,

@@ -1,3 +1,5 @@
+﻿import 'dialogue_style.dart';
+
 class Role {
   const Role({
     required this.id,
@@ -8,6 +10,7 @@ class Role {
     required this.opening,
     required this.tags,
     required this.images,
+    required this.dialogueStyle,
   });
 
   final String id;
@@ -18,6 +21,7 @@ class Role {
   final String opening;
   final List<String> tags;
   final Map<String, String> images;
+  final List<DialogueTurn> dialogueStyle;
 
   Role copyWith({
     String? name,
@@ -27,6 +31,7 @@ class Role {
     String? opening,
     List<String>? tags,
     Map<String, String>? images,
+    List<DialogueTurn>? dialogueStyle,
   }) {
     return Role(
       id: id,
@@ -37,6 +42,7 @@ class Role {
       opening: opening ?? this.opening,
       tags: tags ?? this.tags,
       images: images ?? this.images,
+      dialogueStyle: dialogueStyle ?? this.dialogueStyle,
     );
   }
 
@@ -50,10 +56,12 @@ class Role {
       'opening': opening,
       'tags': tags,
       'images': images,
+      'dialogueStyle': dialogueStyle.map((DialogueTurn t) => t.toJson()).toList(),
     };
   }
 
   static Role fromJson(Map<String, dynamic> json) {
+    final List<dynamic>? raw = json['dialogueStyle'] as List<dynamic>?;
     return Role(
       id: json['id'] as String,
       name: (json['name'] as String?) ?? '',
@@ -65,6 +73,9 @@ class Role {
       images: (json['images'] as Map?)
               ?.map((Object? key, Object? value) => MapEntry('$key', '$value')) ??
           <String, String>{},
+      dialogueStyle: raw == null
+          ? <DialogueTurn>[]
+          : raw.whereType<Map<String, dynamic>>().map(DialogueTurn.fromJson).toList(),
     );
   }
 }

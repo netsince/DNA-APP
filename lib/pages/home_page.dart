@@ -1,8 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 
+import '../models/conversation.dart';
+import '../models/role.dart';
+import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
-import 'settings_page.dart';
+import 'chat_page.dart';
+import 'conversation_create_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.controller});
@@ -14,51 +18,78 @@ class HomePage extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (BuildContext context, Widget? _) {
-        final settings = controller.settings;
+        final List<Conversation> conversations = controller.conversations;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Duet Nurturing Ally'),
+            title: const Text('消息'),
             actions: <Widget>[
               IconButton(
-                tooltip: '设置',
+                tooltip: '新建会话',
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (BuildContext context) => SettingsPage(controller: controller),
+                      builder: (BuildContext context) => ConversationCreatePage(controller: controller),
                     ),
                   );
                 },
-                icon: const Icon(Icons.settings),
+                icon: const Icon(Icons.add),
               ),
             ],
           ),
           drawer: AppDrawer(controller: controller, current: AppSection.home),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text('欢迎使用 与汝共奏', style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: 12),
-                        Text('当前 Base URL: ${settings.baseUrl.isEmpty ? '(未设置)' : settings.baseUrl}'),
-                        const SizedBox(height: 6),
-                        Text('当前模型: ${settings.selectedModel.isEmpty ? '(未选择)' : settings.selectedModel}'),
-                        const SizedBox(height: 16),
-                        const Text('设置可在右上角随时修改，修改后立即生效。'),
-                      ],
-                    ),
+          body: conversations.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Text('还没有会话，点击右上角 + 新建。'),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (BuildContext context) => ConversationCreatePage(controller: controller),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('新建会话'),
+                      ),
+                    ],
                   ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: conversations.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final Conversation conversation = conversations[index];
+                    final Role? role = controller.getRoleById(conversation.roleId);
+                    final World? world = controller.getWorldById(conversation.worldId);
+                    final String title = conversation.note.isNotEmpty
+                        ? conversation.note
+                        : (role?.name.isNotEmpty == true ? role!.name : '未命名会话');
+                    final String subtitle = world == null
+                        ? '角色：${role?.name.isNotEmpty == true ? role!.name : '未命名角色'}'
+                        : '角色：${role?.name.isNotEmpty == true ? role!.name : '未命名角色'} · 世界：${world.name}';
+                    return Card(
+                      child: ListTile(
+                        title: Text(title),
+                        subtitle: Text(subtitle),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (BuildContext context) => ChatPage(
+                                controller: controller,
+                                conversationId: conversation.id,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ),
         );
       },
     );
