@@ -26,6 +26,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedModel;
   bool _autoSummaryPrompt = true;
   bool _retrySequential = false;
+  bool _inspirationIncludeSummary = false;
 
   @override
   void initState() {
@@ -39,6 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
       text: settings.summaryTurnInterval.toString(),
     );
     _retrySequential = settings.retrySequential;
+    _inspirationIncludeSummary = settings.inspirationIncludeSummary;
   }
 
   @override
@@ -201,6 +203,18 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _saveInspirationSettings() async {
+    await widget.controller.saveInspirationSettings(
+      includeSummary: _inspirationIncludeSummary,
+    );
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('灵感设置已保存。')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -262,6 +276,33 @@ class _SettingsPageState extends State<SettingsPage> {
                             const SizedBox(height: 8),
                             Text(_apiMessage!),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('灵感', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('灵感附带最近摘要'),
+                            subtitle: const Text('开启后会在生成灵感时附带最近摘要。默认关闭以节省 token。'),
+                            value: _inspirationIncludeSummary,
+                            onChanged: (bool value) {
+                              setState(() => _inspirationIncludeSummary = value);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: _saveInspirationSettings,
+                            child: const Text('保存灵感设置'),
+                          ),
                         ],
                       ),
                     ),

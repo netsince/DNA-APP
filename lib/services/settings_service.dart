@@ -10,6 +10,7 @@ class SettingsService {
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
   static const String _summaryTurnIntervalKey = 'summary_turn_interval';
   static const String _retrySequentialKey = 'retry_sequential';
+  static const String _inspirationIncludeSummaryKey = 'inspiration_include_summary';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -21,6 +22,7 @@ class SettingsService {
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
       summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
       retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
+      inspirationIncludeSummary: prefs.getBool(_inspirationIncludeSummaryKey) ?? false,
     );
   }
 
@@ -33,5 +35,6 @@ class SettingsService {
     await prefs.setBool(_autoSummaryPromptKey, settings.autoSummaryPrompt);
     await prefs.setInt(_summaryTurnIntervalKey, settings.summaryTurnInterval);
     await prefs.setBool(_retrySequentialKey, settings.retrySequential);
+    await prefs.setBool(_inspirationIncludeSummaryKey, settings.inspirationIncludeSummary);
   }
 }

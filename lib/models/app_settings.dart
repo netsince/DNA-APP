@@ -7,6 +7,7 @@
     required this.autoSummaryPrompt,
     required this.summaryTurnInterval,
     required this.retrySequential,
+    required this.inspirationIncludeSummary,
   });
 
   factory AppSettings.empty() {
@@ -18,6 +19,7 @@
       autoSummaryPrompt: true,
       summaryTurnInterval: 200,
       retrySequential: false,
+      inspirationIncludeSummary: false,
     );
   }
 
@@ -28,6 +30,7 @@
   final bool autoSummaryPrompt;
   final int summaryTurnInterval;
   final bool retrySequential;
+  final bool inspirationIncludeSummary;
 
   AppSettings copyWith({
     String? baseUrl,
@@ -37,6 +40,7 @@
     bool? autoSummaryPrompt,
     int? summaryTurnInterval,
     bool? retrySequential,
+    bool? inspirationIncludeSummary,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -46,6 +50,7 @@
       autoSummaryPrompt: autoSummaryPrompt ?? this.autoSummaryPrompt,
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
       retrySequential: retrySequential ?? this.retrySequential,
+      inspirationIncludeSummary: inspirationIncludeSummary ?? this.inspirationIncludeSummary,
     );
   }
 }

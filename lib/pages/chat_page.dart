@@ -40,6 +40,9 @@ class _ChatPageState extends State<ChatPage> {
   int? _cancelledSummaryTaskId;
   _PendingSummary? _pendingSummary;
   bool _rangeSummaryInProgress = false;
+  bool _inspirationInProgress = false;
+  String _inspirationPrompt = '';
+  final List<String> _inspirationOptions = <String>[];
   final Map<String, _ThoughtEntry> _thoughtsByMessageId = <String, _ThoughtEntry>{};
   final Map<String, _StreamParseState> _streamParseStates = <String, _StreamParseState>{};
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
@@ -659,6 +662,255 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
     return buffer.toString().trim();
+  }
+
+  List<ConversationMessage> _latestMessages(int maxCount) {
+    if (maxCount <= 0) {
+      return <ConversationMessage>[];
+    }
+    final List<ConversationMessage> messages = _conversation.messages
+        .where((ConversationMessage m) => m.kind == 'message')
+        .toList();
+    if (messages.length <= maxCount) {
+      return messages;
+    }
+    return messages.sublist(messages.length - maxCount);
+  }
+
+  List<Map<String, String>> _buildInspirationPayload(String topic) {
+    final String context = _buildPersonaWorldContext();
+    final ConversationSummary? summary = _latestSummary();
+    final bool includeSummary = widget.controller.settings.inspirationIncludeSummary &&
+        summary != null &&
+        summary.text.trim().isNotEmpty;
+    final List<Map<String, String>> payload = <Map<String, String>>[
+      <String, String>{
+        'role': 'system',
+        'content': '你是灵感生成助手。只输出一句话的灵感建议，不要编号，不要解释。',
+      },
+      if (context.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content': '设定：\n$context',
+        },
+      if (includeSummary)
+        <String, String>{
+          'role': 'system',
+          'content': '最近摘要：\n${summary!.text.trim()}',
+        },
+    ];
+    for (final ConversationMessage m in _latestMessages(50)) {
+      payload.add(<String, String>{
+        'role': m.role,
+        'content': _stripThoughtTags(m.text),
+      });
+    }
+    final String safeTopic = topic.trim().isEmpty ? '继续对话' : topic.trim();
+    payload.add(<String, String>{'role': 'user', 'content': '生成灵感：$safeTopic'});
+    return payload;
+  }
+
+  Future<List<String>> _generateInspirations(
+    List<Map<String, String>> payload, {
+    required int count,
+    required String model,
+    required String apiKey,
+    required String baseUrl,
+  }) async {
+    if (count <= 0) {
+      return <String>[];
+    }
+    if (widget.controller.settings.retrySequential) {
+      final List<String> results = <String>[];
+      for (int i = 0; i < count; i++) {
+        try {
+          final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+            baseUrl: baseUrl,
+            apiKey: apiKey,
+            model: model,
+            messages: payload,
+          );
+          if (result.success && result.content != null) {
+            final String cleaned = _stripThoughtTags(result.content!).trim();
+            if (cleaned.isNotEmpty) {
+              results.add(cleaned);
+            }
+          }
+        } catch (_) {
+          // Ignore.
+        }
+      }
+      return results;
+    }
+
+    try {
+      final List<Future<String?>> tasks = List<Future<String?>>.generate(count, (_) async {
+        final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+          baseUrl: baseUrl,
+          apiKey: apiKey,
+          model: model,
+          messages: payload,
+        );
+        if (!result.success || result.content == null) {
+          return null;
+        }
+        return _stripThoughtTags(result.content!).trim();
+      });
+      final List<String?> settled = await Future.wait(tasks);
+      return settled.whereType<String>().where((String s) => s.isNotEmpty).toList();
+    } catch (_) {
+      return <String>[];
+    }
+  }
+
+  Future<String?> _promptInspirationTopic() async {
+    final TextEditingController controller = TextEditingController();
+    final String? value = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('生成灵感'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: '生成灵感：例如 重新开场 / 继续推进 / 某个话题'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('生成'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (value == null) {
+      return null;
+    }
+    return value.trim();
+  }
+
+  Future<void> _showInspirationDialog({
+    required String model,
+    required String apiKey,
+    required String baseUrl,
+  }) async {
+    int? selectedIndex;
+    bool loading = false;
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, void Function(void Function()) setDialogState) {
+            Future<void> retry() async {
+              setDialogState(() => loading = true);
+              final List<Map<String, String>> payload = _buildInspirationPayload(_inspirationPrompt);
+              final List<String> next = await _generateInspirations(
+                payload,
+                count: 3,
+                model: model,
+                apiKey: apiKey,
+                baseUrl: baseUrl,
+              );
+              if (next.isNotEmpty) {
+                _inspirationOptions.addAll(next);
+              }
+              setDialogState(() => loading = false);
+            }
+
+            return AlertDialog(
+              title: const Text('灵感列表'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: _inspirationOptions.isEmpty
+                    ? const Text('暂无灵感，请再试。')
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _inspirationOptions.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          return RadioListTile<int>(
+                            value: index,
+                            groupValue: selectedIndex,
+                            onChanged: (int? value) => setDialogState(() => selectedIndex = value),
+                            title: Text(_inspirationOptions[index]),
+                          );
+                        },
+                      ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: loading ? null : () => Navigator.of(context).pop(),
+                  child: const Text('关闭'),
+                ),
+                TextButton(
+                  onPressed: loading ? null : retry,
+                  child: const Text('再试'),
+                ),
+                FilledButton(
+                  onPressed: selectedIndex == null
+                      ? null
+                      : () {
+                          final String picked = _inspirationOptions[selectedIndex!];
+                          _inputController.text = picked;
+                          _inputController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: picked.length),
+                          );
+                          Navigator.of(context).pop();
+                        },
+                  child: const Text('使用'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _startInspiration() async {
+    if (_inspirationInProgress) {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
+      );
+      return;
+    }
+    final String? topic = await _promptInspirationTopic();
+    if (topic == null) {
+      return;
+    }
+    _inspirationPrompt = topic;
+    _inspirationOptions.clear();
+    setState(() => _inspirationInProgress = true);
+    final List<Map<String, String>> payload = _buildInspirationPayload(_inspirationPrompt);
+    final List<String> options = await _generateInspirations(
+      payload,
+      count: 3,
+      model: model,
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _inspirationInProgress = false);
+    if (options.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('生成失败，请再试。')),
+      );
+      return;
+    }
+    _inspirationOptions.addAll(options);
+    await _showInspirationDialog(model: model, apiKey: apiKey, baseUrl: baseUrl);
   }
 
   void _insertMessageAfter(String anchorId, ConversationMessage message) {
@@ -2161,6 +2413,17 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: '灵感',
+                        onPressed: _inspirationInProgress ? null : _startInspiration,
+                        icon: _inspirationInProgress
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_awesome_outlined),
+                      ),
                       PopupMenuButton<String>(
                         tooltip: '更多',
                         onSelected: (String value) async {

@@ -96,6 +96,12 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveInspirationSettings({required bool includeSummary}) async {
+    _settings = _settings.copyWith(inspirationIncludeSummary: includeSummary);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> upsertRole(Role role) async {
     final int index = _roles.indexWhere((Role item) => item.id == role.id);
     if (index == -1) {
