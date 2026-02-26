@@ -33,8 +33,12 @@ class _ChatPageState extends State<ChatPage> {
   int _searchMatchIndex = -1;
   final Map<String, GlobalKey> _messageKeys = <String, GlobalKey>{};
   final Map<String, _TokenCacheEntry> _tokenCache = <String, _TokenCacheEntry>{};
-  Encoding? _tokenEncoding;
+  Tiktoken? _tokenEncoding;
   String? _tokenEncodingModel;
+  bool _summaryInProgress = false;
+  int _summaryTaskId = 0;
+  int? _cancelledSummaryTaskId;
+  _PendingSummary? _pendingSummary;
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
   static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
@@ -48,7 +52,7 @@ class _ChatPageState extends State<ChatPage> {
         break;
       }
     }
-    _conversation = existing ??
+    _conversation = existing Close
         Conversation(
           id: widget.conversationId,
           roleId: '',
@@ -56,6 +60,7 @@ class _ChatPageState extends State<ChatPage> {
           note: '',
           messages: const <ConversationMessage>[],
           backgroundMode: 'none',
+          summaries: const <ConversationSummary>[],
         );
     _ensureOpeningMessage();
     _loadAccent();
@@ -198,11 +203,12 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     setState(() => _sending = false);
+    await _maybePromptSummary();
   }
   String _buildSystemPrompt() {
     final Role? role = _role;
     final World? world = _world;
-    final List<DialogueTurn> style = role?.dialogueStyle ?? <DialogueTurn>[];
+    final List<DialogueTurn> style = role?.dialogueStyle Close <DialogueTurn>[];
     final StringBuffer system = StringBuffer();
     system.writeln('你是“角色扮演对话”模式。必须严格遵守以下规则：');
     system.writeln('1) 括号“（…）”为旁白，只用于动作、表情、内心或环境描写，且尽量简短。');
@@ -244,16 +250,61 @@ class _ChatPageState extends State<ChatPage> {
     }
     return system.toString().trim();
   }
+  ConversationSummary? _latestSummary() {
+    if (_conversation.summaries.isEmpty) {
+      return null;
+    }
+    return _conversation.summaries.last;
+  }
+
+  int _summaryEndIndex() {
+    final ConversationSummary? summary = _latestSummary();
+    if (summary == null || summary.endMessageId.isEmpty) {
+      return -1;
+    }
+    return _conversation.messages.indexWhere((ConversationMessage m) => m.id == summary.endMessageId);
+  }
+
+  _MessageSlice _sliceForPayload({
+    int? endExclusive,
+    Set<String>? excludeIds,
+  }) {
+    final int summaryEnd = _summaryEndIndex();
+    final int total = _conversation.messages.length;
+    final int end = endExclusive == null ? total : endExclusive.clamp(0, total);
+    final bool includeSummary = summaryEnd >= 0 && end > summaryEnd;
+    final int start = includeSummary ? summaryEnd + 1 : 0;
+    final List<ConversationMessage> slice = _conversation.messages
+        .sublist(start, end)
+        .where((ConversationMessage m) => m.kind == 'message')
+        .where((ConversationMessage m) => excludeIds == null || !excludeIds.contains(m.id))
+        .toList();
+    return _MessageSlice(messages: slice, includeSummary: includeSummary);
+  }
+
   List<Map<String, String>> _buildMessagesFrom(
     List<ConversationMessage> messages, {
     String? extraUserText,
+    bool includeSummary = true,
   }) {
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = _buildSystemPrompt();
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
+    if (includeSummary) {
+      final ConversationSummary? summary = _latestSummary();
+      if (summary != null && summary.text.trim().isNotEmpty) {
+        payload.add(<String, String>{
+          'role': 'system',
+          'content': '对话摘要：\n${summary.text.trim()}',
+        });
+      }
+    }
     for (final ConversationMessage message in messages) {
+      if (message.kind != 'message') {
+        continue;
+      }
       payload.add(<String, String>{
         'role': message.role,
         'content': message.text,
@@ -265,7 +316,11 @@ class _ChatPageState extends State<ChatPage> {
     return payload;
   }
   List<Map<String, String>> _buildMessages() {
-    return _buildMessagesFrom(_conversation.messages);
+    final _MessageSlice slice = _sliceForPayload();
+    return _buildMessagesFrom(
+      slice.messages,
+      includeSummary: slice.includeSummary,
+    );
   }
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -317,7 +372,7 @@ class _ChatPageState extends State<ChatPage> {
     final List<int> matches = <int>[];
     for (int i = 0; i < _conversation.messages.length; i++) {
       final String text = _conversation.messages[i].text;
-      if (text.toLowerCase().contains(lowerQuery)) {
+      if (_conversation.messages[i].kind == 'message' && text.toLowerCase().contains(lowerQuery)) {
         matches.add(i);
       }
     }
@@ -355,7 +410,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Encoding _ensureEncoding() {
+  Tiktoken _ensureEncoding() {
     final String model = widget.controller.settings.selectedModel;
     if (_tokenEncoding == null || _tokenEncodingModel != model) {
       try {
@@ -378,7 +433,7 @@ class _ChatPageState extends State<ChatPage> {
       _tokenCache[messageId] = const _TokenCacheEntry(text: '', count: 0);
       return 0;
     }
-    final Encoding encoding = _ensureEncoding();
+    final Tiktoken encoding = _ensureEncoding();
     final int count = encoding.encode(text).length;
     _tokenCache[messageId] = _TokenCacheEntry(text: text, count: count);
     return count;
@@ -415,9 +470,367 @@ class _ChatPageState extends State<ChatPage> {
     }
     return TextSpan(children: spans, style: base);
   }
+
+  int _totalTurnCount() {
+    int count = 0;
+    for (final ConversationMessage message in _conversation.messages) {
+      if (message.kind == 'message' && message.role == 'user') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  String? _lastChatMessageId() {
+    for (int i = _conversation.messages.length - 1; i >= 0; i--) {
+      final ConversationMessage message = _conversation.messages[i];
+      if (message.kind == 'message') {
+        return message.id;
+      }
+    }
+    return null;
+  }
+
+  ConversationSummary? _summaryById(String? id) {
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+    for (final ConversationSummary summary in _conversation.summaries) {
+      if (summary.id == id) {
+        return summary;
+      }
+    }
+    return null;
+  }
+
+  bool _hasSummaryPrompt() {
+    return _conversation.messages.any((ConversationMessage m) => m.kind == 'summary_prompt');
+  }
+
+  void _insertMessageAfter(String anchorId, ConversationMessage message) {
+    final List<ConversationMessage> updated = <ConversationMessage>[..._conversation.messages];
+    final int index = updated.indexWhere((ConversationMessage m) => m.id == anchorId);
+    if (index == -1) {
+      updated.add(message);
+    } else {
+      updated.insert(index + 1, message);
+    }
+    _conversation = _conversation.copyWith(messages: updated);
+  }
+
+  void _removeMessageById(String messageId) {
+    _conversation = _conversation.copyWith(
+      messages: _conversation.messages.where((ConversationMessage m) => m.id != messageId).toList(),
+    );
+  }
+
+  Future<void> _maybePromptSummary() async {
+    if (!widget.controller.settings.autoSummaryPrompt) {
+      return;
+    }
+    if (_summaryInProgress || _hasSummaryPrompt()) {
+      return;
+    }
+    final int threshold = widget.controller.settings.summaryTurnInterval;
+    final int totalTurns = _totalTurnCount();
+    if (threshold <= 0 || totalTurns == 0 || totalTurns % threshold != 0) {
+      return;
+    }
+    final String? anchorId = _lastChatMessageId();
+    if (anchorId == null) {
+      return;
+    }
+    final ConversationMessage prompt = ConversationMessage(
+      id: newId(),
+      role: 'system',
+      text: '对话已达到摘要阈值，是否生成摘要？',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      kind: 'summary_prompt',
+      anchorMessageId: anchorId,
+    );
+    _insertMessageAfter(anchorId, prompt);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _forceSummaryPrompt() async {
+    if (_summaryInProgress) {
+      return;
+    }
+    if (_hasSummaryPrompt()) {
+      return;
+    }
+    final String? anchorId = _lastChatMessageId();
+    if (anchorId == null) {
+      return;
+    }
+    final ConversationMessage prompt = ConversationMessage(
+      id: newId(),
+      role: 'system',
+      text: 'Summary requested. Generate now?',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      kind: 'summary_prompt',
+      anchorMessageId: anchorId,
+    );
+    _insertMessageAfter(anchorId, prompt);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    await _startSummaryFromPrompt(prompt);
+  }
+
+  Future<void> _startSummaryFromPrompt(ConversationMessage prompt) async {
+    if (_summaryInProgress) {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
+      );
+      return;
+    }
+    final String? anchorId = prompt.anchorMessageId Close _lastChatMessageId();
+    if (anchorId == null) {
+      return;
+    }
+    final int summaryEnd = _summaryEndIndex();
+    final int anchorIndex =
+        _conversation.messages.indexWhere((ConversationMessage m) => m.id == anchorId);
+    if (anchorIndex == -1 || anchorIndex <= summaryEnd) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有可摘要的新内容。')),
+      );
+      return;
+    }
+    final List<ConversationMessage> sourceMessages = _conversation.messages
+        .sublist(summaryEnd + 1, anchorIndex + 1)
+        .where((ConversationMessage m) => m.kind == 'message')
+        .toList();
+    if (sourceMessages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有可摘要的新内容。')),
+      );
+      return;
+    }
+    final String sourceText = sourceMessages
+        .map((ConversationMessage m) => '${m.role == 'user' ? '用户' : '助手'}：${m.text}')
+        .join('\n');
+    final ConversationSummary? previous = _latestSummary();
+    final List<Map<String, String>> payload = <Map<String, String>>[
+      <String, String>{
+        'role': 'system',
+        'content':
+            '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
+      },
+      if (previous != null && previous.text.trim().isNotEmpty)
+        <String, String>{'role': 'user', 'content': '已有摘要：\n${previous.text.trim()}'},
+      <String, String>{'role': 'user', 'content': '新增对话：\n$sourceText'},
+    ];
+
+    _summaryInProgress = true;
+    final int taskId = ++_summaryTaskId;
+    _cancelledSummaryTaskId = null;
+    _pendingSummary = _PendingSummary(
+      taskId: taskId,
+      anchorMessageId: anchorId,
+      sourceText: sourceText,
+      promptMessageId: prompt.id,
+    );
+    if (mounted) {
+      setState(() {});
+    }
+
+    final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      model: model,
+      messages: payload,
+    );
+
+    if (!mounted || _pendingSummary?.taskId != taskId || _cancelledSummaryTaskId == taskId) {
+      return;
+    }
+
+    _summaryInProgress = false;
+    _pendingSummary = null;
+
+    if (!result.success || result.content == null) {
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.errorMessage Close '摘要失败。')),
+        );
+      }
+      return;
+    }
+
+    final String summaryText = result.content!.trim();
+    if (summaryText.isEmpty || summaryText.length >= sourceText.length) {
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('摘要过长，已自动舍弃。')),
+        );
+      }
+      return;
+    }
+
+    final ConversationSummary summary = ConversationSummary(
+      id: newId(),
+      text: summaryText,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      endMessageId: anchorId,
+    );
+
+    final ConversationMessage summaryBubble = ConversationMessage(
+      id: newId(),
+      role: 'system',
+      text: '摘要已生成 · 长按查看/删除',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      kind: 'summary',
+      summaryId: summary.id,
+      anchorMessageId: anchorId,
+    );
+
+    _conversation = _conversation.copyWith(
+      summaries: <ConversationSummary>[..._conversation.summaries, summary],
+    );
+
+    _removeMessageById(prompt.id);
+    _insertMessageAfter(anchorId, summaryBubble);
+    await widget.controller.upsertConversation(_conversation);
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  void _cancelSummary() {
+    if (!_summaryInProgress || _pendingSummary == null) {
+      return;
+    }
+    _cancelledSummaryTaskId = _pendingSummary!.taskId;
+    _summaryInProgress = false;
+    _pendingSummary = null;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已停止本次摘要。')),
+    );
+  }
+
+  Future<void> _showSummaryDetail(String summaryId) async {
+    final ConversationSummary? summary = _summaryById(summaryId);
+    if (summary == null) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('对话摘要'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(summary.text),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteSummary(String summaryId, String bubbleId) async {
+    _conversation = _conversation.copyWith(
+      summaries: _conversation.summaries.where((ConversationSummary s) => s.id != summaryId).toList(),
+      messages: _conversation.messages.where((ConversationMessage m) => m.id != bubbleId).toList(),
+    );
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _editSummary(String summaryId) async {
+    final ConversationSummary? summary = _summaryById(summaryId);
+    if (summary == null) {
+      return;
+    }
+    final TextEditingController controller = TextEditingController(text: summary.text);
+    final String? updated = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit summary'),
+          content: TextField(
+            controller: controller,
+            minLines: 4,
+            maxLines: 10,
+            decoration: const InputDecoration(hintText: 'Enter new summary'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (updated == null || updated.trim().isEmpty) {
+      return;
+    }
+    final List<ConversationSummary> updatedSummaries = _conversation.summaries
+        .map(
+          (ConversationSummary s) => s.id == summaryId
+              ? ConversationSummary(
+                  id: s.id,
+                  text: updated.trim(),
+                  createdAt: s.createdAt,
+                  endMessageId: s.endMessageId,
+                )
+              : s,
+        )
+        .toList();
+    _conversation = _conversation.copyWith(summaries: updatedSummaries);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _dismissSummaryPrompt(String promptId) async {
+    _removeMessageById(promptId);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
   Future<List<_ChatSnapshot>> _loadSnapshots() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') ?? '';
+    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') Close '';
     if (raw.isEmpty) {
       return <_ChatSnapshot>[];
     }
@@ -525,7 +938,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     if (action.startsWith('load:')) {
-      final int index = int.tryParse(action.split(':').last) ?? -1;
+      final int index = int.tryParse(action.split(':').last) Close -1;
       if (index < 0 || index >= snapshots.length) {
         return;
       }
@@ -564,8 +977,7 @@ class _ChatPageState extends State<ChatPage> {
   }
   Future<void> _showMessageMenu({
     required Offset position,
-    required String text,
-    required bool isAssistant,
+    required ConversationMessage message,
     required int index,
   }) async {
     final RelativeRect anchor = RelativeRect.fromLTRB(
@@ -574,8 +986,83 @@ class _ChatPageState extends State<ChatPage> {
       position.dx + 1,
       position.dy + 1,
     );
+    if (message.kind == 'summary') {
+      final String? action = await showMenu<String>(
+        context: context,
+        position: anchor,
+        items: const <PopupMenuEntry<String>>[
+          PopupMenuItem<String>(
+            value: 'view_summary',
+            child: ListTile(
+              leading: Icon(Icons.article_outlined),
+              title: Text('View summary'),
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'edit_summary',
+            child: ListTile(
+              leading: Icon(Icons.edit_outlined),
+              title: Text('Edit summary'),
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'delete_summary',
+            child: ListTile(
+              leading: Icon(Icons.delete_outline),
+              title: Text('Delete summary'),
+            ),
+          ),
+        ],
+      );
+      if (action == null) {
+        return;
+      }
+      if (action == 'view_summary') {
+        await _showSummaryDetail(message.summaryId Close '');
+      } else if (action == 'edit_summary') {
+        await _editSummary(message.summaryId Close '');
+      } else if (action == 'delete_summary') {
+        await _deleteSummary(message.summaryId Close '', message.id);
+      }
+      return;
+    }
+    if (message.kind == 'summary_prompt') {
+      final String? action = await showMenu<String>(
+        context: context,
+        position: anchor,
+        items: const <PopupMenuEntry<String>>[
+          PopupMenuItem<String>(
+            value: 'start_summary',
+            child: ListTile(
+              leading: Icon(Icons.auto_awesome),
+              title: Text('生成摘要'),
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'dismiss_summary',
+            child: ListTile(
+              leading: Icon(Icons.close),
+              title: Text('忽略提示'),
+            ),
+          ),
+        ],
+      );
+      if (action == null) {
+        return;
+      }
+      if (action == 'start_summary') {
+        await _startSummaryFromPrompt(message);
+      } else if (action == 'dismiss_summary') {
+        _dismissSummaryPrompt(message.id);
+      }
+      return;
+    }
+    final bool isAssistant = message.role == 'assistant';
     final bool retryDisabled = _retryDisabled.contains(_conversation.messages[index].id);
-    final bool canContinue = isAssistant && index == _conversation.messages.length - 1;
+    final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
+      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+    );
+    final bool canContinue = isAssistant && index == lastAssistantIndex;
     final String? action = await showMenu<String>(
       context: context,
       position: anchor,
@@ -650,7 +1137,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     if (action == 'copy') {
-      await Clipboard.setData(ClipboardData(text: text));
+      await Clipboard.setData(ClipboardData(text: message.text));
       if (!mounted) {
         return;
       }
@@ -660,7 +1147,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     if (action == 'share') {
-      await Share.share(text);
+      await Share.share(message.text);
     }
   }
   Future<void> _continueFromContext() async {
@@ -697,22 +1184,30 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-    final String sys = _buildSystemPrompt();
+    final _MessageSlice slice = _sliceForPayload(excludeIds: <String>{assistantId});
     final List<Map<String, String>> payload = <Map<String, String>>[];
+    final String sys = _buildSystemPrompt();
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
+    if (slice.includeSummary) {
+      final ConversationSummary? summary = _latestSummary();
+      if (summary != null && summary.text.trim().isNotEmpty) {
+        payload.add(<String, String>{
+          'role': 'system',
+          'content': 'Conversation summary:\n${summary.text.trim()}',
+        });
+      }
+    }
     payload.add(<String, String>{
       'role': 'system',
-      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
+      'content': 'Continue the last assistant reply. Keep the same tone, avoid repeating content, and do not introduce a new topic.',
     });
     payload.addAll(
-      _conversation.messages
-          .where((ConversationMessage m) => m.id != assistantId)
-          .map((ConversationMessage m) => <String, String>{
-                'role': m.role,
-                'content': m.text,
-              }),
+      slice.messages.map((ConversationMessage m) => <String, String>{
+            'role': m.role,
+            'content': m.text,
+          }),
     );
     await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
       baseUrl: baseUrl,
@@ -748,6 +1243,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     setState(() => _sending = false);
+    await _maybePromptSummary();
   }
   Future<void> _retryAssistantAt(int index) async {
     if (_sending) {
@@ -766,9 +1262,11 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-    final List<ConversationMessage> contextMessages =
-        _conversation.messages.take(index).toList();
-    final List<Map<String, String>> payload = _buildMessagesFrom(contextMessages);
+    final _MessageSlice slice = _sliceForPayload(endExclusive: index);
+    final List<Map<String, String>> payload = _buildMessagesFrom(
+      slice.messages,
+      includeSummary: slice.includeSummary,
+    );
     setState(() => _sending = true);
     List<String> results = await _generateRetries(payload, model, apiKey, baseUrl);
     if (results.isEmpty) {
@@ -843,7 +1341,7 @@ class _ChatPageState extends State<ChatPage> {
   }
   Future<void> _showRetryPicker(int index) async {
     final ConversationMessage target = _conversation.messages[index];
-    final List<String> options = _retryAlternatives[target.id] ?? <String>[];
+    final List<String> options = _retryAlternatives[target.id] Close <String>[];
     if (options.isEmpty) {
       return;
     }
@@ -978,7 +1476,14 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final List<ConversationMessage> trimmed = _conversation.messages.take(index + 1).toList();
-    _conversation = _conversation.copyWith(messages: trimmed);
+    final Set<String> remainingIds = trimmed.map((ConversationMessage m) => m.id).toSet();
+    final List<ConversationSummary> summaries = _conversation.summaries
+        .where((ConversationSummary s) => remainingIds.contains(s.endMessageId))
+        .toList();
+    _conversation = _conversation.copyWith(
+      messages: trimmed,
+      summaries: summaries,
+    );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
       return;
@@ -997,7 +1502,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final Role? role = _role;
-    final Color schemeColor = _accent ?? Theme.of(context).colorScheme.primary;
+    final Color schemeColor = _accent Close Theme.of(context).colorScheme.primary;
     final Color userBubble = schemeColor.withValues(alpha: 0.18);
     final Color assistantBubble = Theme.of(context).colorScheme.surfaceContainerHighest;
     final Size size = MediaQuery.of(context).size;
@@ -1086,14 +1591,151 @@ class _ChatPageState extends State<ChatPage> {
                 child: ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _conversation.messages.length,
+
                   itemBuilder: (BuildContext context, int index) {
                     final ConversationMessage message = _conversation.messages[index];
+                    final GlobalKey key =
+                        _messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
+                    if (message.kind == 'summary_prompt') {
+                      return Align(
+                        key: key,
+                        alignment: Alignment.center,
+                        child: GestureDetector(
+                          onLongPressStart: (LongPressStartDetails details) {
+                            _showMessageMenu(
+                              position: details.globalPosition,
+                              message: message,
+                              index: index,
+                            );
+                          },
+                          onSecondaryTapDown: (TapDownDetails details) {
+                            _showMessageMenu(
+                              position: details.globalPosition,
+                              message: message,
+                              index: index,
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHigh
+                                  .withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    const Icon(Icons.auto_awesome, size: 18),
+                                    const SizedBox(width: 6),
+                                    const Text('Summary suggested'),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  children: <Widget>[
+                                    FilledButton.tonal(
+                                      onPressed: _summaryInProgress
+                                          ? null
+                                          : () => _startSummaryFromPrompt(message),
+                                      child: const Text('Summarize'),
+                                    ),
+                                    OutlinedButton(
+                                      onPressed: () => _dismissSummaryPrompt(message.id),
+                                      child: const Text('Dismiss'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    if (message.kind == 'summary') {
+                      final ConversationSummary? summary = _summaryById(message.summaryId);
+                      final String raw = summary?.text.trim() Close '';
+                      final String preview = raw.isEmpty
+                          ? 'Summary is empty'
+                          : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
+                      return Align(
+                        key: key,
+                        alignment: Alignment.center,
+                        child: GestureDetector(
+                          onLongPressStart: (LongPressStartDetails details) {
+                            _showMessageMenu(
+                              position: details.globalPosition,
+                              message: message,
+                              index: index,
+                            );
+                          },
+                          onSecondaryTapDown: (TapDownDetails details) {
+                            _showMessageMenu(
+                              position: details.globalPosition,
+                              message: message,
+                              index: index,
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHigh
+                                  .withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    const Icon(Icons.article_outlined, size: 18),
+                                    const SizedBox(width: 6),
+                                    const Text('Summary generated'),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  preview,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Long press to view/delete',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     final bool isUser = message.role == 'user';
                     final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
                     final Color bubbleColor = isUser ? userBubble : assistantBubble;
-                    final GlobalKey key =
-                        _messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
                     final int charCount = message.text.runes.length;
                     final int tokenCount =
                         _showTokenCounts ? _countTokens(message.id, message.text) : 0;
@@ -1104,16 +1746,14 @@ class _ChatPageState extends State<ChatPage> {
                         onLongPressStart: (LongPressStartDetails details) {
                           _showMessageMenu(
                             position: details.globalPosition,
-                            text: message.text,
-                            isAssistant: !isUser,
+                            message: message,
                             index: index,
                           );
                         },
                         onSecondaryTapDown: (TapDownDetails details) {
                           _showMessageMenu(
                             position: details.globalPosition,
-                            text: message.text,
-                            isAssistant: !isUser,
+                            message: message,
                             index: index,
                           );
                         },
@@ -1133,7 +1773,7 @@ class _ChatPageState extends State<ChatPage> {
                               if (message.text.isNotEmpty && _showTokenCounts) ...<Widget>[
                                 const SizedBox(height: 6),
                                 Text(
-                                  '字数 $charCount / Token $tokenCount',
+                                  'Chars $charCount / Token $tokenCount',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context)
                                             .colorScheme
@@ -1165,6 +1805,34 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                 ),
+              if (_summaryInProgress)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(Icons.auto_awesome, size: 16),
+                          const SizedBox(width: 6),
+                          const Text('正在生成摘要...'),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: _cancelSummary,
+                            child: const Text('停止'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               SafeArea(
                 top: false,
                 child: Padding(
@@ -1190,9 +1858,19 @@ class _ChatPageState extends State<ChatPage> {
                             _toggleSearch();
                           } else if (value == 'tokens') {
                             setState(() => _showTokenCounts = !_showTokenCounts);
+                          } else if (value == 'force_summary') {
+                            await _forceSummaryPrompt();
                           }
                         },
                         itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'force_summary',
+                            enabled: !_summaryInProgress,
+                            child: ListTile(
+                              leading: Icon(Icons.auto_awesome),
+                              title: Text('摘要'),
+                            ),
+                          ),
                           CheckedPopupMenuItem<String>(
                             value: 'search',
                             checked: _searching,
@@ -1236,12 +1914,34 @@ class _ChatPageState extends State<ChatPage> {
   }
 }
 
+class _MessageSlice {
+  const _MessageSlice({required this.messages, required this.includeSummary});
+
+  final List<ConversationMessage> messages;
+  final bool includeSummary;
+}
+
+class _PendingSummary {
+  const _PendingSummary({
+    required this.taskId,
+    required this.anchorMessageId,
+    required this.sourceText,
+    required this.promptMessageId,
+  });
+
+  final int taskId;
+  final String anchorMessageId;
+  final String sourceText;
+  final String promptMessageId;
+}
+
 class _TokenCacheEntry {
   const _TokenCacheEntry({required this.text, required this.count});
 
   final String text;
   final int count;
 }
+
 class _ChatSnapshot {
   const _ChatSnapshot({
     required this.id,
@@ -1263,10 +1963,10 @@ class _ChatSnapshot {
   }
   static _ChatSnapshot fromJson(Map<String, dynamic> json) {
     return _ChatSnapshot(
-      id: (json['id'] as String?) ?? '',
-      name: (json['name'] as String?) ?? '',
-      timestamp: (json['timestamp'] as int?) ?? 0,
-      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) ??
+      id: (json['id'] as String?) Close '',
+      name: (json['name'] as String?) Close '',
+      timestamp: (json['timestamp'] as int?) Close 0,
+      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) Close
           <String, dynamic>{},
     );
   }

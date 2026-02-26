@@ -51,6 +51,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
       note: _noteController.text.trim(),
       messages: const <ConversationMessage>[],
       backgroundMode: 'none',
+      summaries: const <ConversationSummary>[],
     );
 
     await widget.controller.upsertConversation(conversation);

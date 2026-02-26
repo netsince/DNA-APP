@@ -6,6 +6,7 @@ class Conversation {
     required this.note,
     required this.messages,
     required this.backgroundMode,
+    required this.summaries,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class Conversation {
   final String note;
   final List<ConversationMessage> messages;
   final String backgroundMode;
+  final List<ConversationSummary> summaries;
 
   Conversation copyWith({
     String? roleId,
@@ -21,6 +23,7 @@ class Conversation {
     String? note,
     List<ConversationMessage>? messages,
     String? backgroundMode,
+    List<ConversationSummary>? summaries,
   }) {
     return Conversation(
       id: id,
@@ -29,6 +32,7 @@ class Conversation {
       note: note ?? this.note,
       messages: messages ?? this.messages,
       backgroundMode: backgroundMode ?? this.backgroundMode,
+      summaries: summaries ?? this.summaries,
     );
   }
 
@@ -40,11 +44,13 @@ class Conversation {
       'note': note,
       'backgroundMode': backgroundMode,
       'messages': messages.map((ConversationMessage m) => m.toJson()).toList(),
+      'summaries': summaries.map((ConversationSummary s) => s.toJson()).toList(),
     };
   }
 
   static Conversation fromJson(Map<String, dynamic> json) {
     final List<dynamic>? raw = json['messages'] as List<dynamic>?;
+    final List<dynamic>? rawSummaries = json['summaries'] as List<dynamic>?;
     return Conversation(
       id: json['id'] as String,
       roleId: json['roleId'] as String,
@@ -57,6 +63,12 @@ class Conversation {
               .whereType<Map<String, dynamic>>()
               .map(ConversationMessage.fromJson)
               .toList(),
+      summaries: rawSummaries == null
+          ? <ConversationSummary>[]
+          : rawSummaries
+              .whereType<Map<String, dynamic>>()
+              .map(ConversationSummary.fromJson)
+              .toList(),
     );
   }
 }
@@ -67,12 +79,18 @@ class ConversationMessage {
     required this.role,
     required this.text,
     required this.timestamp,
+    this.kind = 'message',
+    this.summaryId,
+    this.anchorMessageId,
   });
 
   final String id;
   final String role;
   final String text;
   final int timestamp;
+  final String kind;
+  final String? summaryId;
+  final String? anchorMessageId;
 
   ConversationMessage copyWith({String? text}) {
     return ConversationMessage(
@@ -80,6 +98,9 @@ class ConversationMessage {
       role: role,
       text: text ?? this.text,
       timestamp: timestamp,
+      kind: kind,
+      summaryId: summaryId,
+      anchorMessageId: anchorMessageId,
     );
   }
 
@@ -89,6 +110,9 @@ class ConversationMessage {
       'role': role,
       'text': text,
       'timestamp': timestamp,
+      'kind': kind,
+      'summaryId': summaryId,
+      'anchorMessageId': anchorMessageId,
     };
   }
 
@@ -98,6 +122,41 @@ class ConversationMessage {
       role: (json['role'] as String?) ?? 'user',
       text: (json['text'] as String?) ?? '',
       timestamp: (json['timestamp'] as int?) ?? 0,
+      kind: (json['kind'] as String?) ?? 'message',
+      summaryId: json['summaryId'] as String?,
+      anchorMessageId: json['anchorMessageId'] as String?,
+    );
+  }
+}
+
+class ConversationSummary {
+  const ConversationSummary({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+    required this.endMessageId,
+  });
+
+  final String id;
+  final String text;
+  final int createdAt;
+  final String endMessageId;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'text': text,
+      'createdAt': createdAt,
+      'endMessageId': endMessageId,
+    };
+  }
+
+  static ConversationSummary fromJson(Map<String, dynamic> json) {
+    return ConversationSummary(
+      id: json['id'] as String,
+      text: (json['text'] as String?) ?? '',
+      createdAt: (json['createdAt'] as int?) ?? 0,
+      endMessageId: (json['endMessageId'] as String?) ?? '',
     );
   }
 }

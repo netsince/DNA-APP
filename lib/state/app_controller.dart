@@ -78,6 +78,18 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveSummarySettings({
+    required bool autoSummaryPrompt,
+    required int summaryTurnInterval,
+  }) async {
+    _settings = _settings.copyWith(
+      autoSummaryPrompt: autoSummaryPrompt,
+      summaryTurnInterval: summaryTurnInterval,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> upsertRole(Role role) async {
     final int index = _roles.indexWhere((Role item) => item.id == role.id);
     if (index == -1) {

@@ -7,6 +7,8 @@ class SettingsService {
   static const String _apiKeyKey = 'api_key';
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
+  static const String _autoSummaryPromptKey = 'auto_summary_prompt';
+  static const String _summaryTurnIntervalKey = 'summary_turn_interval';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -15,6 +17,8 @@ class SettingsService {
       apiKey: prefs.getString(_apiKeyKey) ?? '',
       selectedModel: prefs.getString(_modelKey) ?? '',
       completedOobe: prefs.getBool(_oobeKey) ?? false,
+      autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
+      summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
     );
   }
 
@@ -24,5 +28,7 @@ class SettingsService {
     await prefs.setString(_apiKeyKey, settings.apiKey);
     await prefs.setString(_modelKey, settings.selectedModel);
     await prefs.setBool(_oobeKey, settings.completedOobe);
+    await prefs.setBool(_autoSummaryPromptKey, settings.autoSummaryPrompt);
+    await prefs.setInt(_summaryTurnIntervalKey, settings.summaryTurnInterval);
   }
 }

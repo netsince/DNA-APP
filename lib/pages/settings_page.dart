@@ -16,6 +16,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _baseUrlController;
   late final TextEditingController _apiKeyController;
+  late final TextEditingController _summaryTurnController;
 
   bool _checkingApi = false;
   bool _loadingModels = false;
@@ -23,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _modelsError;
   List<String> _models = <String>[];
   String? _selectedModel;
+  bool _autoSummaryPrompt = true;
 
   @override
   void initState() {
@@ -31,12 +33,17 @@ class _SettingsPageState extends State<SettingsPage> {
     _baseUrlController = TextEditingController(text: settings.baseUrl);
     _apiKeyController = TextEditingController(text: settings.apiKey);
     _selectedModel = settings.selectedModel.isEmpty ? null : settings.selectedModel;
+    _autoSummaryPrompt = settings.autoSummaryPrompt;
+    _summaryTurnController = TextEditingController(
+      text: settings.summaryTurnInterval.toString(),
+    );
   }
 
   @override
   void dispose() {
     _baseUrlController.dispose();
     _apiKeyController.dispose();
+    _summaryTurnController.dispose();
     super.dispose();
   }
 
@@ -166,6 +173,22 @@ class _SettingsPageState extends State<SettingsPage> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _saveSummarySettings() async {
+    final int? turns = int.tryParse(_summaryTurnController.text.trim());
+    final int normalized = (turns ?? 200).clamp(10, 1000);
+    _summaryTurnController.text = normalized.toString();
+    await widget.controller.saveSummarySettings(
+      autoSummaryPrompt: _autoSummaryPrompt,
+      summaryTurnInterval: normalized,
+    );
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('摘要设置已保存。')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -227,6 +250,41 @@ class _SettingsPageState extends State<SettingsPage> {
                             const SizedBox(height: 8),
                             Text(_apiMessage!),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('对话摘要', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('允许自动提示摘要'),
+                            value: _autoSummaryPrompt,
+                            onChanged: (bool value) {
+                              setState(() => _autoSummaryPrompt = value);
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: _summaryTurnController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: '触发轮数（按用户消息计）',
+                              hintText: '默认 200，范围 10-1000',
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: _saveSummarySettings,
+                            child: const Text('保存摘要设置'),
+                          ),
                         ],
                       ),
                     ),
