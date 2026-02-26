@@ -296,11 +296,11 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('??'),
+          title: const Text('存档管理'),
           content: SizedBox(
             width: double.maxFinite,
             child: snapshots.isEmpty
-                ? const Text('????')
+                ? const Text('暂无存档')
                 : ListView.builder(
                     shrinkWrap: true,
                     itemCount: snapshots.length,
@@ -318,11 +318,11 @@ class _ChatPageState extends State<ChatPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('??'),
+              child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop('create'),
-              child: const Text('????'),
+              child: const Text('新建存档'),
             ),
           ],
         );
@@ -332,25 +332,25 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     if (action == 'create') {
-      final String defaultName = '?? ${DateTime.now().toString().substring(0, 19)}';
+      final String defaultName = '存档 ${DateTime.now().toString().substring(0, 19)}';
       final TextEditingController controller = TextEditingController(text: defaultName);
       final String? name = await showDialog<String>(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('????'),
+            title: const Text('创建存档'),
             content: TextField(
               controller: controller,
-              decoration: const InputDecoration(hintText: '????'),
+              decoration: const InputDecoration(hintText: '输入存档名称'),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('??'),
+                child: const Text('取消'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-                child: const Text('??'),
+                child: const Text('保存'),
               ),
             ],
           );
@@ -373,7 +373,7 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('?????')),
+        const SnackBar(content: Text('存档已保存。')),
       );
       return;
     }
@@ -386,16 +386,16 @@ class _ChatPageState extends State<ChatPage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('??????'),
-            content: const Text('?????????????????????'),
+            title: const Text('确认加载存档'),
+            content: const Text('将覆盖当前对话并无法撤销，确定要继续吗？'),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('??'),
+                child: const Text('取消'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('??'),
+                child: const Text('确认'),
               ),
             ],
           );
@@ -849,12 +849,12 @@ class _ChatPageState extends State<ChatPage> {
         title: Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
         actions: <Widget>[
           IconButton(
-            tooltip: '?????',
+            tooltip: '回到底部',
             onPressed: _scrollToBottom,
             icon: const Icon(Icons.vertical_align_bottom),
           ),
           IconButton(
-            tooltip: _conversation.backgroundMode == 'image' ? '?????' : '?????',
+            tooltip: _conversation.backgroundMode == 'image' ? '关闭背景图' : '显示背景图',
             onPressed: _toggleBackground,
             icon: Icon(_conversation.backgroundMode == 'image' ? Icons.image_not_supported : Icons.image),
           ),
