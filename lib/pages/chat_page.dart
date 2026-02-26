@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/role.dart';
+import '../models/service_results.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 
@@ -29,6 +30,8 @@ class _ChatPageState extends State<ChatPage> {
   late Conversation _conversation;
   Color? _accent;
   bool _sending = false;
+  final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
+  final Set<String> _retryDisabled = <String>{};
 
   @override
   void initState() {
@@ -200,7 +203,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _sending = false);
   }
 
-  List<Map<String, String>> _buildMessages() {
+  String _buildSystemPrompt() {
     final Role? role = _role;
     final World? world = _world;
     final List<DialogueTurn> style = role?.dialogueStyle ?? <DialogueTurn>[];
@@ -243,18 +246,32 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
     }
-    final List<Map<String, String>> messages = <Map<String, String>>[];
-    final String sys = system.toString().trim();
+    return system.toString().trim();
+  }
+
+  List<Map<String, String>> _buildMessagesFrom(
+    List<ConversationMessage> messages, {
+    String? extraUserText,
+  }) {
+    final List<Map<String, String>> payload = <Map<String, String>>[];
+    final String sys = _buildSystemPrompt();
     if (sys.isNotEmpty) {
-      messages.add(<String, String>{'role': 'system', 'content': sys});
+      payload.add(<String, String>{'role': 'system', 'content': sys});
     }
-    for (final ConversationMessage message in _conversation.messages) {
-      messages.add(<String, String>{
+    for (final ConversationMessage message in messages) {
+      payload.add(<String, String>{
         'role': message.role,
         'content': message.text,
       });
     }
-    return messages;
+    if (extraUserText != null && extraUserText.trim().isNotEmpty) {
+      payload.add(<String, String>{'role': 'user', 'content': extraUserText.trim()});
+    }
+    return payload;
+  }
+
+  List<Map<String, String>> _buildMessages() {
+    return _buildMessagesFrom(_conversation.messages);
   }
 
   void _scrollToBottom() {
@@ -273,6 +290,8 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _showMessageMenu({
     required Offset position,
     required String text,
+    required bool isAssistant,
+    required int index,
   }) async {
     final RelativeRect anchor = RelativeRect.fromLTRB(
       position.dx,
@@ -280,10 +299,46 @@ class _ChatPageState extends State<ChatPage> {
       position.dx + 1,
       position.dy + 1,
     );
+    final bool retryDisabled = _retryDisabled.contains(_conversation.messages[index].id);
+    final bool canContinue = isAssistant && index == _conversation.messages.length - 1;
     final String? action = await showMenu<String>(
       context: context,
       position: anchor,
       items: <PopupMenuEntry<String>>[
+        if (isAssistant)
+          PopupMenuItem<String>(
+            value: 'continue',
+            enabled: canContinue,
+            child: ListTile(
+              leading: Icon(Icons.play_arrow),
+              title: Text('继续说'),
+            ),
+          ),
+        if (isAssistant)
+          PopupMenuItem<String>(
+            value: 'retry',
+            enabled: !retryDisabled,
+            child: const ListTile(
+              leading: Icon(Icons.refresh),
+              title: Text('重说'),
+            ),
+          ),
+        if (isAssistant)
+          const PopupMenuItem<String>(
+            value: 'edit',
+            child: ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('更改文字'),
+            ),
+          ),
+        if (isAssistant)
+          const PopupMenuItem<String>(
+            value: 'rollback',
+            child: ListTile(
+              leading: Icon(Icons.undo),
+              title: Text('回溯到此处'),
+            ),
+          ),
         const PopupMenuItem<String>(
           value: 'copy',
           child: ListTile(
@@ -303,6 +358,22 @@ class _ChatPageState extends State<ChatPage> {
     if (action == null) {
       return;
     }
+    if (action == 'continue') {
+      await _continueFromContext();
+      return;
+    }
+    if (action == 'retry') {
+      await _retryAssistantAt(index);
+      return;
+    }
+    if (action == 'edit') {
+      await _editAssistantAt(index);
+      return;
+    }
+    if (action == 'rollback') {
+      await _rollbackTo(index);
+      return;
+    }
     if (action == 'copy') {
       await Clipboard.setData(ClipboardData(text: text));
       if (!mounted) {
@@ -316,6 +387,329 @@ class _ChatPageState extends State<ChatPage> {
     if (action == 'share') {
       await Share.share(text);
     }
+  }
+
+  Future<void> _continueFromContext() async {
+    if (_sending) {
+      return;
+    }
+    final Role? role = _role;
+    if (role == null) {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
+      );
+      return;
+    }
+    setState(() => _sending = true);
+    final String assistantId = DateTime.now().microsecondsSinceEpoch.toString();
+    ConversationMessage assistantMessage = ConversationMessage(
+      id: assistantId,
+      role: 'assistant',
+      text: '',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    _conversation = _conversation.copyWith(
+      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
+    );
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    _scrollToBottom();
+
+    final List<Map<String, String>> payload = _buildMessagesFrom(
+      _conversation.messages.where((ConversationMessage m) => m.id != assistantId).toList(),
+      extraUserText: '继续',
+    );
+    await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      model: model,
+      messages: payload,
+    )) {
+      if (!mounted) {
+        return;
+      }
+      if (chunk.startsWith('[ERROR]')) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(chunk.replaceFirst('[ERROR] ', ''))),
+        );
+        return;
+      }
+      assistantMessage = assistantMessage.copyWith(text: assistantMessage.text + chunk);
+      _conversation = _conversation.copyWith(
+        messages: <ConversationMessage>[
+          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
+          assistantMessage,
+        ],
+      );
+      await widget.controller.upsertConversation(_conversation);
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      _scrollToBottom();
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _sending = false);
+  }
+
+  Future<void> _retryAssistantAt(int index) async {
+    if (_sending) {
+      return;
+    }
+    final ConversationMessage target = _conversation.messages[index];
+    if (target.role != 'assistant') {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
+      );
+      return;
+    }
+
+    final List<ConversationMessage> contextMessages =
+        _conversation.messages.take(index).toList();
+    final List<Map<String, String>> payload = _buildMessagesFrom(contextMessages);
+
+    setState(() => _sending = true);
+    List<String> results = await _generateRetries(payload, model, apiKey, baseUrl);
+    if (results.isEmpty) {
+      results = await _generateRetriesSequential(payload, model, apiKey, baseUrl);
+    }
+    if (results.isEmpty) {
+      _retryDisabled.add(target.id);
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('重说失败，已暂时禁用。')),
+        );
+      }
+      return;
+    }
+
+    _retryAlternatives.putIfAbsent(target.id, () => <String>[]);
+    _retryAlternatives[target.id]!.addAll(results);
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _sending = false);
+    await _showRetryPicker(index);
+  }
+
+  Future<List<String>> _generateRetries(
+    List<Map<String, String>> payload,
+    String model,
+    String apiKey,
+    String baseUrl,
+  ) async {
+    try {
+      final List<Future<String?>> tasks = List<Future<String?>>.generate(3, (_) async {
+        final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+          baseUrl: baseUrl,
+          apiKey: apiKey,
+          model: model,
+          messages: payload,
+        );
+        if (!result.success || result.content == null) {
+          return null;
+        }
+        return result.content!;
+      });
+      final List<String?> settled = await Future.wait(tasks);
+      return settled.whereType<String>().where((String s) => s.trim().isNotEmpty).toList();
+    } catch (_) {
+      return <String>[];
+    }
+  }
+
+  Future<List<String>> _generateRetriesSequential(
+    List<Map<String, String>> payload,
+    String model,
+    String apiKey,
+    String baseUrl,
+  ) async {
+    final List<String> results = <String>[];
+    for (int i = 0; i < 3; i++) {
+      try {
+        final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+          baseUrl: baseUrl,
+          apiKey: apiKey,
+          model: model,
+          messages: payload,
+        );
+        if (result.success && result.content != null && result.content!.trim().isNotEmpty) {
+          results.add(result.content!);
+        }
+      } catch (_) {
+        // Ignore.
+      }
+    }
+    return results;
+  }
+
+  Future<void> _showRetryPicker(int index) async {
+    final ConversationMessage target = _conversation.messages[index];
+    final List<String> options = _retryAlternatives[target.id] ?? <String>[];
+    if (options.isEmpty) {
+      return;
+    }
+    final String? selected = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        int? selectedIndex;
+        return StatefulBuilder(
+          builder: (BuildContext context, void Function(void Function()) setDialogState) {
+            return AlertDialog(
+              title: const Text('重说结果'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (BuildContext context, int i) {
+                    return RadioListTile<int>(
+                      value: i,
+                      groupValue: selectedIndex,
+                      onChanged: (int? value) => setDialogState(() => selectedIndex = value),
+                      title: Text(options[i]),
+                    );
+                  },
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop('retry'),
+                  child: const Text('再试三次'),
+                ),
+                FilledButton(
+                  onPressed: selectedIndex == null
+                      ? null
+                      : () => Navigator.of(context).pop(options[selectedIndex!]),
+                  child: const Text('使用此回复'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selected == null) {
+      return;
+    }
+    if (selected == 'retry') {
+      await _retryAssistantAt(index);
+      return;
+    }
+    final ConversationMessage updated = target.copyWith(text: selected);
+    final List<ConversationMessage> updatedList = <ConversationMessage>[
+      ..._conversation.messages.sublist(0, index),
+      updated,
+      ..._conversation.messages.sublist(index + 1),
+    ];
+    _conversation = _conversation.copyWith(messages: updatedList);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _editAssistantAt(int index) async {
+    final ConversationMessage target = _conversation.messages[index];
+    final TextEditingController controller = TextEditingController(text: target.text);
+    final String? updated = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('更改文字'),
+          content: TextField(
+            controller: controller,
+            minLines: 3,
+            maxLines: 8,
+            decoration: const InputDecoration(hintText: '输入新的内容'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+    if (updated == null) {
+      return;
+    }
+    final ConversationMessage updatedMessage = target.copyWith(text: updated);
+    final List<ConversationMessage> updatedList = <ConversationMessage>[
+      ..._conversation.messages.sublist(0, index),
+      updatedMessage,
+      ..._conversation.messages.sublist(index + 1),
+    ];
+    _conversation = _conversation.copyWith(messages: updatedList);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _rollbackTo(int index) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('确认回溯'),
+          content: const Text('将丢弃此气泡之后的所有记录，确定要回溯吗？'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('回溯'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+    final List<ConversationMessage> trimmed = _conversation.messages.take(index + 1).toList();
+    _conversation = _conversation.copyWith(messages: trimmed);
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _toggleBackground() async {
@@ -385,12 +779,16 @@ class _ChatPageState extends State<ChatPage> {
                           _showMessageMenu(
                             position: details.globalPosition,
                             text: message.text,
+                            isAssistant: !isUser,
+                            index: index,
                           );
                         },
                         onSecondaryTapDown: (TapDownDetails details) {
                           _showMessageMenu(
                             position: details.globalPosition,
                             text: message.text,
+                            isAssistant: !isUser,
+                            index: index,
                           );
                         },
                         child: Container(
