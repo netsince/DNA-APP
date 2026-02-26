@@ -27,6 +27,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _sending = false;
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
+  static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
   @override
   void initState() {
     super.initState();
@@ -286,7 +287,7 @@ class _ChatPageState extends State<ChatPage> {
   }
   Future<void> _saveSnapshots(List<_ChatSnapshot> snapshots) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = jsonEncode(snapshots.map((_) => _.toJson()).toList());
+    final String raw = jsonEncode(snapshots.map((s) => s.toJson()).toList());
     await prefs.setString('$_snapshotKeyPrefix${_conversation.id}', raw);
   }
   Future<void> _manageSnapshots() async {
@@ -952,7 +953,7 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       const SizedBox(width: 8),
                       PopupMenuButton<String>(
-                        tooltip: '??',
+                        tooltip: '更多',
                         onSelected: (String value) async {
                           if (value == 'archive') {
                             await _manageSnapshots();
@@ -963,7 +964,7 @@ class _ChatPageState extends State<ChatPage> {
                             value: 'archive',
                             child: ListTile(
                               leading: Icon(Icons.save),
-                              title: Text('??'),
+                              title: Text('存档'),
                             ),
                           ),
                         ],
@@ -972,8 +973,7 @@ class _ChatPageState extends State<ChatPage> {
                       const SizedBox(width: 8),
                       FilledButton(
                         onPressed: _sending ? null : _send,
-                        child: Text(_sending ? '???...' : '??'),
-                      ),
+                        child: Text(_sending ? '发送中...' : '发送'),
                       ),
                     ],
                   ),
