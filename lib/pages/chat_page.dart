@@ -2,7 +2,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
@@ -268,6 +270,54 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  Future<void> _showMessageMenu({
+    required Offset position,
+    required String text,
+  }) async {
+    final RelativeRect anchor = RelativeRect.fromLTRB(
+      position.dx,
+      position.dy,
+      position.dx + 1,
+      position.dy + 1,
+    );
+    final String? action = await showMenu<String>(
+      context: context,
+      position: anchor,
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'copy',
+          child: ListTile(
+            leading: Icon(Icons.copy),
+            title: Text('复制'),
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'share',
+          child: ListTile(
+            leading: Icon(Icons.share),
+            title: Text('分享'),
+          ),
+        ),
+      ],
+    );
+    if (action == null) {
+      return;
+    }
+    if (action == 'copy') {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已复制到剪贴板')),
+      );
+      return;
+    }
+    if (action == 'share') {
+      await Share.share(text);
+    }
+  }
+
   Future<void> _toggleBackground() async {
     final String next = _conversation.backgroundMode == 'image' ? 'none' : 'image';
     _conversation = _conversation.copyWith(backgroundMode: next);
@@ -330,15 +380,29 @@ class _ChatPageState extends State<ChatPage> {
                     final Color bubbleColor = isUser ? userBubble : assistantBubble;
                     return Align(
                       alignment: alignment,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        decoration: BoxDecoration(
-                          color: bubbleColor,
-                          borderRadius: BorderRadius.circular(16),
+                      child: GestureDetector(
+                        onLongPressStart: (LongPressStartDetails details) {
+                          _showMessageMenu(
+                            position: details.globalPosition,
+                            text: message.text,
+                          );
+                        },
+                        onSecondaryTapDown: (TapDownDetails details) {
+                          _showMessageMenu(
+                            position: details.globalPosition,
+                            text: message.text,
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          decoration: BoxDecoration(
+                            color: bubbleColor,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(message.text),
                         ),
-                        child: Text(message.text),
                       ),
                     );
                   },
