@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.netsince.dna"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

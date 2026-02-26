@@ -550,9 +550,22 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-    final List<Map<String, String>> payload = _buildMessagesFrom(
-      _conversation.messages.where((ConversationMessage m) => m.id != assistantId).toList(),
-      extraUserText: '继续',
+    final String sys = _buildSystemPrompt();
+    final List<Map<String, String>> payload = <Map<String, String>>[];
+    if (sys.isNotEmpty) {
+      payload.add(<String, String>{'role': 'system', 'content': sys});
+    }
+    payload.add(<String, String>{
+      'role': 'system',
+      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
+    });
+    payload.addAll(
+      _conversation.messages
+          .where((ConversationMessage m) => m.id != assistantId)
+          .map((ConversationMessage m) => <String, String>{
+                'role': m.role,
+                'content': m.text,
+              }),
     );
     await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
       baseUrl: baseUrl,
