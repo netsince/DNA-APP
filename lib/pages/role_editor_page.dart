@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/role.dart';
 import '../models/dialogue_style.dart';
 import '../state/app_controller.dart';
+import '../utils/id_utils.dart';
 import 'dialogue_style_page.dart';
 
 class RoleEditorPage extends StatefulWidget {
@@ -36,7 +37,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
   void initState() {
     super.initState();
     final Role? role = widget.role;
-    _roleId = role?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
+    _roleId = role?.id ?? newId();
     _nameController = TextEditingController(text: role?.name ?? '');
     _personaController = TextEditingController(text: role?.persona ?? '');
     _introController = TextEditingController(text: role?.intro ?? '');

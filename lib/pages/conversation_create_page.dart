@@ -4,6 +4,7 @@ import '../models/conversation.dart';
 import '../models/role.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../utils/id_utils.dart';
 
 class ConversationCreatePage extends StatefulWidget {
   const ConversationCreatePage({super.key, required this.controller});
@@ -26,7 +27,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
   }
 
   String _generateId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    return newId();
   }
 
   Future<void> _create() async {

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import '../utils/id_utils.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/role.dart';
@@ -67,7 +68,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final ConversationMessage opening = ConversationMessage(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: newId(),
       role: 'assistant',
       text: role.opening.trim(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -122,7 +123,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final ConversationMessage userMessage = ConversationMessage(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: newId(),
       role: 'user',
       text: text,
       timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -137,7 +138,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {});
     _scrollToBottom();
     setState(() => _sending = true);
-    final String assistantId = DateTime.now().microsecondsSinceEpoch.toString();
+    final String assistantId = newId();
     ConversationMessage assistantMessage = ConversationMessage(
       id: assistantId,
       role: 'assistant',
@@ -362,7 +363,7 @@ class _ChatPageState extends State<ChatPage> {
       snapshots.insert(
         0,
         _ChatSnapshot(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          id: newId(),
           name: name.trim(),
           timestamp: DateTime.now().millisecondsSinceEpoch,
           data: _conversation.toJson(),
@@ -534,7 +535,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     setState(() => _sending = true);
-    final String assistantId = DateTime.now().microsecondsSinceEpoch.toString();
+    final String assistantId = newId();
     ConversationMessage assistantMessage = ConversationMessage(
       id: assistantId,
       role: 'assistant',

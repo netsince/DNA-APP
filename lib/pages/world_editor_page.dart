@@ -2,6 +2,7 @@
 
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../utils/id_utils.dart';
 
 class WorldEditorPage extends StatefulWidget {
   const WorldEditorPage({super.key, required this.controller, this.world});
@@ -25,7 +26,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   void initState() {
     super.initState();
     final World? world = widget.world;
-    _worldId = world?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
+    _worldId = world?.id ?? newId();
     _nameController = TextEditingController(text: world?.name ?? '');
     _summaryController = TextEditingController(text: world?.summary ?? '');
     _descriptionController = TextEditingController(text: world?.description ?? '');
