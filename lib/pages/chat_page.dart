@@ -39,6 +39,7 @@ class _ChatPageState extends State<ChatPage> {
   int _summaryTaskId = 0;
   int? _cancelledSummaryTaskId;
   _PendingSummary? _pendingSummary;
+  bool _rangeSummaryInProgress = false;
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
   static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
@@ -507,6 +508,53 @@ class _ChatPageState extends State<ChatPage> {
     return _conversation.messages.any((ConversationMessage m) => m.kind == 'summary_prompt');
   }
 
+  List<ConversationMessage> _recentTurnSlice(int turnCount) {
+    if (turnCount <= 0) {
+      return <ConversationMessage>[];
+    }
+    int userTurns = 0;
+    int startIndex = 0;
+    for (int i = _conversation.messages.length - 1; i >= 0; i--) {
+      final ConversationMessage message = _conversation.messages[i];
+      if (message.kind != 'message') {
+        continue;
+      }
+      if (message.role == 'user') {
+        userTurns++;
+        if (userTurns == turnCount) {
+          startIndex = i;
+          break;
+        }
+      }
+    }
+    return _conversation.messages
+        .sublist(startIndex)
+        .where((ConversationMessage m) => m.kind == 'message')
+        .toList();
+  }
+
+  String _buildPersonaWorldContext() {
+    final Role? role = _role;
+    final World? world = _world;
+    final StringBuffer buffer = StringBuffer();
+    if (role != null) {
+      if (role.persona.trim().isNotEmpty) {
+        buffer.writeln('Persona: ${role.persona.trim()}');
+      }
+      if (role.intro.trim().isNotEmpty) {
+        buffer.writeln('Intro: ${role.intro.trim()}');
+      }
+    }
+    if (world != null) {
+      if (world.summary.trim().isNotEmpty) {
+        buffer.writeln('World: ${world.summary.trim()}');
+      } else if (world.description.trim().isNotEmpty) {
+        buffer.writeln('World: ${world.description.trim()}');
+      }
+    }
+    return buffer.toString().trim();
+  }
+
   void _insertMessageAfter(String anchorId, ConversationMessage message) {
     final List<ConversationMessage> updated = <ConversationMessage>[..._conversation.messages];
     final int index = updated.indexWhere((ConversationMessage m) => m.id == anchorId);
@@ -570,7 +618,7 @@ class _ChatPageState extends State<ChatPage> {
     final ConversationMessage prompt = ConversationMessage(
       id: newId(),
       role: 'system',
-      text: 'Summary requested. Generate now?',
+      text: '已请求摘要，是否现在生成？',
       timestamp: DateTime.now().millisecondsSinceEpoch,
       kind: 'summary_prompt',
       anchorMessageId: anchorId,
@@ -582,6 +630,120 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     await _startSummaryFromPrompt(prompt);
+  }
+
+  Future<void> _summarizeRecentRange() async {
+    if (_rangeSummaryInProgress) {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
+      );
+      return;
+    }
+    final TextEditingController controller = TextEditingController(text: '20');
+    final int? turnCount = await showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('范围总结'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: '用户轮数，例如 20',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(
+                int.tryParse(controller.text.trim()),
+              ),
+              child: const Text('总结'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (turnCount == null) {
+      return;
+    }
+    final int normalized = turnCount.clamp(1, 200);
+    final List<ConversationMessage> slice = _recentTurnSlice(normalized);
+    if (slice.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有可总结的内容。')),
+      );
+      return;
+    }
+    final StringBuffer convo = StringBuffer();
+    for (final ConversationMessage m in slice) {
+      final String roleLabel = m.role == 'user' ? '用户' : '助手';
+      convo.writeln('$roleLabel: ${m.text}');
+    }
+    final String context = _buildPersonaWorldContext();
+    final List<Map<String, String>> payload = <Map<String, String>>[
+      <String, String>{
+        'role': 'system',
+        'content':
+            '你是对话范围总结助手。请保留关键设定与事实，简洁总结最近对话，不要编造。',
+      },
+      if (context.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content': '上下文：\n$context',
+        },
+      <String, String>{
+        'role': 'user',
+        'content': '请总结最近 $normalized 轮用户对话：\n${convo.toString()}',
+      },
+    ];
+    setState(() => _rangeSummaryInProgress = true);
+    final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      model: model,
+      messages: payload,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _rangeSummaryInProgress = false);
+    if (!result.success || result.content == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.errorMessage ?? '总结失败。')),
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('范围总结结果'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(result.content!.trim()),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _startSummaryFromPrompt(ConversationMessage prompt) async {
@@ -597,7 +759,7 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-    final String? anchorId = prompt.anchorMessageId Close _lastChatMessageId();
+    final String? anchorId = prompt.anchorMessageId ?? _lastChatMessageId();
     if (anchorId == null) {
       return;
     }
@@ -624,12 +786,18 @@ class _ChatPageState extends State<ChatPage> {
         .map((ConversationMessage m) => '${m.role == 'user' ? '用户' : '助手'}：${m.text}')
         .join('\n');
     final ConversationSummary? previous = _latestSummary();
+    final String context = _buildPersonaWorldContext();
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
         'content':
             '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
       },
+      if (context.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content': '上下文：\n$context',
+        },
       if (previous != null && previous.text.trim().isNotEmpty)
         <String, String>{'role': 'user', 'content': '已有摘要：\n${previous.text.trim()}'},
       <String, String>{'role': 'user', 'content': '新增对话：\n$sourceText'},
@@ -776,21 +944,21 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Edit summary'),
+          title: const Text('编辑摘要'),
           content: TextField(
             controller: controller,
             minLines: 4,
             maxLines: 10,
-            decoration: const InputDecoration(hintText: 'Enter new summary'),
+            decoration: const InputDecoration(hintText: '输入新的摘要内容'),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('Save'),
+              child: const Text('保存'),
             ),
           ],
         );
@@ -995,21 +1163,21 @@ class _ChatPageState extends State<ChatPage> {
             value: 'view_summary',
             child: ListTile(
               leading: Icon(Icons.article_outlined),
-              title: Text('View summary'),
+              title: Text('查看摘要'),
             ),
           ),
           PopupMenuItem<String>(
             value: 'edit_summary',
             child: ListTile(
               leading: Icon(Icons.edit_outlined),
-              title: Text('Edit summary'),
+              title: Text('编辑摘要'),
             ),
           ),
           PopupMenuItem<String>(
             value: 'delete_summary',
             child: ListTile(
               leading: Icon(Icons.delete_outline),
-              title: Text('Delete summary'),
+              title: Text('删除摘要'),
             ),
           ),
         ],
@@ -1195,13 +1363,13 @@ class _ChatPageState extends State<ChatPage> {
       if (summary != null && summary.text.trim().isNotEmpty) {
         payload.add(<String, String>{
           'role': 'system',
-          'content': 'Conversation summary:\n${summary.text.trim()}',
+          'content': '对话摘要：\n${summary.text.trim()}',
         });
       }
     }
     payload.add(<String, String>{
       'role': 'system',
-      'content': 'Continue the last assistant reply. Keep the same tone, avoid repeating content, and do not introduce a new topic.',
+      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
     });
     payload.addAll(
       slice.messages.map((ConversationMessage m) => <String, String>{
@@ -1637,7 +1805,7 @@ class _ChatPageState extends State<ChatPage> {
                                   children: <Widget>[
                                     const Icon(Icons.auto_awesome, size: 18),
                                     const SizedBox(width: 6),
-                                    const Text('Summary suggested'),
+                                    const Text('建议生成摘要'),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
@@ -1648,11 +1816,11 @@ class _ChatPageState extends State<ChatPage> {
                                       onPressed: _summaryInProgress
                                           ? null
                                           : () => _startSummaryFromPrompt(message),
-                                      child: const Text('Summarize'),
+                                      child: const Text('生成摘要'),
                                     ),
                                     OutlinedButton(
                                       onPressed: () => _dismissSummaryPrompt(message.id),
-                                      child: const Text('Dismiss'),
+                                      child: const Text('忽略'),
                                     ),
                                   ],
                                 ),
@@ -1666,7 +1834,7 @@ class _ChatPageState extends State<ChatPage> {
                       final ConversationSummary? summary = _summaryById(message.summaryId);
                       final String raw = summary?.text.trim() Close '';
                       final String preview = raw.isEmpty
-                          ? 'Summary is empty'
+                          ? '摘要为空'
                           : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
                       return Align(
                         key: key,
@@ -1709,7 +1877,7 @@ class _ChatPageState extends State<ChatPage> {
                                   children: <Widget>[
                                     const Icon(Icons.article_outlined, size: 18),
                                     const SizedBox(width: 6),
-                                    const Text('Summary generated'),
+                                    const Text('摘要已生成'),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -1719,7 +1887,7 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Long press to view/delete',
+                                  '长按查看/删除',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context)
                                             .colorScheme
@@ -1773,7 +1941,7 @@ class _ChatPageState extends State<ChatPage> {
                               if (message.text.isNotEmpty && _showTokenCounts) ...<Widget>[
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Chars $charCount / Token $tokenCount',
+                                  '字数 $charCount / Token $tokenCount',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context)
                                             .colorScheme
@@ -1860,15 +2028,25 @@ class _ChatPageState extends State<ChatPage> {
                             setState(() => _showTokenCounts = !_showTokenCounts);
                           } else if (value == 'force_summary') {
                             await _forceSummaryPrompt();
+                          } else if (value == 'range_summary') {
+                            await _summarizeRecentRange();
                           }
                         },
                         itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'range_summary',
+                            enabled: !_rangeSummaryInProgress,
+                            child: ListTile(
+                              leading: Icon(Icons.summarize_outlined),
+                              title: Text('范围总结'),
+                            ),
+                          ),
                           PopupMenuItem<String>(
                             value: 'force_summary',
                             enabled: !_summaryInProgress,
                             child: ListTile(
                               leading: Icon(Icons.auto_awesome),
-                              title: Text('摘要'),
+                              title: Text('强制摘要'),
                             ),
                           ),
                           CheckedPopupMenuItem<String>(
