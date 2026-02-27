@@ -15,6 +15,8 @@ import 'chat/chat_models.dart';
 import 'chat/chat_snapshot_store.dart';
 import 'chat/chat_stream_parser.dart';
 import 'chat/chat_token_counter.dart';
+import 'chat/chat_message_slice.dart';
+import 'chat/widgets/chat_app_bar.dart';
 import 'chat/widgets/chat_input_bar.dart';
 import 'chat/widgets/chat_message_list.dart';
 
@@ -277,38 +279,6 @@ class _ChatPageState extends State<ChatPage> {
     }
     return system.toString().trim();
   }
-  ConversationSummary? _latestSummary() {
-    if (_conversation.summaries.isEmpty) {
-      return null;
-    }
-    return _conversation.summaries.last;
-  }
-
-  int _summaryEndIndex() {
-    final ConversationSummary? summary = _latestSummary();
-    if (summary == null || summary.endMessageId.isEmpty) {
-      return -1;
-    }
-    return _conversation.messages.indexWhere((ConversationMessage m) => m.id == summary.endMessageId);
-  }
-
-  MessageSlice _sliceForPayload({
-    int? endExclusive,
-    Set<String>? excludeIds,
-  }) {
-    final int summaryEnd = _summaryEndIndex();
-    final int total = _conversation.messages.length;
-    final int end = endExclusive == null ? total : endExclusive.clamp(0, total);
-    final bool includeSummary = summaryEnd >= 0 && end > summaryEnd;
-    final int start = includeSummary ? summaryEnd + 1 : 0;
-    final List<ConversationMessage> slice = _conversation.messages
-        .sublist(start, end)
-        .where((ConversationMessage m) => m.kind == 'message')
-        .where((ConversationMessage m) => excludeIds == null || !excludeIds.contains(m.id))
-        .toList();
-    return MessageSlice(messages: slice, includeSummary: includeSummary);
-  }
-
   List<Map<String, String>> _buildMessagesFrom(
     List<ConversationMessage> messages, {
     String? extraUserText,
@@ -320,7 +290,7 @@ class _ChatPageState extends State<ChatPage> {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
     if (includeSummary) {
-      final ConversationSummary? summary = _latestSummary();
+      final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
       if (summary != null && summary.text.trim().isNotEmpty) {
         payload.add(<String, String>{
           'role': 'system',
@@ -344,7 +314,7 @@ class _ChatPageState extends State<ChatPage> {
     return payload;
   }
   List<Map<String, String>> _buildMessages() {
-    final MessageSlice slice = _sliceForPayload();
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(_conversation);
     return _buildMessagesFrom(
       slice.messages,
       includeSummary: slice.includeSummary,
@@ -536,7 +506,7 @@ class _ChatPageState extends State<ChatPage> {
 
   List<Map<String, String>> _buildInspirationPayload(String topic) {
     final String context = _buildPersonaWorldContext();
-    final ConversationSummary? summary = _latestSummary();
+    final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
     final bool includeSummary = widget.controller.settings.inspirationIncludeSummary &&
         summary != null &&
         summary.text.trim().isNotEmpty;
@@ -1009,7 +979,7 @@ class _ChatPageState extends State<ChatPage> {
     if (anchorId == null) {
       return;
     }
-    final int summaryEnd = _summaryEndIndex();
+    final int summaryEnd = ChatMessageSlice.summaryEndIndex(_conversation);
     final int anchorIndex =
         _conversation.messages.indexWhere((ConversationMessage m) => m.id == anchorId);
     if (anchorIndex == -1 || anchorIndex <= summaryEnd) {
@@ -1031,7 +1001,7 @@ class _ChatPageState extends State<ChatPage> {
     final String sourceText = sourceMessages
         .map((ConversationMessage m) => '${m.role == 'user' ? '用户' : '助手'}：${m.text}')
         .join('\n');
-    final ConversationSummary? previous = _latestSummary();
+    final ConversationSummary? previous = ChatMessageSlice.latestSummary(_conversation);
     final String personaContext = _buildPersonaWorldContext();
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
@@ -1582,14 +1552,17 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-    final MessageSlice slice = _sliceForPayload(excludeIds: <String>{assistantId});
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      excludeIds: <String>{assistantId},
+    );
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = _buildSystemPrompt();
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
     if (slice.includeSummary) {
-      final ConversationSummary? summary = _latestSummary();
+      final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
       if (summary != null && summary.text.trim().isNotEmpty) {
         payload.add(<String, String>{
           'role': 'system',
@@ -1677,7 +1650,10 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-    final MessageSlice slice = _sliceForPayload(endExclusive: index);
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      endExclusive: index,
+    );
     final List<Map<String, String>> payload = _buildMessagesFrom(
       slice.messages,
       includeSummary: slice.includeSummary,
