@@ -28,6 +28,7 @@ part 'chat/chat_ui_helpers.dart';
 part 'chat/chat_search.dart';
 part 'chat/chat_payload_builders.dart';
 part 'chat/chat_summary.dart';
+part 'chat/chat_stream_handlers.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
@@ -37,7 +38,13 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 class _ChatPageState extends State<ChatPage>
-    with ChatStateMixin, ChatUiHelpers, ChatSearchHelpers, ChatPayloadBuilders, ChatSummaryHelpers {
+    with
+        ChatStateMixin,
+        ChatUiHelpers,
+        ChatSearchHelpers,
+        ChatPayloadBuilders,
+        ChatSummaryHelpers,
+        ChatStreamHandlers {
   Future<void> _ensureOpeningMessage() async {
     if (_conversation.messages.isNotEmpty) {
       return;
@@ -143,55 +150,16 @@ class _ChatPageState extends State<ChatPage>
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
     );
-    await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
-      baseUrl: baseUrl,
-      apiKey: apiKey,
+    final bool streamed = await _streamAssistantResponse(
       model: model,
-      messages: payload,
-    )) {
-      if (!mounted) {
-        return;
-      }
-      if (chunk.startsWith('[ERROR]')) {
-        setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(chunk.replaceFirst('[ERROR] ', ''))),
-        );
-        return;
-      }
-      final StreamParseState state = consumeStreamChunk(
-        streamStates: _streamParseStates,
-        thoughtsByMessageId: _thoughtsByMessageId,
-        messageId: assistantId,
-        chunk: chunk,
-      );
-      assistantMessage = assistantMessage.copyWith(text: state.visible);
-      _conversation = _conversation.copyWith(
-        messages: <ConversationMessage>[
-          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
-          assistantMessage,
-        ],
-      );
-      await widget.controller.upsertConversation(_conversation);
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-      _scrollToBottom();
-    }
-    if (!mounted) {
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      payload: payload,
+      assistantId: assistantId,
+      assistantMessage: assistantMessage,
+    );
+    if (!streamed) {
       return;
-    }
-    final String trimmed = assistantMessage.text.trim();
-    if (trimmed != assistantMessage.text) {
-      assistantMessage = assistantMessage.copyWith(text: trimmed);
-      _conversation = _conversation.copyWith(
-        messages: <ConversationMessage>[
-          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
-          assistantMessage,
-        ],
-      );
-      await widget.controller.upsertConversation(_conversation);
     }
     setState(() => _sending = false);
     await _maybePromptSummary();
@@ -546,55 +514,16 @@ class _ChatPageState extends State<ChatPage>
             'content': m.text,
           }),
     );
-    await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
-      baseUrl: baseUrl,
-      apiKey: apiKey,
+    final bool streamed = await _streamAssistantResponse(
       model: model,
-      messages: payload,
-    )) {
-      if (!mounted) {
-        return;
-      }
-      if (chunk.startsWith('[ERROR]')) {
-        setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(chunk.replaceFirst('[ERROR] ', ''))),
-        );
-        return;
-      }
-      final StreamParseState state = consumeStreamChunk(
-        streamStates: _streamParseStates,
-        thoughtsByMessageId: _thoughtsByMessageId,
-        messageId: assistantId,
-        chunk: chunk,
-      );
-      assistantMessage = assistantMessage.copyWith(text: state.visible);
-      _conversation = _conversation.copyWith(
-        messages: <ConversationMessage>[
-          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
-          assistantMessage,
-        ],
-      );
-      await widget.controller.upsertConversation(_conversation);
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-      _scrollToBottom();
-    }
-    if (!mounted) {
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      payload: payload,
+      assistantId: assistantId,
+      assistantMessage: assistantMessage,
+    );
+    if (!streamed) {
       return;
-    }
-    final String trimmed = assistantMessage.text.trim();
-    if (trimmed != assistantMessage.text) {
-      assistantMessage = assistantMessage.copyWith(text: trimmed);
-      _conversation = _conversation.copyWith(
-        messages: <ConversationMessage>[
-          ..._conversation.messages.where((ConversationMessage m) => m.id != assistantId),
-          assistantMessage,
-        ],
-      );
-      await widget.controller.upsertConversation(_conversation);
     }
     setState(() => _sending = false);
     await _maybePromptSummary();
