@@ -683,30 +683,61 @@ class _ChatPageState extends State<ChatPage> {
     final bool includeSummary = widget.controller.settings.inspirationIncludeSummary &&
         summary != null &&
         summary.text.trim().isNotEmpty;
+    final List<ConversationMessage> recent = _latestMessages(40);
+    final List<String> recentUser = <String>[];
+    final List<String> recentAssistant = <String>[];
+    for (int i = recent.length - 1; i >= 0; i--) {
+      final ConversationMessage m = recent[i];
+      if (m.kind != 'message') {
+        continue;
+      }
+      final String cleaned = _stripThoughtTags(m.text).trim();
+      if (cleaned.isEmpty) {
+        continue;
+      }
+      if (m.role == 'user') {
+        if (recentUser.length < 8) {
+          recentUser.add(cleaned);
+        }
+      } else if (m.role == 'assistant') {
+        if (recentAssistant.length < 4) {
+          recentAssistant.add(cleaned);
+        }
+      }
+      if (recentUser.length >= 8 && recentAssistant.length >= 4) {
+        break;
+      }
+    }
+    final List<String> recentUserOrdered = recentUser.reversed.toList();
+    final List<String> recentAssistantOrdered = recentAssistant.reversed.toList();
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content': '你是灵感生成助手。只输出一句话的灵感建议，不要编号，不要解释。',
+        'content': '你是灵感生成助手。你生成的是“用户要说的话”的灵感草稿，不是角色台词。必须使用用户视角、用户语气。不得模仿角色口吻，不得替角色发言。角色与世界观仅用于理解背景。只输出一句话的灵感建议，不要编号，不要解释。',
       },
       if (context.isNotEmpty)
         <String, String>{
           'role': 'system',
-          'content': '设定：\n$context',
+          'content': '背景设定（仅供理解背景，不得模仿语气）：\n$context',
         },
       if (includeSummary)
         <String, String>{
           'role': 'system',
           'content': '最近摘要：\n${summary!.text.trim()}',
         },
+      if (recentUserOrdered.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content': '用户最近发言（只用于内容衔接，保持用户视角与语气）：\n${recentUserOrdered.map((String s) => '- $s').join('\n')}',
+        },
+      if (recentAssistantOrdered.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content': '角色最近发言（仅供背景，不得模仿语气或措辞）：\n${recentAssistantOrdered.map((String s) => '- $s').join('\n')}',
+        },
     ];
-    for (final ConversationMessage m in _latestMessages(50)) {
-      payload.add(<String, String>{
-        'role': m.role,
-        'content': _stripThoughtTags(m.text),
-      });
-    }
     final String safeTopic = topic.trim().isEmpty ? '继续对话' : topic.trim();
-    payload.add(<String, String>{'role': 'user', 'content': '生成灵感：$safeTopic'});
+    payload.add(<String, String>{'role': 'user', 'content': '用户灵感：$safeTopic'});
     return payload;
   }
 
