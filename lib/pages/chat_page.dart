@@ -32,6 +32,7 @@ part 'chat/chat_stream_handlers.dart';
 part 'chat/chat_actions.dart';
 part 'chat/chat_actions_send.dart';
 part 'chat/chat_actions_inspiration.dart';
+part 'chat/chat_actions_snapshots.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
@@ -50,7 +51,8 @@ class _ChatPageState extends State<ChatPage>
         ChatStreamHandlers,
         ChatActions,
         ChatActionsSend,
-        ChatActionsInspiration {
+        ChatActionsInspiration,
+        ChatActionsSnapshots {
   Future<void> _ensureOpeningMessage() async {
     if (_conversation.messages.isNotEmpty) {
       return;
