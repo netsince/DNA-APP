@@ -33,6 +33,7 @@ part 'chat/chat_actions.dart';
 part 'chat/chat_actions_send.dart';
 part 'chat/chat_actions_inspiration.dart';
 part 'chat/chat_actions_snapshots.dart';
+part 'chat/chat_actions_summary_ui.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
@@ -52,7 +53,8 @@ class _ChatPageState extends State<ChatPage>
         ChatActions,
         ChatActionsSend,
         ChatActionsInspiration,
-        ChatActionsSnapshots {
+        ChatActionsSnapshots,
+        ChatActionsSummaryUi {
   Future<void> _ensureOpeningMessage() async {
     if (_conversation.messages.isNotEmpty) {
       return;
