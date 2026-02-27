@@ -79,6 +79,10 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
         );
       } on MissingPluginException {
         cropped = null;
+      } on PlatformException {
+        cropped = null;
+      } catch (_) {
+        cropped = null;
       }
     }
 
