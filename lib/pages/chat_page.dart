@@ -48,7 +48,9 @@ class _ChatPageState extends State<ChatPage>
         ChatPayloadBuilders,
         ChatSummaryHelpers,
         ChatStreamHandlers,
-        ChatActions {
+        ChatActions,
+        ChatActionsSend,
+        ChatActionsInspiration {
   Future<void> _ensureOpeningMessage() async {
     if (_conversation.messages.isNotEmpty) {
       return;
