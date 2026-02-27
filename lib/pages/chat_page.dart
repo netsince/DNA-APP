@@ -17,6 +17,8 @@ import 'chat/chat_token_counter.dart';
 import 'chat/chat_message_slice.dart';
 import 'chat/chat_message_builder.dart';
 import 'chat/chat_system_prompt.dart';
+import 'chat/chat_state.dart';
+import 'chat/chat_controller.dart';
 import 'chat/widgets/chat_app_bar.dart';
 import 'chat/widgets/chat_input_bar.dart';
 import 'chat/widgets/chat_message_list.dart';
@@ -32,30 +34,44 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final ChatState _state = ChatState();
+  late final ChatController _chatController;
   late Conversation _conversation;
   Color? _accent;
-  bool _sending = false;
-  bool _searching = false;
-  bool _showTokenCounts = false;
-  int _searchMatchIndex = -1;
-  final Map<String, GlobalKey> _messageKeys = <String, GlobalKey>{};
+  bool get _sending => _state.sending;
+  set _sending(bool value) => _state.sending = value;
+  bool get _searching => _state.searching;
+  set _searching(bool value) => _state.searching = value;
+  bool get _showTokenCounts => _state.showTokenCounts;
+  set _showTokenCounts(bool value) => _state.showTokenCounts = value;
+  int get _searchMatchIndex => _state.searchMatchIndex;
+  set _searchMatchIndex(int value) => _state.searchMatchIndex = value;
+  Map<String, GlobalKey> get _messageKeys => _state.messageKeys;
   final ChatTokenCounter _tokenCounter = ChatTokenCounter();
   final ChatSnapshotStore _snapshotStore = ChatSnapshotStore();
-  bool _summaryInProgress = false;
-  int _summaryTaskId = 0;
-  int? _cancelledSummaryTaskId;
-  PendingSummary? _pendingSummary;
-  bool _rangeSummaryInProgress = false;
-  bool _inspirationInProgress = false;
-  String _inspirationPrompt = '';
-  final List<String> _inspirationOptions = <String>[];
-  final Map<String, ThoughtEntry> _thoughtsByMessageId = <String, ThoughtEntry>{};
-  final Map<String, StreamParseState> _streamParseStates = <String, StreamParseState>{};
-  final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
-  final Set<String> _retryDisabled = <String>{};
+  bool get _summaryInProgress => _state.summaryInProgress;
+  set _summaryInProgress(bool value) => _state.summaryInProgress = value;
+  int get _summaryTaskId => _state.summaryTaskId;
+  set _summaryTaskId(int value) => _state.summaryTaskId = value;
+  int? get _cancelledSummaryTaskId => _state.cancelledSummaryTaskId;
+  set _cancelledSummaryTaskId(int? value) => _state.cancelledSummaryTaskId = value;
+  PendingSummary? get _pendingSummary => _state.pendingSummary;
+  set _pendingSummary(PendingSummary? value) => _state.pendingSummary = value;
+  bool get _rangeSummaryInProgress => _state.rangeSummaryInProgress;
+  set _rangeSummaryInProgress(bool value) => _state.rangeSummaryInProgress = value;
+  bool get _inspirationInProgress => _state.inspirationInProgress;
+  set _inspirationInProgress(bool value) => _state.inspirationInProgress = value;
+  String get _inspirationPrompt => _state.inspirationPrompt;
+  set _inspirationPrompt(String value) => _state.inspirationPrompt = value;
+  List<String> get _inspirationOptions => _state.inspirationOptions;
+  Map<String, ThoughtEntry> get _thoughtsByMessageId => _state.thoughtsByMessageId;
+  Map<String, StreamParseState> get _streamParseStates => _state.streamParseStates;
+  Map<String, List<String>> get _retryAlternatives => _state.retryAlternatives;
+  Set<String> get _retryDisabled => _state.retryDisabled;
   @override
   void initState() {
     super.initState();
+    _chatController = ChatController(scrollController: _scrollController);
     Conversation? existing;
     for (final Conversation c in widget.controller.conversations) {
       if (c.id == widget.conversationId) {
@@ -292,58 +308,8 @@ class _ChatPageState extends State<ChatPage> {
     */
     return ChatSystemPrompt.build(role: _role, world: _world);
   }
-  List<Map<String, String>> _buildMessagesFrom(
-    List<ConversationMessage> messages, {
-    String? extraUserText,
-    bool includeSummary = true,
-  }) {
-    final List<Map<String, String>> payload = <Map<String, String>>[];
-    final String sys = ChatSystemPrompt.build(role: _role, world: _world);
-    if (sys.isNotEmpty) {
-      payload.add(<String, String>{'role': 'system', 'content': sys});
-    }
-    if (includeSummary) {
-      final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
-      if (summary != null && summary.text.trim().isNotEmpty) {
-        payload.add(<String, String>{
-          'role': 'system',
-          'content': '对话摘要：\n${summary.text.trim()}',
-        });
-      }
-    }
-    for (final ConversationMessage message in messages) {
-      if (message.kind != 'message') {
-        continue;
-      }
-      final String content = stripThoughtTags(message.text);
-      payload.add(<String, String>{
-        'role': message.role,
-        'content': content,
-      });
-    }
-    if (extraUserText != null && extraUserText.trim().isNotEmpty) {
-      payload.add(<String, String>{'role': 'user', 'content': extraUserText.trim()});
-    }
-    return payload;
-  }
-  List<Map<String, String>> _buildMessages() {
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(_conversation);
-    return _buildMessagesFrom(
-      slice.messages,
-      includeSummary: slice.includeSummary,
-    );
-  }
   void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
-        return;
-      }
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 100,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    });
+    _chatController.scrollToBottom();
   }
 
   void _toggleSearch() {
@@ -376,18 +342,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   List<int> _computeSearchMatches(String query) {
-    if (query.isEmpty) {
-      return <int>[];
-    }
-    final String lowerQuery = query.toLowerCase();
-    final List<int> matches = <int>[];
-    for (int i = 0; i < _conversation.messages.length; i++) {
-      final String text = _conversation.messages[i].text;
-      if (_conversation.messages[i].kind == 'message' && text.toLowerCase().contains(lowerQuery)) {
-        matches.add(i);
-      }
-    }
-    return matches;
+    return _chatController.computeSearchMatches(_conversation, query);
   }
 
   void _navigateMatch(int delta) {
@@ -405,19 +360,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _jumpToMessageIndex(int messageIndex) {
-    if (messageIndex < 0 || messageIndex >= _conversation.messages.length) {
-      return;
-    }
-    final String id = _conversation.messages[messageIndex].id;
-    final GlobalKey? key = _messageKeys[id];
-    if (key == null || key.currentContext == null) {
-      return;
-    }
-    Scrollable.ensureVisible(
-      key.currentContext!,
-      alignment: 0.3,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+    _chatController.jumpToMessageIndex(
+      conversation: _conversation,
+      messageKeys: _messageKeys,
+      messageIndex: messageIndex,
     );
   }
 
