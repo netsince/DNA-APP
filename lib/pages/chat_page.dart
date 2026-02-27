@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:tiktoken/tiktoken.dart';
 import '../utils/id_utils.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
@@ -14,6 +11,11 @@ import '../models/role.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import 'chat/chat_models.dart';
+import 'chat/chat_snapshot_store.dart';
+import 'chat/chat_stream_parser.dart';
+import 'chat/chat_token_counter.dart';
+
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
   final AppController controller;
@@ -32,22 +34,20 @@ class _ChatPageState extends State<ChatPage> {
   bool _showTokenCounts = false;
   int _searchMatchIndex = -1;
   final Map<String, GlobalKey> _messageKeys = <String, GlobalKey>{};
-  final Map<String, _TokenCacheEntry> _tokenCache = <String, _TokenCacheEntry>{};
-  Tiktoken? _tokenEncoding;
-  String? _tokenEncodingModel;
+  final ChatTokenCounter _tokenCounter = ChatTokenCounter();
+  final ChatSnapshotStore _snapshotStore = ChatSnapshotStore();
   bool _summaryInProgress = false;
   int _summaryTaskId = 0;
   int? _cancelledSummaryTaskId;
-  _PendingSummary? _pendingSummary;
+  PendingSummary? _pendingSummary;
   bool _rangeSummaryInProgress = false;
   bool _inspirationInProgress = false;
   String _inspirationPrompt = '';
   final List<String> _inspirationOptions = <String>[];
-  final Map<String, _ThoughtEntry> _thoughtsByMessageId = <String, _ThoughtEntry>{};
-  final Map<String, _StreamParseState> _streamParseStates = <String, _StreamParseState>{};
+  final Map<String, ThoughtEntry> _thoughtsByMessageId = <String, ThoughtEntry>{};
+  final Map<String, StreamParseState> _streamParseStates = <String, StreamParseState>{};
   final Map<String, List<String>> _retryAlternatives = <String, List<String>>{};
   final Set<String> _retryDisabled = <String>{};
-  static const String _snapshotKeyPrefix = 'conversation_snapshots_v1_';
   @override
   void initState() {
     super.initState();
@@ -193,7 +193,12 @@ class _ChatPageState extends State<ChatPage> {
         );
         return;
       }
-      final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
+      final StreamParseState state = consumeStreamChunk(
+        streamStates: _streamParseStates,
+        thoughtsByMessageId: _thoughtsByMessageId,
+        messageId: assistantId,
+        chunk: chunk,
+      );
       assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
@@ -285,7 +290,7 @@ class _ChatPageState extends State<ChatPage> {
     return _conversation.messages.indexWhere((ConversationMessage m) => m.id == summary.endMessageId);
   }
 
-  _MessageSlice _sliceForPayload({
+  MessageSlice _sliceForPayload({
     int? endExclusive,
     Set<String>? excludeIds,
   }) {
@@ -299,7 +304,7 @@ class _ChatPageState extends State<ChatPage> {
         .where((ConversationMessage m) => m.kind == 'message')
         .where((ConversationMessage m) => excludeIds == null || !excludeIds.contains(m.id))
         .toList();
-    return _MessageSlice(messages: slice, includeSummary: includeSummary);
+    return MessageSlice(messages: slice, includeSummary: includeSummary);
   }
 
   List<Map<String, String>> _buildMessagesFrom(
@@ -325,7 +330,7 @@ class _ChatPageState extends State<ChatPage> {
       if (message.kind != 'message') {
         continue;
       }
-      final String content = _stripThoughtTags(message.text);
+      final String content = stripThoughtTags(message.text);
       payload.add(<String, String>{
         'role': message.role,
         'content': content,
@@ -337,7 +342,7 @@ class _ChatPageState extends State<ChatPage> {
     return payload;
   }
   List<Map<String, String>> _buildMessages() {
-    final _MessageSlice slice = _sliceForPayload();
+    final MessageSlice slice = _sliceForPayload();
     return _buildMessagesFrom(
       slice.messages,
       includeSummary: slice.includeSummary,
@@ -431,35 +436,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Tiktoken _ensureEncoding() {
-    final String model = widget.controller.settings.selectedModel;
-    if (_tokenEncoding == null || _tokenEncodingModel != model) {
-      try {
-        _tokenEncoding = encodingForModel(model);
-      } catch (_) {
-        _tokenEncoding = getEncoding('cl100k_base');
-      }
-      _tokenEncodingModel = model;
-      _tokenCache.clear();
-    }
-    return _tokenEncoding!;
-  }
-
-  int _countTokens(String messageId, String text) {
-    final _TokenCacheEntry? cached = _tokenCache[messageId];
-    if (cached != null && cached.text == text) {
-      return cached.count;
-    }
-    if (text.isEmpty) {
-      _tokenCache[messageId] = const _TokenCacheEntry(text: '', count: 0);
-      return 0;
-    }
-    final Tiktoken encoding = _ensureEncoding();
-    final int count = encoding.encode(text).length;
-    _tokenCache[messageId] = _TokenCacheEntry(text: text, count: count);
-    return count;
-  }
-
   TextSpan _buildHighlightedText(BuildContext context, String text) {
     final String query = _searchController.text.trim();
     final TextStyle base = DefaultTextStyle.of(context).style;
@@ -490,96 +466,6 @@ class _ChatPageState extends State<ChatPage> {
       start = index + query.length;
     }
     return TextSpan(children: spans, style: base);
-  }
-
-  _TagMatch? _findTag(String buffer, List<String> tags) {
-    final String lower = buffer.toLowerCase();
-    int bestIndex = -1;
-    String? bestTag;
-    for (final String tag in tags) {
-      final int idx = lower.indexOf(tag);
-      if (idx == -1) {
-        continue;
-      }
-      if (bestIndex == -1 || idx < bestIndex) {
-        bestIndex = idx;
-        bestTag = tag;
-      }
-    }
-    if (bestIndex == -1 || bestTag == null) {
-      return null;
-    }
-    return _TagMatch(index: bestIndex, tag: bestTag);
-  }
-
-  _StreamParseState _consumeStreamChunk(String messageId, String chunk) {
-    final _StreamParseState state =
-        _streamParseStates.putIfAbsent(messageId, () => _StreamParseState());
-    state.buffer += chunk;
-    const List<String> openTags = <String>['<think>', '<analysis>', '<thought>'];
-    const List<String> closeTags = <String>['</think>', '</analysis>', '</thought>'];
-    while (state.buffer.isNotEmpty) {
-      if (!state.inThought) {
-        final _TagMatch? open = _findTag(state.buffer, openTags);
-        if (open == null) {
-          state.visible += state.buffer;
-          state.buffer = '';
-          break;
-        }
-        if (open.index > 0) {
-          state.visible += state.buffer.substring(0, open.index);
-        }
-        state.buffer = state.buffer.substring(open.index + open.tag.length);
-        state.inThought = true;
-      } else {
-        final _TagMatch? close = _findTag(state.buffer, closeTags);
-        if (close == null) {
-          state.thought += state.buffer;
-          state.buffer = '';
-          break;
-        }
-        if (close.index > 0) {
-          state.thought += state.buffer.substring(0, close.index);
-        }
-        state.buffer = state.buffer.substring(close.index + close.tag.length);
-        state.inThought = false;
-      }
-    }
-    _thoughtsByMessageId[messageId] = _ThoughtEntry(text: state.thought.trim());
-    return state;
-  }
-
-  String _stripThoughtTags(String text) {
-    if (text.isEmpty) {
-      return text;
-    }
-    const List<String> openTags = <String>['<think>', '<analysis>', '<thought>'];
-    const List<String> closeTags = <String>['</think>', '</analysis>', '</thought>'];
-    String buffer = text;
-    bool inThought = false;
-    final StringBuffer out = StringBuffer();
-    while (buffer.isNotEmpty) {
-      if (!inThought) {
-        final _TagMatch? open = _findTag(buffer, openTags);
-        if (open == null) {
-          out.write(buffer);
-          break;
-        }
-        if (open.index > 0) {
-          out.write(buffer.substring(0, open.index));
-        }
-        buffer = buffer.substring(open.index + open.tag.length);
-        inThought = true;
-      } else {
-        final _TagMatch? close = _findTag(buffer, closeTags);
-        if (close == null) {
-          break;
-        }
-        buffer = buffer.substring(close.index + close.tag.length);
-        inThought = false;
-      }
-    }
-    return out.toString();
   }
 
   int _totalTurnCount() {
@@ -692,7 +578,7 @@ class _ChatPageState extends State<ChatPage> {
       if (m.kind != 'message') {
         continue;
       }
-      final String cleaned = _stripThoughtTags(m.text).trim();
+    final String cleaned = stripThoughtTags(m.text).trim();
       if (cleaned.isEmpty) {
         continue;
       }
@@ -763,7 +649,7 @@ class _ChatPageState extends State<ChatPage> {
             messages: payload,
           );
           if (result.success && result.content != null) {
-            final String cleaned = _stripThoughtTags(result.content!).trim();
+            final String cleaned = stripThoughtTags(result.content!).trim();
             if (cleaned.isNotEmpty) {
               results.add(cleaned);
             }
@@ -786,7 +672,7 @@ class _ChatPageState extends State<ChatPage> {
         if (!result.success || result.content == null) {
           return null;
         }
-        return _stripThoughtTags(result.content!).trim();
+        return stripThoughtTags(result.content!).trim();
       });
       final List<String?> settled = await Future.wait(tasks);
       return settled.whereType<String>().where((String s) => s.isNotEmpty).toList();
@@ -1195,7 +1081,7 @@ class _ChatPageState extends State<ChatPage> {
     _summaryInProgress = true;
     final int taskId = ++_summaryTaskId;
     _cancelledSummaryTaskId = null;
-    _pendingSummary = _PendingSummary(
+    _pendingSummary = PendingSummary(
       taskId: taskId,
       anchorMessageId: anchorId,
       sourceText: sourceText,
@@ -1385,30 +1271,15 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
   }
-  Future<List<_ChatSnapshot>> _loadSnapshots() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = prefs.getString('$_snapshotKeyPrefix${_conversation.id}') ?? '';
-    if (raw.isEmpty) {
-      return <_ChatSnapshot>[];
-    }
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is List) {
-        return decoded
-            .whereType<Map<String, dynamic>>()
-            .map(_ChatSnapshot.fromJson)
-            .toList();
-      }
-    } catch (_) {}
-    return <_ChatSnapshot>[];
+  Future<List<ChatSnapshot>> _loadSnapshots() async {
+    return _snapshotStore.loadSnapshots(_conversation.id);
   }
-  Future<void> _saveSnapshots(List<_ChatSnapshot> snapshots) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String raw = jsonEncode(snapshots.map((s) => s.toJson()).toList());
-    await prefs.setString('$_snapshotKeyPrefix${_conversation.id}', raw);
+
+  Future<void> _saveSnapshots(List<ChatSnapshot> snapshots) async {
+    await _snapshotStore.saveSnapshots(_conversation.id, snapshots);
   }
   Future<void> _manageSnapshots() async {
-    final List<_ChatSnapshot> snapshots = await _loadSnapshots();
+    final List<ChatSnapshot> snapshots = await _loadSnapshots();
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -1422,7 +1293,7 @@ class _ChatPageState extends State<ChatPage> {
                     shrinkWrap: true,
                     itemCount: snapshots.length,
                     itemBuilder: (BuildContext context, int index) {
-                      final _ChatSnapshot snapshot = snapshots[index];
+                      final ChatSnapshot snapshot = snapshots[index];
                       final DateTime time = DateTime.fromMillisecondsSinceEpoch(snapshot.timestamp);
                       return ListTile(
                         title: Text(snapshot.name),
@@ -1478,7 +1349,7 @@ class _ChatPageState extends State<ChatPage> {
       }
       snapshots.insert(
         0,
-        _ChatSnapshot(
+        ChatSnapshot(
           id: newId(),
           name: name.trim(),
           timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -1741,7 +1612,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
-    final _MessageSlice slice = _sliceForPayload(excludeIds: <String>{assistantId});
+    final MessageSlice slice = _sliceForPayload(excludeIds: <String>{assistantId});
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = _buildSystemPrompt();
     if (sys.isNotEmpty) {
@@ -1782,7 +1653,12 @@ class _ChatPageState extends State<ChatPage> {
         );
         return;
       }
-      final _StreamParseState state = _consumeStreamChunk(assistantId, chunk);
+      final StreamParseState state = consumeStreamChunk(
+        streamStates: _streamParseStates,
+        thoughtsByMessageId: _thoughtsByMessageId,
+        messageId: assistantId,
+        chunk: chunk,
+      );
       assistantMessage = assistantMessage.copyWith(text: state.visible);
       _conversation = _conversation.copyWith(
         messages: <ConversationMessage>[
@@ -1831,7 +1707,7 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-    final _MessageSlice slice = _sliceForPayload(endExclusive: index);
+    final MessageSlice slice = _sliceForPayload(endExclusive: index);
     final List<Map<String, String>> payload = _buildMessagesFrom(
       slice.messages,
       includeSummary: slice.includeSummary,
@@ -2309,8 +2185,13 @@ class _ChatPageState extends State<ChatPage> {
                     final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
                     final Color bubbleColor = isUser ? userBubble : assistantBubble;
                     final int charCount = message.text.runes.length;
-                    final int tokenCount =
-                        _showTokenCounts ? _countTokens(message.id, message.text) : 0;
+                    final int tokenCount = _showTokenCounts
+                        ? _tokenCounter.countTokens(
+                            model: widget.controller.settings.selectedModel,
+                            messageId: message.id,
+                            text: message.text,
+                          )
+                        : 0;
                     final String thoughtText =
                         _thoughtsByMessageId[message.id]?.text.trim() ?? '';
                     return Align(
@@ -2531,80 +2412,3 @@ class _ChatPageState extends State<ChatPage> {
   }
 }
 
-class _MessageSlice {
-  const _MessageSlice({required this.messages, required this.includeSummary});
-
-  final List<ConversationMessage> messages;
-  final bool includeSummary;
-}
-
-class _PendingSummary {
-  const _PendingSummary({
-    required this.taskId,
-    required this.anchorMessageId,
-    required this.sourceText,
-    required this.promptMessageId,
-  });
-
-  final int taskId;
-  final String anchorMessageId;
-  final String sourceText;
-  final String promptMessageId;
-}
-
-class _TokenCacheEntry {
-  const _TokenCacheEntry({required this.text, required this.count});
-
-  final String text;
-  final int count;
-}
-
-class _ThoughtEntry {
-  const _ThoughtEntry({required this.text});
-
-  final String text;
-}
-
-class _StreamParseState {
-  String buffer = '';
-  String visible = '';
-  String thought = '';
-  bool inThought = false;
-}
-
-class _TagMatch {
-  const _TagMatch({required this.index, required this.tag});
-
-  final int index;
-  final String tag;
-}
-
-class _ChatSnapshot {
-  const _ChatSnapshot({
-    required this.id,
-    required this.name,
-    required this.timestamp,
-    required this.data,
-  });
-  final String id;
-  final String name;
-  final int timestamp;
-  final Map<String, dynamic> data;
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'id': id,
-      'name': name,
-      'timestamp': timestamp,
-      'data': data,
-    };
-  }
-  static _ChatSnapshot fromJson(Map<String, dynamic> json) {
-    return _ChatSnapshot(
-      id: (json['id'] as String?) ?? '',
-      name: (json['name'] as String?) ?? '',
-      timestamp: (json['timestamp'] as int?) ?? 0,
-      data: (json['data'] as Map?)?.map((Object? k, Object? v) => MapEntry('$k', v)) ??
-          <String, dynamic>{},
-    );
-  }
-}
