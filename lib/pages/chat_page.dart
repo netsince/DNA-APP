@@ -30,6 +30,7 @@ part 'chat/chat_payload_builders.dart';
 part 'chat/chat_summary.dart';
 part 'chat/chat_stream_handlers.dart';
 part 'chat/chat_actions.dart';
+part 'chat/chat_actions_send.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
