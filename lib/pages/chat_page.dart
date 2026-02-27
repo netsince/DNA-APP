@@ -15,6 +15,8 @@ import 'chat/chat_models.dart';
 import 'chat/chat_snapshot_store.dart';
 import 'chat/chat_stream_parser.dart';
 import 'chat/chat_token_counter.dart';
+import 'chat/widgets/chat_input_bar.dart';
+import 'chat/widgets/chat_message_list.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});
@@ -434,38 +436,6 @@ class _ChatPageState extends State<ChatPage> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
     );
-  }
-
-  TextSpan _buildHighlightedText(BuildContext context, String text) {
-    final String query = _searchController.text.trim();
-    final TextStyle base = DefaultTextStyle.of(context).style;
-    if (query.isEmpty) {
-      return TextSpan(text: text, style: base);
-    }
-    final String lowerText = text.toLowerCase();
-    final String lowerQuery = query.toLowerCase();
-    int start = 0;
-    final List<InlineSpan> spans = <InlineSpan>[];
-    while (true) {
-      final int index = lowerText.indexOf(lowerQuery, start);
-      if (index == -1) {
-        spans.add(TextSpan(text: text.substring(start), style: base));
-        break;
-      }
-      if (index > start) {
-        spans.add(TextSpan(text: text.substring(start, index), style: base));
-      }
-      spans.add(
-        TextSpan(
-          text: text.substring(index, index + query.length),
-          style: base.copyWith(
-            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-          ),
-        ),
-      );
-      start = index + query.length;
-    }
-    return TextSpan(children: spans, style: base);
   }
 
   int _totalTurnCount() {
@@ -2035,236 +2005,27 @@ class _ChatPageState extends State<ChatPage> {
           Column(
             children: <Widget>[
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _conversation.messages.length,
-
-                  itemBuilder: (BuildContext context, int index) {
-                    final ConversationMessage message = _conversation.messages[index];
-                    final GlobalKey key =
-                        _messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
-                    if (message.kind == 'summary_prompt') {
-                      return Align(
-                        key: key,
-                        alignment: Alignment.center,
-                        child: GestureDetector(
-                          onLongPressStart: (LongPressStartDetails details) {
-                            _showMessageMenu(
-                              position: details.globalPosition,
-                              message: message,
-                              index: index,
-                            );
-                          },
-                          onSecondaryTapDown: (TapDownDetails details) {
-                            _showMessageMenu(
-                              position: details.globalPosition,
-                              message: message,
-                              index: index,
-                            );
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            constraints: const BoxConstraints(maxWidth: 520),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHigh
-                                  .withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    const Icon(Icons.auto_awesome, size: 18),
-                                    const SizedBox(width: 6),
-                                    const Text('建议生成摘要'),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  children: <Widget>[
-                                    FilledButton.tonal(
-                                      onPressed: _summaryInProgress
-                                          ? null
-                                          : () => _startSummaryFromPrompt(message),
-                                      child: const Text('生成摘要'),
-                                    ),
-                                    OutlinedButton(
-                                      onPressed: () => _dismissSummaryPrompt(message.id),
-                                      child: const Text('忽略'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    if (message.kind == 'summary') {
-                      final ConversationSummary? summary = _summaryById(message.summaryId);
-                      final String raw = summary?.text.trim() ?? '';
-                      final String preview = raw.isEmpty
-                          ? '摘要为空'
-                          : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
-                      return Align(
-                        key: key,
-                        alignment: Alignment.center,
-                        child: GestureDetector(
-                          onLongPressStart: (LongPressStartDetails details) {
-                            _showMessageMenu(
-                              position: details.globalPosition,
-                              message: message,
-                              index: index,
-                            );
-                          },
-                          onSecondaryTapDown: (TapDownDetails details) {
-                            _showMessageMenu(
-                              position: details.globalPosition,
-                              message: message,
-                              index: index,
-                            );
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            constraints: const BoxConstraints(maxWidth: 520),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHigh
-                                  .withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    const Icon(Icons.article_outlined, size: 18),
-                                    const SizedBox(width: 6),
-                                    const Text('摘要已生成'),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  preview,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '长按/右键查看/删除',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    final bool isUser = message.role == 'user';
-                    final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
-                    final Color bubbleColor = isUser ? userBubble : assistantBubble;
-                    final int charCount = message.text.runes.length;
-                    final int tokenCount = _showTokenCounts
-                        ? _tokenCounter.countTokens(
-                            model: widget.controller.settings.selectedModel,
-                            messageId: message.id,
-                            text: message.text,
-                          )
-                        : 0;
-                    final String thoughtText =
-                        _thoughtsByMessageId[message.id]?.text.trim() ?? '';
-                    return Align(
-                      key: key,
-                      alignment: alignment,
-                      child: GestureDetector(
-                        onLongPressStart: (LongPressStartDetails details) {
-                          _showMessageMenu(
-                            position: details.globalPosition,
-                            message: message,
-                            index: index,
-                          );
-                        },
-                        onSecondaryTapDown: (TapDownDetails details) {
-                          _showMessageMenu(
-                            position: details.globalPosition,
-                            message: message,
-                            index: index,
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          decoration: BoxDecoration(
-                            color: bubbleColor,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              RichText(text: _buildHighlightedText(context, message.text)),
-                              if (thoughtText.isNotEmpty) ...<Widget>[
-                                const SizedBox(height: 8),
-                                Theme(
-                                  data: Theme.of(context).copyWith(
-                                    dividerColor: Colors.transparent,
-                                  ),
-                                  child: ExpansionTile(
-                                    tilePadding: EdgeInsets.zero,
-                                    childrenPadding: const EdgeInsets.only(top: 6),
-                                    title: const Text('思考内容'),
-                                    children: <Widget>[
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          thoughtText,
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              if (message.text.isNotEmpty && _showTokenCounts) ...<Widget>[
-                                const SizedBox(height: 6),
-                                Text(
-                                  '字数 $charCount / Token $tokenCount',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
+                child: ChatMessageList(
+                  conversation: _conversation,
+                  scrollController: _scrollController,
+                  messageKeys: _messageKeys,
+                  userBubble: userBubble,
+                  assistantBubble: assistantBubble,
+                  showTokenCounts: _showTokenCounts,
+                  searchQuery: searchQuery,
+                  thoughtsByMessageId: _thoughtsByMessageId,
+                  tokenCountForMessage: (String messageId, String text) {
+                    return _tokenCounter.countTokens(
+                      model: widget.controller.settings.selectedModel,
+                      messageId: messageId,
+                      text: text,
                     );
                   },
+                  summaryById: _summaryById,
+                  onStartSummary: _startSummaryFromPrompt,
+                  onDismissSummary: _dismissSummaryPrompt,
+                  onShowMessageMenu: _showMessageMenu,
+                  summaryInProgress: _summaryInProgress,
                 ),
               ),
               if (_sending)
@@ -2310,99 +2071,21 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                 ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          controller: _inputController,
-                          minLines: 1,
-                          maxLines: 4,
-                          decoration: const InputDecoration(hintText: '输入消息...'),
-                          onSubmitted: (_) => _send(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: '灵感',
-                        onPressed: _inspirationInProgress ? null : _startInspiration,
-                        icon: _inspirationInProgress
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.auto_awesome_outlined),
-                      ),
-                      PopupMenuButton<String>(
-                        tooltip: '更多',
-                        onSelected: (String value) async {
-                          if (value == 'archive') {
-                            await _manageSnapshots();
-                          } else if (value == 'search') {
-                            _toggleSearch();
-                          } else if (value == 'tokens') {
-                            setState(() => _showTokenCounts = !_showTokenCounts);
-                          } else if (value == 'force_summary') {
-                            await _forceSummaryPrompt();
-                          } else if (value == 'range_summary') {
-                            await _summarizeRecentRange();
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                          PopupMenuItem<String>(
-                            value: 'range_summary',
-                            enabled: !_rangeSummaryInProgress,
-                            child: ListTile(
-                              leading: Icon(Icons.summarize_outlined),
-                              title: Text('范围总结'),
-                            ),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'force_summary',
-                            enabled: !_summaryInProgress,
-                            child: ListTile(
-                              leading: Icon(Icons.auto_awesome),
-                              title: Text('强制摘要'),
-                            ),
-                          ),
-                          CheckedPopupMenuItem<String>(
-                            value: 'search',
-                            checked: _searching,
-                            child: const ListTile(
-                              leading: Icon(Icons.search),
-                              title: Text('消息搜索'),
-                            ),
-                          ),
-                          CheckedPopupMenuItem<String>(
-                            value: 'tokens',
-                            checked: _showTokenCounts,
-                            child: const ListTile(
-                              leading: Icon(Icons.numbers),
-                              title: Text('显示字数/Token'),
-                            ),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'archive',
-                            child: ListTile(
-                              leading: Icon(Icons.save),
-                              title: Text('存档'),
-                            ),
-                          ),
-                        ],
-                        child: const Icon(Icons.more_horiz),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: _sending ? null : _send,
-                        child: Text(_sending ? '发送中...' : '发送'),
-                      ),
-                    ],
-                  ),
-                ),
+              ChatInputBar(
+                inputController: _inputController,
+                sending: _sending,
+                inspirationInProgress: _inspirationInProgress,
+                rangeSummaryInProgress: _rangeSummaryInProgress,
+                summaryInProgress: _summaryInProgress,
+                searching: _searching,
+                showTokenCounts: _showTokenCounts,
+                onSend: _send,
+                onStartInspiration: _startInspiration,
+                onManageSnapshots: _manageSnapshots,
+                onToggleSearch: _toggleSearch,
+                onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
+                onForceSummary: _forceSummaryPrompt,
+                onRangeSummary: _summarizeRecentRange,
               ),
             ],
           ),
