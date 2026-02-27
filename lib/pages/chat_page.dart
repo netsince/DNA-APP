@@ -16,6 +16,7 @@ import 'chat/chat_snapshot_store.dart';
 import 'chat/chat_stream_parser.dart';
 import 'chat/chat_token_counter.dart';
 import 'chat/chat_message_slice.dart';
+import 'chat/chat_message_builder.dart';
 import 'chat/widgets/chat_app_bar.dart';
 import 'chat/widgets/chat_input_bar.dart';
 import 'chat/widgets/chat_message_list.dart';
@@ -181,11 +182,21 @@ class _ChatPageState extends State<ChatPage> {
     }
     setState(() {});
     _scrollToBottom();
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(_conversation);
+    final ConversationSummary? summary = slice.includeSummary
+        ? ChatMessageSlice.latestSummary(_conversation)
+        : null;
+    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+      systemPrompt: _buildSystemPrompt(),
+      messages: slice.messages,
+      summaryText: summary?.text,
+      summaryPrefix: '对话摘要：\n',
+    );
     await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
       baseUrl: baseUrl,
       apiKey: apiKey,
       model: model,
-      messages: _buildMessages(),
+      messages: payload,
     )) {
       if (!mounted) {
         return;
@@ -1654,9 +1665,14 @@ class _ChatPageState extends State<ChatPage> {
       _conversation,
       endExclusive: index,
     );
-    final List<Map<String, String>> payload = _buildMessagesFrom(
-      slice.messages,
-      includeSummary: slice.includeSummary,
+    final ConversationSummary? summary = slice.includeSummary
+        ? ChatMessageSlice.latestSummary(_conversation)
+        : null;
+    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+      systemPrompt: _buildSystemPrompt(),
+      messages: slice.messages,
+      summaryText: summary?.text,
+      summaryPrefix: '瀵硅瘽鎽樿锛歕n',
     );
     setState(() => _sending = true);
     List<String> results = <String>[];
