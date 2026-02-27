@@ -40,12 +40,17 @@ class WorldPage extends StatelessWidget {
                     ],
                   ),
                 )
-              : ListView.builder(
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
+                  buildDefaultDragHandles: false,
                   itemCount: worlds.length,
+                  onReorder: (int oldIndex, int newIndex) async {
+                    await controller.reorderWorlds(oldIndex, newIndex);
+                  },
                   itemBuilder: (BuildContext context, int index) {
                     final World world = worlds[index];
                     return Card(
+                      key: ValueKey<String>(world.id),
                       child: InkWell(
                         onTap: () {
                           Navigator.of(context).push(
@@ -88,6 +93,11 @@ class WorldPage extends StatelessWidget {
                                   ],
                                 ),
                               ),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Icon(Icons.drag_handle),
+                              ),
+                              const SizedBox(width: 8),
                               const Icon(Icons.chevron_right),
                             ],
                           ),

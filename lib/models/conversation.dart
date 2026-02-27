@@ -7,6 +7,7 @@ class Conversation {
     required this.messages,
     required this.backgroundMode,
     required this.summaries,
+    required this.archived,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Conversation {
   final List<ConversationMessage> messages;
   final String backgroundMode;
   final List<ConversationSummary> summaries;
+  final bool archived;
 
   Conversation copyWith({
     String? roleId,
@@ -24,6 +26,7 @@ class Conversation {
     List<ConversationMessage>? messages,
     String? backgroundMode,
     List<ConversationSummary>? summaries,
+    bool? archived,
   }) {
     return Conversation(
       id: id,
@@ -33,6 +36,7 @@ class Conversation {
       messages: messages ?? this.messages,
       backgroundMode: backgroundMode ?? this.backgroundMode,
       summaries: summaries ?? this.summaries,
+      archived: archived ?? this.archived,
     );
   }
 
@@ -45,6 +49,7 @@ class Conversation {
       'backgroundMode': backgroundMode,
       'messages': messages.map((ConversationMessage m) => m.toJson()).toList(),
       'summaries': summaries.map((ConversationSummary s) => s.toJson()).toList(),
+      'archived': archived,
     };
   }
 
@@ -69,6 +74,7 @@ class Conversation {
               .whereType<Map<String, dynamic>>()
               .map(ConversationSummary.fromJson)
               .toList(),
+      archived: (json['archived'] as bool?) ?? false,
     );
   }
 }

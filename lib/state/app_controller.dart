@@ -171,6 +171,110 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setConversationArchived({
+    required String id,
+    required bool archived,
+  }) async {
+    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final Conversation current = _conversations[index];
+    if (current.archived == archived) {
+      return;
+    }
+    final List<Conversation> updated = <Conversation>[..._conversations];
+    updated[index] = current.copyWith(archived: archived);
+    _conversations = updated;
+    await _conversationService.save(_conversations);
+    notifyListeners();
+  }
+
+  Future<void> reorderConversationSubset(List<String> orderedIds) async {
+    if (orderedIds.isEmpty) {
+      return;
+    }
+    final Set<String> subset = orderedIds.toSet();
+    if (subset.length != orderedIds.length) {
+      return;
+    }
+    final Map<String, Conversation> byId = <String, Conversation>{
+      for (final Conversation c in _conversations) c.id: c,
+    };
+    for (final String id in orderedIds) {
+      if (!byId.containsKey(id)) {
+        return;
+      }
+    }
+    int cursor = 0;
+    final List<Conversation> updated = <Conversation>[];
+    for (final Conversation c in _conversations) {
+      if (!subset.contains(c.id)) {
+        updated.add(c);
+        continue;
+      }
+      updated.add(byId[orderedIds[cursor]]!);
+      cursor += 1;
+    }
+    _conversations = updated;
+    await _conversationService.save(_conversations);
+    notifyListeners();
+  }
+
+  Future<void> reorderRoles(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _roles.length) {
+      return;
+    }
+    if (newIndex < 0 || newIndex > _roles.length) {
+      return;
+    }
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final List<Role> updated = List<Role>.from(_roles);
+    final Role moved = updated.removeAt(oldIndex);
+    updated.insert(newIndex, moved);
+    _roles = updated;
+    await _roleService.save(_roles);
+    notifyListeners();
+  }
+
+  Future<void> reorderWorlds(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _worlds.length) {
+      return;
+    }
+    if (newIndex < 0 || newIndex > _worlds.length) {
+      return;
+    }
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final List<World> updated = List<World>.from(_worlds);
+    final World moved = updated.removeAt(oldIndex);
+    updated.insert(newIndex, moved);
+    _worlds = updated;
+    await _worldService.save(_worlds);
+    notifyListeners();
+  }
+
+  Future<void> reorderConversations(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _conversations.length) {
+      return;
+    }
+    if (newIndex < 0 || newIndex > _conversations.length) {
+      return;
+    }
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final List<Conversation> updated = List<Conversation>.from(_conversations);
+    final Conversation moved = updated.removeAt(oldIndex);
+    updated.insert(newIndex, moved);
+    _conversations = updated;
+    await _conversationService.save(_conversations);
+    notifyListeners();
+  }
+
   Role? getRoleById(String id) {
     for (final Role role in _roles) {
       if (role.id == id) {

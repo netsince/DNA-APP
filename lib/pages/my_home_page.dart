@@ -42,13 +42,18 @@ class MyHomePage extends StatelessWidget {
                     ],
                   ),
                 )
-              : ListView.builder(
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
+                  buildDefaultDragHandles: false,
                   itemCount: roles.length,
+                  onReorder: (int oldIndex, int newIndex) async {
+                    await controller.reorderRoles(oldIndex, newIndex);
+                  },
                   itemBuilder: (BuildContext context, int index) {
                     final Role role = roles[index];
                     final String? square = role.images['square'];
                     return Card(
+                      key: ValueKey<String>(role.id),
                       child: InkWell(
                         onTap: () {
                           Navigator.of(context).push(
@@ -101,6 +106,11 @@ class MyHomePage extends StatelessWidget {
                                   ],
                                 ),
                               ),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Icon(Icons.drag_handle),
+                              ),
+                              const SizedBox(width: 8),
                               const Icon(Icons.chevron_right),
                             ],
                           ),

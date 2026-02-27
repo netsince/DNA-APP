@@ -67,6 +67,7 @@ class _ChatPageState extends State<ChatPage> {
           messages: const <ConversationMessage>[],
           backgroundMode: 'none',
           summaries: const <ConversationSummary>[],
+          archived: false,
         );
     _ensureOpeningMessage();
     _loadAccent();
@@ -2290,7 +2291,7 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '长按查看/删除',
+                                  '长按/右键查看/删除',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context)
                                             .colorScheme
