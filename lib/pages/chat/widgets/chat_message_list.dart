@@ -128,9 +128,8 @@ class ChatMessageList extends StatelessWidget {
         if (message.kind == 'summary') {
           final ConversationSummary? summary = summaryById(message.summaryId);
           final String raw = summary?.text.trim() ?? '';
-          final String preview = raw.isEmpty
-              ? '摘要为空'
-              : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
+          final String preview =
+              raw.isEmpty ? '摘要为空' : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
           return Align(
             key: key,
             alignment: Alignment.center,
@@ -242,7 +241,7 @@ class ChatMessageList extends StatelessWidget {
                       child: ExpansionTile(
                         tilePadding: EdgeInsets.zero,
                         childrenPadding: const EdgeInsets.only(top: 6),
-                        title: const Text('思考'),
+                        title: const Text('思考内容'),
                         children: <Widget>[
                           Align(
                             alignment: Alignment.centerLeft,

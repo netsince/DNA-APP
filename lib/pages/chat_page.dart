@@ -6,7 +6,6 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:share_plus/share_plus.dart';
 import '../utils/id_utils.dart';
 import '../models/conversation.dart';
-import '../models/dialogue_style.dart';
 import '../models/role.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
@@ -17,6 +16,7 @@ import 'chat/chat_stream_parser.dart';
 import 'chat/chat_token_counter.dart';
 import 'chat/chat_message_slice.dart';
 import 'chat/chat_message_builder.dart';
+import 'chat/chat_system_prompt.dart';
 import 'chat/widgets/chat_app_bar.dart';
 import 'chat/widgets/chat_input_bar.dart';
 import 'chat/widgets/chat_message_list.dart';
@@ -187,7 +187,7 @@ class _ChatPageState extends State<ChatPage> {
         ? ChatMessageSlice.latestSummary(_conversation)
         : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: _buildSystemPrompt(),
+      systemPrompt: ChatSystemPrompt.build(role: _role, world: _world),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
@@ -246,6 +246,7 @@ class _ChatPageState extends State<ChatPage> {
     await _maybePromptSummary();
   }
   String _buildSystemPrompt() {
+    /*
     final Role? role = _role;
     final World? world = _world;
     final List<DialogueTurn> style = role?.dialogueStyle ?? <DialogueTurn>[];
@@ -288,7 +289,8 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
     }
-    return system.toString().trim();
+    */
+    return ChatSystemPrompt.build(role: _role, world: _world);
   }
   List<Map<String, String>> _buildMessagesFrom(
     List<ConversationMessage> messages, {
@@ -296,7 +298,7 @@ class _ChatPageState extends State<ChatPage> {
     bool includeSummary = true,
   }) {
     final List<Map<String, String>> payload = <Map<String, String>>[];
-    final String sys = _buildSystemPrompt();
+    final String sys = ChatSystemPrompt.build(role: _role, world: _world);
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
@@ -1568,7 +1570,7 @@ class _ChatPageState extends State<ChatPage> {
       excludeIds: <String>{assistantId},
     );
     final List<Map<String, String>> payload = <Map<String, String>>[];
-    final String sys = _buildSystemPrompt();
+    final String sys = ChatSystemPrompt.build(role: _role, world: _world);
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
@@ -1669,10 +1671,10 @@ class _ChatPageState extends State<ChatPage> {
         ? ChatMessageSlice.latestSummary(_conversation)
         : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: _buildSystemPrompt(),
+      systemPrompt: ChatSystemPrompt.build(role: _role, world: _world),
       messages: slice.messages,
       summaryText: summary?.text,
-      summaryPrefix: '瀵硅瘽鎽樿锛歕n',
+      summaryPrefix: '对话摘要：\n',
     );
     setState(() => _sending = true);
     List<String> results = <String>[];

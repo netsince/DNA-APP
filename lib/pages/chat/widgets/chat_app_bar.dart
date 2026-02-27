@@ -3,13 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../models/role.dart';
 
 typedef SearchChanged = void Function(String value);
-
 typedef NavigateMatch = void Function(int direction);
-
 typedef ToggleSearch = void Function();
-
 typedef ScrollToBottom = void Function();
-
 typedef ToggleBackground = void Function();
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -92,7 +88,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 icon: const Icon(Icons.vertical_align_bottom),
               ),
               IconButton(
-                tooltip: backgroundMode == 'image' ? '关闭背景' : '显示背景',
+                tooltip: backgroundMode == 'image' ? '关闭背景图' : '显示背景图',
                 onPressed: onToggleBackground,
                 icon: Icon(
                   backgroundMode == 'image' ? Icons.image_not_supported : Icons.image,
