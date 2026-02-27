@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../models/conversation.dart';
+import '../../../models/conversation.dart';
 
 class ChatController {
   ChatController({required this.scrollController});

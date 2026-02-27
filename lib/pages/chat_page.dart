@@ -17,23 +17,23 @@ import 'chat/chat_token_counter.dart';
 import 'chat/chat_message_slice.dart';
 import 'chat/chat_message_builder.dart';
 import 'chat/chat_system_prompt.dart';
-import 'chat/chat_state.dart';
-import 'chat/chat_controller.dart';
-import 'chat/widgets/chat_app_bar.dart';
-import 'chat/widgets/chat_input_bar.dart';
-import 'chat/widgets/chat_message_list.dart';
+import 'chat/state/chat_state.dart';
+import 'chat/state/chat_controller.dart';
+import 'chat/ui/widgets/chat_app_bar.dart';
+import 'chat/ui/widgets/chat_input_bar.dart';
+import 'chat/ui/widgets/chat_message_list.dart';
 
-part 'chat/chat_state_mixin.dart';
-part 'chat/chat_ui_helpers.dart';
-part 'chat/chat_search.dart';
-part 'chat/chat_payload_builders.dart';
+part 'chat/state/chat_state_mixin.dart';
+part 'chat/ui/chat_ui_helpers.dart';
+part 'chat/ui/chat_search.dart';
+part 'chat/builders/chat_payload_builders.dart';
 part 'chat/chat_summary.dart';
-part 'chat/chat_stream_handlers.dart';
-part 'chat/chat_actions.dart';
-part 'chat/chat_actions_send.dart';
-part 'chat/chat_actions_inspiration.dart';
-part 'chat/chat_actions_snapshots.dart';
-part 'chat/chat_actions_summary_ui.dart';
+part 'chat/builders/chat_stream_handlers.dart';
+part 'chat/actions/chat_actions.dart';
+part 'chat/actions/chat_actions_send.dart';
+part 'chat/actions/chat_actions_inspiration.dart';
+part 'chat/actions/chat_actions_snapshots.dart';
+part 'chat/actions/chat_actions_summary_ui.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, required this.controller, required this.conversationId});

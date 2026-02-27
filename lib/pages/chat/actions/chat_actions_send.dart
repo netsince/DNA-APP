@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({required String model, required String apiKey, required String baseUrl, required List<Map<String, String>> payload, required String assistantId, required ConversationMessage assistantMessage,});

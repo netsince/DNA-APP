@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatActionsSnapshots on ChatStateMixin {
   Future<List<ChatSnapshot>> _loadSnapshots() async {

@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatActionsSummaryUi on ChatStateMixin {
   ConversationSummary? _summaryById(String? summaryId);

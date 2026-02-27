@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatActionsInspiration on ChatStateMixin {
   List<Map<String, String>> _buildInspirationPayload(String topic);

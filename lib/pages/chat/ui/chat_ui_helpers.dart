@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatUiHelpers on ChatStateMixin {
   Future<void> _showSummaryDetail(String summaryId);

@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatSearchHelpers on ChatStateMixin {
   void _toggleSearch() {

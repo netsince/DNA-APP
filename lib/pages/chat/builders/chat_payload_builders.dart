@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of '../../chat_page.dart';
 
 mixin ChatPayloadBuilders on ChatStateMixin {
   String _buildSystemPrompt() {

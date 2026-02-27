@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../models/role.dart';
+import '../../../../models/role.dart';
 
 typedef SearchChanged = void Function(String value);
 typedef NavigateMatch = void Function(int direction);

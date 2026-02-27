@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../models/conversation.dart';
-import 'chat_models.dart';
+import '../../../models/conversation.dart';
+import '../chat_models.dart';
 
 class ChatState {
   ChatState();
