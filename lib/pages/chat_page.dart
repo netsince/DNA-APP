@@ -1929,63 +1929,19 @@ class _ChatPageState extends State<ChatPage> {
     final String searchQuery = _searchController.text.trim();
     final List<int> searchMatches =
         _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
-    final bool hasMatches = searchMatches.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(
-        title: _searching
-            ? Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: '搜索消息',
-                        border: InputBorder.none,
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onChanged: _updateSearch,
-                    ),
-                  ),
-                  Text(
-                    hasMatches && _searchMatchIndex >= 0
-                        ? '${_searchMatchIndex + 1}/${searchMatches.length}'
-                        : '0/0',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              )
-            : Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
-        actions: _searching
-            ? <Widget>[
-                IconButton(
-                  tooltip: '上一个',
-                  onPressed: hasMatches ? () => _navigateMatch(-1) : null,
-                  icon: const Icon(Icons.keyboard_arrow_up),
-                ),
-                IconButton(
-                  tooltip: '下一个',
-                  onPressed: hasMatches ? () => _navigateMatch(1) : null,
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                ),
-                IconButton(
-                  tooltip: '关闭搜索',
-                  onPressed: _toggleSearch,
-                  icon: const Icon(Icons.close),
-                ),
-              ]
-            : <Widget>[
-                IconButton(
-                  tooltip: '回到底部',
-                  onPressed: _scrollToBottom,
-                  icon: const Icon(Icons.vertical_align_bottom),
-                ),
-                IconButton(
-                  tooltip: _conversation.backgroundMode == 'image' ? '关闭背景图' : '显示背景图',
-                  onPressed: _toggleBackground,
-                  icon: Icon(_conversation.backgroundMode == 'image' ? Icons.image_not_supported : Icons.image),
-                ),
-              ],
+      appBar: ChatAppBar(
+        searching: _searching,
+        searchController: _searchController,
+        searchMatchIndex: _searchMatchIndex,
+        searchMatchesCount: searchMatches.length,
+        onSearchChanged: _updateSearch,
+        onNavigateMatch: _navigateMatch,
+        onToggleSearch: _toggleSearch,
+        onScrollToBottom: _scrollToBottom,
+        onToggleBackground: _toggleBackground,
+        backgroundMode: _conversation.backgroundMode,
+        role: role,
       ),
       body: Stack(
         children: <Widget>[
