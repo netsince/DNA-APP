@@ -18,8 +18,6 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
         ),
       ),
     );
-      },
-    );
   }
 
   Future<void> _deleteSummary(String summaryId, String bubbleId) async {

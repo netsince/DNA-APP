@@ -100,13 +100,6 @@ mixin ChatActionsInspiration on ChatStateMixin {
       hintText: '生成灵感：例如 重新开场/ 继续推进 / 某个话题',
       confirmText: '生成',
     );
-  },
-    );
-    controller.dispose();
-    if (value == null) {
-      return null;
-    }
-    return value.trim();
   }
 
   Future<void> _showInspirationDialog({
