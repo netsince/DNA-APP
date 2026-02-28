@@ -1,7 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models/service_results.dart';
 import '../state/app_controller.dart';
+import '../utils/dialogs.dart';
+import '../utils/ui_feedback.dart';
 import '../widgets/app_drawer.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -59,9 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('API 配置已保存并生效。')),
-    );
+    showSnack(context, 'API 配置已保存并生效。');
   }
 
   Future<void> _checkApi() async {
@@ -126,37 +126,16 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('模型设置已生效。')),
-    );
+    showSnack(context, '模型设置已生效。');
   }
 
   Future<void> _addCustomModel() async {
-    final TextEditingController controller = TextEditingController();
-    final String? value = await showDialog<String>(
+    final String? value = await showTextInputDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('输入自定义模型'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: '例如 gpt-4.1-mini'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('确定'),
-            ),
-          ],
-        );
-      },
+      title: '输入自定义模型',
+      hintText: '例如 gpt-4.1-mini',
+      confirmText: '确定',
     );
-    controller.dispose();
 
     if (!mounted || value == null || value.isEmpty) {
       return;
@@ -188,9 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('摘要设置已保存。')),
-    );
+    showSnack(context, '摘要设置已保存。');
   }
 
   Future<void> _saveRetryStrategy() async {
@@ -198,9 +175,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('重说策略已保存。')),
-    );
+    showSnack(context, '重说策略已保存。');
   }
 
   Future<void> _saveInspirationSettings() async {
@@ -210,9 +185,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('灵感设置已保存。')),
-    );
+    showSnack(context, '灵感设置已保存。');
   }
 
   @override

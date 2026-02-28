@@ -175,9 +175,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已复制到剪贴板')),
-      );
+      showSnack(context, '已复制到剪贴板');
       return;
     }
     if (action == 'share') {

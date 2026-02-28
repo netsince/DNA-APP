@@ -10,10 +10,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
     final String? topic = await _promptInspirationTopic();
@@ -36,9 +33,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
     }
     setState(() => _inspirationInProgress = false);
     if (options.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('生成失败，请再试。')),
-      );
+      showSnack(context, '生成失败，请再试。');
       return;
     }
     _inspirationOptions.addAll(options);
@@ -99,28 +94,13 @@ mixin ChatActionsInspiration on ChatStateMixin {
   }
 
   Future<String?> _promptInspirationTopic() async {
-    final TextEditingController controller = TextEditingController();
-    final String? value = await showDialog<String>(
+    return showTextInputDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('生成灵感'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: '生成灵感：例如 重新开场 / 继续推进 / 某个话题'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('生成'),
-            ),
-          ],
-        );
-      },
+      title: '生成灵感',
+      hintText: '生成灵感：例如 重新开场/ 继续推进 / 某个话题',
+      confirmText: '生成',
+    );
+  },
     );
     controller.dispose();
     if (value == null) {

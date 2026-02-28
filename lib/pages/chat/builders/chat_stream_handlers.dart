@@ -21,9 +21,7 @@ mixin ChatStreamHandlers on ChatStateMixin {
       }
       if (chunk.startsWith('[ERROR]')) {
         setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(chunk.replaceFirst('[ERROR] ', ''))),
-        );
+        showSnack(context, chunk.replaceFirst('[ERROR] ', ''));
         return false;
       }
       final StreamParseState state = consumeStreamChunk(

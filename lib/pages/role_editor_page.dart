@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,7 @@ import '../models/role.dart';
 import '../models/dialogue_style.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
+import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
 
 class RoleEditorPage extends StatefulWidget {
@@ -90,9 +91,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前平台不支持裁剪，已直接使用原图。')),
-      );
+      showSnack(context, '裁剪失败，请重试。');
     }
 
     final String storedPath = await widget.controller.storeRoleImage(

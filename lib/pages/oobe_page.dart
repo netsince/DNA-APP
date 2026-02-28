@@ -1,8 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/service_results.dart';
 import '../state/app_controller.dart';
+import '../utils/dialogs.dart';
+import '../utils/ui_feedback.dart';
 
 class OobePage extends StatefulWidget {
   const OobePage({super.key, required this.controller});
@@ -182,34 +184,12 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
   }
 
   Future<void> _showCustomModelDialog() async {
-    final TextEditingController controller = TextEditingController();
-    final String? value = await showDialog<String>(
+    final String? value = await showTextInputDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('自定义模型'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '模型名称',
-              hintText: '例如 gpt-4.1-mini',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('确定'),
-            ),
-          ],
-        );
-      },
+      title: '输入自定义模型',
+      hintText: '例如 gpt-4.1-mini',
+      confirmText: '确定',
     );
-    controller.dispose();
 
     if (!mounted || value == null || value.isEmpty) {
       return;

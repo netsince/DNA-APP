@@ -52,28 +52,11 @@ mixin ChatActionsSnapshots on ChatStateMixin {
     }
     if (action == 'create') {
       final String defaultName = '存档 ${DateTime.now().toString().substring(0, 19)}';
-      final TextEditingController controller = TextEditingController(text: defaultName);
-      final String? name = await showDialog<String>(
+      final String? name = await showTextInputDialog(
         context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('创建存档'),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: '输入存档名称'),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-                child: const Text('保存'),
-              ),
-            ],
-          );
-        },
+        title: '创建存档',
+        hintText: '输入存档名称',
+        initialValue: defaultName,
       );
       if (name == null || name.trim().isEmpty) {
         return;
@@ -91,9 +74,7 @@ mixin ChatActionsSnapshots on ChatStateMixin {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('存档已保存。')),
-      );
+      showSnack(context, '存档已保存。');
       return;
     }
     if (action.startsWith('load:')) {
@@ -101,26 +82,12 @@ mixin ChatActionsSnapshots on ChatStateMixin {
       if (index < 0 || index >= snapshots.length) {
         return;
       }
-      final bool? confirmed = await showDialog<bool>(
+      final bool confirmed = await showConfirmDialog(
         context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('确认加载存档'),
-            content: const Text('将覆盖当前对话并无法撤销，确定要继续吗？'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('确认'),
-              ),
-            ],
-          );
-        },
+        title: '确认加载存档',
+        content: '将覆盖当前对话并无法撤销，确定要继续吗？',
       );
-      if (confirmed != true) {
+      if (!confirmed) {
         return;
       }
       final Map<String, dynamic> data = Map<String, dynamic>.from(snapshots[index].data);

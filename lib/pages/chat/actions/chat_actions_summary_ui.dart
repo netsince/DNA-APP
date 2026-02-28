@@ -8,24 +8,16 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
     if (summary == null) {
       return;
     }
-    await showDialog<void>(
+    await showInfoDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('对话摘要'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Text(summary.text),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
-        );
+      title: '对话摘要',
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Text(summary.text),
+        ),
+      ),
+    );
       },
     );
   }
@@ -47,32 +39,14 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
     if (summary == null) {
       return;
     }
-    final TextEditingController controller = TextEditingController(text: summary.text);
-    final String? updated = await showDialog<String>(
+    final String? updated = await showTextInputDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('编辑摘要'),
-          content: TextField(
-            controller: controller,
-            minLines: 4,
-            maxLines: 10,
-            decoration: const InputDecoration(hintText: '输入新的摘要内容'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
+      title: '编辑摘要',
+      hintText: '输入新的摘要内容',
+      initialValue: summary.text,
+      minLines: 4,
+      maxLines: 10,
     );
-    controller.dispose();
     if (updated == null || updated.trim().isEmpty) {
       return;
     }

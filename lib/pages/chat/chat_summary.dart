@@ -73,53 +73,28 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     if (_rangeSummaryInProgress) {
       return;
     }
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
-    final TextEditingController controller = TextEditingController(text: '20');
-    final int? turnCount = await showDialog<int>(
+    final String? value = await showTextInputDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('范围总结'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              hintText: '用户轮数，例如 20',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(
-                int.tryParse(controller.text.trim()),
-              ),
-              child: const Text('总结'),
-            ),
-          ],
-        );
-      },
+      title: '范围总结',
+      hintText: '用户轮数，例如 20',
+      initialValue: '20',
+      confirmText: '总结',
+      keyboardType: TextInputType.number,
     );
-    controller.dispose();
+    if (value == null) {
+      return;
+    }
+    final int? turnCount = int.tryParse(value);
     if (turnCount == null) {
       return;
     }
     final int normalized = turnCount.clamp(1, 200);
     final List<ConversationMessage> slice = _recentTurnSlice(normalized);
     if (slice.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可总结的内容。')),
-      );
+      showSnack(context, '没有可总结的内容。');
       return;
     }
     final StringBuffer convo = StringBuffer();
@@ -145,9 +120,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     ];
     setState(() => _rangeSummaryInProgress = true);
     final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
-      baseUrl: baseUrl,
-      apiKey: apiKey,
-      model: model,
+      baseUrl: widget.controller.settings.baseUrl,
+      apiKey: widget.controller.settings.apiKey,
+      model: widget.controller.settings.selectedModel,
       messages: payload,
     );
     if (!mounted) {
@@ -155,30 +130,18 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     }
     setState(() => _rangeSummaryInProgress = false);
     if (!result.success || result.content == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.errorMessage ?? '总结失败。')),
-      );
+      showSnack(context, result.errorMessage ?? '总结失败。');
       return;
     }
-    await showDialog<void>(
+    await showInfoDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('范围总结结果'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Text(result.content!.trim()),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
-        );
-      },
+      title: '范围总结结果',
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Text(result.content!.trim()),
+        ),
+      ),
     );
   }
 
@@ -186,13 +149,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     if (_summaryInProgress) {
       return;
     }
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
     final String? anchorId = prompt.anchorMessageId ?? _lastChatMessageId();
@@ -203,9 +160,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     final int anchorIndex =
         _conversation.messages.indexWhere((ConversationMessage m) => m.id == anchorId);
     if (anchorIndex == -1 || anchorIndex <= summaryEnd) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可摘要的新内容。')),
-      );
+      showSnack(context, '没有可摘要的新内容。');
       return;
     }
     final List<ConversationMessage> sourceMessages = _conversation.messages
@@ -213,9 +168,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
         .where((ConversationMessage m) => m.kind == 'message')
         .toList();
     if (sourceMessages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可摘要的新内容。')),
-      );
+      showSnack(context, '没有可摘要的新内容。');
       return;
     }
     final String sourceText = sourceMessages
@@ -252,9 +205,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     }
 
     final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
-      baseUrl: baseUrl,
-      apiKey: apiKey,
-      model: model,
+      baseUrl: widget.controller.settings.baseUrl,
+      apiKey: widget.controller.settings.apiKey,
+      model: widget.controller.settings.selectedModel,
       messages: payload,
     );
 
@@ -268,9 +221,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     if (!result.success || result.content == null) {
       if (mounted) {
         setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.errorMessage ?? '摘要失败。')),
-        );
+        showSnack(context, result.errorMessage ?? '摘要失败。');
       }
       return;
     }
@@ -279,9 +230,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     if (summaryText.isEmpty || summaryText.length >= sourceText.length) {
       if (mounted) {
         setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('摘要过长，已自动舍弃。')),
-        );
+        showSnack(context, '摘要过长，已自动舍弃。');
       }
       return;
     }
@@ -325,9 +274,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     _summaryInProgress = false;
     _pendingSummary = null;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已停止本次摘要。')),
-    );
+    showSnack(context, '已停止本次摘要。');
   }
 
   Future<void> _dismissSummaryPrompt(String promptId) async {

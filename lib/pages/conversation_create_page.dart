@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
 import '../models/role.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
+import '../utils/ui_feedback.dart';
 
 class ConversationCreatePage extends StatefulWidget {
   const ConversationCreatePage({super.key, required this.controller});
@@ -32,9 +33,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
 
   Future<void> _create() async {
     if (_selectedRoleId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择角色。')),
-      );
+      showSnack(context, '请先选择角色。');
       return;
     }
 

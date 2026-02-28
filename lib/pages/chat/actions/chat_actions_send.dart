@@ -18,15 +18,10 @@ mixin ChatActionsSend on ChatStateMixin {
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
     if (role == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('角色不存在，请重新创建会话。')),
-      );
+      showSnack(context, '角色不存在，请重新创建会话。');
       return;
     }
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
     final ConversationMessage userMessage = ConversationMessage(
@@ -97,10 +92,7 @@ mixin ChatActionsSend on ChatStateMixin {
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
     setState(() => _sending = true);
@@ -174,10 +166,7 @@ mixin ChatActionsSend on ChatStateMixin {
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
-    if (model.isEmpty || apiKey.isEmpty || baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在设置中完成 API 与模型配置。')),
-      );
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
@@ -204,9 +193,7 @@ mixin ChatActionsSend on ChatStateMixin {
       _retryDisabled.add(target.id);
       if (mounted) {
         setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('重说失败，已暂时禁用。')),
-        );
+        showSnack(context, '重说失败，已暂时禁用。');
       }
       return;
     }
