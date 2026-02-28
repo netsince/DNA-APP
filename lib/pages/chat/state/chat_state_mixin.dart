@@ -39,7 +39,22 @@ mixin ChatStateMixin on State<ChatPage> {
   Map<String, List<String>> get _retryAlternatives => _state.retryAlternatives;
   Set<String> get _retryDisabled => _state.retryDisabled;
 
-  Role? get _role => widget.controller.getRoleById(_conversation.roleId);
+  bool get _isGroup => _conversation.isGroup || widget.isGroup;
+  String get _activeRoleId {
+    final String? active = _conversation.activeRoleId;
+    if (active != null && active.isNotEmpty) {
+      return active;
+    }
+    return _conversation.roleId;
+  }
+  Role? get _activeRole => widget.controller.getRoleById(_activeRoleId);
+  List<String> get _memberRoleIds =>
+      _conversation.memberRoleIds.isNotEmpty ? _conversation.memberRoleIds : <String>[_conversation.roleId];
+  List<Role> get _memberRoles => _memberRoleIds
+      .map(widget.controller.getRoleById)
+      .whereType<Role>()
+      .toList();
+  Role? get _role => _isGroup ? _activeRole : widget.controller.getRoleById(_conversation.roleId);
   World? get _world => widget.controller.getWorldById(_conversation.worldId);
 
   Future<void> _ensureOpeningMessage();
@@ -51,10 +66,14 @@ mixin ChatStateMixin on State<ChatPage> {
     super.initState();
     _chatController = ChatController(scrollController: _scrollController);
     Conversation? existing;
-    for (final Conversation c in widget.controller.conversations) {
-      if (c.id == widget.conversationId) {
-        existing = c;
-        break;
+    if (widget.isGroup) {
+      existing = widget.controller.getGroupById(widget.conversationId);
+    } else {
+      for (final Conversation c in widget.controller.conversations) {
+        if (c.id == widget.conversationId) {
+          existing = c;
+          break;
+        }
       }
     }
     _conversation = existing ??
@@ -67,7 +86,13 @@ mixin ChatStateMixin on State<ChatPage> {
           backgroundMode: 'none',
           summaries: const <ConversationSummary>[],
           archived: false,
+          isGroup: widget.isGroup,
+          groupName: '',
+          groupPrompt: '',
+          memberRoleIds: const <String>[],
+          activeRoleId: null,
         );
+    _ensureGroupDefaults();
     _ensureOpeningMessage();
     _loadAccent();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -79,5 +104,31 @@ mixin ChatStateMixin on State<ChatPage> {
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureGroupDefaults() async {
+    if (!_isGroup) {
+      return;
+    }
+    final List<String> uniqueMembers = <String>[
+      if (_conversation.roleId.isNotEmpty) _conversation.roleId,
+      ..._conversation.memberRoleIds.where((String id) => id != _conversation.roleId),
+    ];
+    String? active = _conversation.activeRoleId;
+    if (active == null || active.isEmpty) {
+      active = uniqueMembers.isNotEmpty ? uniqueMembers.first : _conversation.roleId;
+    } else if (uniqueMembers.isNotEmpty && !uniqueMembers.contains(active)) {
+      active = uniqueMembers.first;
+    }
+    _conversation = _conversation.copyWith(
+      isGroup: true,
+      memberRoleIds: uniqueMembers,
+      activeRoleId: active,
+    );
+    await widget.controller.upsertGroupConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 }

@@ -52,6 +52,11 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
       backgroundMode: 'none',
       summaries: const <ConversationSummary>[],
       archived: false,
+      isGroup: false,
+      groupName: '',
+      groupPrompt: '',
+      memberRoleIds: <String>[_selectedRoleId!],
+      activeRoleId: _selectedRoleId!,
     );
 
     await widget.controller.upsertConversation(conversation);

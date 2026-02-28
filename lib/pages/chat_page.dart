@@ -13,6 +13,7 @@ import '../models/role.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../widgets/group_avatar.dart';
 import 'chat/chat_models.dart';
 import 'chat/chat_snapshot_store.dart';
 import 'chat/chat_stream_parser.dart';
@@ -39,9 +40,15 @@ part 'chat/actions/chat_actions_snapshots.dart';
 part 'chat/actions/chat_actions_summary_ui.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key, required this.controller, required this.conversationId});
+  const ChatPage({
+    super.key,
+    required this.controller,
+    required this.conversationId,
+    this.isGroup = false,
+  });
   final AppController controller;
   final String conversationId;
+  final bool isGroup;
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -59,6 +66,9 @@ class _ChatPageState extends State<ChatPage>
         ChatActionsSnapshots,
         ChatActionsSummaryUi {
   Future<void> _ensureOpeningMessage() async {
+    if (_isGroup) {
+      return;
+    }
     if (_conversation.messages.isNotEmpty) {
       return;
     }
@@ -71,6 +81,7 @@ class _ChatPageState extends State<ChatPage>
       role: 'assistant',
       text: role.opening.trim(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerRoleId: role.id,
     );
     _conversation = _conversation.copyWith(messages: <ConversationMessage>[opening]);
     await widget.controller.upsertConversation(_conversation);
@@ -101,6 +112,215 @@ class _ChatPageState extends State<ChatPage>
     _chatController.scrollToBottom();
   }
 
+  Role? _lastAssistantSpeaker() {
+    for (int i = _conversation.messages.length - 1; i >= 0; i--) {
+      final ConversationMessage message = _conversation.messages[i];
+      if (message.kind != 'message' || message.role != 'assistant') {
+        continue;
+      }
+      final String? roleId = message.speakerRoleId;
+      if (roleId != null && roleId.isNotEmpty) {
+        return widget.controller.getRoleById(roleId);
+      }
+      return _activeRole;
+    }
+    return null;
+  }
+
+  Widget _buildGroupBackground(bool useLandscape) {
+    final Role? speaker = _lastAssistantSpeaker();
+    final String? path = useLandscape ? speaker?.images['landscape'] : speaker?.images['portrait'];
+    final bool hasImage = path != null && path.isNotEmpty && File(path).existsSync();
+    final Widget child = hasImage
+        ? Image.file(
+            File(path),
+            key: ValueKey<String>('role:$path'),
+            fit: BoxFit.cover,
+          )
+        : LayoutBuilder(
+            key: const ValueKey<String>('group-avatar'),
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double size = constraints.maxWidth < constraints.maxHeight
+                  ? constraints.maxWidth
+                  : constraints.maxHeight;
+              return Center(
+                child: GroupAvatar(
+                  roles: _memberRoles,
+                  size: size * 0.72,
+                  radius: 18,
+                ),
+              );
+            },
+          );
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 420),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: child,
+    );
+  }
+
+  Future<void> _showMemberPicker() async {
+    if (!_isGroup) {
+      return;
+    }
+    final List<Role> allRoles = widget.controller.roles;
+    final List<Role> candidates =
+        allRoles.where((Role r) => !_memberRoleIds.contains(r.id)).toList();
+    if (candidates.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '没有可添加的角色了。');
+      return;
+    }
+    final Set<String> selected = <String>{};
+    final List<String>? updated = await showDialog<List<String>>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, void Function(void Function()) setDialogState) {
+            return AlertDialog(
+              title: const Text('添加群成员'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: candidates.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final Role role = candidates[index];
+                    final bool checked = selected.contains(role.id);
+                    return CheckboxListTile(
+                      value: checked,
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            selected.add(role.id);
+                          } else {
+                            selected.remove(role.id);
+                          }
+                        });
+                      },
+                      title: Text(role.name.isEmpty ? '未命名角色' : role.name),
+                    );
+                  },
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: selected.isEmpty ? null : () => Navigator.of(context).pop(selected.toList()),
+                  child: const Text('添加'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (updated == null || updated.isEmpty) {
+      return;
+    }
+    final List<String> merged = <String>[
+      ..._memberRoleIds,
+      ...updated.where((String id) => !_memberRoleIds.contains(id)),
+    ];
+    _conversation = _conversation.copyWith(memberRoleIds: merged);
+    await widget.controller.upsertGroupConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  ImageProvider? _avatarForRole(Role role) {
+    final String? path = role.images['square'];
+    if (path == null || path.isEmpty || !File(path).existsSync()) {
+      return null;
+    }
+    return FileImage(File(path));
+  }
+
+  Widget _buildSpeakerBar() {
+    if (!_isGroup) {
+      return const SizedBox.shrink();
+    }
+    final List<Role> roles = _memberRoles;
+    if (roles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Text('发言控制'),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SizedBox(
+              height: 56,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: roles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (BuildContext context, int index) {
+                  final Role role = roles[index];
+                  final bool active = role.id == _activeRoleId;
+                  final ImageProvider? avatar = _avatarForRole(role);
+                  return GestureDetector(
+                    onTap: () => _triggerRoleReply(role),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: active
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          foregroundImage: avatar,
+                          child: avatar == null
+                              ? Text(
+                                  role.name.isNotEmpty ? role.name[0] : '?',
+                                  style: Theme.of(context).textTheme.labelMedium,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 2),
+                        SizedBox(
+                          width: 56,
+                          child: Text(
+                            role.name.isEmpty ? '未命名' : role.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: _showMemberPicker,
+            tooltip: '添加成员',
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Role? role = _role;
@@ -110,7 +330,8 @@ class _ChatPageState extends State<ChatPage>
     final Size size = MediaQuery.of(context).size;
     final bool useLandscape = size.width >= size.height;
     final String? bgPath = useLandscape ? role?.images['landscape'] : role?.images['portrait'];
-    final bool useImageBg = _conversation.backgroundMode == 'image' && bgPath != null && bgPath.isNotEmpty;
+    final bool useImageBg = _conversation.backgroundMode == 'image' &&
+        ((_isGroup) || (bgPath != null && bgPath.isNotEmpty));
     final String searchQuery = _searchController.text.trim();
     final List<int> searchMatches =
         _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
@@ -127,15 +348,20 @@ class _ChatPageState extends State<ChatPage>
         onToggleBackground: _toggleBackground,
         backgroundMode: _conversation.backgroundMode,
         role: role,
+        titleOverride: _isGroup
+            ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
+            : null,
       ),
       body: Stack(
         children: <Widget>[
           if (useImageBg)
             Positioned.fill(
-              child: Image.file(
-                File(bgPath),
-                fit: BoxFit.cover,
-              ),
+              child: _isGroup
+                  ? _buildGroupBackground(useLandscape)
+                  : Image.file(
+                      File(bgPath),
+                      fit: BoxFit.cover,
+                    ),
             ),
           if (useImageBg)
             Positioned.fill(
@@ -145,6 +371,7 @@ class _ChatPageState extends State<ChatPage>
             ),
           Column(
             children: <Widget>[
+              _buildSpeakerBar(),
               Expanded(
                 child: ChatMessageList(
                   conversation: _conversation,
@@ -167,6 +394,9 @@ class _ChatPageState extends State<ChatPage>
                   onDismissSummary: _dismissSummaryPrompt,
                   onShowMessageMenu: _showMessageMenu,
                   summaryInProgress: _summaryInProgress,
+                  showSpeakerLabels: _isGroup,
+                  roleNameForId: (String? id) =>
+                      widget.controller.getRoleById(id ?? '')?.name,
                 ),
               ),
               if (_sending)

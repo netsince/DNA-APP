@@ -17,6 +17,8 @@ typedef MessageAction = Future<void> Function(ConversationMessage message);
 
 typedef MessageIdAction = Future<void> Function(String messageId);
 
+typedef RoleNameForId = String? Function(String? roleId);
+
 class ChatMessageList extends StatelessWidget {
   const ChatMessageList({
     super.key,
@@ -34,6 +36,8 @@ class ChatMessageList extends StatelessWidget {
     required this.onDismissSummary,
     required this.onShowMessageMenu,
     required this.summaryInProgress,
+    required this.showSpeakerLabels,
+    required this.roleNameForId,
   });
 
   final Conversation conversation;
@@ -50,6 +54,8 @@ class ChatMessageList extends StatelessWidget {
   final MessageIdAction onDismissSummary;
   final ShowMessageMenu onShowMessageMenu;
   final bool summaryInProgress;
+  final bool showSpeakerLabels;
+  final RoleNameForId roleNameForId;
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +207,9 @@ class ChatMessageList extends StatelessWidget {
         final int charCount = message.text.runes.length;
         final int tokenCount = showTokenCounts ? tokenCountForMessage(message.id, message.text) : 0;
         final String thoughtText = thoughtsByMessageId[message.id]?.text.trim() ?? '';
+        final String? speakerName = (!isUser && showSpeakerLabels)
+            ? roleNameForId(message.speakerRoleId)?.trim()
+            : null;
         return Align(
           key: key,
           alignment: alignment,
@@ -231,6 +240,18 @@ class ChatMessageList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
+                    Text(
+                      speakerName,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.75),
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   RichText(text: _buildHighlightedText(context, message.text, searchQuery)),
                   if (thoughtText.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 8),

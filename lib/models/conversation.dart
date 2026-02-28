@@ -8,6 +8,11 @@ class Conversation {
     required this.backgroundMode,
     required this.summaries,
     required this.archived,
+    required this.isGroup,
+    required this.groupName,
+    required this.groupPrompt,
+    required this.memberRoleIds,
+    required this.activeRoleId,
   });
 
   final String id;
@@ -18,6 +23,11 @@ class Conversation {
   final String backgroundMode;
   final List<ConversationSummary> summaries;
   final bool archived;
+  final bool isGroup;
+  final String groupName;
+  final String groupPrompt;
+  final List<String> memberRoleIds;
+  final String? activeRoleId;
 
   Conversation copyWith({
     String? roleId,
@@ -27,6 +37,11 @@ class Conversation {
     String? backgroundMode,
     List<ConversationSummary>? summaries,
     bool? archived,
+    bool? isGroup,
+    String? groupName,
+    String? groupPrompt,
+    List<String>? memberRoleIds,
+    String? activeRoleId,
   }) {
     return Conversation(
       id: id,
@@ -37,6 +52,11 @@ class Conversation {
       backgroundMode: backgroundMode ?? this.backgroundMode,
       summaries: summaries ?? this.summaries,
       archived: archived ?? this.archived,
+      isGroup: isGroup ?? this.isGroup,
+      groupName: groupName ?? this.groupName,
+      groupPrompt: groupPrompt ?? this.groupPrompt,
+      memberRoleIds: memberRoleIds ?? this.memberRoleIds,
+      activeRoleId: activeRoleId ?? this.activeRoleId,
     );
   }
 
@@ -50,15 +70,34 @@ class Conversation {
       'messages': messages.map((ConversationMessage m) => m.toJson()).toList(),
       'summaries': summaries.map((ConversationSummary s) => s.toJson()).toList(),
       'archived': archived,
+      'isGroup': isGroup,
+      'groupName': groupName,
+      'groupPrompt': groupPrompt,
+      'memberRoleIds': memberRoleIds,
+      'activeRoleId': activeRoleId,
     };
   }
 
   static Conversation fromJson(Map<String, dynamic> json) {
     final List<dynamic>? raw = json['messages'] as List<dynamic>?;
     final List<dynamic>? rawSummaries = json['summaries'] as List<dynamic>?;
+    final String roleId = json['roleId'] as String? ?? '';
+    final bool isGroup = (json['isGroup'] as bool?) ?? false;
+    final List<String> rawMembers =
+        (json['memberRoleIds'] as List?)?.whereType<String>().toList() ?? <String>[];
+    final List<String> memberRoleIds = isGroup
+        ? <String>[
+            if (roleId.isNotEmpty) roleId,
+            ...rawMembers.where((String id) => id != roleId),
+          ]
+        : <String>[roleId];
+    final String? rawActive = json['activeRoleId'] as String?;
+    final String? activeRoleId = (rawActive != null && rawActive.isNotEmpty)
+        ? rawActive
+        : (memberRoleIds.isNotEmpty ? memberRoleIds.first : roleId);
     return Conversation(
       id: json['id'] as String,
-      roleId: json['roleId'] as String,
+      roleId: roleId,
       worldId: json['worldId'] as String?,
       note: (json['note'] as String?) ?? '',
       backgroundMode: (json['backgroundMode'] as String?) ?? 'none',
@@ -75,6 +114,11 @@ class Conversation {
               .map(ConversationSummary.fromJson)
               .toList(),
       archived: (json['archived'] as bool?) ?? false,
+      isGroup: isGroup,
+      groupName: (json['groupName'] as String?) ?? '',
+      groupPrompt: (json['groupPrompt'] as String?) ?? '',
+      memberRoleIds: memberRoleIds,
+      activeRoleId: activeRoleId,
     );
   }
 }
@@ -88,6 +132,7 @@ class ConversationMessage {
     this.kind = 'message',
     this.summaryId,
     this.anchorMessageId,
+    this.speakerRoleId,
   });
 
   final String id;
@@ -97,8 +142,9 @@ class ConversationMessage {
   final String kind;
   final String? summaryId;
   final String? anchorMessageId;
+  final String? speakerRoleId;
 
-  ConversationMessage copyWith({String? text}) {
+  ConversationMessage copyWith({String? text, String? speakerRoleId}) {
     return ConversationMessage(
       id: id,
       role: role,
@@ -107,6 +153,7 @@ class ConversationMessage {
       kind: kind,
       summaryId: summaryId,
       anchorMessageId: anchorMessageId,
+      speakerRoleId: speakerRoleId ?? this.speakerRoleId,
     );
   }
 
@@ -119,6 +166,7 @@ class ConversationMessage {
       'kind': kind,
       'summaryId': summaryId,
       'anchorMessageId': anchorMessageId,
+      'speakerRoleId': speakerRoleId,
     };
   }
 
@@ -131,6 +179,7 @@ class ConversationMessage {
       kind: (json['kind'] as String?) ?? 'message',
       summaryId: json['summaryId'] as String?,
       anchorMessageId: json['anchorMessageId'] as String?,
+      speakerRoleId: json['speakerRoleId'] as String?,
     );
   }
 }

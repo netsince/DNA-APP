@@ -6,6 +6,7 @@ class ChatSystemPrompt {
   static String build({
     required Role? role,
     required World? world,
+    String? groupPrompt,
   }) {
     final List<DialogueTurn> style = role?.dialogueStyle ?? <DialogueTurn>[];
     final StringBuffer system = StringBuffer();
@@ -35,6 +36,9 @@ class ChatSystemPrompt {
       } else if (world.description.isNotEmpty) {
         system.writeln('世界：${world.description}');
       }
+    }
+    if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {
+      system.writeln('缇よ瀹氾細${groupPrompt.trim()}');
     }
     if (style.isNotEmpty) {
       system.writeln('对话风格：');

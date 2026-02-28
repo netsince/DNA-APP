@@ -6,6 +6,7 @@ import '../models/role.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
 import '../services/conversation_service.dart';
+import '../services/group_conversation_service.dart';
 import '../services/role_service.dart';
 import '../services/settings_service.dart';
 import '../services/world_service.dart';
@@ -17,34 +18,40 @@ class AppController extends ChangeNotifier {
     required RoleService roleService,
     required WorldService worldService,
     required ConversationService conversationService,
+    required GroupConversationService groupConversationService,
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
         _roleService = roleService,
         _worldService = worldService,
-        _conversationService = conversationService;
+        _conversationService = conversationService,
+        _groupConversationService = groupConversationService;
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
   final RoleService _roleService;
   final WorldService _worldService;
   final ConversationService _conversationService;
+  final GroupConversationService _groupConversationService;
 
   AppSettings _settings = AppSettings.empty();
   List<Role> _roles = <Role>[];
   List<World> _worlds = <World>[];
   List<Conversation> _conversations = <Conversation>[];
+  List<Conversation> _groupConversations = <Conversation>[];
 
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
   List<Role> get roles => List<Role>.unmodifiable(_roles);
   List<World> get worlds => List<World>.unmodifiable(_worlds);
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
+  List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
 
   Future<void> initialize() async {
     _settings = await _settingsService.load();
     _roles = await _roleService.load();
     _worlds = await _worldService.load();
     _conversations = await _conversationService.load();
+    _groupConversations = await _groupConversationService.load();
     notifyListeners();
   }
 
@@ -153,6 +160,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> upsertConversation(Conversation conversation) async {
+    if (conversation.isGroup) {
+      await upsertGroupConversation(conversation);
+      return;
+    }
     final int index = _conversations.indexWhere((Conversation item) => item.id == conversation.id);
     if (index == -1) {
       _conversations = <Conversation>[..._conversations, conversation];
@@ -165,9 +176,32 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> upsertGroupConversation(Conversation conversation) async {
+    if (!conversation.isGroup) {
+      conversation = conversation.copyWith(isGroup: true);
+    }
+    final int index =
+        _groupConversations.indexWhere((Conversation item) => item.id == conversation.id);
+    if (index == -1) {
+      _groupConversations = <Conversation>[..._groupConversations, conversation];
+    } else {
+      final List<Conversation> updated = <Conversation>[..._groupConversations];
+      updated[index] = conversation;
+      _groupConversations = updated;
+    }
+    await _groupConversationService.save(_groupConversations);
+    notifyListeners();
+  }
+
   Future<void> deleteConversation(String id) async {
     _conversations = _conversations.where((Conversation item) => item.id != id).toList();
     await _conversationService.save(_conversations);
+    notifyListeners();
+  }
+
+  Future<void> deleteGroupConversation(String id) async {
+    _groupConversations = _groupConversations.where((Conversation item) => item.id != id).toList();
+    await _groupConversationService.save(_groupConversations);
     notifyListeners();
   }
 
@@ -187,6 +221,25 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(archived: archived);
     _conversations = updated;
     await _conversationService.save(_conversations);
+    notifyListeners();
+  }
+
+  Future<void> setGroupConversationArchived({
+    required String id,
+    required bool archived,
+  }) async {
+    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final Conversation current = _groupConversations[index];
+    if (current.archived == archived) {
+      return;
+    }
+    final List<Conversation> updated = <Conversation>[..._groupConversations];
+    updated[index] = current.copyWith(archived: archived);
+    _groupConversations = updated;
+    await _groupConversationService.save(_groupConversations);
     notifyListeners();
   }
 
@@ -273,6 +326,15 @@ class AppController extends ChangeNotifier {
     _conversations = updated;
     await _conversationService.save(_conversations);
     notifyListeners();
+  }
+
+  Conversation? getGroupById(String id) {
+    for (final Conversation conversation in _groupConversations) {
+      if (conversation.id == id) {
+        return conversation;
+      }
+    }
+    return null;
   }
 
   Role? getRoleById(String id) {

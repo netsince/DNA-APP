@@ -22,6 +22,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleBackground,
     required this.backgroundMode,
     required this.role,
+    this.titleOverride,
   });
 
   final bool searching;
@@ -35,6 +36,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ToggleBackground onToggleBackground;
   final String backgroundMode;
   final Role? role;
+  final String? titleOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +64,10 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ],
             )
-          : Text(role?.name.isNotEmpty == true ? role!.name : '聊天'),
+          : Text(
+              titleOverride ??
+                  (role?.name.isNotEmpty == true ? role!.name : '聊天'),
+            ),
       actions: searching
           ? <Widget>[
               IconButton(

@@ -1,12 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../pages/home_page.dart';
+import '../pages/group_home_page.dart';
 import '../pages/my_home_page.dart';
 import '../pages/settings_page.dart';
 import '../pages/world_page.dart';
 import '../state/app_controller.dart';
 
-enum AppSection { home, myHome, world, settings }
+enum AppSection { home, groupChats, myHome, world, settings }
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, required this.controller, required this.current});
@@ -23,6 +24,9 @@ class AppDrawer extends StatelessWidget {
     switch (target) {
       case AppSection.home:
         page = HomePage(controller: controller);
+        break;
+      case AppSection.groupChats:
+        page = GroupHomePage(controller: controller);
         break;
       case AppSection.myHome:
         page = MyHomePage(controller: controller);
@@ -61,6 +65,12 @@ class AppDrawer extends StatelessWidget {
             title: const Text('首页'),
             selected: current == AppSection.home,
             onTap: () => _navigate(context, AppSection.home),
+          ),
+          ListTile(
+            leading: const Icon(Icons.forum_outlined),
+            title: const Text('群聊'),
+            selected: current == AppSection.groupChats,
+            onTap: () => _navigate(context, AppSection.groupChats),
           ),
           ListTile(
             leading: const Icon(Icons.people_outline),

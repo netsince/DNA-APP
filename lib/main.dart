@@ -9,6 +9,7 @@ import 'services/role_service.dart';
 import 'services/settings_service.dart';
 import 'services/world_service.dart';
 import 'services/conversation_service.dart';
+import 'services/group_conversation_service.dart';
 import 'state/app_controller.dart';
 
 Future<void> main() async {
@@ -22,6 +23,7 @@ Future<void> main() async {
         roleService: RoleService(),
         worldService: WorldService(),
         conversationService: ConversationService(),
+        groupConversationService: GroupConversationService(),
       );
       await controller.initialize();
 

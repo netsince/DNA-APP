@@ -2,7 +2,11 @@ part of '../../chat_page.dart';
 
 mixin ChatPayloadBuilders on ChatStateMixin {
   String _buildSystemPrompt() {
-    return ChatSystemPrompt.build(role: _role, world: _world);
+    return ChatSystemPrompt.build(
+      role: _role,
+      world: _world,
+      groupPrompt: _conversation.groupPrompt,
+    );
   }
 
   int _totalTurnCount() {

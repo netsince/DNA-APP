@@ -1,29 +1,56 @@
 part of '../../chat_page.dart';
 
 mixin ChatActionsSend on ChatStateMixin {
-  Future<bool> _streamAssistantResponse({required String model, required String apiKey, required String baseUrl, required List<Map<String, String>> payload, required String assistantId, required ConversationMessage assistantMessage,});
+  Future<bool> _streamAssistantResponse({
+    required String model,
+    required String apiKey,
+    required String baseUrl,
+    required List<Map<String, String>> payload,
+    required String assistantId,
+    required ConversationMessage assistantMessage,
+  });
   Future<void> _maybePromptSummary();
   Future<void> _showRetryPicker(int index);
 
-  Future<void> _send() async {
-    final String text = _inputController.text.trim();
-    if (text.isEmpty) {
+  Future<void> _setActiveRole(String roleId) async {
+    if (!_isGroup) {
       return;
     }
-    if (_sending) {
+    if (_activeRoleId == roleId) {
+      return;
+    }
+    final List<String> members = _memberRoleIds.contains(roleId)
+        ? _memberRoleIds
+        : <String>[..._memberRoleIds, roleId];
+    _conversation = _conversation.copyWith(
+      memberRoleIds: members,
+      activeRoleId: roleId,
+    );
+    await widget.controller.upsertGroupConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    await _loadAccent();
+  }
+
+  Role? _roleForMessage(ConversationMessage message) {
+    final String? roleId = message.speakerRoleId;
+    if (roleId != null && roleId.isNotEmpty) {
+      return widget.controller.getRoleById(roleId);
+    }
+    return _role;
+  }
+
+  Future<void> _send() async {
+    final String text = _inputController.text.trim();
+    if (text.isEmpty || _sending) {
       return;
     }
     final Role? role = _role;
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
-    if (role == null) {
-      showSnack(context, '角色不存在，请重新创建会话。');
-      return;
-    }
-    if (!ensureApiReady(context: context, controller: widget.controller)) {
-      return;
-    }
     final ConversationMessage userMessage = ConversationMessage(
       id: newId(),
       role: 'user',
@@ -31,14 +58,31 @@ mixin ChatActionsSend on ChatStateMixin {
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
     _inputController.clear();
-    final List<ConversationMessage> updated = <ConversationMessage>[..._conversation.messages, userMessage];
+    final List<ConversationMessage> updated = <ConversationMessage>[
+      ..._conversation.messages,
+      userMessage,
+    ];
     _conversation = _conversation.copyWith(messages: updated);
-    await widget.controller.upsertConversation(_conversation);
+    if (_isGroup) {
+      await widget.controller.upsertGroupConversation(_conversation);
+    } else {
+      await widget.controller.upsertConversation(_conversation);
+    }
     if (!mounted) {
       return;
     }
     setState(() {});
     _scrollToBottom();
+    if (_isGroup) {
+      return;
+    }
+    if (role == null) {
+      showSnack(context, '角色不存在，请重新创建会话。');
+      return;
+    }
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
+      return;
+    }
     setState(() => _sending = true);
     final String assistantId = newId();
     ConversationMessage assistantMessage = ConversationMessage(
@@ -46,9 +90,11 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'assistant',
       text: '',
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerRoleId: role.id,
     );
     _conversation = _conversation.copyWith(
       messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
+      activeRoleId: role.id,
     );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
@@ -57,11 +103,14 @@ mixin ChatActionsSend on ChatStateMixin {
     setState(() {});
     _scrollToBottom();
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(_conversation);
-    final ConversationSummary? summary = slice.includeSummary
-        ? ChatMessageSlice.latestSummary(_conversation)
-        : null;
+    final ConversationSummary? summary =
+        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(role: _role, world: _world),
+      systemPrompt: ChatSystemPrompt.build(
+        role: role,
+        world: _world,
+        groupPrompt: _conversation.groupPrompt,
+      ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
@@ -85,7 +134,13 @@ mixin ChatActionsSend on ChatStateMixin {
     if (_sending) {
       return;
     }
-    final Role? role = _role;
+    final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
+      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+    );
+    if (lastAssistantIndex == -1) {
+      return;
+    }
+    final Role? role = _roleForMessage(_conversation.messages[lastAssistantIndex]);
     if (role == null) {
       return;
     }
@@ -102,9 +157,11 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'assistant',
       text: '',
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerRoleId: role.id,
     );
     _conversation = _conversation.copyWith(
       messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
+      activeRoleId: role.id,
     );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
@@ -117,7 +174,11 @@ mixin ChatActionsSend on ChatStateMixin {
       excludeIds: <String>{assistantId},
     );
     final List<Map<String, String>> payload = <Map<String, String>>[];
-    final String sys = ChatSystemPrompt.build(role: _role, world: _world);
+    final String sys = ChatSystemPrompt.build(
+      role: role,
+      world: _world,
+      groupPrompt: _conversation.groupPrompt,
+    );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
@@ -126,13 +187,13 @@ mixin ChatActionsSend on ChatStateMixin {
       if (summary != null && summary.text.trim().isNotEmpty) {
         payload.add(<String, String>{
           'role': 'system',
-          'content': '对话摘要：\n${summary.text.trim()}',
+          'content': '瀵硅瘽鎽樿锛歕n${summary.text.trim()}',
         });
       }
     }
     payload.add(<String, String>{
       'role': 'system',
-      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
+      'content': '璇风户缁笂涓€鏉″姪鎵嬪洖澶嶏紝寤剁画璇皵锛屼笉瑕侀噸澶嶅凡璇村唴瀹癸紝涓嶈寮曞叆鏂拌瘽棰樸€?',
     });
     payload.addAll(
       slice.messages.map((ConversationMessage m) => <String, String>{
@@ -163,6 +224,10 @@ mixin ChatActionsSend on ChatStateMixin {
     if (target.role != 'assistant') {
       return;
     }
+    final Role? role = _roleForMessage(target);
+    if (role == null) {
+      return;
+    }
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
@@ -173,11 +238,14 @@ mixin ChatActionsSend on ChatStateMixin {
       _conversation,
       endExclusive: index,
     );
-    final ConversationSummary? summary = slice.includeSummary
-        ? ChatMessageSlice.latestSummary(_conversation)
-        : null;
+    final ConversationSummary? summary =
+        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(role: _role, world: _world),
+      systemPrompt: ChatSystemPrompt.build(
+        role: role,
+        world: _world,
+        groupPrompt: _conversation.groupPrompt,
+      ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
@@ -193,7 +261,7 @@ mixin ChatActionsSend on ChatStateMixin {
       _retryDisabled.add(target.id);
       if (mounted) {
         setState(() => _sending = false);
-        showSnack(context, '重说失败，已暂时禁用。');
+        showSnack(context, '重试失败，已暂时禁用。');
       }
       return;
     }
@@ -255,5 +323,66 @@ mixin ChatActionsSend on ChatStateMixin {
       }
     }
     return results;
+  }
+
+  Future<void> _triggerRoleReply(Role role) async {
+    if (_sending) {
+      return;
+    }
+    final String model = widget.controller.settings.selectedModel;
+    final String apiKey = widget.controller.settings.apiKey;
+    final String baseUrl = widget.controller.settings.baseUrl;
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
+      return;
+    }
+    await _setActiveRole(role.id);
+    setState(() => _sending = true);
+    final String assistantId = newId();
+    ConversationMessage assistantMessage = ConversationMessage(
+      id: assistantId,
+      role: 'assistant',
+      text: '',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerRoleId: role.id,
+    );
+    _conversation = _conversation.copyWith(
+      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
+      activeRoleId: role.id,
+    );
+    await widget.controller.upsertGroupConversation(_conversation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    _scrollToBottom();
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      excludeIds: <String>{assistantId},
+    );
+    final ConversationSummary? summary =
+        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
+    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+      systemPrompt: ChatSystemPrompt.build(
+        role: role,
+        world: _world,
+        groupPrompt: _conversation.groupPrompt,
+      ),
+      messages: slice.messages,
+      summaryText: summary?.text,
+      summaryPrefix: '对话摘要：\n',
+    );
+    final bool streamed = await _streamAssistantResponse(
+      model: model,
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      payload: payload,
+      assistantId: assistantId,
+      assistantMessage: assistantMessage,
+    );
+    if (!streamed) {
+      return;
+    }
+    setState(() => _sending = false);
+    await _maybePromptSummary();
   }
 }
