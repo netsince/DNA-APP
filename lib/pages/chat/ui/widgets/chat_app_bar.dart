@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../models/role.dart';
+import '../../../../models/ta.dart';
 
 typedef SearchChanged = void Function(String value);
 typedef NavigateMatch = void Function(int direction);
@@ -21,7 +21,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onScrollToBottom,
     required this.onToggleBackground,
     required this.backgroundMode,
-    required this.role,
+    required this.ta,
     this.titleOverride,
   });
 
@@ -35,7 +35,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ScrollToBottom onScrollToBottom;
   final ToggleBackground onToggleBackground;
   final String backgroundMode;
-  final Role? role;
+  final TA? ta;
   final String? titleOverride;
 
   @override
@@ -65,8 +65,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               ],
             )
           : Text(
-              titleOverride ??
-                  (role?.name.isNotEmpty == true ? role!.name : '聊天'),
+              titleOverride ?? (ta?.name.isNotEmpty == true ? ta!.name : '聊天'),
             ),
       actions: searching
           ? <Widget>[

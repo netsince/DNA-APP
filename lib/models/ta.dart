@@ -1,7 +1,7 @@
 ﻿import 'dialogue_style.dart';
 
-class Role {
-  const Role({
+class TA {
+  const TA({
     required this.id,
     required this.name,
     required this.gender,
@@ -23,7 +23,7 @@ class Role {
   final Map<String, String> images;
   final List<DialogueTurn> dialogueStyle;
 
-  Role copyWith({
+  TA copyWith({
     String? name,
     String? gender,
     String? persona,
@@ -33,7 +33,7 @@ class Role {
     Map<String, String>? images,
     List<DialogueTurn>? dialogueStyle,
   }) {
-    return Role(
+    return TA(
       id: id,
       name: name ?? this.name,
       gender: gender ?? this.gender,
@@ -60,9 +60,9 @@ class Role {
     };
   }
 
-  static Role fromJson(Map<String, dynamic> json) {
+  static TA fromJson(Map<String, dynamic> json) {
     final List<dynamic>? raw = json['dialogueStyle'] as List<dynamic>?;
-    return Role(
+    return TA(
       id: json['id'] as String,
       name: (json['name'] as String?) ?? '',
       gender: (json['gender'] as String?) ?? '无性',

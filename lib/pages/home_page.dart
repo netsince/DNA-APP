@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
@@ -101,14 +101,14 @@ class _HomePageState extends State<HomePage> {
                   },
                   itemBuilder: (BuildContext context, int index) {
                     final Conversation conversation = visible[index];
-                    final Role? role = widget.controller.getRoleById(conversation.roleId);
+                    final TA? ta = widget.controller.getTaById(conversation.taId);
                     final World? world = widget.controller.getWorldById(conversation.worldId);
                     final String title = conversation.note.isNotEmpty
                         ? conversation.note
-                        : (role?.name.isNotEmpty == true ? role!.name : '未命名会话');
+                        : (ta?.name.isNotEmpty == true ? ta!.name : '未命名会话');
                     final String subtitle = world == null
-                        ? '角色：${role?.name.isNotEmpty == true ? role!.name : '未命名角色'}'
-                        : '角色：${role?.name.isNotEmpty == true ? role!.name : '未命名角色'} · 世界：${world.name}';
+                        ? 'TA：${ta?.name.isNotEmpty == true ? ta!.name : '未命名TA'}'
+                        : 'TA：${ta?.name.isNotEmpty == true ? ta!.name : '未命名TA'} · 世界：${world.name}';
                     return Card(
                       key: ValueKey<String>(conversation.id),
                       child: ListTile(

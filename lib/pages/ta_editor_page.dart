@@ -5,24 +5,24 @@ import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
 
-class RoleEditorPage extends StatefulWidget {
-  const RoleEditorPage({super.key, required this.controller, this.role});
+class TaEditorPage extends StatefulWidget {
+  const TaEditorPage({super.key, required this.controller, this.ta});
 
   final AppController controller;
-  final Role? role;
+  final TA? ta;
 
   @override
-  State<RoleEditorPage> createState() => _RoleEditorPageState();
+  State<TaEditorPage> createState() => _TaEditorPageState();
 }
 
-class _RoleEditorPageState extends State<RoleEditorPage> {
+class _TaEditorPageState extends State<TaEditorPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _personaController;
   late final TextEditingController _introController;
@@ -30,23 +30,23 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
   late final TextEditingController _tagsController;
 
   late String _gender;
-  late String _roleId;
+  late String _taId;
   Map<String, String> _images = <String, String>{};
   List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
 
   @override
   void initState() {
     super.initState();
-    final Role? role = widget.role;
-    _roleId = role?.id ?? newId();
-    _nameController = TextEditingController(text: role?.name ?? '');
-    _personaController = TextEditingController(text: role?.persona ?? '');
-    _introController = TextEditingController(text: role?.intro ?? '');
-    _openingController = TextEditingController(text: role?.opening ?? '');
-    _tagsController = TextEditingController(text: (role?.tags ?? <String>[]).join(', '));
-    _gender = role?.gender ?? '无性';
-    _images = Map<String, String>.from(role?.images ?? <String, String>{});
-    _dialogueStyle = List<DialogueTurn>.from(role?.dialogueStyle ?? <DialogueTurn>[]);
+    final TA? ta = widget.ta;
+    _taId = ta?.id ?? newId();
+    _nameController = TextEditingController(text: ta?.name ?? '');
+    _personaController = TextEditingController(text: ta?.persona ?? '');
+    _introController = TextEditingController(text: ta?.intro ?? '');
+    _openingController = TextEditingController(text: ta?.opening ?? '');
+    _tagsController = TextEditingController(text: (ta?.tags ?? <String>[]).join(', '));
+    _gender = ta?.gender ?? '无性';
+    _images = Map<String, String>.from(ta?.images ?? <String, String>{});
+    _dialogueStyle = List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
   }
 
   @override
@@ -94,8 +94,8 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
       showSnack(context, '裁剪失败，请重试。');
     }
 
-    final String storedPath = await widget.controller.storeRoleImage(
-      roleId: _roleId,
+    final String storedPath = await widget.controller.storeTaImage(
+      taId: _taId,
       slot: slot,
       sourcePath: cropped?.path ?? picked.path,
     );
@@ -117,8 +117,8 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
   }
 
   Future<void> _save() async {
-    final Role role = Role(
-      id: _roleId,
+    final TA ta = TA(
+      id: _taId,
       name: _nameController.text.trim(),
       gender: _gender,
       persona: _personaController.text.trim(),
@@ -128,7 +128,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
       images: _images,
       dialogueStyle: _dialogueStyle,
     );
-    await widget.controller.upsertRole(role);
+    await widget.controller.upsertTa(ta);
     if (!mounted) {
       return;
     }
@@ -139,7 +139,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.role == null ? '创建角色' : '编辑角色'),
+        title: Text(widget.ta == null ? '创建TA' : '编辑TA'),
         actions: <Widget>[
           IconButton(
             onPressed: _save,
@@ -157,7 +157,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('角色形象', style: Theme.of(context).textTheme.titleLarge),
+                  Text('TA形象', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   _ImageSlot(
                     title: '1:1 形象',
@@ -191,8 +191,8 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final Role current = Role(
-                        id: _roleId,
+                      final TA current = TA(
+                        id: _taId,
                         name: _nameController.text.trim(),
                         gender: _gender,
                         persona: _personaController.text.trim(),
@@ -206,14 +206,14 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
                         MaterialPageRoute<void>(
                           builder: (BuildContext context) => DialogueStylePage(
                             controller: widget.controller,
-                            role: current,
+                            ta: current,
                           ),
                         ),
                       );
                       if (!mounted) {
                         return;
                       }
-                      final Role? updated = widget.controller.getRoleById(_roleId);
+                      final TA? updated = widget.controller.getTaById(_taId);
                       setState(() {
                         _dialogueStyle = List<DialogueTurn>.from(updated?.dialogueStyle ?? _dialogueStyle);
                       });
@@ -249,7 +249,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
                     maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: '设定',
-                      hintText: '决定了角色的内在',
+                      hintText: '决定了TA的内在',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -298,7 +298,7 @@ class _RoleEditorPageState extends State<RoleEditorPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.save_outlined),
-        label: const Text('保存角色'),
+        label: const Text('保存TA'),
       ),
     );
   }

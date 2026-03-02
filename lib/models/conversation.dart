@@ -1,7 +1,7 @@
 class Conversation {
   const Conversation({
     required this.id,
-    required this.roleId,
+    required this.taId,
     required this.worldId,
     required this.note,
     required this.messages,
@@ -11,12 +11,12 @@ class Conversation {
     required this.isGroup,
     required this.groupName,
     required this.groupPrompt,
-    required this.memberRoleIds,
-    required this.activeRoleId,
+    required this.memberTaIds,
+    required this.activeTaId,
   });
 
   final String id;
-  final String roleId;
+  final String taId;
   final String? worldId;
   final String note;
   final List<ConversationMessage> messages;
@@ -26,11 +26,11 @@ class Conversation {
   final bool isGroup;
   final String groupName;
   final String groupPrompt;
-  final List<String> memberRoleIds;
-  final String? activeRoleId;
+  final List<String> memberTaIds;
+  final String? activeTaId;
 
   Conversation copyWith({
-    String? roleId,
+    String? taId,
     String? worldId,
     String? note,
     List<ConversationMessage>? messages,
@@ -40,12 +40,12 @@ class Conversation {
     bool? isGroup,
     String? groupName,
     String? groupPrompt,
-    List<String>? memberRoleIds,
-    String? activeRoleId,
+    List<String>? memberTaIds,
+    String? activeTaId,
   }) {
     return Conversation(
       id: id,
-      roleId: roleId ?? this.roleId,
+      taId: taId ?? this.taId,
       worldId: worldId ?? this.worldId,
       note: note ?? this.note,
       messages: messages ?? this.messages,
@@ -55,15 +55,15 @@ class Conversation {
       isGroup: isGroup ?? this.isGroup,
       groupName: groupName ?? this.groupName,
       groupPrompt: groupPrompt ?? this.groupPrompt,
-      memberRoleIds: memberRoleIds ?? this.memberRoleIds,
-      activeRoleId: activeRoleId ?? this.activeRoleId,
+      memberTaIds: memberTaIds ?? this.memberTaIds,
+      activeTaId: activeTaId ?? this.activeTaId,
     );
   }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
-      'roleId': roleId,
+      'taId': taId,
       'worldId': worldId,
       'note': note,
       'backgroundMode': backgroundMode,
@@ -73,31 +73,31 @@ class Conversation {
       'isGroup': isGroup,
       'groupName': groupName,
       'groupPrompt': groupPrompt,
-      'memberRoleIds': memberRoleIds,
-      'activeRoleId': activeRoleId,
+      'memberTaIds': memberTaIds,
+      'activeTaId': activeTaId,
     };
   }
 
   static Conversation fromJson(Map<String, dynamic> json) {
     final List<dynamic>? raw = json['messages'] as List<dynamic>?;
     final List<dynamic>? rawSummaries = json['summaries'] as List<dynamic>?;
-    final String roleId = json['roleId'] as String? ?? '';
+    final String taId = (json['taId'] as String?) ?? '';
     final bool isGroup = (json['isGroup'] as bool?) ?? false;
     final List<String> rawMembers =
-        (json['memberRoleIds'] as List?)?.whereType<String>().toList() ?? <String>[];
-    final List<String> memberRoleIds = isGroup
+        (json['memberTaIds'] as List?)?.whereType<String>().toList() ?? <String>[];
+    final List<String> memberTaIds = isGroup
         ? <String>[
-            if (roleId.isNotEmpty) roleId,
-            ...rawMembers.where((String id) => id != roleId),
+            if (taId.isNotEmpty) taId,
+            ...rawMembers.where((String id) => id != taId),
           ]
-        : <String>[roleId];
-    final String? rawActive = json['activeRoleId'] as String?;
-    final String? activeRoleId = (rawActive != null && rawActive.isNotEmpty)
+        : <String>[taId];
+    final String? rawActive = json['activeTaId'] as String?;
+    final String? activeTaId = (rawActive != null && rawActive.isNotEmpty)
         ? rawActive
-        : (memberRoleIds.isNotEmpty ? memberRoleIds.first : roleId);
+        : (memberTaIds.isNotEmpty ? memberTaIds.first : taId);
     return Conversation(
       id: json['id'] as String,
-      roleId: roleId,
+      taId: taId,
       worldId: json['worldId'] as String?,
       note: (json['note'] as String?) ?? '',
       backgroundMode: (json['backgroundMode'] as String?) ?? 'none',
@@ -117,8 +117,8 @@ class Conversation {
       isGroup: isGroup,
       groupName: (json['groupName'] as String?) ?? '',
       groupPrompt: (json['groupPrompt'] as String?) ?? '',
-      memberRoleIds: memberRoleIds,
-      activeRoleId: activeRoleId,
+      memberTaIds: memberTaIds,
+      activeTaId: activeTaId,
     );
   }
 }
@@ -132,7 +132,7 @@ class ConversationMessage {
     this.kind = 'message',
     this.summaryId,
     this.anchorMessageId,
-    this.speakerRoleId,
+    this.speakerTaId,
   });
 
   final String id;
@@ -142,9 +142,9 @@ class ConversationMessage {
   final String kind;
   final String? summaryId;
   final String? anchorMessageId;
-  final String? speakerRoleId;
+  final String? speakerTaId;
 
-  ConversationMessage copyWith({String? text, String? speakerRoleId}) {
+  ConversationMessage copyWith({String? text, String? speakerTaId}) {
     return ConversationMessage(
       id: id,
       role: role,
@@ -153,7 +153,7 @@ class ConversationMessage {
       kind: kind,
       summaryId: summaryId,
       anchorMessageId: anchorMessageId,
-      speakerRoleId: speakerRoleId ?? this.speakerRoleId,
+      speakerTaId: speakerTaId ?? this.speakerTaId,
     );
   }
 
@@ -166,7 +166,7 @@ class ConversationMessage {
       'kind': kind,
       'summaryId': summaryId,
       'anchorMessageId': anchorMessageId,
-      'speakerRoleId': speakerRoleId,
+      'speakerTaId': speakerTaId,
     };
   }
 
@@ -179,7 +179,7 @@ class ConversationMessage {
       kind: (json['kind'] as String?) ?? 'message',
       summaryId: json['summaryId'] as String?,
       anchorMessageId: json['anchorMessageId'] as String?,
-      speakerRoleId: json['speakerRoleId'] as String?,
+      speakerTaId: json['speakerTaId'] as String?,
     );
   }
 }

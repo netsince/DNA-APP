@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_settings.dart';
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
 import '../services/conversation_service.dart';
 import '../services/group_conversation_service.dart';
-import '../services/role_service.dart';
+import '../services/ta_service.dart';
 import '../services/settings_service.dart';
 import '../services/world_service.dart';
 
@@ -15,40 +15,40 @@ class AppController extends ChangeNotifier {
   AppController({
     required SettingsService settingsService,
     required OpenAiService openAiService,
-    required RoleService roleService,
+    required TaService taService,
     required WorldService worldService,
     required ConversationService conversationService,
     required GroupConversationService groupConversationService,
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
-        _roleService = roleService,
+        _taService = taService,
         _worldService = worldService,
         _conversationService = conversationService,
         _groupConversationService = groupConversationService;
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
-  final RoleService _roleService;
+  final TaService _taService;
   final WorldService _worldService;
   final ConversationService _conversationService;
   final GroupConversationService _groupConversationService;
 
   AppSettings _settings = AppSettings.empty();
-  List<Role> _roles = <Role>[];
+  List<TA> _tas = <TA>[];
   List<World> _worlds = <World>[];
   List<Conversation> _conversations = <Conversation>[];
   List<Conversation> _groupConversations = <Conversation>[];
 
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
-  List<Role> get roles => List<Role>.unmodifiable(_roles);
+  List<TA> get tas => List<TA>.unmodifiable(_tas);
   List<World> get worlds => List<World>.unmodifiable(_worlds);
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
 
   Future<void> initialize() async {
     _settings = await _settingsService.load();
-    _roles = await _roleService.load();
+    _tas = await _taService.load();
     _worlds = await _worldService.load();
     _conversations = await _conversationService.load();
     _groupConversations = await _groupConversationService.load();
@@ -109,33 +109,33 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> upsertRole(Role role) async {
-    final int index = _roles.indexWhere((Role item) => item.id == role.id);
+  Future<void> upsertTa(TA ta) async {
+    final int index = _tas.indexWhere((TA item) => item.id == ta.id);
     if (index == -1) {
-      _roles = <Role>[..._roles, role];
+      _tas = <TA>[..._tas, ta];
     } else {
-      final List<Role> updated = <Role>[..._roles];
-      updated[index] = role;
-      _roles = updated;
+      final List<TA> updated = <TA>[..._tas];
+      updated[index] = ta;
+      _tas = updated;
     }
-    await _roleService.save(_roles);
+    await _taService.save(_tas);
     notifyListeners();
   }
 
-  Future<void> deleteRole(String id) async {
-    _roles = _roles.where((Role role) => role.id != id).toList();
-    await _roleService.save(_roles);
+  Future<void> deleteTa(String id) async {
+    _tas = _tas.where((TA ta) => ta.id != id).toList();
+    await _taService.save(_tas);
     notifyListeners();
   }
 
-  Future<String> storeRoleImage({
-    required String roleId,
+  Future<String> storeTaImage({
+    required String taId,
     required String slot,
     required String sourcePath,
   }) async {
-    return _roleService.storeImage(
+    return _taService.storeImage(
       sourcePath: sourcePath,
-      roleId: roleId,
+      taId: taId,
       slot: slot,
     );
   }
@@ -274,21 +274,21 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> reorderRoles(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _roles.length) {
+  Future<void> reorderTas(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _tas.length) {
       return;
     }
-    if (newIndex < 0 || newIndex > _roles.length) {
+    if (newIndex < 0 || newIndex > _tas.length) {
       return;
     }
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
-    final List<Role> updated = List<Role>.from(_roles);
-    final Role moved = updated.removeAt(oldIndex);
+    final List<TA> updated = List<TA>.from(_tas);
+    final TA moved = updated.removeAt(oldIndex);
     updated.insert(newIndex, moved);
-    _roles = updated;
-    await _roleService.save(_roles);
+    _tas = updated;
+    await _taService.save(_tas);
     notifyListeners();
   }
 
@@ -337,10 +337,10 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
-  Role? getRoleById(String id) {
-    for (final Role role in _roles) {
-      if (role.id == id) {
-        return role;
+  TA? getTaById(String id) {
+    for (final TA ta in _tas) {
+      if (ta.id == id) {
+        return ta;
       }
     }
     return null;

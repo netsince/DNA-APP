@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -17,7 +17,7 @@ class ConversationCreatePage extends StatefulWidget {
 }
 
 class _ConversationCreatePageState extends State<ConversationCreatePage> {
-  String? _selectedRoleId;
+  String? _selectedTaId;
   String? _selectedWorldId;
   final TextEditingController _noteController = TextEditingController();
 
@@ -32,8 +32,8 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
   }
 
   Future<void> _create() async {
-    if (_selectedRoleId == null) {
-      showSnack(context, '请先选择角色。');
+    if (_selectedTaId == null) {
+      showSnack(context, '请先选择TA。');
       return;
     }
 
@@ -45,7 +45,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
 
     final Conversation conversation = Conversation(
       id: id,
-      roleId: _selectedRoleId!,
+      taId: _selectedTaId!,
       worldId: _selectedWorldId,
       note: _noteController.text.trim(),
       messages: const <ConversationMessage>[],
@@ -55,8 +55,8 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
       isGroup: false,
       groupName: '',
       groupPrompt: '',
-      memberRoleIds: <String>[_selectedRoleId!],
-      activeRoleId: _selectedRoleId!,
+      memberTaIds: <String>[_selectedTaId!],
+      activeTaId: _selectedTaId!,
     );
 
     await widget.controller.upsertConversation(conversation);
@@ -68,7 +68,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Role> roles = widget.controller.roles;
+    final List<TA> tas = widget.controller.tas;
     final List<World> worlds = widget.controller.worlds;
 
     return Scaffold(
@@ -91,23 +91,23 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('选择角色（必选）', style: Theme.of(context).textTheme.titleLarge),
+                  Text('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  if (roles.isEmpty)
-                    const Text('暂无角色，请先在“我家”创建角色。')
+                  if (tas.isEmpty)
+                    const Text('暂无TA，请先在“我家”创建TA。')
                   else
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedRoleId,
-                      decoration: const InputDecoration(labelText: '角色'),
-                      items: roles
+                      initialValue: _selectedTaId,
+                      decoration: const InputDecoration(labelText: 'TA'),
+                      items: tas
                           .map(
-                            (Role role) => DropdownMenuItem<String>(
-                              value: role.id,
-                              child: Text(role.name.isEmpty ? '未命名角色' : role.name),
+                            (TA ta) => DropdownMenuItem<String>(
+                              value: ta.id,
+                              child: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
                             ),
                           )
                           .toList(),
-                      onChanged: (String? value) => setState(() => _selectedRoleId = value),
+                      onChanged: (String? value) => setState(() => _selectedTaId = value),
                     ),
                 ],
               ),

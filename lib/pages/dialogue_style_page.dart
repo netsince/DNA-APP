@@ -1,14 +1,14 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../models/dialogue_style.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../state/app_controller.dart';
 
 class DialogueStylePage extends StatefulWidget {
-  const DialogueStylePage({super.key, required this.controller, required this.role});
+  const DialogueStylePage({super.key, required this.controller, required this.ta});
 
   final AppController controller;
-  final Role role;
+  final TA ta;
 
   @override
   State<DialogueStylePage> createState() => _DialogueStylePageState();
@@ -20,7 +20,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
   @override
   void initState() {
     super.initState();
-    _turns = List<DialogueTurn>.from(widget.role.dialogueStyle);
+    _turns = List<DialogueTurn>.from(widget.ta.dialogueStyle);
     if (_turns.isEmpty) {
       _turns = <DialogueTurn>[const DialogueTurn(user: '', assistant: '')];
     }
@@ -43,8 +43,8 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
   }
 
   Future<void> _save() async {
-    final Role updated = widget.role.copyWith(dialogueStyle: List<DialogueTurn>.from(_turns));
-    await widget.controller.upsertRole(updated);
+    final TA updated = widget.ta.copyWith(dialogueStyle: List<DialogueTurn>.from(_turns));
+    await widget.controller.upsertTa(updated);
     if (!mounted) {
       return;
     }

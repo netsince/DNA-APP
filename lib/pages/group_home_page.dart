@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
@@ -83,9 +83,9 @@ class _GroupHomePageState extends State<GroupHomePage> {
                   itemCount: visible.length,
                   itemBuilder: (BuildContext context, int index) {
                     final Conversation group = visible[index];
-                    final List<Role> members = group.memberRoleIds
-                        .map(widget.controller.getRoleById)
-                        .whereType<Role>()
+                    final List<TA> members = group.memberTaIds
+                        .map(widget.controller.getTaById)
+                        .whereType<TA>()
                         .toList();
                     final World? world = widget.controller.getWorldById(group.worldId);
                     final String title = group.groupName.trim().isNotEmpty
@@ -97,7 +97,7 @@ class _GroupHomePageState extends State<GroupHomePage> {
                     return Card(
                       key: ValueKey<String>(group.id),
                       child: ListTile(
-                        leading: GroupAvatar(roles: members, size: 44),
+                        leading: GroupAvatar(tas: members, size: 44),
                         title: Text(title),
                         subtitle: Text(subtitle),
                         trailing: PopupMenuButton<String>(

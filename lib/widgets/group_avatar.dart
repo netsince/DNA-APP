@@ -2,22 +2,22 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../models/role.dart';
+import '../models/ta.dart';
 
 class GroupAvatar extends StatelessWidget {
   const GroupAvatar({
     super.key,
-    required this.roles,
+    required this.tas,
     this.size = 40,
     this.radius = 8,
   });
 
-  final List<Role> roles;
+  final List<TA> tas;
   final double size;
   final double radius;
 
-  ImageProvider? _avatarForRole(Role role) {
-    final String? path = role.images['square'];
+  ImageProvider? _avatarForTa(TA ta) {
+    final String? path = ta.images['square'];
     if (path == null || path.isEmpty) {
       return null;
     }
@@ -30,7 +30,7 @@ class GroupAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Role> picked = roles.take(4).toList();
+    final List<TA> picked = tas.take(4).toList();
     return SizedBox(
       width: size,
       height: size,
@@ -41,8 +41,8 @@ class GroupAvatar extends StatelessWidget {
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
               final double half = constraints.maxWidth / 2;
-              Widget buildCell(Role role) {
-                final ImageProvider? avatar = _avatarForRole(role);
+              Widget buildCell(TA ta) {
+                final ImageProvider? avatar = _avatarForTa(ta);
                 if (avatar != null) {
                   return Image(
                     image: avatar,
@@ -51,7 +51,7 @@ class GroupAvatar extends StatelessWidget {
                     height: half,
                   );
                 }
-                final String label = role.name.isNotEmpty ? role.name[0] : '?';
+                final String label = ta.name.isNotEmpty ? ta.name[0] : '?';
                 return Container(
                   width: half,
                   height: half,

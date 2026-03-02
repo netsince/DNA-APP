@@ -3,7 +3,7 @@ part of '../../chat_page.dart';
 mixin ChatPayloadBuilders on ChatStateMixin {
   String _buildSystemPrompt() {
     return ChatSystemPrompt.build(
-      role: _role,
+      ta: _ta,
       world: _world,
       groupPrompt: _conversation.groupPrompt,
     );
@@ -71,15 +71,15 @@ mixin ChatPayloadBuilders on ChatStateMixin {
   }
 
   String _buildPersonaWorldContext() {
-    final Role? role = _role;
+    final TA? ta = _ta;
     final World? world = _world;
     final StringBuffer buffer = StringBuffer();
-    if (role != null) {
-      if (role.persona.trim().isNotEmpty) {
-        buffer.writeln('Persona: ${role.persona.trim()}');
+    if (ta != null) {
+      if (ta.persona.trim().isNotEmpty) {
+        buffer.writeln('Persona: ${ta.persona.trim()}');
       }
-      if (role.intro.trim().isNotEmpty) {
-        buffer.writeln('Intro: ${role.intro.trim()}');
+      if (ta.intro.trim().isNotEmpty) {
+        buffer.writeln('Intro: ${ta.intro.trim()}');
       }
     }
     if (world != null) {
@@ -141,7 +141,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content': '你是灵感生成助手。你生成的是“用户要说的话”的灵感草稿，不是角色台词。必须使用用户视角、用户语气。不得模仿角色口吻，不得替角色发言。角色与世界观仅用于理解背景。只输出一句话的灵感建议，不要编号，不要解释。',
+        'content': '你是灵感生成助手。你生成的是“用户要说的话”的灵感草稿，不是TA台词。必须使用用户视角、用户语气。不得模仿TA口吻，不得替TA发言。TA与世界观仅用于理解背景。只输出一句话的灵感建议，不要编号，不要解释。',
       },
       if (context.isNotEmpty)
         <String, String>{
@@ -161,7 +161,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
       if (recentAssistantOrdered.isNotEmpty)
         <String, String>{
           'role': 'system',
-          'content': '角色最近发言（仅供背景，不得模仿语气或措辞）：\n${recentAssistantOrdered.map((String s) => '- $s').join('\n')}',
+          'content': 'TA最近发言（仅供背景，不得模仿语气或措辞）：\n${recentAssistantOrdered.map((String s) => '- $s').join('\n')}',
         },
     ];
     final String safeTopic = topic.trim().isEmpty ? '继续对话' : topic.trim();

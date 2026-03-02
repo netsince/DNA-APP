@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'pages/oobe_page.dart';
 import 'services/openai_service.dart';
-import 'services/role_service.dart';
+import 'services/ta_service.dart';
 import 'services/settings_service.dart';
 import 'services/world_service.dart';
 import 'services/conversation_service.dart';
@@ -20,7 +20,7 @@ Future<void> main() async {
       final controller = AppController(
         settingsService: SettingsService(),
         openAiService: OpenAiService(),
-        roleService: RoleService(),
+        taService: TaService(),
         worldService: WorldService(),
         conversationService: ConversationService(),
         groupConversationService: GroupConversationService(),

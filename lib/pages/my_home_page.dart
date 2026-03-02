@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
-import 'role_editor_page.dart';
+import 'ta_editor_page.dart';
 
 class MyHomePage extends StatelessWidget {
   const MyHomePage({super.key, required this.controller});
@@ -17,27 +17,27 @@ class MyHomePage extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (BuildContext context, Widget? _) {
-        final List<Role> roles = controller.roles;
+        final List<TA> tas = controller.tas;
         return Scaffold(
           appBar: AppBar(title: const Text('我家')),
           drawer: AppDrawer(controller: controller, current: AppSection.myHome),
-          body: roles.isEmpty
+          body: tas.isEmpty
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      const Text('暂无角色，先创建一个吧。'),
+                      const Text('暂无TA，先创建一个吧。'),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (BuildContext context) => RoleEditorPage(controller: controller),
+                              builder: (BuildContext context) => TaEditorPage(controller: controller),
                             ),
                           );
                         },
                         icon: const Icon(Icons.add),
-                        label: const Text('创建角色'),
+                        label: const Text('创建TA'),
                       ),
                     ],
                   ),
@@ -45,22 +45,22 @@ class MyHomePage extends StatelessWidget {
               : ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
                   buildDefaultDragHandles: false,
-                  itemCount: roles.length,
+                  itemCount: tas.length,
                   onReorder: (int oldIndex, int newIndex) async {
-                    await controller.reorderRoles(oldIndex, newIndex);
+                    await controller.reorderTas(oldIndex, newIndex);
                   },
                   itemBuilder: (BuildContext context, int index) {
-                    final Role role = roles[index];
-                    final String? square = role.images['square'];
+                    final TA ta = tas[index];
+                    final String? square = ta.images['square'];
                     return Card(
-                      key: ValueKey<String>(role.id),
+                      key: ValueKey<String>(ta.id),
                       child: InkWell(
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (BuildContext context) => RoleEditorPage(
+                              builder: (BuildContext context) => TaEditorPage(
                                 controller: controller,
-                                role: role,
+                                ta: ta,
                               ),
                             ),
                           );
@@ -86,19 +86,19 @@ class MyHomePage extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    Text(role.name.isEmpty ? '未命名角色' : role.name),
+                                    Text(ta.name.isEmpty ? '未命名TA' : ta.name),
                                     const SizedBox(height: 6),
                                     Text(
-                                      role.intro.isEmpty ? '暂无介绍' : role.intro,
+                                      ta.intro.isEmpty ? '暂无介绍' : ta.intro,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    if (role.tags.isNotEmpty) ...<Widget>[
+                                    if (ta.tags.isNotEmpty) ...<Widget>[
                                       const SizedBox(height: 8),
                                       Wrap(
                                         spacing: 6,
                                         runSpacing: 6,
-                                        children: role.tags
+                                        children: ta.tags
                                             .map((String tag) => Chip(label: Text(tag)))
                                             .toList(),
                                       ),
@@ -123,7 +123,7 @@ class MyHomePage extends StatelessWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (BuildContext context) => RoleEditorPage(controller: controller),
+                  builder: (BuildContext context) => TaEditorPage(controller: controller),
                 ),
               );
             },

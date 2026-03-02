@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -21,7 +21,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _promptController = TextEditingController();
   String? _selectedWorldId;
-  final Set<String> _selectedRoleIds = <String>{};
+  final Set<String> _selectedTaIds = <String>{};
 
   @override
   void dispose() {
@@ -35,11 +35,11 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
   }
 
   Future<void> _create() async {
-    if (_selectedRoleIds.isEmpty) {
-      showSnack(context, '请选择至少一个角色。');
+    if (_selectedTaIds.isEmpty) {
+      showSnack(context, '请选择至少一个TA。');
       return;
     }
-    final List<String> memberIds = _selectedRoleIds.toList();
+    final List<String> memberIds = _selectedTaIds.toList();
     String id = _generateId();
     final Set<String> existing =
         widget.controller.groupConversations.map((Conversation c) => c.id).toSet();
@@ -48,7 +48,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
     }
     final Conversation conversation = Conversation(
       id: id,
-      roleId: memberIds.first,
+      taId: memberIds.first,
       worldId: _selectedWorldId,
       note: '',
       messages: const <ConversationMessage>[],
@@ -58,8 +58,8 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
       isGroup: true,
       groupName: _nameController.text.trim(),
       groupPrompt: _promptController.text.trim(),
-      memberRoleIds: memberIds,
-      activeRoleId: memberIds.first,
+      memberTaIds: memberIds,
+      activeTaId: memberIds.first,
     );
     await widget.controller.upsertGroupConversation(conversation);
     if (!mounted) {
@@ -70,9 +70,9 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Role> roles = widget.controller.roles;
+    final List<TA> tas = widget.controller.tas;
     final List<World> worlds = widget.controller.worlds;
-    final List<Role> selectedRoles = roles.where((Role r) => _selectedRoleIds.contains(r.id)).toList();
+    final List<TA> selectedTas = tas.where((TA t) => _selectedTaIds.contains(t.id)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -159,35 +159,35 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
                 children: <Widget>[
                   Text('群成员（至少选一位）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  if (roles.isEmpty)
-                    const Text('暂无角色，请先在“我家”创建角色。')
+                  if (tas.isEmpty)
+                    const Text('暂无TA，请先在“我家”创建TA。')
                   else
                     Column(
-                      children: roles.map((Role role) {
-                        final bool checked = _selectedRoleIds.contains(role.id);
+                      children: tas.map((TA ta) {
+                        final bool checked = _selectedTaIds.contains(ta.id);
                         return CheckboxListTile(
                           value: checked,
-                          title: Text(role.name.isEmpty ? '未命名角色' : role.name),
+                          title: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
                           controlAffinity: ListTileControlAffinity.leading,
                           onChanged: (bool? value) {
                             setState(() {
                               if (value == true) {
-                                _selectedRoleIds.add(role.id);
+                                _selectedTaIds.add(ta.id);
                               } else {
-                                _selectedRoleIds.remove(role.id);
+                                _selectedTaIds.remove(ta.id);
                               }
                             });
                           },
                         );
                       }).toList(),
                     ),
-                  if (selectedRoles.isNotEmpty) ...<Widget>[
+                  if (selectedTas.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 12),
                     Row(
                       children: <Widget>[
                         const Text('群头像预览：'),
                         const SizedBox(width: 8),
-                        GroupAvatar(roles: selectedRoles, size: 56),
+                        GroupAvatar(tas: selectedTas, size: 56),
                       ],
                     ),
                   ],

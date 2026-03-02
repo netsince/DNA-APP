@@ -17,7 +17,7 @@ typedef MessageAction = Future<void> Function(ConversationMessage message);
 
 typedef MessageIdAction = Future<void> Function(String messageId);
 
-typedef RoleNameForId = String? Function(String? roleId);
+typedef TaNameForId = String? Function(String? taId);
 
 class ChatMessageList extends StatelessWidget {
   const ChatMessageList({
@@ -37,7 +37,7 @@ class ChatMessageList extends StatelessWidget {
     required this.onShowMessageMenu,
     required this.summaryInProgress,
     required this.showSpeakerLabels,
-    required this.roleNameForId,
+    required this.taNameForId,
   });
 
   final Conversation conversation;
@@ -55,7 +55,7 @@ class ChatMessageList extends StatelessWidget {
   final ShowMessageMenu onShowMessageMenu;
   final bool summaryInProgress;
   final bool showSpeakerLabels;
-  final RoleNameForId roleNameForId;
+  final TaNameForId taNameForId;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +208,7 @@ class ChatMessageList extends StatelessWidget {
         final int tokenCount = showTokenCounts ? tokenCountForMessage(message.id, message.text) : 0;
         final String thoughtText = thoughtsByMessageId[message.id]?.text.trim() ?? '';
         final String? speakerName = (!isUser && showSpeakerLabels)
-            ? roleNameForId(message.speakerRoleId)?.trim()
+            ? taNameForId(message.speakerTaId)?.trim()
             : null;
         return Align(
           key: key,

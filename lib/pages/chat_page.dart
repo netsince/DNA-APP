@@ -9,7 +9,7 @@ import '../utils/api_guard.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
 import '../models/conversation.dart';
-import '../models/role.dart';
+import '../models/ta.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
@@ -72,16 +72,16 @@ class _ChatPageState extends State<ChatPage>
     if (_conversation.messages.isNotEmpty) {
       return;
     }
-    final Role? role = _role;
-    if (role == null || role.opening.trim().isEmpty) {
+    final TA? ta = _ta;
+    if (ta == null || ta.opening.trim().isEmpty) {
       return;
     }
     final ConversationMessage opening = ConversationMessage(
       id: newId(),
       role: 'assistant',
-      text: role.opening.trim(),
+      text: ta.opening.trim(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerRoleId: role.id,
+      speakerTaId: ta.id,
     );
     _conversation = _conversation.copyWith(messages: <ConversationMessage>[opening]);
     await widget.controller.upsertConversation(_conversation);
@@ -91,8 +91,8 @@ class _ChatPageState extends State<ChatPage>
     setState(() {});
   }
   Future<void> _loadAccent() async {
-    final Role? role = _role;
-    final String? path = role?.images['square'];
+    final TA? ta = _ta;
+    final String? path = ta?.images['square'];
     if (path == null || path.isEmpty || !File(path).existsSync()) {
       return;
     }
@@ -112,29 +112,29 @@ class _ChatPageState extends State<ChatPage>
     _chatController.scrollToBottom();
   }
 
-  Role? _lastAssistantSpeaker() {
+  TA? _lastAssistantSpeaker() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
       if (message.kind != 'message' || message.role != 'assistant') {
         continue;
       }
-      final String? roleId = message.speakerRoleId;
-      if (roleId != null && roleId.isNotEmpty) {
-        return widget.controller.getRoleById(roleId);
+      final String? taId = message.speakerTaId;
+      if (taId != null && taId.isNotEmpty) {
+        return widget.controller.getTaById(taId);
       }
-      return _activeRole;
+      return _activeTa;
     }
     return null;
   }
 
   Widget _buildGroupBackground(bool useLandscape) {
-    final Role? speaker = _lastAssistantSpeaker();
+    final TA? speaker = _lastAssistantSpeaker();
     final String? path = useLandscape ? speaker?.images['landscape'] : speaker?.images['portrait'];
     final bool hasImage = path != null && path.isNotEmpty && File(path).existsSync();
     final Widget child = hasImage
         ? Image.file(
             File(path),
-            key: ValueKey<String>('role:$path'),
+            key: ValueKey<String>('ta:$path'),
             fit: BoxFit.cover,
           )
         : LayoutBuilder(
@@ -145,7 +145,7 @@ class _ChatPageState extends State<ChatPage>
                   : constraints.maxHeight;
               return Center(
                 child: GroupAvatar(
-                  roles: _memberRoles,
+                  tas: _memberTas,
                   size: size * 0.72,
                   radius: 18,
                 ),
@@ -164,14 +164,13 @@ class _ChatPageState extends State<ChatPage>
     if (!_isGroup) {
       return;
     }
-    final List<Role> allRoles = widget.controller.roles;
-    final List<Role> candidates =
-        allRoles.where((Role r) => !_memberRoleIds.contains(r.id)).toList();
+    final List<TA> allTas = widget.controller.tas;
+    final List<TA> candidates = allTas.where((TA t) => !_memberTaIds.contains(t.id)).toList();
     if (candidates.isEmpty) {
       if (!mounted) {
         return;
       }
-      showSnack(context, '没有可添加的角色了。');
+      showSnack(context, '没有可添加的TA了。');
       return;
     }
     final Set<String> selected = <String>{};
@@ -188,20 +187,20 @@ class _ChatPageState extends State<ChatPage>
                   shrinkWrap: true,
                   itemCount: candidates.length,
                   itemBuilder: (BuildContext context, int index) {
-                    final Role role = candidates[index];
-                    final bool checked = selected.contains(role.id);
+                    final TA ta = candidates[index];
+                    final bool checked = selected.contains(ta.id);
                     return CheckboxListTile(
                       value: checked,
                       onChanged: (bool? value) {
                         setDialogState(() {
                           if (value == true) {
-                            selected.add(role.id);
+                            selected.add(ta.id);
                           } else {
-                            selected.remove(role.id);
+                            selected.remove(ta.id);
                           }
                         });
                       },
-                      title: Text(role.name.isEmpty ? '未命名角色' : role.name),
+                      title: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
                     );
                   },
                 ),
@@ -225,10 +224,10 @@ class _ChatPageState extends State<ChatPage>
       return;
     }
     final List<String> merged = <String>[
-      ..._memberRoleIds,
-      ...updated.where((String id) => !_memberRoleIds.contains(id)),
+      ..._memberTaIds,
+      ...updated.where((String id) => !_memberTaIds.contains(id)),
     ];
-    _conversation = _conversation.copyWith(memberRoleIds: merged);
+    _conversation = _conversation.copyWith(memberTaIds: merged);
     await widget.controller.upsertGroupConversation(_conversation);
     if (!mounted) {
       return;
@@ -236,8 +235,8 @@ class _ChatPageState extends State<ChatPage>
     setState(() {});
   }
 
-  ImageProvider? _avatarForRole(Role role) {
-    final String? path = role.images['square'];
+  ImageProvider? _avatarForTa(TA ta) {
+    final String? path = ta.images['square'];
     if (path == null || path.isEmpty || !File(path).existsSync()) {
       return null;
     }
@@ -248,8 +247,8 @@ class _ChatPageState extends State<ChatPage>
     if (!_isGroup) {
       return const SizedBox.shrink();
     }
-    final List<Role> roles = _memberRoles;
-    if (roles.isEmpty) {
+    final List<TA> tas = _memberTas;
+    if (tas.isEmpty) {
       return const SizedBox.shrink();
     }
     return Container(
@@ -269,14 +268,14 @@ class _ChatPageState extends State<ChatPage>
               height: 56,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: roles.length,
+                itemCount: tas.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (BuildContext context, int index) {
-                  final Role role = roles[index];
-                  final bool active = role.id == _activeRoleId;
-                  final ImageProvider? avatar = _avatarForRole(role);
+                  final TA ta = tas[index];
+                  final bool active = ta.id == _activeTaId;
+                  final ImageProvider? avatar = _avatarForTa(ta);
                   return GestureDetector(
-                    onTap: () => _triggerRoleReply(role),
+                    onTap: () => _triggerTaReply(ta),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
@@ -288,7 +287,7 @@ class _ChatPageState extends State<ChatPage>
                           foregroundImage: avatar,
                           child: avatar == null
                               ? Text(
-                                  role.name.isNotEmpty ? role.name[0] : '?',
+                                  ta.name.isNotEmpty ? ta.name[0] : '?',
                                   style: Theme.of(context).textTheme.labelMedium,
                                 )
                               : null,
@@ -297,7 +296,7 @@ class _ChatPageState extends State<ChatPage>
                         SizedBox(
                           width: 56,
                           child: Text(
-                            role.name.isEmpty ? '未命名' : role.name,
+                            ta.name.isEmpty ? '未命名' : ta.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
@@ -323,13 +322,13 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   Widget build(BuildContext context) {
-    final Role? role = _role;
+    final TA? ta = _ta;
     final Color schemeColor = _accent ?? Theme.of(context).colorScheme.primary;
     final Color userBubble = schemeColor.withValues(alpha: 0.18);
     final Color assistantBubble = Theme.of(context).colorScheme.surfaceContainerHighest;
     final Size size = MediaQuery.of(context).size;
     final bool useLandscape = size.width >= size.height;
-    final String? bgPath = useLandscape ? role?.images['landscape'] : role?.images['portrait'];
+    final String? bgPath = useLandscape ? ta?.images['landscape'] : ta?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' &&
         ((_isGroup) || (bgPath != null && bgPath.isNotEmpty));
     final String searchQuery = _searchController.text.trim();
@@ -347,7 +346,7 @@ class _ChatPageState extends State<ChatPage>
         onScrollToBottom: _scrollToBottom,
         onToggleBackground: _toggleBackground,
         backgroundMode: _conversation.backgroundMode,
-        role: role,
+        ta: ta,
         titleOverride: _isGroup
             ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
             : null,
@@ -395,8 +394,7 @@ class _ChatPageState extends State<ChatPage>
                   onShowMessageMenu: _showMessageMenu,
                   summaryInProgress: _summaryInProgress,
                   showSpeakerLabels: _isGroup,
-                  roleNameForId: (String? id) =>
-                      widget.controller.getRoleById(id ?? '')?.name,
+                  taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
                 ),
               ),
               if (_sending)

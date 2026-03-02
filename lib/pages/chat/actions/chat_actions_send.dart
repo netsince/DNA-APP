@@ -12,19 +12,19 @@ mixin ChatActionsSend on ChatStateMixin {
   Future<void> _maybePromptSummary();
   Future<void> _showRetryPicker(int index);
 
-  Future<void> _setActiveRole(String roleId) async {
+  Future<void> _setActiveTa(String taId) async {
     if (!_isGroup) {
       return;
     }
-    if (_activeRoleId == roleId) {
+    if (_activeTaId == taId) {
       return;
     }
-    final List<String> members = _memberRoleIds.contains(roleId)
-        ? _memberRoleIds
-        : <String>[..._memberRoleIds, roleId];
+    final List<String> members = _memberTaIds.contains(taId)
+        ? _memberTaIds
+        : <String>[..._memberTaIds, taId];
     _conversation = _conversation.copyWith(
-      memberRoleIds: members,
-      activeRoleId: roleId,
+      memberTaIds: members,
+      activeTaId: taId,
     );
     await widget.controller.upsertGroupConversation(_conversation);
     if (!mounted) {
@@ -34,12 +34,12 @@ mixin ChatActionsSend on ChatStateMixin {
     await _loadAccent();
   }
 
-  Role? _roleForMessage(ConversationMessage message) {
-    final String? roleId = message.speakerRoleId;
-    if (roleId != null && roleId.isNotEmpty) {
-      return widget.controller.getRoleById(roleId);
+  TA? _taForMessage(ConversationMessage message) {
+    final String? taId = message.speakerTaId;
+    if (taId != null && taId.isNotEmpty) {
+      return widget.controller.getTaById(taId);
     }
-    return _role;
+    return _ta;
   }
 
   Future<void> _send() async {
@@ -47,7 +47,7 @@ mixin ChatActionsSend on ChatStateMixin {
     if (text.isEmpty || _sending) {
       return;
     }
-    final Role? role = _role;
+    final TA? ta = _ta;
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
@@ -76,8 +76,8 @@ mixin ChatActionsSend on ChatStateMixin {
     if (_isGroup) {
       return;
     }
-    if (role == null) {
-      showSnack(context, '角色不存在，请重新创建会话。');
+    if (ta == null) {
+      showSnack(context, 'TA不存在，请重新创建会话。');
       return;
     }
     if (!ensureApiReady(context: context, controller: widget.controller)) {
@@ -90,11 +90,11 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'assistant',
       text: '',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerRoleId: role.id,
+      speakerTaId: ta.id,
     );
     _conversation = _conversation.copyWith(
       messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeRoleId: role.id,
+      activeTaId: ta.id,
     );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
@@ -107,7 +107,7 @@ mixin ChatActionsSend on ChatStateMixin {
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
-        role: role,
+        ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
       ),
@@ -140,8 +140,8 @@ mixin ChatActionsSend on ChatStateMixin {
     if (lastAssistantIndex == -1) {
       return;
     }
-    final Role? role = _roleForMessage(_conversation.messages[lastAssistantIndex]);
-    if (role == null) {
+    final TA? ta = _taForMessage(_conversation.messages[lastAssistantIndex]);
+    if (ta == null) {
       return;
     }
     final String model = widget.controller.settings.selectedModel;
@@ -157,11 +157,11 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'assistant',
       text: '',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerRoleId: role.id,
+      speakerTaId: ta.id,
     );
     _conversation = _conversation.copyWith(
       messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeRoleId: role.id,
+      activeTaId: ta.id,
     );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
@@ -175,7 +175,7 @@ mixin ChatActionsSend on ChatStateMixin {
     );
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = ChatSystemPrompt.build(
-      role: role,
+      ta: ta,
       world: _world,
       groupPrompt: _conversation.groupPrompt,
     );
@@ -224,8 +224,8 @@ mixin ChatActionsSend on ChatStateMixin {
     if (target.role != 'assistant') {
       return;
     }
-    final Role? role = _roleForMessage(target);
-    if (role == null) {
+    final TA? ta = _taForMessage(target);
+    if (ta == null) {
       return;
     }
     final String model = widget.controller.settings.selectedModel;
@@ -242,7 +242,7 @@ mixin ChatActionsSend on ChatStateMixin {
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
-        role: role,
+        ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
       ),
@@ -325,7 +325,7 @@ mixin ChatActionsSend on ChatStateMixin {
     return results;
   }
 
-  Future<void> _triggerRoleReply(Role role) async {
+  Future<void> _triggerTaReply(TA ta) async {
     if (_sending) {
       return;
     }
@@ -335,7 +335,7 @@ mixin ChatActionsSend on ChatStateMixin {
     if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
-    await _setActiveRole(role.id);
+    await _setActiveTa(ta.id);
     setState(() => _sending = true);
     final String assistantId = newId();
     ConversationMessage assistantMessage = ConversationMessage(
@@ -343,11 +343,11 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'assistant',
       text: '',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerRoleId: role.id,
+      speakerTaId: ta.id,
     );
     _conversation = _conversation.copyWith(
       messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeRoleId: role.id,
+      activeTaId: ta.id,
     );
     await widget.controller.upsertGroupConversation(_conversation);
     if (!mounted) {
@@ -363,7 +363,7 @@ mixin ChatActionsSend on ChatStateMixin {
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
-        role: role,
+        ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
       ),

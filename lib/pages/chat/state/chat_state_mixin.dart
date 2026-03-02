@@ -40,21 +40,21 @@ mixin ChatStateMixin on State<ChatPage> {
   Set<String> get _retryDisabled => _state.retryDisabled;
 
   bool get _isGroup => _conversation.isGroup || widget.isGroup;
-  String get _activeRoleId {
-    final String? active = _conversation.activeRoleId;
+  String get _activeTaId {
+    final String? active = _conversation.activeTaId;
     if (active != null && active.isNotEmpty) {
       return active;
     }
-    return _conversation.roleId;
+    return _conversation.taId;
   }
-  Role? get _activeRole => widget.controller.getRoleById(_activeRoleId);
-  List<String> get _memberRoleIds =>
-      _conversation.memberRoleIds.isNotEmpty ? _conversation.memberRoleIds : <String>[_conversation.roleId];
-  List<Role> get _memberRoles => _memberRoleIds
-      .map(widget.controller.getRoleById)
-      .whereType<Role>()
+  TA? get _activeTa => widget.controller.getTaById(_activeTaId);
+  List<String> get _memberTaIds =>
+      _conversation.memberTaIds.isNotEmpty ? _conversation.memberTaIds : <String>[_conversation.taId];
+  List<TA> get _memberTas => _memberTaIds
+      .map(widget.controller.getTaById)
+      .whereType<TA>()
       .toList();
-  Role? get _role => _isGroup ? _activeRole : widget.controller.getRoleById(_conversation.roleId);
+  TA? get _ta => _isGroup ? _activeTa : widget.controller.getTaById(_conversation.taId);
   World? get _world => widget.controller.getWorldById(_conversation.worldId);
 
   Future<void> _ensureOpeningMessage();
@@ -79,7 +79,7 @@ mixin ChatStateMixin on State<ChatPage> {
     _conversation = existing ??
         Conversation(
           id: widget.conversationId,
-          roleId: '',
+          taId: '',
           worldId: null,
           note: '',
           messages: const <ConversationMessage>[],
@@ -89,8 +89,8 @@ mixin ChatStateMixin on State<ChatPage> {
           isGroup: widget.isGroup,
           groupName: '',
           groupPrompt: '',
-          memberRoleIds: const <String>[],
-          activeRoleId: null,
+          memberTaIds: const <String>[],
+          activeTaId: null,
         );
     _ensureGroupDefaults();
     _ensureOpeningMessage();
@@ -111,19 +111,19 @@ mixin ChatStateMixin on State<ChatPage> {
       return;
     }
     final List<String> uniqueMembers = <String>[
-      if (_conversation.roleId.isNotEmpty) _conversation.roleId,
-      ..._conversation.memberRoleIds.where((String id) => id != _conversation.roleId),
+      if (_conversation.taId.isNotEmpty) _conversation.taId,
+      ..._conversation.memberTaIds.where((String id) => id != _conversation.taId),
     ];
-    String? active = _conversation.activeRoleId;
+    String? active = _conversation.activeTaId;
     if (active == null || active.isEmpty) {
-      active = uniqueMembers.isNotEmpty ? uniqueMembers.first : _conversation.roleId;
+      active = uniqueMembers.isNotEmpty ? uniqueMembers.first : _conversation.taId;
     } else if (uniqueMembers.isNotEmpty && !uniqueMembers.contains(active)) {
       active = uniqueMembers.first;
     }
     _conversation = _conversation.copyWith(
       isGroup: true,
-      memberRoleIds: uniqueMembers,
-      activeRoleId: active,
+      memberTaIds: uniqueMembers,
+      activeTaId: active,
     );
     await widget.controller.upsertGroupConversation(_conversation);
     if (!mounted) {
