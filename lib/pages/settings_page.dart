@@ -19,6 +19,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _baseUrlController;
   late final TextEditingController _apiKeyController;
   late final TextEditingController _summaryTurnController;
+  late final TextEditingController _commandController;
 
   bool _checkingApi = false;
   bool _loadingModels = false;
@@ -29,6 +30,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _autoSummaryPrompt = true;
   bool _retrySequential = false;
   bool _inspirationIncludeSummary = false;
+  static const String _clearCommand =
+      'CLEAR ALL DATAS YES I DO THIS PLEASE DEL MY DATAS THANK YOU 114514';
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     _retrySequential = settings.retrySequential;
     _inspirationIncludeSummary = settings.inspirationIncludeSummary;
+    _commandController = TextEditingController();
   }
 
   @override
@@ -50,6 +54,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _summaryTurnController.dispose();
+    _commandController.dispose();
     super.dispose();
   }
 
@@ -186,6 +191,20 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     showSnack(context, '灵感设置已保存。');
+  }
+
+  Future<void> _runCommand() async {
+    final String cmd = _commandController.text;
+    if (cmd == _clearCommand) {
+      await widget.controller.clearAllData();
+      if (!mounted) {
+        return;
+      }
+      _commandController.clear();
+      showSnack(context, '数据已清除。');
+      return;
+    }
+    showSnack(context, '未知指令或指令不匹配。');
   }
 
   @override
@@ -426,6 +445,32 @@ class _SettingsPageState extends State<SettingsPage> {
                             onPressed: _restartOobe,
                             icon: const Icon(Icons.restart_alt),
                             label: const Text('重新进入 OOBE'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('命令系统', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          const Text('输入命令并执行。命令大小写敏感。'),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _commandController,
+                            decoration: const InputDecoration(
+                              labelText: '输入命令',
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: _runCommand,
+                            child: const Text('执行命令'),
                           ),
                         ],
                       ),

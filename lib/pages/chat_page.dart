@@ -358,7 +358,7 @@ class _ChatPageState extends State<ChatPage>
               child: _isGroup
                   ? _buildGroupBackground(useLandscape)
                   : Image.file(
-                      File(bgPath),
+                      File(bgPath!),
                       fit: BoxFit.cover,
                     ),
             ),

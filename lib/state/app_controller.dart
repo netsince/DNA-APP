@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/conversation.dart';
@@ -356,5 +361,24 @@ class AppController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Future<void> clearAllData() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    try {
+      final Directory doc = await getApplicationDocumentsDirectory();
+      if (await doc.exists()) {
+        await doc.delete(recursive: true);
+      }
+    } catch (_) {
+      // Ignore cleanup errors.
+    }
+    _settings = AppSettings.empty();
+    _tas = <TA>[];
+    _worlds = <World>[];
+    _conversations = <Conversation>[];
+    _groupConversations = <Conversation>[];
+    notifyListeners();
   }
 }
