@@ -19,6 +19,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   late final TextEditingController _summaryController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _tagsController;
+  late final TextEditingController _forbiddenWordsController;
 
   late String _worldId;
 
@@ -31,6 +32,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _summaryController = TextEditingController(text: world?.summary ?? '');
     _descriptionController = TextEditingController(text: world?.description ?? '');
     _tagsController = TextEditingController(text: (world?.tags ?? <String>[]).join(', '));
+    _forbiddenWordsController = TextEditingController(
+      text: (world?.forbiddenWords ?? <String>[]).join(', '),
+    );
   }
 
   @override
@@ -39,6 +43,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _summaryController.dispose();
     _descriptionController.dispose();
     _tagsController.dispose();
+    _forbiddenWordsController.dispose();
     super.dispose();
   }
 
@@ -50,6 +55,15 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         .toList();
   }
 
+  List<String> _parseForbiddenWords(String raw) {
+    return raw
+        .split(RegExp(r'[,，\n]'))
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
   Future<void> _save() async {
     final World world = World(
       id: _worldId,
@@ -57,6 +71,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       summary: _summaryController.text.trim(),
       description: _descriptionController.text.trim(),
       tags: _parseTags(_tagsController.text),
+      forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
     );
     await widget.controller.upsertWorld(world);
     if (!mounted) {
@@ -87,7 +102,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('世界观信息', style: Theme.of(context).textTheme.titleLarge),
+                  Text('世界背景信息', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,
@@ -102,7 +117,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _descriptionController,
-                    decoration: const InputDecoration(labelText: '世界设定'),
+                    decoration: const InputDecoration(labelText: '世界背景'),
                     maxLines: 6,
                   ),
                   const SizedBox(height: 12),
@@ -112,6 +127,15 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       labelText: '标签（逗号分隔）',
                       hintText: '例如：赛博朋克, 魔法, 都市',
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _forbiddenWordsController,
+                    decoration: const InputDecoration(
+                      labelText: '禁止输出词语',
+                      hintText: '多个词用逗号或换行分隔，例如：桃花树, 林黛玉',
+                    ),
+                    maxLines: 3,
                   ),
                 ],
               ),

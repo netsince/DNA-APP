@@ -109,7 +109,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
                     maxLines: 8,
                     decoration: const InputDecoration(
                       labelText: '群设定文本',
-                      hintText: '用于群聊的系统设定，和世界观并存。',
+                      hintText: '用于群聊的系统设定，和世界背景并存。',
                     ),
                   ),
                 ],
@@ -123,14 +123,14 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('世界观（可选）', style: Theme.of(context).textTheme.titleLarge),
+                  Text('世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (worlds.isEmpty)
-                    const Text('暂无世界观，可在“世界”页面创建。')
+                    const Text('暂无世界背景，可在“世界”页面创建。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedWorldId,
-                      decoration: const InputDecoration(labelText: '世界观'),
+                      decoration: const InputDecoration(labelText: '世界背景'),
                       items: <DropdownMenuItem<String>>[
                         const DropdownMenuItem<String>(value: '', child: Text('不选择')),
                         ...worlds.map(

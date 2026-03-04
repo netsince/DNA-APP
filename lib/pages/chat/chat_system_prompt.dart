@@ -18,7 +18,7 @@ class ChatSystemPrompt {
     system.writeln('5) 必须紧跟用户意图与上一句对话推进互动：要么回应，要么提一个简短问题。');
     system.writeln('6) 不替用户决定行动，不抢戏，不替用户续写其内心。');
     system.writeln('7) 严格保持TA人设与语气：只以TA身份说话，不跳出TA、不评价自己。');
-    system.writeln('8) 设定冲突优先级：人设 > 世界观 > 对话风格 > 常识；发生冲突时以高优先级为准。');
+    system.writeln('8) 设定冲突优先级：人设 > 世界背景 > 对话风格 > 常识；发生冲突时以高优先级为准。');
     system.writeln('9) TA已知设定优先于常识推理；设定缺失时用最符合TA的方式简短补齐，避免自相矛盾。');
     system.writeln('10) 避免解释规则与自我说明，不提“模型/AI/系统/提示词”等词。');
     system.writeln('11) 语言简洁，优先口语化，长度尽量控制在50~60字内。');
@@ -32,9 +32,14 @@ class ChatSystemPrompt {
     }
     if (world != null) {
       if (world.summary.isNotEmpty) {
-        system.writeln('世界：${world.summary}');
+        system.writeln('世界背景：${world.summary}');
       } else if (world.description.isNotEmpty) {
-        system.writeln('世界：${world.description}');
+        system.writeln('世界背景：${world.description}');
+      }
+      if (world.forbiddenWords.isNotEmpty) {
+        system.writeln(
+          '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
+        );
       }
     }
     if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {

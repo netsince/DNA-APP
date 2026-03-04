@@ -84,9 +84,12 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     }
     if (world != null) {
       if (world.summary.trim().isNotEmpty) {
-        buffer.writeln('World: ${world.summary.trim()}');
+        buffer.writeln('World Background: ${world.summary.trim()}');
       } else if (world.description.trim().isNotEmpty) {
-        buffer.writeln('World: ${world.description.trim()}');
+        buffer.writeln('World Background: ${world.description.trim()}');
+      }
+      if (world.forbiddenWords.isNotEmpty) {
+        buffer.writeln('Forbidden words: ${world.forbiddenWords.join(', ')}');
       }
     }
     return buffer.toString().trim();
@@ -141,7 +144,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content': '你是灵感生成助手。你生成的是“用户要说的话”的灵感草稿，不是TA台词。必须使用用户视角、用户语气。不得模仿TA口吻，不得替TA发言。TA与世界观仅用于理解背景。只输出一句话的灵感建议，不要编号，不要解释。',
+        'content': '你是灵感生成助手。你生成的是“用户要说的话”的灵感草稿，不是TA台词。必须使用用户视角、用户语气。不得模仿TA口吻，不得替TA发言。TA与世界背景仅用于理解背景。只输出一句话的灵感建议，不要编号，不要解释。',
       },
       if (context.isNotEmpty)
         <String, String>{

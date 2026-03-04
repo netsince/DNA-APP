@@ -24,7 +24,7 @@ class WorldPage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      const Text('暂无世界观，先创建一个吧。'),
+                      const Text('暂无世界背景，先创建一个吧。'),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed: () {

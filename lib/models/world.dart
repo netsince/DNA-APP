@@ -5,6 +5,7 @@ class World {
     required this.summary,
     required this.description,
     required this.tags,
+    required this.forbiddenWords,
   });
 
   final String id;
@@ -12,12 +13,14 @@ class World {
   final String summary;
   final String description;
   final List<String> tags;
+  final List<String> forbiddenWords;
 
   World copyWith({
     String? name,
     String? summary,
     String? description,
     List<String>? tags,
+    List<String>? forbiddenWords,
   }) {
     return World(
       id: id,
@@ -25,6 +28,7 @@ class World {
       summary: summary ?? this.summary,
       description: description ?? this.description,
       tags: tags ?? this.tags,
+      forbiddenWords: forbiddenWords ?? this.forbiddenWords,
     );
   }
 
@@ -35,6 +39,7 @@ class World {
       'summary': summary,
       'description': description,
       'tags': tags,
+      'forbiddenWords': forbiddenWords,
     };
   }
 
@@ -45,6 +50,8 @@ class World {
       summary: (json['summary'] as String?) ?? '',
       description: (json['description'] as String?) ?? '',
       tags: (json['tags'] as List?)?.whereType<String>().toList() ?? <String>[],
+      forbiddenWords:
+          (json['forbiddenWords'] as List?)?.whereType<String>().toList() ?? <String>[],
     );
   }
 }

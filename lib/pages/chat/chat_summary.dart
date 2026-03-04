@@ -103,6 +103,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       convo.writeln('$roleLabel: ${m.text}');
     }
     final String personaContext = _buildPersonaWorldContext();
+    final World? world = _world;
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
@@ -112,6 +113,12 @@ mixin ChatSummaryHelpers on ChatStateMixin {
         <String, String>{
           'role': 'system',
           'content': '上下文：\n$personaContext',
+        },
+      if (world != null && world.forbiddenWords.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content':
+              '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
         },
       <String, String>{
         'role': 'user',
@@ -176,6 +183,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
         .join('\n');
     final ConversationSummary? previous = ChatMessageSlice.latestSummary(_conversation);
     final String personaContext = _buildPersonaWorldContext();
+    final World? world = _world;
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
@@ -185,6 +193,12 @@ mixin ChatSummaryHelpers on ChatStateMixin {
         <String, String>{
           'role': 'system',
           'content': '上下文：\n$personaContext',
+        },
+      if (world != null && world.forbiddenWords.isNotEmpty)
+        <String, String>{
+          'role': 'system',
+          'content':
+              '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
         },
       if (previous != null && previous.text.trim().isNotEmpty)
         <String, String>{'role': 'user', 'content': '已有摘要：\n${previous.text.trim()}'},
