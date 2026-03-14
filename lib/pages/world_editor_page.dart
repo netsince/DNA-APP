@@ -20,8 +20,17 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _tagsController;
   late final TextEditingController _forbiddenWordsController;
+  late final TextEditingController _entryNameController;
+  late final TextEditingController _entryDescriptionController;
+  late final TextEditingController _entryAgeController;
+  late final TextEditingController _entryRelationController;
 
   late String _worldId;
+  late List<WorldEntry> _entries;
+  WorldEntryType _entryType = WorldEntryType.noun;
+  WorldPersonGender _entryGender = WorldPersonGender.other;
+  WorldPersonStatus _entryStatus = WorldPersonStatus.normal;
+  String? _relationTargetId;
 
   @override
   void initState() {
@@ -35,6 +44,11 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _forbiddenWordsController = TextEditingController(
       text: (world?.forbiddenWords ?? <String>[]).join(', '),
     );
+    _entries = List<WorldEntry>.from(world?.entries ?? <WorldEntry>[]);
+    _entryNameController = TextEditingController();
+    _entryDescriptionController = TextEditingController();
+    _entryAgeController = TextEditingController();
+    _entryRelationController = TextEditingController();
   }
 
   @override
@@ -44,6 +58,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _descriptionController.dispose();
     _tagsController.dispose();
     _forbiddenWordsController.dispose();
+    _entryNameController.dispose();
+    _entryDescriptionController.dispose();
+    _entryAgeController.dispose();
+    _entryRelationController.dispose();
     super.dispose();
   }
 
@@ -64,6 +82,124 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         .toList();
   }
 
+  String _typeLabel(WorldEntryType type) {
+    switch (type) {
+      case WorldEntryType.noun:
+        return '名词';
+      case WorldEntryType.person:
+        return '人物';
+    }
+  }
+
+  String _genderLabel(WorldPersonGender gender) {
+    switch (gender) {
+      case WorldPersonGender.male:
+        return '男';
+      case WorldPersonGender.female:
+        return '女';
+      case WorldPersonGender.other:
+        return '其他';
+    }
+  }
+
+  String _statusLabel(WorldPersonStatus status) {
+    switch (status) {
+      case WorldPersonStatus.normal:
+        return '正常';
+      case WorldPersonStatus.dead:
+        return '死亡';
+    }
+  }
+
+  String _entryNameById(String id) {
+    for (final WorldEntry entry in _entries) {
+      if (entry.id == id) {
+        return entry.name.isEmpty ? '未命名词条' : entry.name;
+      }
+    }
+    return '未知词条';
+  }
+
+  WorldEntry _withoutRelationTarget(WorldEntry entry, String targetId) {
+    if (entry.relation?.targetId != targetId) {
+      return entry;
+    }
+    return WorldEntry(
+      id: entry.id,
+      name: entry.name,
+      description: entry.description,
+      type: entry.type,
+      gender: entry.gender,
+      age: entry.age,
+      status: entry.status,
+      relation: null,
+    );
+  }
+
+  void _addEntry() {
+    final String name = _entryNameController.text.trim();
+    final String description = _entryDescriptionController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写词条名称。')),
+      );
+      return;
+    }
+
+    final String relationText = _entryRelationController.text.trim();
+    if (_entryType == WorldEntryType.person) {
+      final bool hasTarget = _relationTargetId != null && _relationTargetId!.isNotEmpty;
+      final bool hasText = relationText.isNotEmpty;
+      if (hasTarget != hasText) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('关联需要同时选择条目并填写内容。')),
+        );
+        return;
+      }
+    }
+
+    final WorldEntryRelation? relation = _entryType == WorldEntryType.person &&
+            _relationTargetId != null &&
+            relationText.isNotEmpty
+        ? WorldEntryRelation(targetId: _relationTargetId!, content: relationText)
+        : null;
+
+    final WorldEntry entry = WorldEntry(
+      id: newId(),
+      name: name,
+      description: description,
+      type: _entryType,
+      gender: _entryType == WorldEntryType.person ? _entryGender : null,
+      age: _entryType == WorldEntryType.person ? _entryAgeController.text.trim() : null,
+      status: _entryType == WorldEntryType.person ? _entryStatus : null,
+      relation: relation,
+    );
+
+    setState(() {
+      _entries = <WorldEntry>[..._entries, entry];
+      _entryNameController.clear();
+      _entryDescriptionController.clear();
+      _entryAgeController.clear();
+      _entryRelationController.clear();
+      _relationTargetId = null;
+      _entryType = WorldEntryType.noun;
+      _entryGender = WorldPersonGender.other;
+      _entryStatus = WorldPersonStatus.normal;
+    });
+  }
+
+  void _removeEntry(WorldEntry entry) {
+    setState(() {
+      _entries = _entries.where((WorldEntry item) => item.id != entry.id).toList();
+      _entries = _entries
+          .map((WorldEntry item) => _withoutRelationTarget(item, entry.id))
+          .toList();
+      if (_relationTargetId == entry.id) {
+        _relationTargetId = null;
+      }
+    });
+  }
+
   Future<void> _save() async {
     final World world = World(
       id: _worldId,
@@ -72,6 +208,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       description: _descriptionController.text.trim(),
       tags: _parseTags(_tagsController.text),
       forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
+      entries: _entries,
     );
     await widget.controller.upsertWorld(world);
     if (!mounted) {
@@ -137,6 +274,190 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     ),
                     maxLines: 3,
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('世界观子词条', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _entryNameController,
+                    decoration: const InputDecoration(labelText: '词条名称'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _entryDescriptionController,
+                    decoration: const InputDecoration(labelText: '描述'),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<WorldEntryType>(
+                    value: _entryType,
+                    items: const <DropdownMenuItem<WorldEntryType>>[
+                      DropdownMenuItem(
+                        value: WorldEntryType.noun,
+                        child: Text('名词'),
+                      ),
+                      DropdownMenuItem(
+                        value: WorldEntryType.person,
+                        child: Text('人物'),
+                      ),
+                    ],
+                    onChanged: (WorldEntryType? value) {
+                      setState(() {
+                        _entryType = value ?? WorldEntryType.noun;
+                        if (_entryType == WorldEntryType.noun) {
+                          _relationTargetId = null;
+                          _entryRelationController.clear();
+                          _entryAgeController.clear();
+                        }
+                      });
+                    },
+                    decoration: const InputDecoration(labelText: '类型'),
+                  ),
+                  if (_entryType == WorldEntryType.person) ...<Widget>[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<WorldPersonGender>(
+                      value: _entryGender,
+                      items: const <DropdownMenuItem<WorldPersonGender>>[
+                        DropdownMenuItem(
+                          value: WorldPersonGender.male,
+                          child: Text('男'),
+                        ),
+                        DropdownMenuItem(
+                          value: WorldPersonGender.female,
+                          child: Text('女'),
+                        ),
+                        DropdownMenuItem(
+                          value: WorldPersonGender.other,
+                          child: Text('其他'),
+                        ),
+                      ],
+                      onChanged: (WorldPersonGender? value) {
+                        setState(() {
+                          _entryGender = value ?? WorldPersonGender.other;
+                        });
+                      },
+                      decoration: const InputDecoration(labelText: '性别'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _entryAgeController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: '年龄'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<WorldPersonStatus>(
+                      value: _entryStatus,
+                      items: const <DropdownMenuItem<WorldPersonStatus>>[
+                        DropdownMenuItem(
+                          value: WorldPersonStatus.normal,
+                          child: Text('正常'),
+                        ),
+                        DropdownMenuItem(
+                          value: WorldPersonStatus.dead,
+                          child: Text('死亡'),
+                        ),
+                      ],
+                      onChanged: (WorldPersonStatus? value) {
+                        setState(() {
+                          _entryStatus = value ?? WorldPersonStatus.normal;
+                        });
+                      },
+                      decoration: const InputDecoration(labelText: '状态'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _relationTargetId,
+                      items: _entries
+                          .map(
+                            (WorldEntry entry) => DropdownMenuItem<String>(
+                              value: entry.id,
+                              child: Text(entry.name.isEmpty ? '未命名词条' : entry.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _entries.isEmpty
+                          ? null
+                          : (String? value) {
+                              setState(() {
+                                _relationTargetId = value;
+                              });
+                            },
+                      decoration: const InputDecoration(labelText: '关联条目'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _entryRelationController,
+                      decoration: const InputDecoration(labelText: '关联内容'),
+                      maxLines: 2,
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _addEntry,
+                    icon: const Icon(Icons.add),
+                    label: const Text('保存词条'),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_entries.isEmpty)
+                    const Text('暂无子词条')
+                  else
+                    Column(
+                      children: _entries
+                          .map(
+                            (WorldEntry entry) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                entry.name.isEmpty ? '未命名词条' : entry.name,
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  if (entry.description.isNotEmpty)
+                                    Text(entry.description),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: <Widget>[
+                                      Chip(label: Text(_typeLabel(entry.type))),
+                                      if (entry.type == WorldEntryType.person &&
+                                          entry.gender != null)
+                                        Chip(label: Text(_genderLabel(entry.gender!))),
+                                      if (entry.type == WorldEntryType.person &&
+                                          (entry.age ?? '').isNotEmpty)
+                                        Chip(label: Text('年龄 ${entry.age}')),
+                                      if (entry.type == WorldEntryType.person &&
+                                          entry.status != null)
+                                        Chip(label: Text(_statusLabel(entry.status!))),
+                                    ],
+                                  ),
+                                  if (entry.relation != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        '关联：${_entryNameById(entry.relation!.targetId)} · ${entry.relation!.content}',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: IconButton(
+                                onPressed: () => _removeEntry(entry),
+                                icon: const Icon(Icons.delete_outline),
+                                tooltip: '删除',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
                 ],
               ),
             ),
