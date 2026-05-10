@@ -40,38 +40,87 @@ Future<String?> showTextInputDialog({
   int maxLines = 1,
   TextInputType? keyboardType,
 }) async {
-  final TextEditingController controller =
-      TextEditingController(text: initialValue ?? '');
   final String? value = await showDialog<String>(
     context: context,
     builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          minLines: minLines,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(hintText: hintText),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(cancelText),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(confirmText),
-          ),
-        ],
+      return _TextInputDialog(
+        title: title,
+        hintText: hintText,
+        initialValue: initialValue,
+        cancelText: cancelText,
+        confirmText: confirmText,
+        minLines: minLines,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
       );
     },
   );
-  controller.dispose();
-  if (value == null) {
-    return null;
+  return value;
+}
+
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({
+    required this.title,
+    required this.hintText,
+    this.initialValue,
+    required this.cancelText,
+    required this.confirmText,
+    required this.minLines,
+    required this.maxLines,
+    this.keyboardType,
+  });
+
+  final String title;
+  final String hintText;
+  final String? initialValue;
+  final String cancelText;
+  final String confirmText;
+  final int minLines;
+  final int maxLines;
+  final TextInputType? keyboardType;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue ?? '');
   }
-  return value.trim();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        minLines: widget.minLines,
+        maxLines: widget.maxLines,
+        keyboardType: widget.keyboardType,
+        decoration: InputDecoration(hintText: widget.hintText),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.cancelText),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(widget.confirmText),
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> showInfoDialog({

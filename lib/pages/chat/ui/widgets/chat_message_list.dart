@@ -59,14 +59,18 @@ class ChatMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.all(16),
       itemCount: conversation.messages.length,
       itemBuilder: (BuildContext context, int index) {
         final ConversationMessage message = conversation.messages[index];
-        final GlobalKey key =
-            messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
+        messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
+        final GlobalKey? key = messageKeys[message.id];
+
         if (message.kind == 'summary_prompt') {
           return Align(
             key: key,
@@ -91,24 +95,19 @@ class ChatMessageList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 constraints: const BoxConstraints(maxWidth: 520),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHigh
-                      .withValues(alpha: 0.85),
+                  color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Row(
+                    const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        const Icon(Icons.auto_awesome, size: 18),
-                        const SizedBox(width: 6),
-                        const Text('建议生成摘要'),
+                        Icon(Icons.auto_awesome, size: 18),
+                        SizedBox(width: 6),
+                        Text('建议生成摘要'),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -131,6 +130,7 @@ class ChatMessageList extends StatelessWidget {
             ),
           );
         }
+
         if (message.kind == 'summary') {
           final ConversationSummary? summary = summaryById(message.summaryId);
           final String raw = summary?.text.trim() ?? '';
@@ -159,41 +159,30 @@ class ChatMessageList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 constraints: const BoxConstraints(maxWidth: 520),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHigh
-                      .withValues(alpha: 0.85),
+                  color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
+                    const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        const Icon(Icons.article_outlined, size: 18),
-                        const SizedBox(width: 6),
-                        const Text('摘要已生成'),
+                        Icon(Icons.article_outlined, size: 18),
+                        SizedBox(width: 6),
+                        Text('摘要已生成'),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      preview,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    Text(preview, style: textTheme.bodySmall),
                     const SizedBox(height: 4),
                     Text(
                       '长按/右键查看/删除',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                          ),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
                     ),
                   ],
                 ),
@@ -201,6 +190,7 @@ class ChatMessageList extends StatelessWidget {
             ),
           );
         }
+
         final bool isUser = message.role == 'user';
         final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
         final Color bubbleColor = isUser ? userBubble : assistantBubble;
@@ -210,6 +200,7 @@ class ChatMessageList extends StatelessWidget {
         final String? speakerName = (!isUser && showSpeakerLabels)
             ? taNameForId(message.speakerTaId)?.trim()
             : null;
+
         return Align(
           key: key,
           alignment: alignment,
@@ -243,22 +234,24 @@ class ChatMessageList extends StatelessWidget {
                   if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
                     Text(
                       speakerName,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.75),
-                          ),
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      ),
                     ),
                     const SizedBox(height: 4),
                   ],
-                  RichText(text: _buildHighlightedText(context, message.text, searchQuery)),
+                  RichText(
+                    text: _buildHighlightedText(
+                      context,
+                      message.text,
+                      searchQuery,
+                      colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+                    ),
+                  ),
                   if (thoughtText.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 8),
                     Theme(
-                      data: Theme.of(context).copyWith(
-                        dividerColor: Colors.transparent,
-                      ),
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                       child: ExpansionTile(
                         tilePadding: EdgeInsets.zero,
                         childrenPadding: const EdgeInsets.only(top: 6),
@@ -266,10 +259,7 @@ class ChatMessageList extends StatelessWidget {
                         children: <Widget>[
                           Align(
                             alignment: Alignment.centerLeft,
-                            child: Text(
-                              thoughtText,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
+                            child: Text(thoughtText, style: textTheme.bodySmall),
                           ),
                         ],
                       ),
@@ -279,12 +269,9 @@ class ChatMessageList extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '字数 $charCount / Token $tokenCount',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                          ),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
                     ),
                   ],
                 ],
@@ -297,7 +284,7 @@ class ChatMessageList extends StatelessWidget {
   }
 }
 
-TextSpan _buildHighlightedText(BuildContext context, String text, String query) {
+TextSpan _buildHighlightedText(BuildContext context, String text, String query, Color highlightColor) {
   final TextStyle base = DefaultTextStyle.of(context).style;
   if (query.isEmpty) {
     return TextSpan(text: text, style: base);
@@ -318,9 +305,7 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query) 
     spans.add(
       TextSpan(
         text: text.substring(index, index + query.length),
-        style: base.copyWith(
-          backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-        ),
+        style: base.copyWith(backgroundColor: highlightColor),
       ),
     );
     start = index + query.length;

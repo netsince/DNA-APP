@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/conversation.dart';
+import '../models/prompt_strategy.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
@@ -109,7 +110,15 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveInspirationSettings({required bool includeSummary}) async {
-    _settings = _settings.copyWith(inspirationIncludeSummary: includeSummary);
+    _settings = _settings.copyWith(
+      inspirationIncludeSummary: includeSummary,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  Future<void> savePromptStrategy(PromptStrategy strategy) async {
+    _settings = _settings.copyWith(promptStrategy: strategy);
     await _settingsService.save(_settings);
     notifyListeners();
   }

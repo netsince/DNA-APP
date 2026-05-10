@@ -1,4 +1,6 @@
-﻿class AppSettings {
+import 'prompt_strategy.dart';
+
+class AppSettings {
   const AppSettings({
     required this.baseUrl,
     required this.apiKey,
@@ -8,10 +10,11 @@
     required this.summaryTurnInterval,
     required this.retrySequential,
     required this.inspirationIncludeSummary,
+    required this.promptStrategy,
   });
 
   factory AppSettings.empty() {
-    return const AppSettings(
+    return AppSettings(
       baseUrl: '',
       apiKey: '',
       selectedModel: '',
@@ -20,6 +23,7 @@
       summaryTurnInterval: 200,
       retrySequential: false,
       inspirationIncludeSummary: false,
+      promptStrategy: PromptStrategy.defaults(),
     );
   }
 
@@ -31,6 +35,7 @@
   final int summaryTurnInterval;
   final bool retrySequential;
   final bool inspirationIncludeSummary;
+  final PromptStrategy promptStrategy;
 
   AppSettings copyWith({
     String? baseUrl,
@@ -41,6 +46,7 @@
     int? summaryTurnInterval,
     bool? retrySequential,
     bool? inspirationIncludeSummary,
+    PromptStrategy? promptStrategy,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -51,6 +57,7 @@
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
       retrySequential: retrySequential ?? this.retrySequential,
       inspirationIncludeSummary: inspirationIncludeSummary ?? this.inspirationIncludeSummary,
+      promptStrategy: promptStrategy ?? this.promptStrategy,
     );
   }
 }

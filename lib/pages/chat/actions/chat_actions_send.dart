@@ -110,6 +110,7 @@ mixin ChatActionsSend on ChatStateMixin {
         ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
+        strategy: widget.controller.settings.promptStrategy,
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -178,6 +179,7 @@ mixin ChatActionsSend on ChatStateMixin {
       ta: ta,
       world: _world,
       groupPrompt: _conversation.groupPrompt,
+      strategy: widget.controller.settings.promptStrategy,
     );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
@@ -245,6 +247,7 @@ mixin ChatActionsSend on ChatStateMixin {
         ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
+        strategy: widget.controller.settings.promptStrategy,
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -366,6 +369,7 @@ mixin ChatActionsSend on ChatStateMixin {
         ta: ta,
         world: _world,
         groupPrompt: _conversation.groupPrompt,
+        strategy: widget.controller.settings.promptStrategy,
       ),
       messages: slice.messages,
       summaryText: summary?.text,

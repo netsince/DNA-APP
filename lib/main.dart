@@ -91,29 +91,47 @@ class DnaApp extends StatelessWidget {
   }
 }
 
-class AppRoot extends StatelessWidget {
+class AppRoot extends StatefulWidget {
   const AppRoot({super.key, required this.controller});
 
   final AppController controller;
 
   @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> {
+  bool _showHome = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _showHome = widget.controller.settings.completedOobe;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    final bool newShowHome = widget.controller.settings.completedOobe;
+    if (newShowHome != _showHome && mounted) {
+      setState(() => _showHome = newShowHome);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (BuildContext context, Widget? _) {
-        final Widget child = controller.settings.completedOobe
-            ? HomePage(controller: controller)
-            : OobePage(controller: controller);
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey<bool>(controller.settings.completedOobe),
-            child: child,
-          ),
-        );
-      },
+    // 使用 IndexedStack 避免页面重建，移除动画以减少卡顿
+    return IndexedStack(
+      index: _showHome ? 1 : 0,
+      children: <Widget>[
+        OobePage(controller: widget.controller),
+        HomePage(controller: widget.controller),
+      ],
     );
   }
 }

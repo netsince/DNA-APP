@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -46,12 +47,15 @@ class ChatPage extends StatefulWidget {
     required this.conversationId,
     this.isGroup = false,
   });
+
   final AppController controller;
   final String conversationId;
   final bool isGroup;
+
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
+
 class _ChatPageState extends State<ChatPage>
     with
         ChatStateMixin,
@@ -65,6 +69,13 @@ class _ChatPageState extends State<ChatPage>
         ChatActionsInspiration,
         ChatActionsSnapshots,
         ChatActionsSummaryUi {
+  // 缓存回调函数避免重建
+  late final _TokenCountCallback _tokenCountCallback = _TokenCountCallback(
+    counter: _tokenCounter,
+    getModel: () => widget.controller.settings.selectedModel,
+  );
+
+  @override
   Future<void> _ensureOpeningMessage() async {
     if (_isGroup) {
       return;
@@ -90,24 +101,34 @@ class _ChatPageState extends State<ChatPage>
     }
     setState(() {});
   }
+
+  @override
   Future<void> _loadAccent() async {
     final TA? ta = _ta;
     final String? path = ta?.images['square'];
     if (path == null || path.isEmpty || !File(path).existsSync()) {
       return;
     }
-    final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-      FileImage(File(path)),
-      size: const Size(128, 128),
-      maximumColorCount: 8,
-    );
-    if (!mounted) {
-      return;
+
+    try {
+      // 使用 compute 在后台线程处理图片颜色提取
+      final Color? dominantColor = await compute<_ExtractColorParams, Color?>(
+        _extractDominantColor,
+        _ExtractColorParams(path: path),
+      );
+
+      if (!mounted || dominantColor == null) {
+        return;
+      }
+      setState(() {
+        _accent = dominantColor;
+      });
+    } catch (e) {
+      debugPrint('Failed to load accent color: $e');
     }
-    setState(() {
-      _accent = palette.dominantColor?.color;
-    });
   }
+
+  @override
   void _scrollToBottom() {
     _chatController.scrollToBottom();
   }
@@ -130,10 +151,12 @@ class _ChatPageState extends State<ChatPage>
   Widget _buildGroupBackground(bool useLandscape) {
     final TA? speaker = _lastAssistantSpeaker();
     final String? path = useLandscape ? speaker?.images['landscape'] : speaker?.images['portrait'];
-    final bool hasImage = path != null && path.isNotEmpty && File(path).existsSync();
+    final ImageProvider? image = path != null ? _getCachedImage(path) : null;
+    final bool hasImage = image != null;
+
     final Widget child = hasImage
-        ? Image.file(
-            File(path),
+        ? Image(
+            image: image,
             key: ValueKey<String>('ta:$path'),
             fit: BoxFit.cover,
           )
@@ -153,7 +176,7 @@ class _ChatPageState extends State<ChatPage>
             },
           );
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 420),
+      duration: const Duration(milliseconds: 300),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       child: child,
@@ -237,13 +260,13 @@ class _ChatPageState extends State<ChatPage>
 
   ImageProvider? _avatarForTa(TA ta) {
     final String? path = ta.images['square'];
-    if (path == null || path.isEmpty || !File(path).existsSync()) {
+    if (path == null || path.isEmpty) {
       return null;
     }
-    return FileImage(File(path));
+    return _getCachedImage(path);
   }
 
-  Widget _buildSpeakerBar() {
+  Widget _buildSpeakerBar(Color primaryContainer, Color surfaceContainerHighest, TextTheme textTheme) {
     if (!_isGroup) {
       return const SizedBox.shrink();
     }
@@ -254,7 +277,7 @@ class _ChatPageState extends State<ChatPage>
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        color: surfaceContainerHighest,
         border: Border(
           bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
@@ -269,7 +292,7 @@ class _ChatPageState extends State<ChatPage>
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: tas.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, int index) => const SizedBox(width: 8),
                 itemBuilder: (BuildContext context, int index) {
                   final TA ta = tas[index];
                   final bool active = ta.id == _activeTaId;
@@ -282,13 +305,13 @@ class _ChatPageState extends State<ChatPage>
                         CircleAvatar(
                           radius: 16,
                           backgroundColor: active
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                              ? primaryContainer
+                              : surfaceContainerHighest,
                           foregroundImage: avatar,
                           child: avatar == null
                               ? Text(
                                   ta.name.isNotEmpty ? ta.name[0] : '?',
-                                  style: Theme.of(context).textTheme.labelMedium,
+                                  style: textTheme.labelMedium,
                                 )
                               : null,
                         ),
@@ -300,7 +323,7 @@ class _ChatPageState extends State<ChatPage>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: textTheme.labelSmall,
                           ),
                         ),
                       ],
@@ -322,18 +345,24 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   Widget build(BuildContext context) {
+    // 缓存 Theme 数据避免重复查找
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+    final Size screenSize = MediaQuery.sizeOf(context);
+
     final TA? ta = _ta;
-    final Color schemeColor = _accent ?? Theme.of(context).colorScheme.primary;
+    final Color schemeColor = _accent ?? colorScheme.primary;
     final Color userBubble = schemeColor.withValues(alpha: 0.18);
-    final Color assistantBubble = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final Size size = MediaQuery.of(context).size;
-    final bool useLandscape = size.width >= size.height;
+    final Color assistantBubble = colorScheme.surfaceContainerHighest;
+    final bool useLandscape = screenSize.width >= screenSize.height;
     final String? bgPath = useLandscape ? ta?.images['landscape'] : ta?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' &&
         ((_isGroup) || (bgPath != null && bgPath.isNotEmpty));
     final String searchQuery = _searchController.text.trim();
     final List<int> searchMatches =
         _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
+
     return Scaffold(
       appBar: ChatAppBar(
         searching: _searching,
@@ -357,20 +386,24 @@ class _ChatPageState extends State<ChatPage>
             Positioned.fill(
               child: _isGroup
                   ? _buildGroupBackground(useLandscape)
-                  : Image.file(
-                      File(bgPath!),
-                      fit: BoxFit.cover,
-                    ),
+                  : (() {
+                      final ImageProvider? image = _getCachedImage(bgPath!);
+                      if (image == null) return const SizedBox.shrink();
+                      return Image(
+                        image: image,
+                        fit: BoxFit.cover,
+                      );
+                    })(),
             ),
           if (useImageBg)
             Positioned.fill(
               child: Container(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
+                color: colorScheme.surface.withValues(alpha: 0.75),
               ),
             ),
           Column(
             children: <Widget>[
-              _buildSpeakerBar(),
+              _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
               Expanded(
                 child: ChatMessageList(
                   conversation: _conversation,
@@ -381,13 +414,7 @@ class _ChatPageState extends State<ChatPage>
                   showTokenCounts: _showTokenCounts,
                   searchQuery: searchQuery,
                   thoughtsByMessageId: _thoughtsByMessageId,
-                  tokenCountForMessage: (String messageId, String text) {
-                    return _tokenCounter.countTokens(
-                      model: widget.controller.settings.selectedModel,
-                      messageId: messageId,
-                      text: text,
-                    );
-                  },
+                  tokenCountForMessage: _tokenCountCallback.call,
                   summaryById: _summaryById,
                   onStartSummary: _startSummaryFromPrompt,
                   onDismissSummary: _dismissSummaryPrompt,
@@ -413,32 +440,10 @@ class _ChatPageState extends State<ChatPage>
                   ),
                 ),
               if (_summaryInProgress)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.auto_awesome, size: 16),
-                          const SizedBox(width: 6),
-                          const Text('正在生成摘要...'),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: _cancelSummary,
-                            child: const Text('停止'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _SummaryProgressBar(
+                  onCancel: _cancelSummary,
+                  color: colorScheme.surfaceContainerHigh,
+                  borderColor: colorScheme.outlineVariant,
                 ),
               ChatInputBar(
                 inputController: _inputController,
@@ -464,3 +469,89 @@ class _ChatPageState extends State<ChatPage>
   }
 }
 
+// 用于 compute 的参数类
+class _ExtractColorParams {
+  _ExtractColorParams({required this.path});
+  final String path;
+}
+
+// 在后台线程提取主色调
+Future<Color?> _extractDominantColor(_ExtractColorParams params) async {
+  try {
+    final File file = File(params.path);
+    if (!file.existsSync()) {
+      return null;
+    }
+    final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
+      FileImage(file),
+      size: const Size(64, 64), // 减小尺寸以加快处理
+      maximumColorCount: 4, // 减少颜色数量
+    );
+    return palette.dominantColor?.color;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 缓存 token 计数回调
+class _TokenCountCallback {
+  _TokenCountCallback({
+    required this.counter,
+    required this.getModel,
+  });
+
+  final ChatTokenCounter counter;
+  final String Function() getModel;
+
+  int call(String messageId, String text) {
+    return counter.countTokens(
+      model: getModel(),
+      messageId: messageId,
+      text: text,
+    );
+  }
+}
+
+// 独立的摘要进度条组件
+class _SummaryProgressBar extends StatelessWidget {
+  const _SummaryProgressBar({
+    required this.onCancel,
+    required this.color,
+    required this.borderColor,
+  });
+
+  final VoidCallback onCancel;
+  final Color color;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Align(
+        alignment: Alignment.center,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(Icons.auto_awesome, size: 16),
+              const SizedBox(width: 6),
+              const Text('正在生成摘要...'),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onCancel,
+                child: const Text('停止'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

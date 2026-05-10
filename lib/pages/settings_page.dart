@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/prompt_strategy.dart';
 import '../models/service_results.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
@@ -30,6 +31,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _autoSummaryPrompt = true;
   bool _retrySequential = false;
   bool _inspirationIncludeSummary = false;
+  late PromptStrategy _promptStrategy;
   static const String _clearCommand =
       'CLEAR ALL DATAS YES I DO THIS PLEASE DEL MY DATAS THANK YOU 114514';
 
@@ -46,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     _retrySequential = settings.retrySequential;
     _inspirationIncludeSummary = settings.inspirationIncludeSummary;
+    _promptStrategy = settings.promptStrategy;
     _commandController = TextEditingController();
   }
 
@@ -193,6 +196,14 @@ class _SettingsPageState extends State<SettingsPage> {
     showSnack(context, '灵感设置已保存。');
   }
 
+  Future<void> _savePromptStrategySettings() async {
+    await widget.controller.savePromptStrategy(_promptStrategy);
+    if (!mounted) {
+      return;
+    }
+    showSnack(context, '提示词策略已保存。');
+  }
+
   Future<void> _runCommand() async {
     final String cmd = _commandController.text;
     if (cmd == _clearCommand) {
@@ -268,6 +279,140 @@ class _SettingsPageState extends State<SettingsPage> {
                             const SizedBox(height: 8),
                             Text(_apiMessage!),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('提示词策略', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 16),
+                          // 推进策略
+                          Text('推进策略', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('强制推进'),
+                                  selected: _promptStrategy.advance == AdvanceStrategy.forced,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          advance: AdvanceStrategy.forced,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('自由发展'),
+                                  selected: _promptStrategy.advance == AdvanceStrategy.free,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          advance: AdvanceStrategy.free,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // 沉浸策略
+                          Text('沉浸策略', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('克制'),
+                                  selected: _promptStrategy.immersion == ImmersionStrategy.restrained,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          immersion: ImmersionStrategy.restrained,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('更强'),
+                                  selected: _promptStrategy.immersion == ImmersionStrategy.strong,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          immersion: ImmersionStrategy.strong,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // 字数控制
+                          Text('字数控制', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('严格 80-120 字'),
+                                  selected: _promptStrategy.length == LengthStrategy.strict,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          length: LengthStrategy.strict,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('无限制'),
+                                  selected: _promptStrategy.length == LengthStrategy.unlimited,
+                                  onSelected: (bool selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        _promptStrategy = _promptStrategy.copyWith(
+                                          length: LengthStrategy.unlimited,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: _savePromptStrategySettings,
+                            child: const Text('保存提示词策略'),
+                          ),
                         ],
                       ),
                     ),

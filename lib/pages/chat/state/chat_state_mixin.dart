@@ -8,6 +8,10 @@ mixin ChatStateMixin on State<ChatPage> {
   late final ChatController _chatController;
   late Conversation _conversation;
   Color? _accent;
+  
+  // 缓存图片 provider 避免重复创建
+  final Map<String, ImageProvider> _imageCache = <String, ImageProvider>{};
+
   bool get _sending => _state.sending;
   set _sending(bool value) => _state.sending = value;
   bool get _searching => _state.searching;
@@ -40,6 +44,7 @@ mixin ChatStateMixin on State<ChatPage> {
   Set<String> get _retryDisabled => _state.retryDisabled;
 
   bool get _isGroup => _conversation.isGroup || widget.isGroup;
+  
   String get _activeTaId {
     final String? active = _conversation.activeTaId;
     if (active != null && active.isNotEmpty) {
@@ -47,14 +52,19 @@ mixin ChatStateMixin on State<ChatPage> {
     }
     return _conversation.taId;
   }
+  
   TA? get _activeTa => widget.controller.getTaById(_activeTaId);
+  
   List<String> get _memberTaIds =>
       _conversation.memberTaIds.isNotEmpty ? _conversation.memberTaIds : <String>[_conversation.taId];
+  
   List<TA> get _memberTas => _memberTaIds
       .map(widget.controller.getTaById)
       .whereType<TA>()
       .toList();
+      
   TA? get _ta => _isGroup ? _activeTa : widget.controller.getTaById(_conversation.taId);
+  
   World? get _world => widget.controller.getWorldById(_conversation.worldId);
 
   Future<void> _ensureOpeningMessage();
@@ -94,7 +104,14 @@ mixin ChatStateMixin on State<ChatPage> {
         );
     _ensureGroupDefaults();
     _ensureOpeningMessage();
-    _loadAccent();
+    
+    // 延迟加载 accent 避免阻塞 initState
+    Future<void>.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _loadAccent();
+      }
+    });
+    
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
@@ -103,7 +120,20 @@ mixin ChatStateMixin on State<ChatPage> {
     _inputController.dispose();
     _scrollController.dispose();
     _searchController.dispose();
+    _imageCache.clear();
     super.dispose();
+  }
+
+  // 缓存图片 provider
+  ImageProvider? _getCachedImage(String path) {
+    if (!_imageCache.containsKey(path)) {
+      final File file = File(path);
+      if (!file.existsSync()) {
+        return null;
+      }
+      _imageCache[path] = FileImage(file);
+    }
+    return _imageCache[path];
   }
 
   Future<void> _ensureGroupDefaults() async {

@@ -6,6 +6,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
       ta: _ta,
       world: _world,
       groupPrompt: _conversation.groupPrompt,
+      strategy: widget.controller.settings.promptStrategy,
     );
   }
 

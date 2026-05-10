@@ -17,6 +17,18 @@ pluginManagement {
     }
 }
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        google()
+        mavenCentral()
+        // Flutter 引擎仓库 - 使用官方源
+        maven {
+            url = uri("https://storage.googleapis.com/download.flutter.io")
+        }
+    }
+}
+
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.11.1" apply false
