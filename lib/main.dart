@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'pages/home_page.dart';
 import 'pages/oobe_page.dart';
+import 'pages/splash_page.dart';
 import 'services/openai_service.dart';
 import 'services/ta_service.dart';
 import 'services/settings_service.dart';
@@ -101,6 +102,7 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> {
+  bool _showSplash = true;
   bool _showHome = false;
 
   @override
@@ -123,15 +125,37 @@ class _AppRootState extends State<AppRoot> {
     }
   }
 
+  void _onSplashComplete() {
+    if (mounted) {
+      setState(() => _showSplash = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 使用 IndexedStack 避免页面重建，移除动画以减少卡顿
-    return IndexedStack(
-      index: _showHome ? 1 : 0,
-      children: <Widget>[
-        OobePage(controller: widget.controller),
-        HomePage(controller: widget.controller),
-      ],
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeOut,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: _showSplash
+          ? SplashPage(
+              key: const ValueKey<bool>(true),
+              onComplete: _onSplashComplete,
+            )
+          : IndexedStack(
+              key: const ValueKey<bool>(false),
+              index: _showHome ? 1 : 0,
+              children: <Widget>[
+                OobePage(controller: widget.controller),
+                HomePage(controller: widget.controller),
+              ],
+            ),
     );
   }
 }
