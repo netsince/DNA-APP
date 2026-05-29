@@ -154,6 +154,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _models = <String>[value, ..._models];
       }
     });
+    await _saveModel();
   }
 
   Future<void> _restartOobe() async {
@@ -246,22 +247,20 @@ class _SettingsPageState extends State<SettingsPage> {
                               labelText: 'Base URL',
                               hintText: 'https://api.openai.com/v1',
                             ),
+                            onChanged: (_) => _saveApi(),
                           ),
                           const SizedBox(height: 10),
                           TextField(
                             controller: _apiKeyController,
                             obscureText: true,
                             decoration: const InputDecoration(labelText: 'API Key'),
+                            onChanged: (_) => _saveApi(),
                           ),
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
                             children: <Widget>[
-                              FilledButton(
-                                onPressed: _saveApi,
-                                child: const Text('保存 API'),
-                              ),
                               OutlinedButton.icon(
                                 onPressed: _checkingApi ? null : _checkApi,
                                 icon: _checkingApi
@@ -292,7 +291,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         children: <Widget>[
                           Text('提示词策略', style: Theme.of(context).textTheme.titleLarge),
                           const SizedBox(height: 16),
-                          // 推进策略
                           Text('推进策略', style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
                           Row(
@@ -308,6 +306,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           advance: AdvanceStrategy.forced,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
@@ -324,6 +323,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           advance: AdvanceStrategy.free,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
@@ -331,7 +331,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // 沉浸策略
                           Text('沉浸策略', style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
                           Row(
@@ -347,6 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           immersion: ImmersionStrategy.restrained,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
@@ -363,6 +363,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           immersion: ImmersionStrategy.strong,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
@@ -370,7 +371,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // 字数控制
                           Text('字数控制', style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
                           Row(
@@ -386,6 +386,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           length: LengthStrategy.strict,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
@@ -402,16 +403,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                           length: LengthStrategy.unlimited,
                                         );
                                       });
+                                      _savePromptStrategySettings();
                                     }
                                   },
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            onPressed: _savePromptStrategySettings,
-                            child: const Text('保存提示词策略'),
                           ),
                         ],
                       ),
@@ -433,12 +430,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             value: _inspirationIncludeSummary,
                             onChanged: (bool value) {
                               setState(() => _inspirationIncludeSummary = value);
+                              _saveInspirationSettings();
                             },
-                          ),
-                          const SizedBox(height: 10),
-                          FilledButton(
-                            onPressed: _saveInspirationSettings,
-                            child: const Text('保存灵感设置'),
                           ),
                         ],
                       ),
@@ -459,6 +452,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             value: _autoSummaryPrompt,
                             onChanged: (bool value) {
                               setState(() => _autoSummaryPrompt = value);
+                              _saveSummarySettings();
                             },
                           ),
                           const SizedBox(height: 4),
@@ -469,11 +463,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               labelText: '触发轮数（按用户消息计）',
                               hintText: '默认 200，范围 10-1000',
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          FilledButton(
-                            onPressed: _saveSummarySettings,
-                            child: const Text('保存摘要设置'),
+                            onChanged: (_) => _saveSummarySettings(),
                           ),
                         ],
                       ),
@@ -495,12 +485,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             value: _retrySequential,
                             onChanged: (bool value) {
                               setState(() => _retrySequential = value);
+                              _saveRetryStrategy();
                             },
-                          ),
-                          const SizedBox(height: 10),
-                          FilledButton(
-                            onPressed: _saveRetryStrategy,
-                            child: const Text('保存多次发送策略'),
                           ),
                         ],
                       ),
@@ -535,10 +521,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 icon: const Icon(Icons.edit),
                                 label: const Text('自定义模型'),
                               ),
-                              FilledButton(
-                                onPressed: (_selectedModel ?? '').isEmpty ? null : _saveModel,
-                                child: const Text('保存模型'),
-                              ),
                             ],
                           ),
                           if (_modelsError != null) ...<Widget>[
@@ -552,7 +534,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           if (_models.isEmpty)
                             Text(
                               _selectedModel == null
-                                  ? '尚未加载模型，可先点击“刷新模型”。'
+                                  ? '尚未加载模型，可先点击"刷新模型"。'
                                   : '当前模型：$_selectedModel',
                             )
                           else
@@ -566,7 +548,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                             : Icons.radio_button_unchecked,
                                       ),
                                       title: Text(model),
-                                      onTap: () => setState(() => _selectedModel = model),
+                                      onTap: () {
+                                        setState(() => _selectedModel = model);
+                                        _saveModel();
+                                      },
                                     ),
                                   )
                                   .toList(),
