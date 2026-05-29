@@ -1,16 +1,14 @@
-# dna
+<h1 align="center">与汝共奏 - Duet Nurturing Ally - DNA</h1>
 
-A new Flutter project.
+<div align="center">
+    <h3>
+        <a href="https://dna.nb6.ltd">项目官网</a>
+        <span> • </span>
+        <a href="https://dna.download.netsince.com">下载</a>
+    </h3>
+</div>
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+<div align="center">
+    <strong>开源、数据本地、无多余网络请求的</strong><br>
+    <strong>角色扮演APP。</strong><br>
+</div><br>
