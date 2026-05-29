@@ -116,7 +116,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _showHome = false;
   bool _requireAuth = false;
   bool _authPassed = false;
-  bool _isFirstResume = true;
+  bool _hasBeenPaused = false;
   DateTime? _pausedTime;
 
   @override
@@ -137,22 +137,27 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('Lifecycle: $state, requireAuth: $_requireAuth, authPassed: $_authPassed, hasBeenPaused: $_hasBeenPaused');
+    
     if (state == AppLifecycleState.paused) {
       // 记录进入后台的时间
       _pausedTime = DateTime.now();
+      _hasBeenPaused = true;
+      print('Lifecycle: App paused at $_pausedTime');
     } else if (state == AppLifecycleState.resumed) {
-      // 首次启动不触发验证重置
-      if (_isFirstResume) {
-        _isFirstResume = false;
-        return;
-      }
-      
-      // 从后台切回前台时，重置验证状态
-      if (_requireAuth && _authPassed && _pausedTime != null) {
+      // 只有真正从后台切回前台（之前执行过paused）才需要验证
+      if (_hasBeenPaused && _requireAuth && _authPassed) {
+        print('Lifecycle: Resumed from background, checking if auth reset needed');
+        _hasBeenPaused = false;
+        
         // 只有在后台停留超过1秒才需要重新验证（避免快速切换）
-        final Duration diff = DateTime.now().difference(_pausedTime!);
-        if (diff.inSeconds >= 1) {
-          setState(() => _authPassed = false);
+        if (_pausedTime != null) {
+          final Duration diff = DateTime.now().difference(_pausedTime!);
+          print('Lifecycle: Time in background: ${diff.inSeconds}s');
+          if (diff.inSeconds >= 1) {
+            print('Lifecycle: Resetting auth state');
+            setState(() => _authPassed = false);
+          }
         }
       }
     }
