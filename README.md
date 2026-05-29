@@ -12,7 +12,7 @@
         <span> • </span>
         <a href="https://dnaopensourse.netsince.com/download">下载</a>
         <span> • </span>
-        <a href="https://dnaopensourse.netsince.com/tapazza">查找角色卡！</a>
+        <a href="https://dnaopensourse.netsince.com/pazza">查找角色卡！</a>
     </h3>
 </div>
 
@@ -29,6 +29,22 @@
 
 到了后期，众所周知的文件出台了，我就又改了一些东西，约了个LOGO索性给开源了。
 这就是这个项目的由来。
+
+## 啥是“无多余网络请求”？
+
+简单来说，就是除了请求API，玩的过程中不会连接到任何第三方网络。
+
+如果你用本地模型，甚至可以做到零网络请求。
+
+## 等等，没有社区吗？
+
+有社区，但是单独的网站。
+
+我们希望社区是跟APP解耦的，虽然这样有些麻烦。
+
+当然，社区也是开源的！[DNA-PAZZA](https://github.com/netsince/DNA-PAZZA)
+
+官方社区：[社区](https://dnaopensourse.netsince.com/pazza)
 
 ## 所用的许可证：
 
