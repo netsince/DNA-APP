@@ -143,6 +143,25 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setTaArchived({
+    required String id,
+    required bool archived,
+  }) async {
+    final int index = _tas.indexWhere((TA item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final TA current = _tas[index];
+    if (current.archived == archived) {
+      return;
+    }
+    final List<TA> updated = <TA>[..._tas];
+    updated[index] = current.copyWith(archived: archived);
+    _tas = updated;
+    await _taService.save(_tas);
+    notifyListeners();
+  }
+
   Future<String> storeTaImage({
     required String taId,
     required String slot,
@@ -170,6 +189,25 @@ class AppController extends ChangeNotifier {
 
   Future<void> deleteWorld(String id) async {
     _worlds = _worlds.where((World world) => world.id != id).toList();
+    await _worldService.save(_worlds);
+    notifyListeners();
+  }
+
+  Future<void> setWorldArchived({
+    required String id,
+    required bool archived,
+  }) async {
+    final int index = _worlds.indexWhere((World item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final World current = _worlds[index];
+    if (current.archived == archived) {
+      return;
+    }
+    final List<World> updated = <World>[..._worlds];
+    updated[index] = current.copyWith(archived: archived);
+    _worlds = updated;
     await _worldService.save(_worlds);
     notifyListeners();
   }

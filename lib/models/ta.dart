@@ -1,4 +1,4 @@
-﻿import 'dialogue_style.dart';
+import 'dialogue_style.dart';
 
 class TA {
   const TA({
@@ -11,6 +11,7 @@ class TA {
     required this.tags,
     required this.images,
     required this.dialogueStyle,
+    this.archived = false,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class TA {
   final List<String> tags;
   final Map<String, String> images;
   final List<DialogueTurn> dialogueStyle;
+  final bool archived;
 
   TA copyWith({
     String? name,
@@ -32,6 +34,7 @@ class TA {
     List<String>? tags,
     Map<String, String>? images,
     List<DialogueTurn>? dialogueStyle,
+    bool? archived,
   }) {
     return TA(
       id: id,
@@ -43,6 +46,7 @@ class TA {
       tags: tags ?? this.tags,
       images: images ?? this.images,
       dialogueStyle: dialogueStyle ?? this.dialogueStyle,
+      archived: archived ?? this.archived,
     );
   }
 
@@ -57,6 +61,7 @@ class TA {
       'tags': tags,
       'images': images,
       'dialogueStyle': dialogueStyle.map((DialogueTurn t) => t.toJson()).toList(),
+      'archived': archived,
     };
   }
 
@@ -76,6 +81,7 @@ class TA {
       dialogueStyle: raw == null
           ? <DialogueTurn>[]
           : raw.whereType<Map<String, dynamic>>().map(DialogueTurn.fromJson).toList(),
+      archived: (json['archived'] as bool?) ?? false,
     );
   }
 }

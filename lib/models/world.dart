@@ -7,6 +7,7 @@ class World {
     required this.tags,
     required this.forbiddenWords,
     required this.entries,
+    this.archived = false,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class World {
   final List<String> tags;
   final List<String> forbiddenWords;
   final List<WorldEntry> entries;
+  final bool archived;
 
   World copyWith({
     String? name,
@@ -24,6 +26,7 @@ class World {
     List<String>? tags,
     List<String>? forbiddenWords,
     List<WorldEntry>? entries,
+    bool? archived,
   }) {
     return World(
       id: id,
@@ -33,6 +36,7 @@ class World {
       tags: tags ?? this.tags,
       forbiddenWords: forbiddenWords ?? this.forbiddenWords,
       entries: entries ?? this.entries,
+      archived: archived ?? this.archived,
     );
   }
 
@@ -45,6 +49,7 @@ class World {
       'tags': tags,
       'forbiddenWords': forbiddenWords,
       'entries': entries.map((WorldEntry entry) => entry.toJson()).toList(),
+      'archived': archived,
     };
   }
 
@@ -62,6 +67,7 @@ class World {
               .map((Map entry) => WorldEntry.fromJson(entry.cast<String, dynamic>()))
               .toList() ??
           <WorldEntry>[],
+      archived: (json['archived'] as bool?) ?? false,
     );
   }
 }

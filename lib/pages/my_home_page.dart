@@ -7,15 +7,26 @@ import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
 import 'ta_editor_page.dart';
 
-class MyHomePage extends StatelessWidget {
+class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.controller});
 
   final AppController controller;
 
-  void _createTa(BuildContext context) {
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  bool _showArchived = false;
+
+  void _toggleArchived() {
+    setState(() => _showArchived = !_showArchived);
+  }
+
+  void _createTa() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => TaEditorPage(controller: controller),
+        builder: (BuildContext context) => TaEditorPage(controller: widget.controller),
       ),
     );
   }
@@ -23,21 +34,48 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('我家')),
-      drawer: AppDrawer(controller: controller, current: AppSection.myHome),
-      body: _TaListBody(controller: controller),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _createTa(context),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: Text(_showArchived ? 'TA归档' : '我家'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: _showArchived ? '查看TA' : '查看归档',
+            onPressed: _toggleArchived,
+            icon: Icon(_showArchived ? Icons.people_outline : Icons.archive_outlined),
+          ),
+          if (!_showArchived)
+            IconButton(
+              tooltip: '创建TA',
+              onPressed: _createTa,
+              icon: const Icon(Icons.add),
+            ),
+        ],
       ),
+      drawer: AppDrawer(controller: widget.controller, current: AppSection.myHome),
+      body: _TaListBody(
+        controller: widget.controller,
+        showArchived: _showArchived,
+        onCreateTa: _createTa,
+      ),
+      floatingActionButton: !_showArchived
+          ? FloatingActionButton(
+              onPressed: _createTa,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }
 
 class _TaListBody extends StatelessWidget {
-  const _TaListBody({required this.controller});
+  const _TaListBody({
+    required this.controller,
+    required this.showArchived,
+    required this.onCreateTa,
+  });
 
   final AppController controller;
+  final bool showArchived;
+  final VoidCallback onCreateTa;
 
   @override
   Widget build(BuildContext context) {
@@ -47,27 +85,23 @@ class _TaListBody extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (BuildContext context, Widget? _) {
-        final List<TA> tas = controller.tas;
+        final List<TA> tas = controller.tas
+            .where((TA t) => t.archived == showArchived)
+            .toList();
 
         if (tas.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const Text('暂无TA，先创建一个吧。'),
+                Text(showArchived ? '还没有归档TA。' : '暂无TA，先创建一个吧。'),
                 const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (BuildContext context) =>
-                            TaEditorPage(controller: controller),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('创建TA'),
-                ),
+                if (!showArchived)
+                  FilledButton.icon(
+                    onPressed: onCreateTa,
+                    icon: const Icon(Icons.add),
+                    label: const Text('创建TA'),
+                  ),
               ],
             ),
           );
@@ -172,8 +206,48 @@ class _TaItem extends StatelessWidget {
                 ),
               ),
               ReorderableDragStartListener(
-                index: 0,
+                index: ta.archived ? -1 : 0,
                 child: const Icon(Icons.drag_handle),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                tooltip: '更多操作',
+                onSelected: (String value) async {
+                  if (value == 'archive') {
+                    await controller.setTaArchived(
+                      id: ta.id,
+                      archived: true,
+                    );
+                  } else if (value == 'unarchive') {
+                    await controller.setTaArchived(
+                      id: ta.id,
+                      archived: false,
+                    );
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  if (ta.archived) {
+                    return <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'unarchive',
+                        child: ListTile(
+                          leading: Icon(Icons.unarchive_outlined),
+                          title: Text('恢复'),
+                        ),
+                      ),
+                    ];
+                  }
+                  return <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'archive',
+                      child: ListTile(
+                        leading: Icon(Icons.archive_outlined),
+                        title: Text('归档'),
+                      ),
+                    ),
+                  ];
+                },
+                child: const Icon(Icons.more_vert),
               ),
               const SizedBox(width: 8),
               const Icon(Icons.chevron_right),
