@@ -13,6 +13,7 @@ import '../models/world.dart';
 import '../services/openai_service.dart';
 import '../services/conversation_service.dart';
 import '../services/group_conversation_service.dart';
+
 import '../services/ta_service.dart';
 import '../services/settings_service.dart';
 import '../services/world_service.dart';
@@ -47,7 +48,7 @@ class AppController extends ChangeNotifier {
 
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
-  List<TA> get tas => List<TA>.unmodifiable(_tas);
+  List<TA> get tas => _tas;
   List<World> get worlds => List<World>.unmodifiable(_worlds);
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);

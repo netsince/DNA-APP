@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../pages/home_page.dart';
 import '../pages/group_home_page.dart';

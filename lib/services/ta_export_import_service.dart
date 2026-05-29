@@ -1,0 +1,388 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img;
+import '../models/ta.dart';
+import '../models/dialogue_style.dart';
+
+/// 导出导入结果
+class ExportImportResult<T> {
+  const ExportImportResult({
+    required this.success,
+    this.data,
+    this.message,
+  });
+
+  final bool success;
+  final T? data;
+  final String? message;
+}
+
+/// 图片导出信息
+class ExportedImageInfo {
+  const ExportedImageInfo({
+    required this.data,
+    this.width,
+    this.height,
+  });
+
+  final String? data;
+  final int? width;
+  final int? height;
+
+  Map<String, dynamic> toJson() => {
+        'data': data,
+        'width': width,
+        'height': height,
+      };
+
+  static ExportedImageInfo fromJson(Map<String, dynamic> json) {
+    return ExportedImageInfo(
+      data: json['data'] as String?,
+      width: json['width'] as int?,
+      height: json['height'] as int?,
+    );
+  }
+}
+
+/// 导出角色数据
+class ExportedCharacter {
+  const ExportedCharacter({
+    required this.id,
+    required this.name,
+    required this.gender,
+    required this.persona,
+    required this.intro,
+    required this.opening,
+    required this.tags,
+    required this.dialogueStyle,
+    required this.images,
+  });
+
+  final String id;
+  final String name;
+  final String gender;
+  final String persona;
+  final String intro;
+  final String opening;
+  final List<String> tags;
+  final List<Map<String, String>> dialogueStyle;
+  final Map<String, ExportedImageInfo> images;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'gender': gender,
+        'persona': persona,
+        'intro': intro,
+        'opening': opening,
+        'tags': tags,
+        'dialogueStyle': dialogueStyle,
+        'images': images.map((key, value) => MapEntry(key, value.toJson())),
+      };
+
+  static ExportedCharacter fromJson(Map<String, dynamic> json) {
+    final imagesRaw = json['images'] as Map<String, dynamic>?;
+    final Map<String, ExportedImageInfo> images = {};
+    if (imagesRaw != null) {
+      for (final entry in imagesRaw.entries) {
+        images[entry.key] = ExportedImageInfo.fromJson(
+          entry.value as Map<String, dynamic>,
+        );
+      }
+    }
+
+    final dialogueRaw = json['dialogueStyle'] as List<dynamic>?;
+    final List<Map<String, String>> dialogueStyle = [];
+    if (dialogueRaw != null) {
+      for (final item in dialogueRaw) {
+        if (item is Map<String, dynamic>) {
+          dialogueStyle.add({
+            'user': (item['user'] as String?) ?? '',
+            'assistant': (item['assistant'] as String?) ?? '',
+          });
+        }
+      }
+    }
+
+    return ExportedCharacter(
+      id: json['id'] as String,
+      name: (json['name'] as String?) ?? '',
+      gender: (json['gender'] as String?) ?? '无性',
+      persona: (json['persona'] as String?) ?? '',
+      intro: (json['intro'] as String?) ?? '',
+      opening: (json['opening'] as String?) ?? '',
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      dialogueStyle: dialogueStyle,
+      images: images,
+    );
+  }
+
+  TA toTA() {
+    return TA(
+      id: id,
+      name: name,
+      gender: gender,
+      persona: persona,
+      intro: intro,
+      opening: opening,
+      tags: tags,
+      images: {},
+      dialogueStyle: dialogueStyle
+          .map((d) => DialogueTurn(
+                user: d['user'] ?? '',
+                assistant: d['assistant'] ?? '',
+              ))
+          .toList(),
+    );
+  }
+}
+
+/// 导出包数据
+class ExportPackage {
+  const ExportPackage({
+    required this.version,
+    required this.exportType,
+    required this.exportedAt,
+    required this.compressed,
+    required this.character,
+  });
+
+  final int version;
+  final String exportType;
+  final String exportedAt;
+  final bool compressed;
+  final ExportedCharacter character;
+
+  Map<String, dynamic> toJson() => {
+        'version': version,
+        'exportType': exportType,
+        'exportedAt': exportedAt,
+        'compressed': compressed,
+        'character': character.toJson(),
+      };
+
+  static ExportPackage fromJson(Map<String, dynamic> json) {
+    return ExportPackage(
+      version: json['version'] as int? ?? 1,
+      exportType: json['exportType'] as String? ?? 'single',
+      exportedAt: json['exportedAt'] as String? ?? '',
+      compressed: json['compressed'] as bool? ?? false,
+      character: ExportedCharacter.fromJson(
+        json['character'] as Map<String, dynamic>,
+      ),
+    );
+  }
+}
+
+/// 导入结果
+class ImportResult {
+  const ImportResult({
+    required this.ta,
+    required this.idConflict,
+    required this.existingId,
+  });
+
+  final TA ta;
+  final bool idConflict;
+  final String? existingId;
+}
+
+/// 角色导出导入服务
+class TaExportImportService {
+  static const int _currentVersion = 1;
+  static const String _exportTypeSingle = 'single';
+
+  /// 导出角色为JSON字符串
+  static Future<ExportImportResult<String>> exportCharacter(
+    TA character, {
+    bool compressImages = true,
+    int maxImageDimension = 1024,
+  }) async {
+    try {
+      final Map<String, ExportedImageInfo> exportedImages = {};
+
+      // 处理图片
+      for (final entry in character.images.entries) {
+        final slot = entry.key;
+        final path = entry.value;
+
+        if (path.isEmpty) {
+          exportedImages[slot] = const ExportedImageInfo(data: null);
+          continue;
+        }
+
+        final file = File(path);
+        if (!await file.exists()) {
+          exportedImages[slot] = const ExportedImageInfo(data: null);
+          continue;
+        }
+
+        Uint8List imageBytes;
+        int width;
+        int height;
+
+        if (compressImages) {
+          // 压缩图片
+          final compressed = await FlutterImageCompress.compressWithFile(
+            path,
+            minWidth: maxImageDimension,
+            minHeight: maxImageDimension,
+            quality: 85,
+          );
+          imageBytes = compressed ?? await file.readAsBytes();
+
+          // 获取压缩后的尺寸
+          final decoded = img.decodeImage(imageBytes);
+          width = decoded?.width ?? 0;
+          height = decoded?.height ?? 0;
+        } else {
+          imageBytes = await file.readAsBytes();
+          final decoded = img.decodeImage(imageBytes);
+          width = decoded?.width ?? 0;
+          height = decoded?.height ?? 0;
+        }
+
+        final base64String = base64Encode(imageBytes);
+        final mimeType = _getMimeType(path);
+        exportedImages[slot] = ExportedImageInfo(
+          data: 'data:$mimeType;base64,$base64String',
+          width: width,
+          height: height,
+        );
+      }
+
+      // 确保所有图片槽位都有值
+      for (final slot in ['square', 'landscape', 'portrait']) {
+        if (!exportedImages.containsKey(slot)) {
+          exportedImages[slot] = const ExportedImageInfo(data: null);
+        }
+      }
+
+      // 构建导出数据
+      final exportedCharacter = ExportedCharacter(
+        id: character.id,
+        name: character.name,
+        gender: character.gender,
+        persona: character.persona,
+        intro: character.intro,
+        opening: character.opening,
+        tags: character.tags,
+        dialogueStyle: character.dialogueStyle
+            .map((d) => {'user': d.user, 'assistant': d.assistant})
+            .toList(),
+        images: exportedImages,
+      );
+
+      final package = ExportPackage(
+        version: _currentVersion,
+        exportType: _exportTypeSingle,
+        exportedAt: DateTime.now().toUtc().toIso8601String(),
+        compressed: compressImages,
+        character: exportedCharacter,
+      );
+
+      final jsonString = const JsonEncoder.withIndent('  ').convert(package.toJson());
+      return ExportImportResult(success: true, data: jsonString);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导出失败: $e');
+    }
+  }
+
+  /// 从JSON字符串导入角色
+  static ExportImportResult<ImportResult> importCharacter(String jsonString) {
+    try {
+      final decoded = jsonDecode(jsonString);
+      if (decoded is! Map<String, dynamic>) {
+        return const ExportImportResult(
+          success: false,
+          message: '无效的导出文件格式',
+        );
+      }
+
+      final version = decoded['version'] as int?;
+      if (version == null || version > _currentVersion) {
+        return ExportImportResult(
+          success: false,
+          message: '不支持的版本: $version (当前支持: $_currentVersion)',
+        );
+      }
+
+      final package = ExportPackage.fromJson(decoded);
+      final exported = package.character;
+
+      // 构建TA对象
+      final ta = exported.toTA();
+
+      return ExportImportResult(
+        success: true,
+        data: ImportResult(
+          ta: ta,
+          idConflict: false, // 由调用方检查
+          existingId: null,
+        ),
+      );
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导入失败: $e');
+    }
+  }
+
+  /// 复制导出内容到剪贴板
+  static Future<ExportImportResult<void>> copyToClipboard(String content) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: content));
+      return const ExportImportResult(success: true);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '复制到剪贴板失败: $e');
+    }
+  }
+
+  /// 从剪贴板读取导入内容
+  static Future<ExportImportResult<String>> pasteFromClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == null || data!.text!.isEmpty) {
+        return const ExportImportResult(
+          success: false,
+          message: '剪贴板为空或没有文本内容',
+        );
+      }
+      return ExportImportResult(success: true, data: data.text);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '读取剪贴板失败: $e');
+    }
+  }
+
+  /// 从Base64数据保存图片到指定路径
+  static Future<ExportImportResult<String>> saveBase64Image(
+    String base64Data,
+    String targetPath,
+  ) async {
+    try {
+      // 解析 data URI
+      String pureBase64 = base64Data;
+      if (base64Data.contains(',')) {
+        pureBase64 = base64Data.split(',')[1];
+      }
+
+      final bytes = base64Decode(pureBase64);
+      final file = File(targetPath);
+      await file.writeAsBytes(bytes);
+      return ExportImportResult(success: true, data: targetPath);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '保存图片失败: $e');
+    }
+  }
+
+  /// 获取MIME类型
+  static String _getMimeType(String path) {
+    final ext = path.toLowerCase();
+    if (ext.endsWith('.png')) return 'image/png';
+    if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) return 'image/jpeg';
+    if (ext.endsWith('.webp')) return 'image/webp';
+    if (ext.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  }
+}
