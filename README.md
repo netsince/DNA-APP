@@ -2,7 +2,7 @@
 
 <div align="center">
     <h3>
-        <a href="https://dna.nb6.ltd">项目官网</a>
+        <a href="https://dnaopensourse.netsince.com">项目官网</a>
         <span> • </span>
         <a href="https://dna.download.netsince.com">下载</a>
     </h3>
