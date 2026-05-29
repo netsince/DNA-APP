@@ -8,6 +8,8 @@ mixin ChatUiHelpers on ChatStateMixin {
   void _dismissSummaryPrompt(String messageId);
   Future<void> _continueFromContext();
   Future<void> _retryAssistantAt(int index);
+  @override
+  Set<String> get _visibleThoughtMessageIds;
 
   Future<void> _showMessageMenu({
     required Offset position,
@@ -97,6 +99,9 @@ mixin ChatUiHelpers on ChatStateMixin {
       (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
     );
     final bool canContinue = isAssistant && index == lastAssistantIndex;
+    final bool hasThought = _thoughtsByMessageId.containsKey(message.id) &&
+        _thoughtsByMessageId[message.id]!.text.trim().isNotEmpty;
+    final bool isThoughtVisible = _visibleThoughtMessageIds.contains(message.id);
     final String? action = await showMenu<String>(
       context: context,
       position: anchor,
@@ -133,6 +138,14 @@ mixin ChatUiHelpers on ChatStateMixin {
             child: ListTile(
               leading: Icon(Icons.undo),
               title: Text('回溯到此处'),
+            ),
+          ),
+        if (hasThought)
+          PopupMenuItem<String>(
+            value: isThoughtVisible ? 'hide_thought' : 'show_thought',
+            child: ListTile(
+              leading: Icon(isThoughtVisible ? Icons.psychology : Icons.psychology_outlined),
+              title: Text(isThoughtVisible ? '隐藏思考' : '查看思考'),
             ),
           ),
         const PopupMenuItem<String>(
@@ -180,6 +193,19 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
     if (action == 'share') {
       await Share.share(message.text);
+      return;
+    }
+    if (action == 'show_thought') {
+      setState(() {
+        _visibleThoughtMessageIds.add(message.id);
+      });
+      return;
+    }
+    if (action == 'hide_thought') {
+      setState(() {
+        _visibleThoughtMessageIds.remove(message.id);
+      });
+      return;
     }
   }
 

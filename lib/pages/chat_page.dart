@@ -422,6 +422,7 @@ class _ChatPageState extends State<ChatPage>
                   summaryInProgress: _summaryInProgress,
                   showSpeakerLabels: _isGroup,
                   taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
+                  visibleThoughtMessageIds: _visibleThoughtMessageIds,
                 ),
               ),
               if (_sending)

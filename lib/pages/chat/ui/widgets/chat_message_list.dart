@@ -38,6 +38,7 @@ class ChatMessageList extends StatelessWidget {
     required this.summaryInProgress,
     required this.showSpeakerLabels,
     required this.taNameForId,
+    required this.visibleThoughtMessageIds,
   });
 
   final Conversation conversation;
@@ -56,6 +57,7 @@ class ChatMessageList extends StatelessWidget {
   final bool summaryInProgress;
   final bool showSpeakerLabels;
   final TaNameForId taNameForId;
+  final Set<String> visibleThoughtMessageIds;
 
   @override
   Widget build(BuildContext context) {
@@ -248,19 +250,30 @@ class ChatMessageList extends StatelessWidget {
                       colorScheme.tertiaryContainer.withValues(alpha: 0.55),
                     ),
                   ),
-                  if (thoughtText.isNotEmpty) ...<Widget>[
+                  if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
                     const SizedBox(height: 8),
-                    Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        childrenPadding: const EdgeInsets.only(top: 6),
-                        title: const Text('思考内容'),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(thoughtText, style: textTheme.bodySmall),
+                          Row(
+                            children: <Widget>[
+                              Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                '思考内容',
+                                style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 6),
+                          Text(thoughtText, style: textTheme.bodySmall),
                         ],
                       ),
                     ),

@@ -17,6 +17,7 @@ class ChatState {
   final Map<String, GlobalKey> messageKeys = <String, GlobalKey>{};
   final Map<String, ThoughtEntry> thoughtsByMessageId = <String, ThoughtEntry>{};
   final Map<String, StreamParseState> streamParseStates = <String, StreamParseState>{};
+  final Set<String> visibleThoughtMessageIds = <String>{};
 
   bool summaryInProgress = false;
   int summaryTaskId = 0;

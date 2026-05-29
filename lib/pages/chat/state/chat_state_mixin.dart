@@ -42,6 +42,8 @@ mixin ChatStateMixin on State<ChatPage> {
   Map<String, StreamParseState> get _streamParseStates => _state.streamParseStates;
   Map<String, List<String>> get _retryAlternatives => _state.retryAlternatives;
   Set<String> get _retryDisabled => _state.retryDisabled;
+  // ignore: unused_element
+  Set<String> get _visibleThoughtMessageIds => _state.visibleThoughtMessageIds;
 
   bool get _isGroup => _conversation.isGroup || widget.isGroup;
   
