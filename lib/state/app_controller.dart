@@ -11,34 +11,25 @@ import '../models/prompt_strategy.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
-import '../services/conversation_service.dart';
-import '../services/group_conversation_service.dart';
 
-import '../services/ta_service.dart';
 import '../services/settings_service.dart';
-import '../services/world_service.dart';
+import '../services/ta_service.dart';
+import '../services/hive_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
     required SettingsService settingsService,
     required OpenAiService openAiService,
     required TaService taService,
-    required WorldService worldService,
-    required ConversationService conversationService,
-    required GroupConversationService groupConversationService,
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
         _taService = taService,
-        _worldService = worldService,
-        _conversationService = conversationService,
-        _groupConversationService = groupConversationService;
+        _hiveService = HiveService();
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
   final TaService _taService;
-  final WorldService _worldService;
-  final ConversationService _conversationService;
-  final GroupConversationService _groupConversationService;
+  final HiveService _hiveService;
 
   AppSettings _settings = AppSettings.empty();
   List<TA> _tas = <TA>[];
@@ -54,11 +45,13 @@ class AppController extends ChangeNotifier {
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
 
   Future<void> initialize() async {
+    await _hiveService.init();
     _settings = await _settingsService.load();
-    _tas = await _taService.load();
-    _worlds = await _worldService.load();
-    _conversations = await _conversationService.load();
-    _groupConversations = await _groupConversationService.load();
+    _tas = await _hiveService.getTas();
+    _worlds = await _hiveService.getWorlds();
+    final allConversations = await _hiveService.getConversations();
+    _conversations = allConversations.where((c) => !c.isGroup && !c.archived).toList();
+    _groupConversations = allConversations.where((c) => c.isGroup && !c.archived).toList();
     notifyListeners();
   }
 
@@ -133,13 +126,13 @@ class AppController extends ChangeNotifier {
       updated[index] = ta;
       _tas = updated;
     }
-    await _taService.save(_tas);
+    await _hiveService.upsertTa(ta);
     notifyListeners();
   }
 
   Future<void> deleteTa(String id) async {
     _tas = _tas.where((TA ta) => ta.id != id).toList();
-    await _taService.save(_tas);
+    await _hiveService.deleteTa(id);
     notifyListeners();
   }
 
@@ -158,7 +151,7 @@ class AppController extends ChangeNotifier {
     final List<TA> updated = <TA>[..._tas];
     updated[index] = current.copyWith(archived: archived);
     _tas = updated;
-    await _taService.save(_tas);
+    await _hiveService.upsertTa(updated[index]);
     notifyListeners();
   }
 
@@ -183,13 +176,13 @@ class AppController extends ChangeNotifier {
       updated[index] = world;
       _worlds = updated;
     }
-    await _worldService.save(_worlds);
+    await _hiveService.upsertWorld(world);
     notifyListeners();
   }
 
   Future<void> deleteWorld(String id) async {
     _worlds = _worlds.where((World world) => world.id != id).toList();
-    await _worldService.save(_worlds);
+    await _hiveService.deleteWorld(id);
     notifyListeners();
   }
 
@@ -208,7 +201,7 @@ class AppController extends ChangeNotifier {
     final List<World> updated = <World>[..._worlds];
     updated[index] = current.copyWith(archived: archived);
     _worlds = updated;
-    await _worldService.save(_worlds);
+    await _hiveService.upsertWorld(updated[index]);
     notifyListeners();
   }
 
@@ -225,7 +218,7 @@ class AppController extends ChangeNotifier {
       updated[index] = conversation;
       _conversations = updated;
     }
-    await _conversationService.save(_conversations);
+    await _hiveService.upsertConversation(conversation);
     notifyListeners();
   }
 
@@ -242,19 +235,19 @@ class AppController extends ChangeNotifier {
       updated[index] = conversation;
       _groupConversations = updated;
     }
-    await _groupConversationService.save(_groupConversations);
+    await _hiveService.upsertConversation(conversation);
     notifyListeners();
   }
 
   Future<void> deleteConversation(String id) async {
     _conversations = _conversations.where((Conversation item) => item.id != id).toList();
-    await _conversationService.save(_conversations);
+    await _hiveService.deleteConversation(id);
     notifyListeners();
   }
 
   Future<void> deleteGroupConversation(String id) async {
     _groupConversations = _groupConversations.where((Conversation item) => item.id != id).toList();
-    await _groupConversationService.save(_groupConversations);
+    await _hiveService.deleteConversation(id);
     notifyListeners();
   }
 
@@ -273,7 +266,7 @@ class AppController extends ChangeNotifier {
     final List<Conversation> updated = <Conversation>[..._conversations];
     updated[index] = current.copyWith(archived: archived);
     _conversations = updated;
-    await _conversationService.save(_conversations);
+    await _hiveService.upsertConversation(updated[index]);
     notifyListeners();
   }
 
@@ -292,7 +285,7 @@ class AppController extends ChangeNotifier {
     final List<Conversation> updated = <Conversation>[..._groupConversations];
     updated[index] = current.copyWith(archived: archived);
     _groupConversations = updated;
-    await _groupConversationService.save(_groupConversations);
+    await _hiveService.upsertConversation(updated[index]);
     notifyListeners();
   }
 
@@ -323,7 +316,7 @@ class AppController extends ChangeNotifier {
       cursor += 1;
     }
     _conversations = updated;
-    await _conversationService.save(_conversations);
+    await _hiveService.saveConversations(_conversations);
     notifyListeners();
   }
 
@@ -341,7 +334,7 @@ class AppController extends ChangeNotifier {
     final TA moved = updated.removeAt(oldIndex);
     updated.insert(newIndex, moved);
     _tas = updated;
-    await _taService.save(_tas);
+    await _hiveService.saveTas(_tas);
     notifyListeners();
   }
 
@@ -359,7 +352,7 @@ class AppController extends ChangeNotifier {
     final World moved = updated.removeAt(oldIndex);
     updated.insert(newIndex, moved);
     _worlds = updated;
-    await _worldService.save(_worlds);
+    await _hiveService.saveWorlds(_worlds);
     notifyListeners();
   }
 
@@ -377,7 +370,7 @@ class AppController extends ChangeNotifier {
     final Conversation moved = updated.removeAt(oldIndex);
     updated.insert(newIndex, moved);
     _conversations = updated;
-    await _conversationService.save(_conversations);
+    await _hiveService.saveConversations(_conversations);
     notifyListeners();
   }
 
@@ -414,13 +407,14 @@ class AppController extends ChangeNotifier {
   Future<void> clearAllData() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    await _hiveService.clearAll();
     try {
       final Directory doc = await getApplicationDocumentsDirectory();
-      if (await doc.exists()) {
-        await doc.delete(recursive: true);
+      final Directory taDir = Directory(path.join(doc.path, 'tas'));
+      if (await taDir.exists()) {
+        await taDir.delete(recursive: true);
       }
     } catch (_) {
-      // Ignore cleanup errors.
     }
     _settings = AppSettings.empty();
     _tas = <TA>[];

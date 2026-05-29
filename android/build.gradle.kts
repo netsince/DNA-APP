@@ -36,6 +36,7 @@ subprojects {
             force("androidx.browser:browser:1.8.0")
         }
     }
+
 }
 
 subprojects {
