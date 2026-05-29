@@ -4,7 +4,7 @@
     <h3>
         <a href="https://dnaopensourse.netsince.com">项目官网</a>
         <span> • </span>
-        <a href="https://dna.download.netsince.com">下载</a>
+        <a href="https://dnaopensourse.netsince.com/download">下载</a>
     </h3>
 </div>
 
