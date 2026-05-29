@@ -43,6 +43,13 @@ class TaService {
     final String ext = path.extension(sourcePath).isEmpty ? '.jpg' : path.extension(sourcePath);
     final String fileName = '${taId}_$slot$ext';
     final String targetPath = path.join(dir.path, fileName);
+    
+    // 如果目标文件已存在，先删除
+    final File targetFile = File(targetPath);
+    if (await targetFile.exists()) {
+      await targetFile.delete();
+    }
+    
     final File sourceFile = File(sourcePath);
     await sourceFile.copy(targetPath);
     return targetPath;
