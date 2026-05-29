@@ -11,6 +11,8 @@
         <a href="https://dnaopensourse.netsince.com">项目官网</a>
         <span> • </span>
         <a href="https://dnaopensourse.netsince.com/download">下载</a>
+        <span> • </span>
+        <a href="https://dnaopensourse.netsince.com/tapazza">查找角色卡！</a>
     </h3>
 </div>
 
@@ -18,3 +20,18 @@
     <strong>开源、数据本地、无多余网络请求的</strong><br>
     <strong>角色扮演APP。</strong><br>
 </div><br>
+
+## 我为什么要写这个项目？
+
+最初只是因为 某Max旗下那个破软件，名字跟《蔚蓝档案》的某个角色重名的那个破软件。太圈钱又难用：无用且圈钱的功能又多、评论区混乱不堪、推荐的狗屁不是、违禁词多如麻，而我只想要角色扮演RP部分
+
+一气之下写了个这个软件，让我玩爽了
+
+到了后期，众所周知的文件出台了，我就又改了一些东西，约了个LOGO索性给开源了。
+这就是这个项目的由来。
+
+## 所用的许可证：
+
+代码：[MIT License](LICENSE-MIT)
+
+美术资源（如LOGO）：[CC BY-NC-ND 4.0](LICENSE-CC)
