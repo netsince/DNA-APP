@@ -15,6 +15,8 @@ class SettingsService {
   static const String _retrySequentialKey = 'retry_sequential';
   static const String _inspirationIncludeSummaryKey = 'inspiration_include_summary';
   static const String _promptStrategyKey = 'prompt_strategy';
+  static const String _requireAuthForArchiveKey = 'require_auth_for_archive';
+  static const String _requireAuthForAppKey = 'require_auth_for_app';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -40,6 +42,8 @@ class SettingsService {
       retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
       inspirationIncludeSummary: prefs.getBool(_inspirationIncludeSummaryKey) ?? false,
       promptStrategy: promptStrategy,
+      requireAuthForArchive: prefs.getBool(_requireAuthForArchiveKey) ?? false,
+      requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
     );
   }
 
@@ -54,5 +58,7 @@ class SettingsService {
     await prefs.setBool(_retrySequentialKey, settings.retrySequential);
     await prefs.setBool(_inspirationIncludeSummaryKey, settings.inspirationIncludeSummary);
     await prefs.setString(_promptStrategyKey, jsonEncode(settings.promptStrategy.toJson()));
+    await prefs.setBool(_requireAuthForArchiveKey, settings.requireAuthForArchive);
+    await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
   }
 }

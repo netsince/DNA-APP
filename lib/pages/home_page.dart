@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
+import '../services/auth_service.dart';
 import '../state/app_controller.dart';
+import '../utils/ui_feedback.dart';
 import '../widgets/app_drawer.dart';
 import 'chat_page.dart';
 import 'conversation_create_page.dart';
@@ -19,9 +21,35 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _showArchived = false;
+  bool _archiveAuthPassed = false;
 
-  void _toggleArchived() {
-    setState(() => _showArchived = !_showArchived);
+  Future<void> _toggleArchived() async {
+    final bool willShowArchived = !_showArchived;
+    
+    // 如果要显示归档且需要验证
+    if (willShowArchived && widget.controller.settings.requireAuthForArchive) {
+      if (!_archiveAuthPassed) {
+        final bool authenticated = await AuthService.authenticateForArchive();
+        if (!authenticated) {
+          if (mounted) {
+            showSnack(context, '验证失败，无法查看归档');
+          }
+          return;
+        }
+        _archiveAuthPassed = true;
+      }
+    }
+    
+    setState(() => _showArchived = willShowArchived);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 当离开归档页面时重置验证状态
+    if (!_showArchived) {
+      _archiveAuthPassed = false;
+    }
   }
 
   void _createConversation() {

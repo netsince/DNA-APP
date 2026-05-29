@@ -117,6 +117,18 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveAuthSettings({
+    required bool requireAuthForArchive,
+    required bool requireAuthForApp,
+  }) async {
+    _settings = _settings.copyWith(
+      requireAuthForArchive: requireAuthForArchive,
+      requireAuthForApp: requireAuthForApp,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> upsertTa(TA ta) async {
     final int index = _tas.indexWhere((TA item) => item.id == ta.id);
     if (index == -1) {

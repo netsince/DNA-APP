@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
+import 'pages/auth_page.dart';
 import 'pages/home_page.dart';
 import 'pages/oobe_page.dart';
 import 'pages/splash_page.dart';
@@ -110,27 +111,61 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<AppRoot> {
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _showSplash = true;
   bool _showHome = false;
+  bool _requireAuth = false;
+  bool _authPassed = false;
+  bool _isFirstResume = true;
+  DateTime? _pausedTime;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _showHome = widget.controller.settings.completedOobe;
+    _requireAuth = widget.controller.settings.requireAuthForApp;
     widget.controller.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // 记录进入后台的时间
+      _pausedTime = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      // 首次启动不触发验证重置
+      if (_isFirstResume) {
+        _isFirstResume = false;
+        return;
+      }
+      
+      // 从后台切回前台时，重置验证状态
+      if (_requireAuth && _authPassed && _pausedTime != null) {
+        // 只有在后台停留超过1秒才需要重新验证（避免快速切换）
+        final Duration diff = DateTime.now().difference(_pausedTime!);
+        if (diff.inSeconds >= 1) {
+          setState(() => _authPassed = false);
+        }
+      }
+    }
+  }
+
   void _onControllerChanged() {
     final bool newShowHome = widget.controller.settings.completedOobe;
-    if (newShowHome != _showHome && mounted) {
-      setState(() => _showHome = newShowHome);
+    final bool newRequireAuth = widget.controller.settings.requireAuthForApp;
+    if ((newShowHome != _showHome || newRequireAuth != _requireAuth) && mounted) {
+      setState(() {
+        _showHome = newShowHome;
+        _requireAuth = newRequireAuth;
+      });
     }
   }
 
@@ -140,8 +175,22 @@ class _AppRootState extends State<AppRoot> {
     }
   }
 
+  void _onAuthPassed() {
+    if (mounted) {
+      setState(() => _authPassed = true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 如果需要验证且未通过，显示验证页面
+    if (_requireAuth && !_authPassed && !_showSplash) {
+      return AuthPage(
+        onAuthPassed: _onAuthPassed,
+        requireAuthForApp: _requireAuth,
+      );
+    }
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 500),
       switchInCurve: Curves.easeOut,

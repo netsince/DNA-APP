@@ -11,6 +11,8 @@ class AppSettings {
     required this.retrySequential,
     required this.inspirationIncludeSummary,
     required this.promptStrategy,
+    required this.requireAuthForArchive,
+    required this.requireAuthForApp,
   });
 
   factory AppSettings.empty() {
@@ -24,6 +26,8 @@ class AppSettings {
       retrySequential: false,
       inspirationIncludeSummary: false,
       promptStrategy: PromptStrategy.defaults(),
+      requireAuthForArchive: false,
+      requireAuthForApp: false,
     );
   }
 
@@ -36,6 +40,8 @@ class AppSettings {
   final bool retrySequential;
   final bool inspirationIncludeSummary;
   final PromptStrategy promptStrategy;
+  final bool requireAuthForArchive;
+  final bool requireAuthForApp;
 
   AppSettings copyWith({
     String? baseUrl,
@@ -47,6 +53,8 @@ class AppSettings {
     bool? retrySequential,
     bool? inspirationIncludeSummary,
     PromptStrategy? promptStrategy,
+    bool? requireAuthForArchive,
+    bool? requireAuthForApp,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -58,6 +66,8 @@ class AppSettings {
       retrySequential: retrySequential ?? this.retrySequential,
       inspirationIncludeSummary: inspirationIncludeSummary ?? this.inspirationIncludeSummary,
       promptStrategy: promptStrategy ?? this.promptStrategy,
+      requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
+      requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
     );
   }
 }

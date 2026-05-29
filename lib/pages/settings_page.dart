@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/prompt_strategy.dart';
 import '../models/service_results.dart';
+import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
@@ -31,6 +32,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _autoSummaryPrompt = true;
   bool _retrySequential = false;
   bool _inspirationIncludeSummary = false;
+  bool _requireAuthForArchive = false;
+  bool _requireAuthForApp = false;
+  bool _authAvailable = false;
   late PromptStrategy _promptStrategy;
   static const String _clearCommand =
       'CLEAR ALL DATAS YES I DO THIS PLEASE DEL MY DATAS THANK YOU 114514';
@@ -49,7 +53,15 @@ class _SettingsPageState extends State<SettingsPage> {
     _retrySequential = settings.retrySequential;
     _inspirationIncludeSummary = settings.inspirationIncludeSummary;
     _promptStrategy = settings.promptStrategy;
+    _requireAuthForArchive = settings.requireAuthForArchive;
+    _requireAuthForApp = settings.requireAuthForApp;
     _commandController = TextEditingController();
+    _checkAuthAvailability();
+  }
+
+  Future<void> _checkAuthAvailability() async {
+    final bool available = await AuthService.canCheckBiometrics();
+    setState(() => _authAvailable = available);
   }
 
   @override
@@ -203,6 +215,17 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     showSnack(context, '提示词策略已保存。');
+  }
+
+  Future<void> _saveAuthSettings() async {
+    await widget.controller.saveAuthSettings(
+      requireAuthForArchive: _requireAuthForArchive,
+      requireAuthForApp: _requireAuthForApp,
+    );
+    if (!mounted) {
+      return;
+    }
+    showSnack(context, '安全设置已保存。');
   }
 
   Future<void> _runCommand() async {
@@ -556,6 +579,49 @@ class _SettingsPageState extends State<SettingsPage> {
                                   )
                                   .toList(),
                             ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('安全与隐私', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          if (!_authAvailable)
+                            Text(
+                              '当前设备不支持生物识别验证',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontSize: 12,
+                              ),
+                            )
+                          else ...[
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('进入软件需验证'),
+                              subtitle: const Text('开启后每次进入应用或从后台切回都需要验证身份。'),
+                              value: _requireAuthForApp,
+                              onChanged: (bool value) {
+                                setState(() => _requireAuthForApp = value);
+                                _saveAuthSettings();
+                              },
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('查看归档需验证'),
+                              subtitle: const Text('开启后进入任意归档页面需要验证身份。'),
+                              value: _requireAuthForArchive,
+                              onChanged: (bool value) {
+                                setState(() => _requireAuthForArchive = value);
+                                _saveAuthSettings();
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
