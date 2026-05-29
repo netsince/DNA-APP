@@ -24,7 +24,7 @@ subprojects {
             }
         }
     }
-    
+
     // 强行把所有想上 36 的 androidx 依赖全部降回 35 兼容版本
     configurations.all {
         resolutionStrategy {
@@ -33,6 +33,7 @@ subprojects {
             force("androidx.activity:activity:1.9.3")
             force("androidx.activity:activity-ktx:1.9.3")
             force("androidx.navigationevent:navigationevent-android:1.0.0-alpha01")
+            force("androidx.browser:browser:1.8.0")
         }
     }
 }
