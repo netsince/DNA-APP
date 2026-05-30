@@ -12,12 +12,12 @@
         <span> • </span>
         <a href="https://dnaopensourse.netsince.com/download">下载</a>
         <span> • </span>
-        <a href="https://dnaopensourse.netsince.com/pazza">查找角色卡！</a>
+        <a href="https://dnaopensourse.netsince.com/park">查找角色卡！</a>
     </h3>
 </div>
 
 <div align="center">
-    <strong>开源、数据本地、无多余网络请求的</strong><br>
+    开源、数据本地、无多余网络请求的<br>
     <strong>角色扮演APP。</strong><br>
 </div><br>
 
@@ -55,9 +55,9 @@
 
 我们希望社区是跟APP解耦的，虽然这样有些麻烦。
 
-当然，社区也是开源的！[DNA-PAZZA](https://github.com/netsince/DNA-PAZZA)
+当然，社区也是开源的！[DNA-PARK](https://github.com/netsince/DNA-PARK)
 
-官方社区：[社区](https://dnaopensourse.netsince.com/pazza)
+官方社区：[社区](https://dnaopensourse.netsince.com/park)
 
 ## 奇妙趣事
 
