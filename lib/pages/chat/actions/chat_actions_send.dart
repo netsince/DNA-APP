@@ -189,13 +189,13 @@ mixin ChatActionsSend on ChatStateMixin {
       if (summary != null && summary.text.trim().isNotEmpty) {
         payload.add(<String, String>{
           'role': 'system',
-          'content': '瀵硅瘽鎽樿锛歕n${summary.text.trim()}',
+          'content': '对话摘要：\n${summary.text.trim()}',
         });
       }
     }
     payload.add(<String, String>{
       'role': 'system',
-      'content': '璇风户缁笂涓€鏉″姪鎵嬪洖澶嶏紝寤剁画璇皵锛屼笉瑕侀噸澶嶅凡璇村唴瀹癸紝涓嶈寮曞叆鏂拌瘽棰樸€?',
+      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
     });
     payload.addAll(
       slice.messages.map((ConversationMessage m) => <String, String>{

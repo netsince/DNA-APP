@@ -69,7 +69,7 @@ class ChatSystemPrompt {
       }
     }
     if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {
-      system.writeln('缇よ瀹氾細${groupPrompt.trim()}');
+      system.writeln('群设定：${groupPrompt.trim()}');
     }
     if (style.isNotEmpty) {
       system.writeln('对话风格：');
