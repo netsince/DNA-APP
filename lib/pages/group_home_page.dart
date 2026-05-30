@@ -8,6 +8,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
 import 'group_create_page.dart';
+import 'group_edit_page.dart';
 
 class GroupHomePage extends StatefulWidget {
   const GroupHomePage({super.key, required this.controller});
@@ -151,7 +152,17 @@ class _GroupItem extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           tooltip: '更多操作',
           onSelected: (String value) async {
-            if (value == 'archive') {
+            if (value == 'edit') {
+              if (!context.mounted) return;
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => GroupEditPage(
+                    controller: controller,
+                    group: group,
+                  ),
+                ),
+              );
+            } else if (value == 'archive') {
               await controller.setGroupConversationArchived(
                 id: group.id,
                 archived: true,
@@ -176,6 +187,13 @@ class _GroupItem extends StatelessWidget {
               ];
             }
             return <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'edit',
+                child: ListTile(
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('更改信息'),
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'archive',
                 child: ListTile(

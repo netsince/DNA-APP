@@ -9,6 +9,7 @@ import '../utils/ui_feedback.dart';
 import '../widgets/app_drawer.dart';
 import 'chat_page.dart';
 import 'conversation_create_page.dart';
+import 'conversation_edit_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
@@ -199,7 +200,17 @@ class _ConversationItem extends StatelessWidget {
             PopupMenuButton<String>(
               tooltip: '更多操作',
               onSelected: (String value) async {
-                if (value == 'archive') {
+                if (value == 'edit') {
+                  if (!context.mounted) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext context) => ConversationEditPage(
+                        controller: controller,
+                        conversation: conversation,
+                      ),
+                    ),
+                  );
+                } else if (value == 'archive') {
                   await controller.setConversationArchived(
                     id: conversation.id,
                     archived: true,
@@ -224,6 +235,13 @@ class _ConversationItem extends StatelessWidget {
                   ];
                 }
                 return <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('更改信息'),
+                    ),
+                  ),
                   const PopupMenuItem<String>(
                     value: 'archive',
                     child: ListTile(
