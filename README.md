@@ -23,9 +23,15 @@
 
 ## 软件截图：
 
-![软件截图](assets/screenshot.png)
+![首页](assets/screenshots/main.png)
 
+![OOBE](assets/screenshots/OOBEs.png)
 
+![角色设定](assets/screenshots/character.png)
+
+![聊天](assets/screenshots/chat.png)
+
+!
 
 ## 我为什么要写这个项目？
 
@@ -51,6 +57,10 @@
 当然，社区也是开源的！[DNA-PAZZA](https://github.com/netsince/DNA-PAZZA)
 
 官方社区：[社区](https://dnaopensourse.netsince.com/pazza)
+
+## 奇妙趣事
+
+- 这个名字的简称其实是Cue的《二重螺旋》
 
 ## 所用的许可证：
 

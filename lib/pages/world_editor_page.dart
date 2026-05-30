@@ -122,7 +122,8 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
 
   int _calculateLineCount(String text) {
     if (text.isEmpty) return 1;
-    return text.split('\n').length.clamp(1, 20);
+    final int count = text.split('\n').length;
+    return count < 1 ? 1 : count;
   }
 
   WorldEntry _withoutRelationTarget(WorldEntry entry, String targetId) {
@@ -513,7 +514,8 @@ class _AdaptiveTextFieldState extends State<_AdaptiveTextField> {
 
   int _calculateLineCount(String text) {
     if (text.isEmpty) return 1;
-    return text.split('\n').length.clamp(1, 20);
+    final int count = text.split('\n').length;
+    return count < 1 ? 1 : count;
   }
 
   @override
