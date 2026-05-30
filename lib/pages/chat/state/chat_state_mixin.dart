@@ -106,15 +106,24 @@ mixin ChatStateMixin on State<ChatPage> {
         );
     _ensureGroupDefaults();
     _ensureOpeningMessage();
-    
+
     // 延迟加载 accent 避免阻塞 initState
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _loadAccent();
       }
     });
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+    // 确保页面加载后滚动到底部
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+    // 延迟再次滚动，确保消息列表渲染完成后滚动到底部
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
   }
 
   @override

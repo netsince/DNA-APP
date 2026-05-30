@@ -51,6 +51,7 @@ mixin ChatUiHelpers on ChatStateMixin {
         ],
       );
       if (action == null) {
+        _scrollAfterMenu();
         return;
       }
       if (action == 'view_summary') {
@@ -60,6 +61,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       } else if (action == 'delete_summary') {
         await _deleteSummary(message.summaryId ?? '', message.id);
       }
+      _scrollAfterMenu();
       return;
     }
     if (message.kind == 'summary_prompt') {
@@ -84,6 +86,7 @@ mixin ChatUiHelpers on ChatStateMixin {
         ],
       );
       if (action == null) {
+        _scrollAfterMenu();
         return;
       }
       if (action == 'start_summary') {
@@ -91,6 +94,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       } else if (action == 'dismiss_summary') {
         _dismissSummaryPrompt(message.id);
       }
+      _scrollAfterMenu();
       return;
     }
     final bool isAssistant = message.role == 'assistant';
@@ -118,7 +122,7 @@ mixin ChatUiHelpers on ChatStateMixin {
         if (isAssistant)
           PopupMenuItem<String>(
             value: 'retry',
-            enabled: !retryDisabled,
+            enabled: canContinue && !retryDisabled,
             child: const ListTile(
               leading: Icon(Icons.refresh),
               title: Text('重说'),
@@ -164,6 +168,7 @@ mixin ChatUiHelpers on ChatStateMixin {
         ),
       ],
     );
+    _scrollAfterMenu();
     if (action == null) {
       return;
     }
@@ -278,6 +283,10 @@ mixin ChatUiHelpers on ChatStateMixin {
       return;
     }
     setState(() {});
+    // 重说完成后滚动到底部
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
   }
 
   Future<void> _editAssistantAt(int index) async {
@@ -361,5 +370,17 @@ mixin ChatUiHelpers on ChatStateMixin {
       return;
     }
     setState(() {});
+    // 回溯成功后滚动到底部
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+
+  void _scrollAfterMenu() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
   }
 }

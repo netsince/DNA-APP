@@ -133,6 +133,15 @@ class _ChatPageState extends State<ChatPage>
     _chatController.scrollToBottom();
   }
 
+  void _onInputTap() {
+    // 点击输入框时，延迟滚动以确保键盘弹出后底部消息可见
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
+  }
+
   TA? _lastAssistantSpeaker() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
@@ -461,6 +470,7 @@ class _ChatPageState extends State<ChatPage>
                 onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
                 onForceSummary: _forceSummaryPrompt,
                 onRangeSummary: _summarizeRecentRange,
+                onTap: _onInputTap,
               ),
             ],
           ),

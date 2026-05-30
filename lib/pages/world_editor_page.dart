@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models/world.dart';
 import '../state/app_controller.dart';
@@ -118,6 +118,11 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       }
     }
     return '未知词条';
+  }
+
+  int _calculateLineCount(String text) {
+    if (text.isEmpty) return 1;
+    return text.split('\n').length.clamp(1, 20);
   }
 
   WorldEntry _withoutRelationTarget(WorldEntry entry, String targetId) {
@@ -246,16 +251,14 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     decoration: const InputDecoration(labelText: '世界名称'),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _summaryController,
                     decoration: const InputDecoration(labelText: '简介'),
-                    maxLines: 2,
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _descriptionController,
                     decoration: const InputDecoration(labelText: '世界背景'),
-                    maxLines: 6,
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -266,13 +269,12 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _forbiddenWordsController,
                     decoration: const InputDecoration(
                       labelText: '禁止输出词语',
                       hintText: '多个词用逗号或换行分隔，例如：桃花树, 林黛玉',
                     ),
-                    maxLines: 3,
                   ),
                 ],
               ),
@@ -292,10 +294,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     decoration: const InputDecoration(labelText: '词条名称'),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _entryDescriptionController,
                     decoration: const InputDecoration(labelText: '描述'),
-                    maxLines: 3,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<WorldEntryType>(
@@ -394,10 +395,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       decoration: const InputDecoration(labelText: '关联条目'),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    _AdaptiveTextField(
                       controller: _entryRelationController,
                       decoration: const InputDecoration(labelText: '关联内容'),
-                      maxLines: 2,
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -469,6 +469,60 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         icon: const Icon(Icons.save_outlined),
         label: const Text('保存世界'),
       ),
+    );
+  }
+}
+
+class _AdaptiveTextField extends StatefulWidget {
+  const _AdaptiveTextField({
+    required this.controller,
+    this.decoration,
+  });
+
+  final TextEditingController controller;
+  final InputDecoration? decoration;
+
+  @override
+  State<_AdaptiveTextField> createState() => _AdaptiveTextFieldState();
+}
+
+class _AdaptiveTextFieldState extends State<_AdaptiveTextField> {
+  late int _lineCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _lineCount = _calculateLineCount(widget.controller.text);
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final int newLineCount = _calculateLineCount(widget.controller.text);
+    if (newLineCount != _lineCount) {
+      setState(() {
+        _lineCount = newLineCount;
+      });
+    }
+  }
+
+  int _calculateLineCount(String text) {
+    if (text.isEmpty) return 1;
+    return text.split('\n').length.clamp(1, 20);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      minLines: _lineCount,
+      maxLines: _lineCount,
+      decoration: widget.decoration,
     );
   }
 }

@@ -299,9 +299,72 @@ class ChatMessageList extends StatelessWidget {
 
 TextSpan _buildHighlightedText(BuildContext context, String text, String query, Color highlightColor) {
   final TextStyle base = DefaultTextStyle.of(context).style;
-  if (query.isEmpty) {
-    return TextSpan(text: text, style: base);
+  final ColorScheme colorScheme = Theme.of(context).colorScheme;
+  final TextStyle grayStyle = base.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
+
+  // Check if a character is an opening bracket (English or Chinese)
+  bool isOpeningBracket(String char) {
+    return char == '(' || char == '（';
   }
+
+  // Check if a character is a closing bracket (English or Chinese)
+  bool isClosingBracket(String char) {
+    return char == ')' || char == '）';
+  }
+
+  // Build spans with parenthesis coloring (supports both English and Chinese brackets)
+  List<InlineSpan> buildParenthesisSpans(String input, TextStyle normalStyle, TextStyle parenStyle) {
+    final List<InlineSpan> spans = <InlineSpan>[];
+    int i = 0;
+    while (i < input.length) {
+      // Find the next opening bracket
+      int openIndex = -1;
+      for (int j = i; j < input.length; j++) {
+        if (isOpeningBracket(input[j])) {
+          openIndex = j;
+          break;
+        }
+      }
+
+      if (openIndex == -1) {
+        spans.add(TextSpan(text: input.substring(i), style: normalStyle));
+        break;
+      }
+
+      // Add text before opening bracket
+      if (openIndex > i) {
+        spans.add(TextSpan(text: input.substring(i, openIndex), style: normalStyle));
+      }
+
+      // Find matching closing bracket
+      int closeIndex = openIndex + 1;
+      int depth = 1;
+      while (closeIndex < input.length && depth > 0) {
+        if (isOpeningBracket(input[closeIndex])) {
+          depth++;
+        } else if (isClosingBracket(input[closeIndex])) {
+          depth--;
+        }
+        closeIndex++;
+      }
+
+      if (depth == 0) {
+        // Found matching closing bracket, add the bracket content with gray style
+        spans.add(TextSpan(text: input.substring(openIndex, closeIndex), style: parenStyle));
+        i = closeIndex;
+      } else {
+        // No matching closing bracket, add the rest as normal
+        spans.add(TextSpan(text: input.substring(openIndex), style: normalStyle));
+        break;
+      }
+    }
+    return spans;
+  }
+
+  if (query.isEmpty) {
+    return TextSpan(children: buildParenthesisSpans(text, base, grayStyle));
+  }
+
   final String lowerText = text.toLowerCase();
   final String lowerQuery = query.toLowerCase();
   int start = 0;
@@ -309,11 +372,11 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
   while (true) {
     final int index = lowerText.indexOf(lowerQuery, start);
     if (index == -1) {
-      spans.add(TextSpan(text: text.substring(start), style: base));
+      spans.addAll(buildParenthesisSpans(text.substring(start), base, grayStyle));
       break;
     }
     if (index > start) {
-      spans.add(TextSpan(text: text.substring(start, index), style: base));
+      spans.addAll(buildParenthesisSpans(text.substring(start, index), base, grayStyle));
     }
     spans.add(
       TextSpan(

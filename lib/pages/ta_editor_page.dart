@@ -522,27 +522,24 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _personaController,
-                    maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: '设定',
                       hintText: '决定了TA的内在',
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _introController,
-                    maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: '介绍',
                       hintText: '仅对外展示',
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  _AdaptiveTextField(
                     controller: _openingController,
-                    maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: '开场白（可选）',
                     ),
@@ -627,4 +624,58 @@ enum _ConflictAction {
   cancel,
   overwrite,
   createNew,
+}
+
+class _AdaptiveTextField extends StatefulWidget {
+  const _AdaptiveTextField({
+    required this.controller,
+    this.decoration,
+  });
+
+  final TextEditingController controller;
+  final InputDecoration? decoration;
+
+  @override
+  State<_AdaptiveTextField> createState() => _AdaptiveTextFieldState();
+}
+
+class _AdaptiveTextFieldState extends State<_AdaptiveTextField> {
+  late int _lineCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _lineCount = _calculateLineCount(widget.controller.text);
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final int newLineCount = _calculateLineCount(widget.controller.text);
+    if (newLineCount != _lineCount) {
+      setState(() {
+        _lineCount = newLineCount;
+      });
+    }
+  }
+
+  int _calculateLineCount(String text) {
+    if (text.isEmpty) return 1;
+    return text.split('\n').length.clamp(1, 20);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      minLines: _lineCount,
+      maxLines: _lineCount,
+      decoration: widget.decoration,
+    );
+  }
 }
