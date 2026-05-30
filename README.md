@@ -1,6 +1,6 @@
 <p align="center">
     <a href="https://dnaopensourse.netsince.com" target="_blank">
-        <img src="assets/app_icon.png" alt="花了25元请人设计的LOGO" style="width: 250px;"/>
+        <img src="assets/screenshots/b.png" alt="一个头图，一个是作者花了25元请人设计的LOGO，下面写了“与汝共奏 - Duet Nurturing Ally”"/>
     </a>
 </p>
 
@@ -23,15 +23,15 @@
 
 ## 软件截图：
 
-![首页](assets/screenshots/main.png)
+![首页头图展示，文案是“极简，任我玩”](assets/screenshots/main.png)
 
-![OOBE](assets/screenshots/OOBEs.png)
+![启动向导头图展示，文案是“三步，这就好”](assets/screenshots/OOBEs.png)
 
-![聊天](assets/screenshots/chat.png)
+![聊天头图展示，文案是“对话，在本地”](assets/screenshots/chat.png)
 
-![角色设定](assets/screenshots/character.png)
+![角色设定头图展示，文案是“设定，也本地”](assets/screenshots/character.png)
 
-![设置](assets/screenshots/settings.png)
+![设置头图展示，文案是“设置，很个性”](assets/screenshots/settings.png)
 
 ## 我为什么要写这个项目？
 
