@@ -27,11 +27,11 @@
 
 ![OOBE](assets/screenshots/OOBEs.png)
 
-![角色设定](assets/screenshots/character.png)
-
 ![聊天](assets/screenshots/chat.png)
 
-!
+![角色设定](assets/screenshots/character.png)
+
+![设置](assets/screenshots/settings.png)
 
 ## 我为什么要写这个项目？
 
