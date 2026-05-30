@@ -29,7 +29,7 @@ class _CommunityPageState extends State<CommunityPage> {
   }
 
   void _refreshTas() {
-    final List<TA> all = widget.controller.tas;
+    final List<TA> all = widget.controller.activeTas;
     final List<TA> shuffled = List<TA>.of(all)..shuffle();
     setState(() => _displayTas = shuffled);
   }

@@ -196,7 +196,7 @@ class _ChatPageState extends State<ChatPage>
     if (!_isGroup) {
       return;
     }
-    final List<TA> allTas = widget.controller.tas;
+    final List<TA> allTas = widget.controller.activeTas;
     final List<TA> candidates = allTas.where((TA t) => !_memberTaIds.contains(t.id)).toList();
     if (candidates.isEmpty) {
       if (!mounted) {

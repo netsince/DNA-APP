@@ -40,9 +40,13 @@ class AppController extends ChangeNotifier {
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
   List<TA> get tas => _tas;
+  List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
   List<World> get worlds => List<World>.unmodifiable(_worlds);
+  List<World> get activeWorlds => _worlds.where((World w) => !w.archived).toList();
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
+  List<Conversation> get activeConversations => _conversations.where((Conversation c) => !c.archived).toList();
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
+  List<Conversation> get activeGroupConversations => _groupConversations.where((Conversation c) => !c.archived).toList();
 
   Future<void> initialize() async {
     await _hiveService.init();
@@ -50,8 +54,8 @@ class AppController extends ChangeNotifier {
     _tas = await _hiveService.getTas();
     _worlds = await _hiveService.getWorlds();
     final allConversations = await _hiveService.getConversations();
-    _conversations = allConversations.where((c) => !c.isGroup && !c.archived).toList();
-    _groupConversations = allConversations.where((c) => c.isGroup && !c.archived).toList();
+    _conversations = allConversations.where((c) => !c.isGroup).toList();
+    _groupConversations = allConversations.where((c) => c.isGroup).toList();
     notifyListeners();
   }
 

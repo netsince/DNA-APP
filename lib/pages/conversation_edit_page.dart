@@ -58,8 +58,8 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<TA> tas = widget.controller.tas;
-    final List<World> worlds = widget.controller.worlds;
+    final List<TA> tas = widget.controller.activeTas;
+    final List<World> worlds = widget.controller.activeWorlds;
 
     return Scaffold(
       appBar: AppBar(

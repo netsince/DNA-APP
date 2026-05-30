@@ -70,8 +70,8 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<TA> tas = widget.controller.tas;
-    final List<World> worlds = widget.controller.worlds;
+    final List<TA> tas = widget.controller.activeTas;
+    final List<World> worlds = widget.controller.activeWorlds;
     final List<TA> selectedTas = tas.where((TA t) => _selectedTaIds.contains(t.id)).toList();
 
     return Scaffold(

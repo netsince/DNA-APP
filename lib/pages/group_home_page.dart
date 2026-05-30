@@ -79,11 +79,9 @@ class _GroupListBody extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (BuildContext context, Widget? _) {
-        final List<Conversation> groups = controller.groupConversations
-            .where((Conversation c) => c.isGroup)
+        final List<Conversation> visible = controller.groupConversations
+            .where((Conversation c) => c.archived == showArchived)
             .toList();
-        final List<Conversation> visible =
-            groups.where((Conversation c) => c.archived == showArchived).toList();
 
         if (visible.isEmpty) {
           return Center(
