@@ -84,13 +84,15 @@ class ExportedCharacter {
       };
 
   static ExportedCharacter fromJson(Map<String, dynamic> json) {
-    final imagesRaw = json['images'] as Map<String, dynamic>?;
     final Map<String, ExportedImageInfo> images = {};
-    if (imagesRaw != null) {
+    final imagesRaw = json['images'];
+    if (imagesRaw is Map<String, dynamic>) {
       for (final entry in imagesRaw.entries) {
-        images[entry.key] = ExportedImageInfo.fromJson(
-          entry.value as Map<String, dynamic>,
-        );
+        if (entry.value is Map<String, dynamic>) {
+          images[entry.key] = ExportedImageInfo.fromJson(
+            entry.value as Map<String, dynamic>,
+          );
+        }
       }
     }
 

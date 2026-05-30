@@ -75,9 +75,10 @@ class TA {
       intro: (json['intro'] as String?) ?? '',
       opening: (json['opening'] as String?) ?? '',
       tags: (json['tags'] as List?)?.whereType<String>().toList() ?? <String>[],
-      images: (json['images'] as Map?)
-              ?.map((Object? key, Object? value) => MapEntry('$key', '$value')) ??
-          <String, String>{},
+      images: switch (json['images']) {
+        Map m => m.map((key, value) => MapEntry('$key', '$value')),
+        _ => <String, String>{},
+      },
       dialogueStyle: raw == null
           ? <DialogueTurn>[]
           : raw.whereType<Map<String, dynamic>>().map(DialogueTurn.fromJson).toList(),
