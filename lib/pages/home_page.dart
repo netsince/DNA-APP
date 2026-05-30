@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
@@ -7,6 +9,7 @@ import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
 import 'conversation_create_page.dart';
 import 'conversation_edit_page.dart';
@@ -185,8 +188,51 @@ class _ConversationItem extends StatelessWidget {
         ? 'TA：${ta?.name.isNotEmpty == true ? ta!.name : '未命名TA'}'
         : 'TA：${ta?.name.isNotEmpty == true ? ta!.name : '未命名TA'} · 世界：${world.name}';
 
+    final Widget leading;
+    if (conversation.isGroup) {
+      final List<TA> members = conversation.memberTaIds
+          .map(controller.getTaById)
+          .whereType<TA>()
+          .toList();
+      leading = GroupAvatar(tas: members, size: 44);
+    } else if (ta != null) {
+      final String? square = ta.images['square'];
+      if (square != null && square.isNotEmpty) {
+        final File file = File(square);
+        if (file.existsSync()) {
+          leading = ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              file,
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
+              cacheWidth: 88,
+              cacheHeight: 88,
+            ),
+          );
+        } else {
+          leading = CircleAvatar(
+            radius: 22,
+            child: Text(ta.name.isNotEmpty ? ta.name[0] : '?'),
+          );
+        }
+      } else {
+        leading = CircleAvatar(
+          radius: 22,
+          child: Text(ta.name.isNotEmpty ? ta.name[0] : '?'),
+        );
+      }
+    } else {
+      leading = const CircleAvatar(
+        radius: 22,
+        child: Icon(Icons.person_outline),
+      );
+    }
+
     return Card(
       child: ListTile(
+        leading: leading,
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: Row(
