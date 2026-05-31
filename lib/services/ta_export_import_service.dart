@@ -181,11 +181,11 @@ class ExportPackage {
     final Map<String, dynamic> result = {
       'version': version,
       'exportType': exportType,
+      '_lk': encoded,
       'exportedAt': exportedAt,
       'compressed': compressed,
       'character': character.toJson(),
       'originalLink': originalLink,
-      '_lk': encoded,
     };
 
     // Embed hidden fx field inside the square image as triple backup
