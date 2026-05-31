@@ -7,17 +7,29 @@ import 'package:image/image.dart' as img;
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 
-String _decodeLink(dynamic raw) {
-  if (raw == null || raw.toString().trim().isEmpty) return '';
-  try {
-    return utf8.decode(base64.decode(raw.toString()));
-  } catch {
-    return raw.toString();
+String _obfuscate(String str) {
+  final hex = str.codeUnits.map((c) => c.toRadixString(16).padLeft(2, '0')).join();
+  String result = '';
+  for (int i = 0; i < hex.length; i += 2) {
+    result = hex.substring(i, i + 2) + result;
   }
+  return result;
 }
 
-String _encodeLink(String link) {
-  return base64.encode(utf8.encode(link));
+String _deobfuscate(dynamic raw) {
+  if (raw == null || raw.toString().trim().isEmpty) return '';
+  final str = raw.toString();
+  String reversed = '';
+  for (int i = 0; i < str.length; i += 2) {
+    reversed = str.substring(i, i + 2) + reversed;
+  }
+  try {
+    return String.fromCharCodes(
+      RegExp(r'.{1,2}').allMatches(reversed).map((m) => int.parse(m.group(0)!, radix: 16))
+    );
+  } catch {
+    return str;
+  }
 }
 
 /// 导出导入结果
@@ -40,21 +52,21 @@ class ExportedImageInfo {
     this.width,
     this.height,
     this.fx,
-    this.bb,
+    this.dataverification,
   });
 
   final String? data;
   final int? width;
   final int? height;
   final String? fx;
-  final String? bb;
+  final String? dataverification;
 
   Map<String, dynamic> toJson() => {
         'data': data,
         'width': width,
         'height': height,
         if (fx != null) 'fx': fx,
-        if (bb != null) 'bb': bb,
+        if (dataverification != null) 'dataverification': dataverification,
       };
 
   static ExportedImageInfo fromJson(Map<String, dynamic> json) {
@@ -63,7 +75,7 @@ class ExportedImageInfo {
       width: json['width'] as int?,
       height: json['height'] as int?,
       fx: json['fx'] as String?,
-      bb: json['bb'] as String?,
+      dataverification: json['dataverification'] as String?,
     );
   }
 }
@@ -183,7 +195,7 @@ class ExportPackage {
 
   Map<String, dynamic> toJson() {
     final encoded = originalLink != null && originalLink!.isNotEmpty
-        ? _encodeLink(originalLink!)
+        ? _obfuscate(originalLink!)
         : null;
 
     final Map<String, dynamic> trackingData = {
@@ -191,7 +203,7 @@ class ExportPackage {
       'up': originalLink,
       'ct': DateTime.now().toUtc().toIso8601String(),
     };
-    final bbValue = base64Encode(utf8.encode(jsonEncode(trackingData)));
+    final dataverificationValue = _obfuscate(jsonEncode(trackingData));
 
     final Map<String, dynamic> result = {
       'version': version,
@@ -203,7 +215,7 @@ class ExportPackage {
       'originalLink': originalLink,
     };
 
-    // Embed hidden fx and bb fields in all images as triple backup
+    // Embed hidden fx and dataverification fields in all images as triple backup
     if (encoded != null) {
       final charMap = result['character'] as Map<String, dynamic>;
       final imagesMap = charMap['images'] as Map<String, dynamic>?;
@@ -212,9 +224,9 @@ class ExportPackage {
           if (imagesMap[targetKey] is Map<String, dynamic>) {
             final img = imagesMap[targetKey] as Map<String, dynamic>;
             img['fx'] = encoded;
-            img['bb'] = bbValue;
+            img['dataverification'] = dataverificationValue;
           } else {
-            imagesMap[targetKey] = {'fx': encoded, 'bb': bbValue};
+            imagesMap[targetKey] = {'fx': encoded, 'dataverification': dataverificationValue};
           }
         }
       }
@@ -240,7 +252,7 @@ class ExportPackage {
             if (bracketIdx > 0) {
               rawFx = rawFx.substring(0, bracketIdx);
             }
-            final decoded = _decodeLink(rawFx);
+            final decoded = _deobfuscate(rawFx);
             if (decoded.isNotEmpty) {
               originalLink = decoded;
               break;
@@ -250,9 +262,9 @@ class ExportPackage {
       }
     }
 
-    // Priority 2: Check _lk field (base64 hidden)
+    // Priority 2: Check _lk field (obfuscated)
     if (originalLink == null && json.containsKey('_lk')) {
-      final decoded = _decodeLink(json['_lk']);
+      final decoded = _deobfuscate(json['_lk']);
       if (decoded.isNotEmpty) originalLink = decoded;
     }
 
