@@ -91,6 +91,30 @@ class TaDbService {
     });
   }
 
+  /// Update the original link for a TA (immutable, can only be set once)
+  Future<void> setOriginalLink(String id, String originalLink) async {
+    final Database db = await _dbHelper.database;
+    await db.update(
+      'tas',
+      {'original_link': originalLink},
+      where: 'id = ? AND (original_link IS NULL OR original_link = \'\')',
+      whereArgs: [id],
+    );
+  }
+
+  /// Get the original link for a TA
+  Future<String?> getOriginalLink(String id) async {
+    final Database db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tas',
+      columns: ['original_link'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isEmpty) return null;
+    return maps.first['original_link'] as String?;
+  }
+
   TA _mapToTa(Map<String, dynamic> map) {
     return TA(
       id: map['id'] as String,
@@ -123,5 +147,29 @@ class TaDbService {
       'archived': ta.archived ? 1 : 0,
       'updated_at': now,
     };
+  }
+
+  /// Update the original link for a TA (immutable, can only be set once)
+  Future<void> setOriginalLink(String id, String originalLink) async {
+    final Database db = await _dbHelper.database;
+    await db.update(
+      'tas',
+      {'original_link': originalLink},
+      where: 'id = ? AND (original_link IS NULL OR original_link = \'\')',
+      whereArgs: [id],
+    );
+  }
+
+  /// Get the original link for a TA
+  Future<String?> getOriginalLink(String id) async {
+    final Database db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tas',
+      columns: ['original_link'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (maps.isEmpty) return null;
+    return maps.first['original_link'] as String?;
   }
 }

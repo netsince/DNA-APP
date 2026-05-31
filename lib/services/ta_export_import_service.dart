@@ -150,6 +150,7 @@ class ExportPackage {
     required this.exportedAt,
     required this.compressed,
     required this.character,
+    this.originalLink,
   });
 
   final int version;
@@ -157,6 +158,7 @@ class ExportPackage {
   final String exportedAt;
   final bool compressed;
   final ExportedCharacter character;
+  final String? originalLink;
 
   Map<String, dynamic> toJson() => {
         'version': version,
@@ -164,6 +166,7 @@ class ExportPackage {
         'exportedAt': exportedAt,
         'compressed': compressed,
         'character': character.toJson(),
+        'originalLink': originalLink,
       };
 
   static ExportPackage fromJson(Map<String, dynamic> json) {
@@ -175,6 +178,7 @@ class ExportPackage {
       character: ExportedCharacter.fromJson(
         json['character'] as Map<String, dynamic>,
       ),
+      originalLink: json['originalLink'] as String?,
     );
   }
 }

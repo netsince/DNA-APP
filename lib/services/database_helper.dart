@@ -12,7 +12,7 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   static const String _databaseName = 'dna_database.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -44,6 +44,7 @@ class DatabaseHelper {
         tags TEXT NOT NULL,
         images TEXT NOT NULL,
         dialogue_style TEXT NOT NULL,
+        original_link TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0
@@ -143,6 +144,10 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add original_link column to tas table
+      await db.execute('ALTER TABLE tas ADD COLUMN original_link TEXT');
+    }
   }
 
   Future<void> close() async {
