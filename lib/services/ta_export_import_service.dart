@@ -193,29 +193,30 @@ class ExportPackage {
   final String? originalLink;
 
   Map<String, dynamic> toJson() {
-    final encoded = originalLink != null && originalLink!.isNotEmpty
-        ? _obfuscate(originalLink!)
-        : null;
-
-    final Map<String, dynamic> trackingData = {
-      'pd': 'dna-client',
-      'up': originalLink,
-      'ct': DateTime.now().toUtc().toIso8601String(),
-    };
-    final dataverificationValue = _obfuscate(jsonEncode(trackingData));
+    final hasLink = originalLink != null && originalLink!.isNotEmpty;
+    final encoded = hasLink ? _obfuscate(originalLink!) : null;
 
     final Map<String, dynamic> result = {
       'version': version,
       'exportType': exportType,
-      '_lk': encoded,
       'exportedAt': exportedAt,
       'compressed': compressed,
       'character': character.toJson(),
-      'originalLink': originalLink,
     };
 
-    // Embed hidden fx and dataverification fields in all images as triple backup
-    if (encoded != null) {
+    // Only include protection fields when this card has an original link
+    if (hasLink) {
+      final Map<String, dynamic> trackingData = {
+        'pd': 'dna-client',
+        'up': originalLink,
+        'ct': DateTime.now().toUtc().toIso8601String(),
+      };
+      final dataverificationValue = _obfuscate(jsonEncode(trackingData));
+
+      result['_lk'] = encoded;
+      result['originalLink'] = originalLink;
+
+      // Embed hidden fx and dataverification fields in all images
       final charMap = result['character'] as Map<String, dynamic>;
       final imagesMap = charMap['images'] as Map<String, dynamic>?;
       if (imagesMap != null) {
@@ -391,6 +392,7 @@ class TaExportImportService {
         exportedAt: DateTime.now().toUtc().toIso8601String(),
         compressed: compressImages,
         character: exportedCharacter,
+        originalLink: character.originalLink,
       );
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(package.toJson());
@@ -422,13 +424,16 @@ class TaExportImportService {
       final package = ExportPackage.fromJson(decoded);
       final exported = package.character;
 
-      // 构建TA对象
+      // 构建TA对象（保留originalLink）
       final ta = exported.toTA();
+      final taWithLink = (package.originalLink != null && package.originalLink!.isNotEmpty)
+          ? ta.copyWith(originalLink: package.originalLink)
+          : ta;
 
       return ExportImportResult(
         success: true,
         data: ImportResult(
-          ta: ta,
+          ta: taWithLink,
           idConflict: false, // 由调用方检查
           existingId: null,
         ),

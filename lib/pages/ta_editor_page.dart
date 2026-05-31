@@ -302,23 +302,17 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     final Map<String, String> newImages = {};
 
-    // Extract original link from import data
-    String? originalLink;
-
     // 从ExportedCharacter中恢复图片
-    // 需要重新解析JSON获取图片数据
     final pasteResult = await TaExportImportService.pasteFromClipboard();
     if (pasteResult.success) {
       final decoded = jsonDecode(pasteResult.data!);
       final package = ExportPackage.fromJson(decoded);
-      originalLink = package.originalLink;
 
       for (final entry in package.character.images.entries) {
         final slot = entry.key;
         final imageInfo = entry.value;
 
         if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
-          // 保存Base64图片
           final ext = _getExtensionFromMimeType(imageInfo.data!);
           final fileName = '${ta.id}_$slot$ext';
           final targetPath = path.join(taDir.path, fileName);
@@ -332,17 +326,13 @@ class _TaEditorPageState extends State<TaEditorPage> {
             newImages[slot] = targetPath;
           }
         } else if (existingImages.containsKey(slot)) {
-          // 使用现有图片
           newImages[slot] = existingImages[slot]!;
         }
       }
     }
 
-    // 更新TA并保存，含 originalLink（用于导出跟踪）
-    final finalTA = ta.copyWith(
-      images: newImages,
-      originalLink: (originalLink != null && originalLink.isNotEmpty) ? originalLink : null,
-    );
+    // 更新TA并保存（originalLink 已在 importCharacter 阶段设置）
+    final finalTA = ta.copyWith(images: newImages);
     await widget.controller.upsertTa(finalTA);
 
     if (!mounted) return;
