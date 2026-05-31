@@ -170,3 +170,7 @@ flutter build web
 
 - **源代码**：[netSince.com PPL](LICENSE-nSPPL)
 - **美术资源（如 LOGO）**：[CC BY-NC-ND 4.0](LICENSE-CC)
+
+<div align="center">
+    <sub>Made with ❤️ by netSince.com (AIXIAOJI, ROKO, Yang Borui)</sub>
+</div>
