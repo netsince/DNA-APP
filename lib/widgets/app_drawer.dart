@@ -88,7 +88,7 @@ class AppDrawer extends StatelessWidget {
             selected: current == AppSection.world,
             onTap: () => _navigate(context, AppSection.world),
           ),
-          ListTile(
+          if (false) ListTile(
             leading: const Icon(Icons.explore_outlined),
             title: const Text('社区'),
             selected: current == AppSection.community,
