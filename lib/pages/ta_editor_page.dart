@@ -10,7 +10,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
-import '../services/ta_export_import_service.dart';
+import 'package:dna/services/ta_db_service.dart';
+import 'package:dna/services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
@@ -302,12 +303,16 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     final Map<String, String> newImages = {};
 
+    // Extract original link from import data
+    String? originalLink;
+
     // 从ExportedCharacter中恢复图片
     // 需要重新解析JSON获取图片数据
     final pasteResult = await TaExportImportService.pasteFromClipboard();
     if (pasteResult.success) {
       final decoded = jsonDecode(pasteResult.data!);
       final package = ExportPackage.fromJson(decoded);
+      originalLink = package.originalLink;
 
       for (final entry in package.character.images.entries) {
         final slot = entry.key;
@@ -337,6 +342,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
     // 更新TA并保存
     final finalTA = ta.copyWith(images: newImages);
     await widget.controller.upsertTa(finalTA);
+
+    // Save original link if present (disguised as _lk in export)
+    if (originalLink != null && originalLink.isNotEmpty) {
+      final taDbService = TaDbService();
+      await taDbService.setOriginalLink(finalTA.id, originalLink);
+    }
 
     if (!mounted) return;
 

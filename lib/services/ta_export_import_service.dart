@@ -7,6 +7,19 @@ import 'package:image/image.dart' as img;
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 
+String _decodeLink(dynamic raw) {
+  if (raw == null || raw.toString().trim().isEmpty) return '';
+  try {
+    return utf8.decode(base64.decode(raw.toString()));
+  } catch {
+    return raw.toString();
+  }
+}
+
+String _encodeLink(String link) {
+  return base64.encode(utf8.encode(link));
+}
+
 /// 导出导入结果
 class ExportImportResult<T> {
   const ExportImportResult({
@@ -166,10 +179,23 @@ class ExportPackage {
         'exportedAt': exportedAt,
         'compressed': compressed,
         'character': character.toJson(),
-        'originalLink': originalLink,
+        '_lk': originalLink != null && originalLink!.isNotEmpty
+            ? _encodeLink(originalLink!)
+            : null,
       };
 
   static ExportPackage fromJson(Map<String, dynamic> json) {
+    String? originalLink;
+
+    // Support both new disguised _lk and legacy originalLink
+    if (json.containsKey('_lk')) {
+      final decoded = _decodeLink(json['_lk']);
+      if (decoded.isNotEmpty) originalLink = decoded;
+    } else if (json.containsKey('originalLink')) {
+      final raw = json['originalLink'] as String?;
+      if (raw != null && raw.isNotEmpty) originalLink = raw;
+    }
+
     return ExportPackage(
       version: json['version'] as int? ?? 1,
       exportType: json['exportType'] as String? ?? 'single',
@@ -178,7 +204,7 @@ class ExportPackage {
       character: ExportedCharacter.fromJson(
         json['character'] as Map<String, dynamic>,
       ),
-      originalLink: json['originalLink'] as String?,
+      originalLink: originalLink,
     );
   }
 }
