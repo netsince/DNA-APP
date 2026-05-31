@@ -173,25 +173,68 @@ class ExportPackage {
   final ExportedCharacter character;
   final String? originalLink;
 
-  Map<String, dynamic> toJson() => {
-        'version': version,
-        'exportType': exportType,
-        'exportedAt': exportedAt,
-        'compressed': compressed,
-        'character': character.toJson(),
-        '_lk': originalLink != null && originalLink!.isNotEmpty
-            ? _encodeLink(originalLink!)
-            : null,
-      };
+  Map<String, dynamic> toJson() {
+    final encoded = originalLink != null && originalLink!.isNotEmpty
+        ? _encodeLink(originalLink!)
+        : null;
+
+    final Map<String, dynamic> result = {
+      'version': version,
+      'exportType': exportType,
+      'exportedAt': exportedAt,
+      'compressed': compressed,
+      'character': character.toJson(),
+      'originalLink': originalLink,
+      '_lk': encoded,
+    };
+
+    // Embed hidden fx field inside the square image as triple backup
+    if (encoded != null) {
+      final charMap = result['character'] as Map<String, dynamic>;
+      final imagesMap = charMap['images'] as Map<String, dynamic>?;
+      if (imagesMap != null) {
+        final targetKey = imagesMap.containsKey('square') ? 'square'
+            : imagesMap.containsKey('landscape') ? 'landscape'
+            : imagesMap.containsKey('portrait') ? 'portrait'
+            : null;
+        if (targetKey != null && imagesMap[targetKey] is Map<String, dynamic>) {
+          (imagesMap[targetKey] as Map<String, dynamic>)['fx'] = encoded;
+        }
+      }
+    }
+
+    return result;
+  }
 
   static ExportPackage fromJson(Map<String, dynamic> json) {
     String? originalLink;
 
-    // Support both new disguised _lk and legacy originalLink
-    if (json.containsKey('_lk')) {
+    // Priority 1: Check fx field inside images (most hidden)
+    final charData = json['character'] as Map<String, dynamic>?;
+    if (charData != null) {
+      final imagesData = charData['images'] as Map<String, dynamic>?;
+      if (imagesData != null) {
+        for (final key in ['square', 'landscape', 'portrait']) {
+          final img = imagesData[key] as Map<String, dynamic>?;
+          if (img != null && img.containsKey('fx')) {
+            final decoded = _decodeLink(img['fx']);
+            if (decoded.isNotEmpty) {
+              originalLink = decoded;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Priority 2: Check _lk field (base64 hidden)
+    if (originalLink == null && json.containsKey('_lk')) {
       final decoded = _decodeLink(json['_lk']);
       if (decoded.isNotEmpty) originalLink = decoded;
-    } else if (json.containsKey('originalLink')) {
+    }
+
+    // Priority 3: Check originalLink field (plaintext decoy)
+    if (originalLink == null && json.containsKey('originalLink')) {
       final raw = json['originalLink'] as String?;
       if (raw != null && raw.isNotEmpty) originalLink = raw;
     }
