@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://dnaopensourse.netsince.com" target="_blank">
+    <a href="https://dnaopensource.netsince.com" target="_blank">
         <img src="assets/screenshots/b.png" alt="与汝共奏 - Duet Nurturing Ally 项目 LOGO"/>
     </a>
 </p>
@@ -13,11 +13,11 @@
 </div>
 
 <div align="center">
-    <a href="https://dnaopensourse.netsince.com">🌐 项目官网</a>
+    <a href="https://dnaopensource.netsince.com">🌐 项目官网</a>
     <span> • </span>
-    <a href="https://dnaopensourse.netsince.com/download">📥 下载</a>
+    <a href="https://dnaopensource.netsince.com/download">📥 下载</a>
     <span> • </span>
-    <a href="https://dnaopensourse.netsince.com/park">🔍 查找角色卡</a>
+    <a href="https://dnaopensource.netsince.com/park">🔍 查找角色卡</a>
     <span> • </span>
     <a href="https://github.com/netsince/DNA-PARK">🏞️ 社区开源</a>
 </div>
@@ -159,9 +159,9 @@ flutter build web
 
 ## 🔗 相关链接
 
-- [项目官网](https://dnaopensourse.netsince.com)
-- [下载页面](https://dnaopensourse.netsince.com/download)
-- [角色卡社区](https://dnaopensourse.netsince.com/park)
+- [项目官网](https://dnaopensource.netsince.com)
+- [下载页面](https://dnaopensource.netsince.com/download)
+- [角色卡社区](https://dnaopensource.netsince.com/park)
 - [社区开源仓库 (DNA-PARK)](https://github.com/netsince/DNA-PARK)
 
 ---
