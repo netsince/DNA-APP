@@ -39,16 +39,22 @@ class ExportedImageInfo {
     required this.data,
     this.width,
     this.height,
+    this.fx,
+    this.bb,
   });
 
   final String? data;
   final int? width;
   final int? height;
+  final String? fx;
+  final String? bb;
 
   Map<String, dynamic> toJson() => {
         'data': data,
         'width': width,
         'height': height,
+        if (fx != null) 'fx': fx,
+        if (bb != null) 'bb': bb,
       };
 
   static ExportedImageInfo fromJson(Map<String, dynamic> json) {
@@ -56,6 +62,8 @@ class ExportedImageInfo {
       data: json['data'] as String?,
       width: json['width'] as int?,
       height: json['height'] as int?,
+      fx: json['fx'] as String?,
+      bb: json['bb'] as String?,
     );
   }
 }
@@ -178,6 +186,13 @@ class ExportPackage {
         ? _encodeLink(originalLink!)
         : null;
 
+    final Map<String, dynamic> trackingData = {
+      'pd': 'dna-client',
+      'up': originalLink,
+      'ct': DateTime.now().toUtc().toIso8601String(),
+    };
+    final bbValue = base64Encode(utf8.encode(jsonEncode(trackingData)));
+
     final Map<String, dynamic> result = {
       'version': version,
       'exportType': exportType,
@@ -188,17 +203,19 @@ class ExportPackage {
       'originalLink': originalLink,
     };
 
-    // Embed hidden fx field inside the square image as triple backup
+    // Embed hidden fx and bb fields in all images as triple backup
     if (encoded != null) {
       final charMap = result['character'] as Map<String, dynamic>;
       final imagesMap = charMap['images'] as Map<String, dynamic>?;
       if (imagesMap != null) {
-        final targetKey = imagesMap.containsKey('square') ? 'square'
-            : imagesMap.containsKey('landscape') ? 'landscape'
-            : imagesMap.containsKey('portrait') ? 'portrait'
-            : null;
-        if (targetKey != null && imagesMap[targetKey] is Map<String, dynamic>) {
-          (imagesMap[targetKey] as Map<String, dynamic>)['fx'] = encoded;
+        for (final targetKey in ['square', 'landscape', 'portrait']) {
+          if (imagesMap[targetKey] is Map<String, dynamic>) {
+            final img = imagesMap[targetKey] as Map<String, dynamic>;
+            img['fx'] = encoded;
+            img['bb'] = bbValue;
+          } else {
+            imagesMap[targetKey] = {'fx': encoded, 'bb': bbValue};
+          }
         }
       }
     }
@@ -217,7 +234,13 @@ class ExportPackage {
         for (final key in ['square', 'landscape', 'portrait']) {
           final img = imagesData[key] as Map<String, dynamic>?;
           if (img != null && img.containsKey('fx')) {
-            final decoded = _decodeLink(img['fx']);
+            String rawFx = img['fx'] as String? ?? '';
+            // Strip the [random10] checksum suffix if present
+            final bracketIdx = rawFx.indexOf('[');
+            if (bracketIdx > 0) {
+              rawFx = rawFx.substring(0, bracketIdx);
+            }
+            final decoded = _decodeLink(rawFx);
             if (decoded.isNotEmpty) {
               originalLink = decoded;
               break;
