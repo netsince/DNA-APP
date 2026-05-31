@@ -12,6 +12,7 @@ class TA {
     required this.images,
     required this.dialogueStyle,
     this.archived = false,
+    this.originalLink,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class TA {
   final Map<String, String> images;
   final List<DialogueTurn> dialogueStyle;
   final bool archived;
+  final String? originalLink;
 
   TA copyWith({
     String? name,
@@ -35,6 +37,7 @@ class TA {
     Map<String, String>? images,
     List<DialogueTurn>? dialogueStyle,
     bool? archived,
+    String? originalLink,
   }) {
     return TA(
       id: id,
@@ -47,6 +50,7 @@ class TA {
       images: images ?? this.images,
       dialogueStyle: dialogueStyle ?? this.dialogueStyle,
       archived: archived ?? this.archived,
+      originalLink: originalLink ?? this.originalLink,
     );
   }
 
@@ -62,6 +66,7 @@ class TA {
       'images': images,
       'dialogueStyle': dialogueStyle.map((DialogueTurn t) => t.toJson()).toList(),
       'archived': archived,
+      'originalLink': originalLink,
     };
   }
 
@@ -83,6 +88,7 @@ class TA {
           ? <DialogueTurn>[]
           : raw.whereType<Map<String, dynamic>>().map(DialogueTurn.fromJson).toList(),
       archived: (json['archived'] as bool?) ?? false,
+      originalLink: json['originalLink'] as String?,
     );
   }
 }

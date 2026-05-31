@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
@@ -27,7 +26,7 @@ String _deobfuscate(dynamic raw) {
     return String.fromCharCodes(
       RegExp(r'.{1,2}').allMatches(reversed).map((m) => int.parse(m.group(0)!, radix: 16))
     );
-  } catch {
+  } catch (_) {
     return str;
   }
 }

@@ -10,7 +10,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
-import 'package:dna/services/ta_db_service.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -339,15 +338,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
       }
     }
 
-    // 更新TA并保存
-    final finalTA = ta.copyWith(images: newImages);
+    // 更新TA并保存，含 originalLink（用于导出跟踪）
+    final finalTA = ta.copyWith(
+      images: newImages,
+      originalLink: (originalLink != null && originalLink.isNotEmpty) ? originalLink : null,
+    );
     await widget.controller.upsertTa(finalTA);
-
-    // Save original link if present (disguised as _lk in export)
-    if (originalLink != null && originalLink.isNotEmpty) {
-      final taDbService = TaDbService();
-      await taDbService.setOriginalLink(finalTA.id, originalLink);
-    }
 
     if (!mounted) return;
 
