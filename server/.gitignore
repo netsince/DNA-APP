@@ -11,6 +11,9 @@ __pycache__/
 # 含密钥的本地配置
 .env
 
+# 数据库备份
+backups/
+
 # 编辑器 / 系统
 .idea/
 .vscode/

@@ -21,3 +21,13 @@ class Config:
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM = os.environ.get("SMTP_FROM", "")
+
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+    TOKEN_MAX_AGE = int(os.environ.get("TOKEN_MAX_AGE", "86400"))
+    PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", "8"))
