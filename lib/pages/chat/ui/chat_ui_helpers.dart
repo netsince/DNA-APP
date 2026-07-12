@@ -8,6 +8,7 @@ mixin ChatUiHelpers on ChatStateMixin {
   void _dismissSummaryPrompt(String messageId);
   Future<void> _continueFromContext();
   Future<void> _retryAssistantAt(int index);
+  Future<List<String>> _generateRetryCandidates(int index);
   @override
   Set<String> get _visibleThoughtMessageIds;
 
@@ -16,6 +17,14 @@ mixin ChatUiHelpers on ChatStateMixin {
     required ConversationMessage message,
     required int index,
   }) async {
+    // 若键盘展开或输入框仍持有焦点，长按仅收起焦点（同时收起键盘），不打开菜单；
+    // 必须焦点完全离开输入框，再次长按才弹出菜单，避免菜单因输入框焦点而重新弹键盘
+    final bool keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final bool inputFocused = _inputFocusNode.hasFocus;
+    if (keyboardOpen || inputFocused) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
+    }
     final RelativeRect anchor = RelativeRect.fromLTRB(
       position.dx,
       position.dy,
@@ -216,59 +225,158 @@ mixin ChatUiHelpers on ChatStateMixin {
 
   Future<void> _showRetryPicker(int index) async {
     final ConversationMessage target = _conversation.messages[index];
-    final List<String> options = _retryAlternatives[target.id] ?? <String>[];
-    if (options.isEmpty) {
+    if (!(_retryAlternatives[target.id]?.isNotEmpty ?? false)) {
       return;
     }
-    final String? selected = await showDialog<String>(
+    final String originalText = target.text;
+
+    final String? selected = await showModalBottomSheet<String>(
       context: context,
-      builder: (BuildContext context) {
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
+        bool loading = false;
+        // 当前选中的候选下标：先选中高亮，再点底部「使用」才生效，避免误触直接改回复
         int? selectedIndex;
+        // 记录本次弹框内通过「再试」新追加的候选数量，用于给新结果打「新」标记
+        int newlyAddedCount = 0;
         return StatefulBuilder(
-          builder: (BuildContext context, void Function(void Function()) setDialogState) {
-            return AlertDialog(
-              title: const Text('重说结果'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: options.length,
-                  itemBuilder: (BuildContext context, int i) {
-                    return RadioListTile<int>(
-                      value: i,
-                      groupValue: selectedIndex,
-                      onChanged: (int? value) => setDialogState(() => selectedIndex = value),
-                      title: Text(options[i]),
-                    );
-                  },
-                ),
+          builder: (BuildContext sheetContext, StateSetter setSheet) {
+            final ThemeData theme = Theme.of(sheetContext);
+            final ColorScheme cs = theme.colorScheme;
+            final Size screen = MediaQuery.of(sheetContext).size;
+            final List<String> options =
+                _retryAlternatives[target.id] ?? <String>[];
+
+            Future<void> regenerate() async {
+              setSheet(() => loading = true);
+              final List<String> next = await _generateRetryCandidates(index);
+              if (!mounted) {
+                return;
+              }
+              if (next.isNotEmpty) {
+                _retryAlternatives.putIfAbsent(target.id, () => <String>[]);
+                _retryAlternatives[target.id]!.addAll(next);
+                newlyAddedCount = next.length;
+              } else {
+                showSnack(sheetContext, '生成失败，请再试。');
+              }
+              setSheet(() => loading = false);
+            }
+
+            final int firstNewIndex = options.length - newlyAddedCount;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: screen.height * 0.85),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(Icons.refresh, color: cs.primary),
+                        const SizedBox(width: 8),
+                        Text('重说结果', style: theme.textTheme.titleLarge),
+                        const SizedBox(width: 8),
+                        Text(
+                          '共 ${options.length} 条',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        if (selectedIndex != null) const Spacer(),
+                        if (selectedIndex != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.secondaryContainer,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '已选第 ${selectedIndex! + 1} 条',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: cs.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (loading) const LinearProgressIndicator(),
+                  Flexible(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      children: <Widget>[
+                        _RetryOriginalCard(text: originalText),
+                        const SizedBox(height: 12),
+                        for (int i = 0; i < options.length; i++)
+                          RetryOptionCard(
+                            index: i,
+                            text: options[i],
+                            isNew: newlyAddedCount > 0 && i >= firstNewIndex,
+                            selected: selectedIndex == i,
+                            onTap: () => setSheet(() => selectedIndex = i),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      16 + MediaQuery.of(sheetContext).viewPadding.bottom,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: loading
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('取消'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.tonalIcon(
+                            onPressed: loading ? null : regenerate,
+                            icon: loading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.autorenew),
+                            label: Text(loading ? '生成中…' : '再生成三条'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: selectedIndex == null
+                                ? null
+                                : () => Navigator.of(sheetContext)
+                                    .pop(options[selectedIndex!]),
+                            child: const Text('使用'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop('retry'),
-                  child: const Text('再试三次'),
-                ),
-                FilledButton(
-                  onPressed: selectedIndex == null
-                      ? null
-                      : () => Navigator.of(context).pop(options[selectedIndex!]),
-                  child: const Text('使用此回复'),
-                ),
-              ],
             );
           },
         );
       },
     );
     if (selected == null) {
-      return;
-    }
-    if (selected == 'retry') {
-      await _retryAssistantAt(index);
       return;
     }
     final ConversationMessage updated = target.copyWith(text: selected);
@@ -377,10 +485,166 @@ mixin ChatUiHelpers on ChatStateMixin {
   }
 
   void _scrollAfterMenu() {
+    // 菜单关闭后，确保输入框不会因点击穿透或焦点残留而重新获得焦点、弹出键盘
+    FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        FocusManager.instance.primaryFocus?.unfocus();
         _scrollToBottom();
       }
     });
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
+    });
+  }
+}
+
+/// 「重说结果」弹框顶部展示的当前回复卡片，供用户与候选对照。
+class _RetryOriginalCard extends StatelessWidget {
+  const _RetryOriginalCard({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: cs.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.chat_bubble_outline, size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text(
+                  '当前回复',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              text.trim().isEmpty ? '（空）' : text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 候选卡片：点击整卡即选中高亮，由底部「使用」确认生效。
+/// 同时供「重说结果」与「灵感列表」复用，保证交互与视觉一致。
+class RetryOptionCard extends StatelessWidget {
+  const RetryOptionCard({
+    required this.index,
+    required this.text,
+    required this.isNew,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int index;
+  final String text;
+  final bool isNew;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        elevation: selected ? 2 : 0,
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        color: selected ? cs.primaryContainer : cs.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 13,
+                  backgroundColor: selected ? cs.primary : cs.primaryContainer,
+                  child: Text(
+                    '${index + 1}',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected ? cs.onPrimary : cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      if (isNew)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '新',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onTertiaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Text(
+                        text,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: selected ? cs.onPrimaryContainer : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  selected ? Icons.check_circle : Icons.check_circle_outline,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

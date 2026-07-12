@@ -13,7 +13,7 @@ class ChatController {
         return;
       }
       scrollController.animateTo(
-        scrollController.position.maxScrollExtent + 100,
+        scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );

@@ -58,6 +58,7 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage>
     with
+        WidgetsBindingObserver,
         ChatStateMixin,
         ChatUiHelpers,
         ChatSearchHelpers,
@@ -131,15 +132,6 @@ class _ChatPageState extends State<ChatPage>
   @override
   void _scrollToBottom() {
     _chatController.scrollToBottom();
-  }
-
-  void _onInputTap() {
-    // 点击输入框时，延迟滚动以确保键盘弹出后底部消息可见
-    Future<void>.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _scrollToBottom();
-      }
-    });
   }
 
   TA? _lastAssistantSpeaker() {
@@ -383,13 +375,23 @@ class _ChatPageState extends State<ChatPage>
         onToggleSearch: _toggleSearch,
         onScrollToBottom: _scrollToBottom,
         onToggleBackground: _toggleBackground,
+        rangeSummaryInProgress: _rangeSummaryInProgress,
+        summaryInProgress: _summaryInProgress,
+        showTokenCounts: _showTokenCounts,
+        onRangeSummary: _summarizeRecentRange,
+        onForceSummary: _forceSummaryPrompt,
+        onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
+        onManageSnapshots: _manageSnapshots,
         backgroundMode: _conversation.backgroundMode,
         ta: ta,
         titleOverride: _isGroup
             ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
             : null,
       ),
-      body: Stack(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Stack(
         children: <Widget>[
           if (useImageBg)
             Positioned.fill(
@@ -416,22 +418,22 @@ class _ChatPageState extends State<ChatPage>
               Expanded(
                 child: ChatMessageList(
                   conversation: _conversation,
-                  scrollController: _scrollController,
-                  messageKeys: _messageKeys,
-                  userBubble: userBubble,
-                  assistantBubble: assistantBubble,
-                  showTokenCounts: _showTokenCounts,
-                  searchQuery: searchQuery,
-                  thoughtsByMessageId: _thoughtsByMessageId,
-                  tokenCountForMessage: _tokenCountCallback.call,
-                  summaryById: _summaryById,
-                  onStartSummary: _startSummaryFromPrompt,
-                  onDismissSummary: _dismissSummaryPrompt,
-                  onShowMessageMenu: _showMessageMenu,
-                  summaryInProgress: _summaryInProgress,
-                  showSpeakerLabels: _isGroup,
-                  taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
-                  visibleThoughtMessageIds: _visibleThoughtMessageIds,
+                    scrollController: _scrollController,
+                    messageKeys: _messageKeys,
+                    userBubble: userBubble,
+                    assistantBubble: assistantBubble,
+                    showTokenCounts: _showTokenCounts,
+                    searchQuery: searchQuery,
+                    thoughtsByMessageId: _thoughtsByMessageId,
+                    tokenCountForMessage: _tokenCountCallback.call,
+                    summaryById: _summaryById,
+                    onStartSummary: _startSummaryFromPrompt,
+                    onDismissSummary: _dismissSummaryPrompt,
+                    onShowMessageMenu: _showMessageMenu,
+                    summaryInProgress: _summaryInProgress,
+                    showSpeakerLabels: _isGroup,
+                    taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
+                    visibleThoughtMessageIds: _visibleThoughtMessageIds,
                 ),
               ),
               if (_sending)
@@ -457,25 +459,17 @@ class _ChatPageState extends State<ChatPage>
                 ),
               ChatInputBar(
                 inputController: _inputController,
+                inputFocusNode: _inputFocusNode,
                 sending: _sending,
                 inspirationInProgress: _inspirationInProgress,
-                rangeSummaryInProgress: _rangeSummaryInProgress,
-                summaryInProgress: _summaryInProgress,
-                searching: _searching,
-                showTokenCounts: _showTokenCounts,
                 onSend: _send,
                 onStartInspiration: _startInspiration,
-                onManageSnapshots: _manageSnapshots,
-                onToggleSearch: _toggleSearch,
-                onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
-                onForceSummary: _forceSummaryPrompt,
-                onRangeSummary: _summarizeRecentRange,
-                onTap: _onInputTap,
               ),
             ],
           ),
         ],
       ),
+    ),
     );
   }
 }

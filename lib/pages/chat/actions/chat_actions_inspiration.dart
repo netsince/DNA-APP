@@ -109,13 +109,22 @@ mixin ChatActionsInspiration on ChatStateMixin {
   }) async {
     int? selectedIndex;
     bool loading = false;
-    await showDialog<void>(
+    // 本次弹框内「再试」新追加的条数，用于给新结果打「新」标记
+    int newlyAddedCount = 0;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (BuildContext context) {
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
         return StatefulBuilder(
-          builder: (BuildContext context, void Function(void Function()) setDialogState) {
+          builder: (BuildContext sheetContext, StateSetter setSheet) {
+            final ThemeData theme = Theme.of(sheetContext);
+            final ColorScheme cs = theme.colorScheme;
+            final Size screen = MediaQuery.of(sheetContext).size;
+
             Future<void> retry() async {
-              setDialogState(() => loading = true);
+              setSheet(() => loading = true);
               final List<Map<String, String>> payload = _buildInspirationPayload(_inspirationPrompt);
               final List<String> next = await _generateInspirations(
                 payload,
@@ -126,52 +135,124 @@ mixin ChatActionsInspiration on ChatStateMixin {
               );
               if (next.isNotEmpty) {
                 _inspirationOptions.addAll(next);
+                newlyAddedCount = next.length;
+              } else {
+                showSnack(sheetContext, '生成失败，请再试。');
               }
-              setDialogState(() => loading = false);
+              setSheet(() => loading = false);
             }
 
-            return AlertDialog(
-              title: const Text('灵感列表'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: _inspirationOptions.isEmpty
-                    ? const Text('暂无灵感，请再试。')
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _inspirationOptions.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          return RadioListTile<int>(
-                            value: index,
-                            groupValue: selectedIndex,
-                            onChanged: (int? value) => setDialogState(() => selectedIndex = value),
-                            title: Text(_inspirationOptions[index]),
-                          );
-                        },
-                      ),
+            final List<String> options = _inspirationOptions;
+            final int firstNewIndex = options.length - newlyAddedCount;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: screen.height * 0.85),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(Icons.lightbulb, color: cs.primary),
+                        const SizedBox(width: 8),
+                        Text('灵感列表', style: theme.textTheme.titleLarge),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '主题：${_inspirationPrompt}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (loading) const LinearProgressIndicator(),
+                  Flexible(
+                    child: options.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                '暂无灵感，请点「再试」。',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                            children: <Widget>[
+                              for (int i = 0; i < options.length; i++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: RetryOptionCard(
+                                    index: i,
+                                    text: options[i],
+                                    isNew: newlyAddedCount > 0 && i >= firstNewIndex,
+                                    selected: selectedIndex == i,
+                                    onTap: () => setSheet(() => selectedIndex = i),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      16 + MediaQuery.of(sheetContext).viewPadding.bottom,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: loading
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('关闭'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.tonalIcon(
+                            onPressed: loading ? null : retry,
+                            icon: loading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.autorenew),
+                            label: Text(loading ? '生成中…' : '再试'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: selectedIndex == null
+                                ? null
+                                : () {
+                                    final String picked = _inspirationOptions[selectedIndex!];
+                                    _inputController.text = picked;
+                                    _inputController.selection = TextSelection.fromPosition(
+                                      TextPosition(offset: picked.length),
+                                    );
+                                    Navigator.of(sheetContext).pop();
+                                  },
+                            child: const Text('使用'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: loading ? null : () => Navigator.of(context).pop(),
-                  child: const Text('关闭'),
-                ),
-                TextButton(
-                  onPressed: loading ? null : retry,
-                  child: const Text('再试'),
-                ),
-                FilledButton(
-                  onPressed: selectedIndex == null
-                      ? null
-                      : () {
-                          final String picked = _inspirationOptions[selectedIndex!];
-                          _inputController.text = picked;
-                          _inputController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: picked.length),
-                          );
-                          Navigator.of(context).pop();
-                        },
-                  child: const Text('使用'),
-                ),
-              ],
             );
           },
         );

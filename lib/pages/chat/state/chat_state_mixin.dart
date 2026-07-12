@@ -1,8 +1,11 @@
 part of '../../chat_page.dart';
 
-mixin ChatStateMixin on State<ChatPage> {
+mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  // 记录上一次键盘是否处于展开状态，用于检测「键盘被收起」的时刻
+  bool _keyboardWasOpen = false;
   final TextEditingController _searchController = TextEditingController();
   final ChatState _state = ChatState();
   late final ChatController _chatController;
@@ -76,6 +79,7 @@ mixin ChatStateMixin on State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _chatController = ChatController(scrollController: _scrollController);
     Conversation? existing;
     if (widget.isGroup) {
@@ -128,11 +132,38 @@ mixin ChatStateMixin on State<ChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inputController.dispose();
+    _inputFocusNode.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     _imageCache.clear();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // 键盘弹出/收起会逐帧改变视口高度（viewInsets）。键盘动画进行中滚动会滚到
+    // 过时的底部位置，落下几个像素；改为在每帧布局完成后再滚动，待键盘稳定时
+    // 即滚到真正的底部。仅在键盘展开（聚焦输入）时滚动，避免打断历史浏览。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final bool keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+      if (keyboardOpen) {
+        _keyboardWasOpen = true;
+        _scrollToBottom();
+      } else {
+        // 键盘从展开变为收起（含使用键盘自带收起按钮的情况）。此时 Flutter 不会
+        // 自动清除输入框焦点，需主动收焦，避免焦点残留导致后续行为异常。
+        if (_keyboardWasOpen && _inputFocusNode.hasFocus) {
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+        _keyboardWasOpen = false;
+      }
+    });
   }
 
   // 缓存图片 provider

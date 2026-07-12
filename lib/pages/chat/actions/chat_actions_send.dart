@@ -226,16 +226,45 @@ mixin ChatActionsSend on ChatStateMixin {
     if (target.role != 'assistant') {
       return;
     }
+    if (_taForMessage(target) == null) {
+      return;
+    }
+    if (!ensureApiReady(context: context, controller: widget.controller)) {
+      return;
+    }
+    setState(() => _sending = true);
+    final List<String> results = await _generateRetryCandidates(index);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _sending = false);
+    if (results.isEmpty) {
+      _retryDisabled.add(target.id);
+      showSnack(context, '重试失败，已暂时禁用。');
+      return;
+    }
+    _retryAlternatives.putIfAbsent(target.id, () => <String>[]);
+    _retryAlternatives[target.id]!.addAll(results);
+    await _showRetryPicker(index);
+  }
+
+  /// 生成一批「重说」候选文本（默认 3 条），不涉及任何 UI。
+  /// 供首次重说与弹框内「再试」内联复用。
+  Future<List<String>> _generateRetryCandidates(int index) async {
+    if (index < 0 || index >= _conversation.messages.length) {
+      return <String>[];
+    }
+    final ConversationMessage target = _conversation.messages[index];
+    if (target.role != 'assistant') {
+      return <String>[];
+    }
     final TA? ta = _taForMessage(target);
     if (ta == null) {
-      return;
+      return <String>[];
     }
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
-    if (!ensureApiReady(context: context, controller: widget.controller)) {
-      return;
-    }
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       endExclusive: index,
@@ -253,28 +282,10 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
     );
-    setState(() => _sending = true);
-    List<String> results = <String>[];
     if (widget.controller.settings.retrySequential) {
-      results = await _generateRetriesSequential(payload, model, apiKey, baseUrl);
-    } else {
-      results = await _generateRetries(payload, model, apiKey, baseUrl);
+      return _generateRetriesSequential(payload, model, apiKey, baseUrl);
     }
-    if (results.isEmpty) {
-      _retryDisabled.add(target.id);
-      if (mounted) {
-        setState(() => _sending = false);
-        showSnack(context, '重试失败，已暂时禁用。');
-      }
-      return;
-    }
-    _retryAlternatives.putIfAbsent(target.id, () => <String>[]);
-    _retryAlternatives[target.id]!.addAll(results);
-    if (!mounted) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _showRetryPicker(index);
+    return _generateRetries(payload, model, apiKey, baseUrl);
   }
 
   Future<List<String>> _generateRetries(
