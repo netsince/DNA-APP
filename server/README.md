@@ -13,6 +13,13 @@ uv run python main.py  # 或 uv run flask run
 ## 接口
 
 - `GET /api/heartbeat` → `{"status":"ok","time":"...","uptime":<秒>}`
+- `POST /api/send-code` `{email}` → 下发邮箱验证码（注册前必调）
+- `POST /api/register` `{username,email,password,code}` → 必须携带正确且未过期的 `code`，否则不创建账号
+- `POST /api/login` `{account,password}` → `token`
+- `GET /api/me`（Bearer）→ 用户名
+- `POST /api/logout`（Bearer）→ 吊销 token
+
+> 注册强制校验邮箱验证码：未通过验证的邮箱不会生成任何账号。
 
 ## 数据库迁移
 

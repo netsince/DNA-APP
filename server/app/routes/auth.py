@@ -6,7 +6,6 @@ from flask import Blueprint, current_app, jsonify, request
 
 from app.models import EmailVerification, User, db
 from app.utils.auth import issue_token, revoke_token, verify_token
-from app.utils.mail import send_verification_email
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -22,27 +21,54 @@ def _issue_code():
     return f"{random.randint(0, 999999):06d}"
 
 
-def _send_code(email):
-    """写入验证码并尝试发送邮件；失败仅记录，不阻断注册。"""
+def _store_code(email):
     code = _issue_code()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
-    db.session.add(EmailVerification(email=email, code=code, expires_at=expires_at))
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
+    ev = EmailVerification(email=email, code=code, expires_at=expires_at)
+    db.session.add(ev)
     db.session.commit()
+    return code
+
+
+def _send_email(email, code):
+    from app.utils.mail import send_verification_email
+
+    send_verification_email(email, code)
+
+
+@auth_bp.post("/api/send-code")
+def send_code():
+    """下发邮箱验证码；注册前必须先调用，且注册时须提交正确验证码。"""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+
+    if not EMAIL_RE.match(email):
+        return _error("邮箱格式不正确", 400)
+    if User.query.filter_by(email=email).first():
+        return _error("邮箱已注册", 409)
+
+    code = _store_code(email)
     try:
-        send_verification_email(email, code)
-        sent = True
+        _send_email(email, code)
     except Exception:
-        sent = False
         current_app.logger.exception("发送验证邮件失败")
-    return code, sent
+        if not current_app.config.get("DEBUG"):
+            return _error("邮件发送失败，请稍后重试", 502)
+
+    resp = {"email": email}
+    if current_app.config.get("DEBUG"):
+        resp["dev_code"] = code  # 仅调试模式回显，便于本地验证
+    return jsonify(resp), 200
 
 
 @auth_bp.post("/api/register")
 def register():
+    """注册：必须携带正确且未过期的验证码，否则不创建账号。"""
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
+    code = (data.get("code") or "").strip()
 
     if not USERNAME_RE.match(username):
         return _error("用户名需为3-32位字母、数字或下划线", 400)
@@ -51,33 +77,14 @@ def register():
     min_len = current_app.config.get("PASSWORD_MIN_LENGTH", 8)
     if len(password) < min_len:
         return _error(f"密码至少{min_len}位", 400)
+    if not code:
+        return _error("验证码不能为空", 400)
 
     if User.query.filter_by(username=username).first():
         return _error("用户名已存在", 409)
     if User.query.filter_by(email=email).first():
         return _error("邮箱已注册", 409)
 
-    user = User(username=username, email=email, email_verified=False)
-    user.set_password(password)
-    db.session.add(user)
-    db.session.commit()
-
-    code, _sent = _send_code(email)
-    resp = {"username": user.username, "email": user.email, "email_verified": False}
-    if current_app.config.get("DEBUG"):
-        resp["dev_code"] = code  # 仅调试模式回显，便于本地验证
-    return jsonify(resp), 201
-
-
-@auth_bp.post("/api/verify-email")
-def verify_email():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    code = (data.get("code") or "").strip()
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return _error("邮箱未注册", 404)
     ev = (
         EmailVerification.query.filter_by(email=email, code=code, used=False)
         .order_by(EmailVerification.id.desc())
@@ -86,28 +93,12 @@ def verify_email():
     if not ev or ev.is_expired:
         return _error("验证码无效或已过期", 400)
 
+    user = User(username=username, email=email)
+    user.set_password(password)
     ev.used = True
-    user.email_verified = True
+    db.session.add(user)
     db.session.commit()
-    return jsonify({"email": email, "email_verified": True}), 200
-
-
-@auth_bp.post("/api/resend-code")
-def resend_code():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return _error("邮箱未注册", 404)
-    if user.email_verified:
-        return _error("邮箱已验证", 400)
-
-    code, _sent = _send_code(email)
-    resp = {"email": email}
-    if current_app.config.get("DEBUG"):
-        resp["dev_code"] = code
-    return jsonify(resp), 200
+    return jsonify({"username": user.username, "email": user.email}), 201
 
 
 @auth_bp.post("/api/login")
@@ -119,8 +110,6 @@ def login():
     user = User.query.filter((User.username == account) | (User.email == account)).first()
     if not user or not user.check_password(password):
         return _error("账号或密码错误", 401)
-    if not user.email_verified:
-        return _error("邮箱未验证", 403)
 
     token = issue_token(user.username)
     return jsonify({"token": token, "username": user.username}), 200

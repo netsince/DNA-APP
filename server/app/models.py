@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
+
+
+def _utcnow():
+    """无时区 UTC 时间戳，规避 datetime.utcnow() 的弃用并保持 MySQL 存储一致。"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # 安全防范：阻断对 MySQL 执行 drop_all 销毁数据的行为（沿用 ymjdns 约定）
@@ -32,8 +37,7 @@ class User(db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    email_verified = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -46,7 +50,6 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "email": self.email,
-            "email_verified": self.email_verified,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
         }
 
@@ -59,11 +62,11 @@ class EmailVerification(db.Model):
     code = db.Column(db.String(6), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     @property
     def is_expired(self):
-        return datetime.utcnow() > self.expires_at
+        return _utcnow() > self.expires_at
 
 
 class TokenBlacklist(db.Model):
