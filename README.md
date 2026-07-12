@@ -17,7 +17,7 @@
     <span> • </span>
     <a href="https://dnaopensource.netsince.com/download">📥 下载</a>
     <span> • </span>
-    <a href="https://dnaopensource.netsince.com/park">🔍 查找角色卡</a>
+    <a href="https://dnaisland.nb6.ltd">🔍 查找角色卡</a>
     <span> • </span>
     <a href="https://github.com/netsince/DNA-PARK">🏞️ 社区开源</a>
 </div>
@@ -74,7 +74,7 @@
 
 这，就是这个项目的由来。
 
-> 💡 名称由来：简称 **DNA** 既取自项目英文名 **D**uet **N**urturing **A**lly，也双关了生物学中的 DNA（脱氧核糖核酸），同时 Cue 了游戏《二重螺旋》。
+> 简称 **DNA** 既取自项目英文名 **D**uet **N**urturing **A**lly，也双关了生物学中的 DNA（脱氧核糖核酸），同时 Cue 了游戏《二重螺旋》。
 
 ---
 
@@ -84,11 +84,11 @@
 
 我们希望社区是跟APP解耦的，虽然这样有些麻烦。
 
-当然，社区也是开源的！[DNA-PARK](https://github.com/netsince/DNA-PARK)
+当然，社区也是开源的！[DNA-PARK](https://github.com/netsince/dnaisland)
 
 ## 🔒 隐私保障：无多余网络请求
 
-**核心原则：除了您指定的 API 和设置设置的，应用在运行中不会连接到任何第三方网络。**
+**除了您指定的 API 和设置设置的，应用在运行中不会连接到任何第三方网络。**
 
 - 所有对话数据、角色设定、世界设定均存储在您的设备本地（后续可能支持上传到GitHub备份，当然也是可选的，但以后的事情以后说）
 - 如果您使用本地模型（如 Ollama、llama.cpp 等），甚至可以做到 **完全零网络请求**
@@ -117,8 +117,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/netsince/dna-client.git
-cd dna-client
+git clone https://github.com/netsince/dna-app.git
+cd dna-app
 
 # 获取依赖
 flutter pub get
@@ -162,7 +162,7 @@ flutter build web
 - [项目官网](https://dnaopensource.netsince.com)
 - [下载页面](https://dnaopensource.netsince.com/download)
 - [角色卡社区](https://dnaopensource.netsince.com/park)
-- [社区开源仓库 (DNA-PARK)](https://github.com/netsince/DNA-PARK)
+- [社区开源仓库 (DNAISLAND)](https://github.com/netsince/dnaisland)
 
 ---
 
