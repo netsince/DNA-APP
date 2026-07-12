@@ -125,6 +125,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _showHome = widget.controller.settings.completedOobe;
     _requireAuth = widget.controller.settings.requireAuthForApp;
+    _showSplash = widget.controller.settings.showSplashAnimation;
     widget.controller.addListener(_onControllerChanged);
   }
 

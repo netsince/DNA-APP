@@ -34,6 +34,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _inspirationIncludeSummary = false;
   bool _requireAuthForArchive = false;
   bool _requireAuthForApp = false;
+  bool _showSplashAnimation = true;
   bool _authAvailable = false;
   late PromptStrategy _promptStrategy;
   static const String _clearCommand =
@@ -55,6 +56,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _promptStrategy = settings.promptStrategy;
     _requireAuthForArchive = settings.requireAuthForArchive;
     _requireAuthForApp = settings.requireAuthForApp;
+    _showSplashAnimation = settings.showSplashAnimation;
     _commandController = TextEditingController();
     _checkAuthAvailability();
   }
@@ -226,6 +228,16 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     showSnack(context, '安全设置已保存。');
+  }
+
+  Future<void> _saveSplashSettings() async {
+    await widget.controller.saveSplashAnimation(
+      showSplashAnimation: _showSplashAnimation,
+    );
+    if (!mounted) {
+      return;
+    }
+    showSnack(context, '开场动画设置已保存。');
   }
 
   Future<void> _runCommand() async {
@@ -635,6 +647,16 @@ class _SettingsPageState extends State<SettingsPage> {
                         children: <Widget>[
                           Text('引导管理', style: Theme.of(context).textTheme.titleLarge),
                           const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('开场动画'),
+                            subtitle: const Text('关闭后将直接进入应用，不再播放启动动画。'),
+                            value: _showSplashAnimation,
+                            onChanged: (bool value) {
+                              setState(() => _showSplashAnimation = value);
+                              _saveSplashSettings();
+                            },
+                          ),
                           const Text('可重新进入首次启动引导流程。'),
                           const SizedBox(height: 10),
                           OutlinedButton.icon(

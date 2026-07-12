@@ -13,6 +13,7 @@ class AppSettings {
     required this.promptStrategy,
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
+    required this.showSplashAnimation,
   });
 
   factory AppSettings.empty() {
@@ -28,6 +29,7 @@ class AppSettings {
       promptStrategy: PromptStrategy.defaults(),
       requireAuthForArchive: false,
       requireAuthForApp: false,
+      showSplashAnimation: true,
     );
   }
 
@@ -42,6 +44,7 @@ class AppSettings {
   final PromptStrategy promptStrategy;
   final bool requireAuthForArchive;
   final bool requireAuthForApp;
+  final bool showSplashAnimation;
 
   AppSettings copyWith({
     String? baseUrl,
@@ -55,6 +58,7 @@ class AppSettings {
     PromptStrategy? promptStrategy,
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
+    bool? showSplashAnimation,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -68,6 +72,7 @@ class AppSettings {
       promptStrategy: promptStrategy ?? this.promptStrategy,
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
+      showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
     );
   }
 }
