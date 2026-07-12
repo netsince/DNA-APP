@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../pages/community_page.dart';
 import '../pages/home_page.dart';
 import '../pages/group_home_page.dart';
 import '../pages/my_home_page.dart';
@@ -8,7 +7,7 @@ import '../pages/settings_page.dart';
 import '../pages/world_page.dart';
 import '../state/app_controller.dart';
 
-enum AppSection { home, groupChats, myHome, world, community, settings }
+enum AppSection { home, groupChats, myHome, world, settings }
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, required this.controller, required this.current});
@@ -34,9 +33,6 @@ class AppDrawer extends StatelessWidget {
         break;
       case AppSection.world:
         page = WorldPage(controller: controller);
-        break;
-      case AppSection.community:
-        page = CommunityPage(controller: controller);
         break;
       case AppSection.settings:
         page = SettingsPage(controller: controller);
@@ -87,12 +83,6 @@ class AppDrawer extends StatelessWidget {
             title: const Text('世界'),
             selected: current == AppSection.world,
             onTap: () => _navigate(context, AppSection.world),
-          ),
-          if (false) ListTile(
-            leading: const Icon(Icons.explore_outlined),
-            title: const Text('社区'),
-            selected: current == AppSection.community,
-            onTap: () => _navigate(context, AppSection.community),
           ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
