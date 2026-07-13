@@ -10,10 +10,6 @@ on:
 permissions:
   contents: write
 
-env:
-  # `secrets` cannot be used directly in a job `if:`, so compute it here.
-  IOS_SECRETS_SET: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_DIST_CERT_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE != '' }}
-
 jobs:
   android:
     name: Build Android
@@ -106,10 +102,29 @@ jobs:
           tag: ${{ github.event.release.tag_name || github.ref_name }}
           files: dna-macos.zip
 
+  ios-secrets-check:
+    name: Check iOS signing secrets
+    runs-on: ubuntu-latest
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    steps:
+      - id: check
+        env:
+          IOS_P12: ${{ secrets.IOS_DIST_CERT_P12 }}
+          IOS_PWD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_PP: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -n "$IOS_P12" ] && [ -n "$IOS_PWD" ] && [ -n "$IOS_PP" ]; then
+            echo "has-secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
   ios:
     name: Build iOS (requires signing secrets)
+    needs: ios-secrets-check
+    if: needs.ios-secrets-check.outputs.has-secrets == 'true'
     runs-on: macos-latest
-    if: env.IOS_SECRETS_SET == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
