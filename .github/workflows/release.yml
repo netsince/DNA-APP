@@ -39,21 +39,17 @@ jobs:
           # Android: fat APK + split-per-abi
           - { platform: android, runner: ubuntu-latest, type: release }
           - { platform: android, runner: ubuntu-latest, type: debug }
-          # Linux (x64 only)
+          # Linux (x64 only — default; linux-arm64 is experimental)
           - { platform: linux,   runner: ubuntu-latest, type: release, arch: x64 }
           - { platform: linux,   runner: ubuntu-latest, type: debug,   arch: x64 }
-          # Windows amd64 (x64)
-          - { platform: windows, runner: windows-latest, type: release, arch: amd64, target: windows-x64, winarch: x64 }
-          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64, target: windows-x64, winarch: x64 }
-          # Windows arm64
-          - { platform: windows, runner: windows-latest, type: release, arch: arm64, target: windows-arm64, winarch: arm64 }
-          - { platform: windows, runner: windows-latest, type: debug,   arch: arm64, target: windows-arm64, winarch: arm64 }
-          # macOS Intel (x64)
-          - { platform: macos,   runner: macos-latest, type: release, arch: x64, target: darwin-x64 }
-          - { platform: macos,   runner: macos-latest, type: debug,   arch: x64, target: darwin-x64 }
-          # macOS Apple Silicon (arm64)
-          - { platform: macos,   runner: macos-latest, type: release, arch: arm64, target: darwin-arm64 }
-          - { platform: macos,   runner: macos-latest, type: debug,   arch: arm64, target: darwin-arm64 }
+          # Windows (x64 only — `flutter build windows` has no --target-platform,
+          #   and GitHub has no Windows ARM runner, so arm64 isn't buildable here)
+          - { platform: windows, runner: windows-latest, type: release, arch: amd64 }
+          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64 }
+          # macOS: --universal produces one bundle containing BOTH Intel (x64)
+          #   and Apple Silicon (arm64) — covers both requested arches in a single artifact
+          - { platform: macos,   runner: macos-latest, type: release, arch: universal }
+          - { platform: macos,   runner: macos-latest, type: debug,   arch: universal }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -87,17 +83,17 @@ jobs:
         if: matrix.platform == 'linux'
         run: flutter build linux --${{ matrix.type }}
 
-      # ---- Windows (multi-arch via --target-platform) ----
+      # ---- Windows (host arch = x64) ----
       - name: Build Windows (${{ matrix.arch }}, ${{ matrix.type }})
         if: matrix.platform == 'windows'
         env:
           CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
-        run: flutter build windows --${{ matrix.type }} --target-platform=${{ matrix.target }}
+        run: flutter build windows --${{ matrix.type }}
 
-      # ---- macOS (multi-arch via --target-platform) ----
+      # ---- macOS (--universal = x64 + arm64 in one bundle) ----
       - name: Build macOS (${{ matrix.arch }}, ${{ matrix.type }})
         if: matrix.platform == 'macos'
-        run: flutter build macos --${{ matrix.type }} --target-platform=${{ matrix.target }}
+        run: flutter build macos --${{ matrix.type }} --universal
 
       # ---- Package & Upload ----
       - name: Upload Android
@@ -126,7 +122,7 @@ jobs:
       - name: Package Windows
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Compress-Archive -Path "build\windows\${{ matrix.winarch }}\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
+        run: Compress-Archive -Path "build\windows\x64\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
       - name: Upload Windows
         if: matrix.platform == 'windows'
         uses: softprops/action-gh-release@v2
