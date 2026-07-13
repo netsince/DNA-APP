@@ -137,6 +137,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                 _inspirationOptions.addAll(next);
                 newlyAddedCount = next.length;
               } else {
+                if (!sheetContext.mounted) return;
                 showSnack(sheetContext, '生成失败，请再试。');
               }
               setSheet(() => loading = false);
@@ -160,7 +161,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '主题：${_inspirationPrompt}',
+                            '主题：$_inspirationPrompt',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),

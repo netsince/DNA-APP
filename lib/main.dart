@@ -138,25 +138,25 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    print('Lifecycle: $state, requireAuth: $_requireAuth, authPassed: $_authPassed, hasBeenPaused: $_hasBeenPaused');
+    debugPrint('Lifecycle: $state, requireAuth: $_requireAuth, authPassed: $_authPassed, hasBeenPaused: $_hasBeenPaused');
     
     if (state == AppLifecycleState.paused) {
       // 记录进入后台的时间
       _pausedTime = DateTime.now();
       _hasBeenPaused = true;
-      print('Lifecycle: App paused at $_pausedTime');
+      debugPrint('Lifecycle: App paused at $_pausedTime');
     } else if (state == AppLifecycleState.resumed) {
       // 只有真正从后台切回前台（之前执行过paused）才需要验证
       if (_hasBeenPaused && _requireAuth && _authPassed) {
-        print('Lifecycle: Resumed from background, checking if auth reset needed');
+        debugPrint('Lifecycle: Resumed from background, checking if auth reset needed');
         _hasBeenPaused = false;
         
         // 只有在后台停留超过1秒才需要重新验证（避免快速切换）
         if (_pausedTime != null) {
           final Duration diff = DateTime.now().difference(_pausedTime!);
-          print('Lifecycle: Time in background: ${diff.inSeconds}s');
+          debugPrint('Lifecycle: Time in background: ${diff.inSeconds}s');
           if (diff.inSeconds >= 1) {
-            print('Lifecycle: Resetting auth state');
+            debugPrint('Lifecycle: Resetting auth state');
             setState(() => _authPassed = false);
           }
         }

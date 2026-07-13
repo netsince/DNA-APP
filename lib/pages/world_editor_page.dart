@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../models/world.dart';
@@ -118,12 +119,6 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       }
     }
     return '未知词条';
-  }
-
-  int _calculateLineCount(String text) {
-    if (text.isEmpty) return 1;
-    final int count = text.split('\n').length;
-    return count < 1 ? 1 : count;
   }
 
   WorldEntry _withoutRelationTarget(WorldEntry entry, String targetId) {

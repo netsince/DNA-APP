@@ -131,6 +131,7 @@ mixin ChatActionsSend on ChatStateMixin {
     await _maybePromptSummary();
   }
 
+  // ignore: unused_element
   Future<void> _continueFromContext() async {
     if (_sending) {
       return;
@@ -218,6 +219,7 @@ mixin ChatActionsSend on ChatStateMixin {
     await _maybePromptSummary();
   }
 
+  // ignore: unused_element
   Future<void> _retryAssistantAt(int index) async {
     if (_sending) {
       return;

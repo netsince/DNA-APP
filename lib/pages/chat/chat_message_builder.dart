@@ -19,7 +19,7 @@ class ChatMessageBuilder {
         summaryPrefix.isNotEmpty) {
       payload.add(<String, String>{
         'role': 'system',
-        'content': '${summaryPrefix}${summaryText.trim()}',
+        'content': '$summaryPrefix${summaryText.trim()}',
       });
     }
     for (final ConversationMessage message in messages) {

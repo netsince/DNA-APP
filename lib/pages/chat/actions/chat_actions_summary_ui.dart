@@ -3,6 +3,7 @@ part of '../../chat_page.dart';
 mixin ChatActionsSummaryUi on ChatStateMixin {
   ConversationSummary? _summaryById(String? summaryId);
 
+  // ignore: unused_element
   Future<void> _showSummaryDetail(String summaryId) async {
     final ConversationSummary? summary = _summaryById(summaryId);
     if (summary == null) {
@@ -20,6 +21,7 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
     );
   }
 
+  // ignore: unused_element
   Future<void> _deleteSummary(String summaryId, String bubbleId) async {
     _conversation = _conversation.copyWith(
       summaries: _conversation.summaries.where((ConversationSummary s) => s.id != summaryId).toList(),
@@ -32,6 +34,7 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
     setState(() {});
   }
 
+  // ignore: unused_element
   Future<void> _editSummary(String summaryId) async {
     final ConversationSummary? summary = _summaryById(summaryId);
     if (summary == null) {

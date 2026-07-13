@@ -92,7 +92,7 @@ class Conversation {
           ]
         : <String>[taId];
     final String? rawActive = json['activeTaId'] as String?;
-    final String? activeTaId = (rawActive != null && rawActive.isNotEmpty)
+    final String activeTaId = (rawActive != null && rawActive.isNotEmpty)
         ? rawActive
         : (memberTaIds.isNotEmpty ? memberTaIds.first : taId);
     return Conversation(

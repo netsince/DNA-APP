@@ -11,6 +11,9 @@ mixin ChatActionsSnapshots on ChatStateMixin {
 
   Future<void> _manageSnapshots() async {
     final List<ChatSnapshot> snapshots = await _loadSnapshots();
+    if (!mounted) {
+      return;
+    }
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -51,6 +54,7 @@ mixin ChatActionsSnapshots on ChatStateMixin {
       return;
     }
     if (action == 'create') {
+      if (!mounted) return;
       final String defaultName = '存档 ${DateTime.now().toString().substring(0, 19)}';
       final String? name = await showTextInputDialog(
         context: context,
@@ -78,6 +82,7 @@ mixin ChatActionsSnapshots on ChatStateMixin {
       return;
     }
     if (action.startsWith('load:')) {
+      if (!mounted) return;
       final int index = int.tryParse(action.split(':').last) ?? -1;
       if (index < 0 || index >= snapshots.length) {
         return;

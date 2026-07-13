@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
@@ -31,13 +32,13 @@ class AuthService {
       final bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
       
       if (!isDeviceSupported && !canCheckBiometrics) {
-        print('Auth: Device does not support authentication');
+        debugPrint('Auth: Device does not support authentication');
         return false;
       }
 
       // 获取可用的生物识别类型
       final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
-      print('Auth: Available biometrics: $availableBiometrics');
+      debugPrint('Auth: Available biometrics: $availableBiometrics');
 
       // 尝试验证
       final bool result = await _localAuth.authenticate(
@@ -70,10 +71,10 @@ class AuthService {
         ),
       );
       
-      print('Auth: Authentication result: $result');
+      debugPrint('Auth: Authentication result: $result');
       return result;
     } on PlatformException catch (e) {
-      print('Auth: PlatformException - code: ${e.code}, message: ${e.message}');
+      debugPrint('Auth: PlatformException - code: ${e.code}, message: ${e.message}');
       if (e.code == auth_error.notAvailable) {
         return false;
       } else if (e.code == auth_error.notEnrolled) {
@@ -83,7 +84,7 @@ class AuthService {
       }
       return false;
     } catch (e) {
-      print('Auth: Exception - $e');
+      debugPrint('Auth: Exception - $e');
       return false;
     }
   }

@@ -223,6 +223,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
   }
 
+  // ignore: unused_element
   Future<void> _showRetryPicker(int index) async {
     final ConversationMessage target = _conversation.messages[index];
     if (!(_retryAlternatives[target.id]?.isNotEmpty ?? false)) {
@@ -260,6 +261,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                 _retryAlternatives[target.id]!.addAll(next);
                 newlyAddedCount = next.length;
               } else {
+                if (!sheetContext.mounted) return;
                 showSnack(sheetContext, '生成失败，请再试。');
               }
               setSheet(() => loading = false);
@@ -553,6 +555,7 @@ class _RetryOriginalCard extends StatelessWidget {
 /// 同时供「重说结果」与「灵感列表」复用，保证交互与视觉一致。
 class RetryOptionCard extends StatelessWidget {
   const RetryOptionCard({
+    super.key,
     required this.index,
     required this.text,
     required this.isNew,

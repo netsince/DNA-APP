@@ -1,6 +1,7 @@
 part of '../../chat_page.dart';
 
 mixin ChatPayloadBuilders on ChatStateMixin {
+  // ignore: unused_element
   String _buildSystemPrompt() {
     return ChatSystemPrompt.build(
       ta: _ta,
@@ -10,6 +11,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     );
   }
 
+  // ignore: unused_element
   int _totalTurnCount() {
     int count = 0;
     for (final ConversationMessage message in _conversation.messages) {
@@ -20,6 +22,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     return count;
   }
 
+  // ignore: unused_element
   String? _lastChatMessageId() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
@@ -30,6 +33,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     return null;
   }
 
+  // ignore: unused_element
   ConversationSummary? _summaryById(String? id) {
     if (id == null || id.isEmpty) {
       return null;
@@ -42,10 +46,12 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     return null;
   }
 
+  // ignore: unused_element
   bool _hasSummaryPrompt() {
     return _conversation.messages.any((ConversationMessage m) => m.kind == 'summary_prompt');
   }
 
+  // ignore: unused_element
   List<ConversationMessage> _recentTurnSlice(int turnCount) {
     if (turnCount <= 0) {
       return <ConversationMessage>[];
@@ -109,6 +115,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     return messages.sublist(messages.length - maxCount);
   }
 
+  // ignore: unused_element
   List<Map<String, String>> _buildInspirationPayload(String topic) {
     final String context = _buildPersonaWorldContext();
     final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
@@ -155,7 +162,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
       if (includeSummary)
         <String, String>{
           'role': 'system',
-          'content': '最近摘要：\n${summary!.text.trim()}',
+          'content': '最近摘要：\n${summary.text.trim()}',
         },
       if (recentUserOrdered.isNotEmpty)
         <String, String>{

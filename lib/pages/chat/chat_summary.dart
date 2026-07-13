@@ -9,6 +9,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
   void _insertMessageAfter(String anchorId, ConversationMessage message);
   void _removeMessageById(String messageId);
 
+  // ignore: unused_element
   Future<void> _maybePromptSummary() async {
     if (!widget.controller.settings.autoSummaryPrompt) {
       return;
@@ -84,6 +85,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       confirmText: '总结',
       keyboardType: TextInputType.number,
     );
+    if (!mounted) {
+      return;
+    }
     if (value == null) {
       return;
     }

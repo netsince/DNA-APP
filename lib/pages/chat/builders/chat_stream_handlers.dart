@@ -1,6 +1,7 @@
 part of '../../chat_page.dart';
 
 mixin ChatStreamHandlers on ChatStateMixin {
+  // ignore: unused_element
   Future<bool> _streamAssistantResponse({
     required String model,
     required String apiKey,
