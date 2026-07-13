@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+env:
+  # `secrets` cannot be used directly in a job `if:`, so compute it here.
+  IOS_SECRETS_SET: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_DIST_CERT_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE != '' }}
+
 jobs:
   android:
     name: Build Android
@@ -105,7 +109,7 @@ jobs:
   ios:
     name: Build iOS (requires signing secrets)
     runs-on: macos-latest
-    if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_DIST_CERT_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE != '' }}
+    if: env.IOS_SECRETS_SET == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

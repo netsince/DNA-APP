@@ -138,7 +138,7 @@ class _ConversationListBody extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           buildDefaultDragHandles: false,
           itemCount: visible.length,
-          onReorder: (int oldIndex, int newIndex) async {
+          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
             if (oldIndex < 0 || oldIndex >= visible.length) {
               return;
             }

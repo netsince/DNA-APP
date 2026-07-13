@@ -106,7 +106,7 @@ class _WorldListBody extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           buildDefaultDragHandles: false,
           itemCount: worlds.length,
-          onReorder: (int oldIndex, int newIndex) async {
+          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
             await controller.reorderWorlds(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {

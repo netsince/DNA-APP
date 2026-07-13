@@ -111,7 +111,7 @@ class _TaListBody extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           buildDefaultDragHandles: false,
           itemCount: tas.length,
-          onReorder: (int oldIndex, int newIndex) async {
+          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
             await controller.reorderTas(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {
