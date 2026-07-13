@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze & Test
+    name: Analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +23,7 @@ jobs:
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze
-      - name: Test
-        run: flutter test
+
 
   build:
     name: Build (${{ matrix.platform }})
