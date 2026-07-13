@@ -46,6 +46,46 @@ class AppSettings {
   final bool requireAuthForApp;
   final bool showSplashAnimation;
 
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'baseUrl': baseUrl,
+      'apiKey': apiKey,
+      'selectedModel': selectedModel,
+      'completedOobe': completedOobe,
+      'autoSummaryPrompt': autoSummaryPrompt,
+      'summaryTurnInterval': summaryTurnInterval,
+      'retrySequential': retrySequential,
+      'inspirationIncludeSummary': inspirationIncludeSummary,
+      'promptStrategy': promptStrategy.toJson(),
+      'requireAuthForArchive': requireAuthForArchive,
+      'requireAuthForApp': requireAuthForApp,
+      'showSplashAnimation': showSplashAnimation,
+    };
+  }
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    final PromptStrategy promptStrategy = json['promptStrategy'] is Map
+        ? PromptStrategy.fromJson(
+            (json['promptStrategy'] as Map).cast<String, dynamic>(),
+          )
+        : PromptStrategy.defaults();
+    return AppSettings(
+      baseUrl: (json['baseUrl'] as String?) ?? '',
+      apiKey: (json['apiKey'] as String?) ?? '',
+      selectedModel: (json['selectedModel'] as String?) ?? '',
+      completedOobe: (json['completedOobe'] as bool?) ?? false,
+      autoSummaryPrompt: (json['autoSummaryPrompt'] as bool?) ?? true,
+      summaryTurnInterval: (json['summaryTurnInterval'] as int?) ?? 200,
+      retrySequential: (json['retrySequential'] as bool?) ?? false,
+      inspirationIncludeSummary:
+          (json['inspirationIncludeSummary'] as bool?) ?? false,
+      promptStrategy: promptStrategy,
+      requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
+      requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
+      showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+    );
+  }
+
   AppSettings copyWith({
     String? baseUrl,
     String? apiKey,

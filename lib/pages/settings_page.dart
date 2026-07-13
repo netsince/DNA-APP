@@ -1,8 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/prompt_strategy.dart';
 import '../models/service_results.dart';
 import '../services/auth_service.dart';
+import '../services/data_backup_service.dart';
+import '../services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
@@ -37,6 +43,10 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _showSplashAnimation = true;
   bool _authAvailable = false;
   late PromptStrategy _promptStrategy;
+  bool _exporting = false;
+  bool _importing = false;
+  bool _exportingConv = false;
+  bool _importingConv = false;
   static const String _clearCommand =
       'CLEAR ALL DATAS YES I DO THIS PLEASE DEL MY DATAS THANK YOU 114514';
 
@@ -252,6 +262,252 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     showSnack(context, '未知指令或指令不匹配。');
+  }
+
+  String _timestamp() {
+    final DateTime d = DateTime.now();
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}${p(d.month)}${p(d.day)}_${p(d.hour)}${p(d.minute)}${p(d.second)}';
+  }
+
+  Future<void> _exportAllData() async {
+    setState(() => _exporting = true);
+    try {
+      final ExportImportResult<Uint8List> result =
+          await widget.controller.exportAllData();
+      if (!mounted) {
+        return;
+      }
+      if (!result.success || result.data == null) {
+        showSnack(context, result.message ?? '导出失败');
+        return;
+      }
+      final String? outPath = await FilePicker.platform.saveFile(
+        dialogTitle: '导出全部数据为 ZIP',
+        fileName: 'DNA_${_timestamp()}.zip',
+        type: FileType.custom,
+        allowedExtensions: <String>['zip'],
+      );
+      if (outPath == null) {
+        return; // 用户取消
+      }
+      final File file = File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
+      await file.writeAsBytes(result.data!);
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '已导出到：${file.path}');
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '导出出错：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _exporting = false);
+      }
+    }
+  }
+
+  Future<bool?> _chooseImportMode({required String description}) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: const Text('导入方式'),
+          content: Text(description),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('仅追加'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('全部替换'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showImportResult(
+    DataImportReport report, {
+    bool onlyConversations = false,
+  }) async {
+    final StringBuffer sb = StringBuffer();
+    if (!onlyConversations) {
+      sb.writeln('角色：${report.tasCount}');
+      sb.writeln('世界：${report.worldsCount}');
+    }
+    sb.writeln('对话：${report.conversationsCount}');
+    if (report.replaced) {
+      if (report.backupPath != null) {
+        sb.writeln('\n替换前的数据已自动备份至：\n${report.backupPath}');
+      } else if (report.backupError != null) {
+        sb.writeln('\n⚠️ 自动备份失败：${report.backupError}');
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    await showInfoDialog(
+      context: context,
+      title: '导入完成',
+      content: Text(sb.toString()),
+    );
+  }
+
+  Future<void> _importData() async {
+    final FilePickerResult? picked = await FilePicker.platform.pickFiles(
+      dialogTitle: '选择备份 ZIP',
+      type: FileType.custom,
+      allowedExtensions: <String>['zip'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) {
+      return;
+    }
+    final PlatformFile file = picked.files.first;
+    final Uint8List? bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    if (bytes == null) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '无法读取文件内容。');
+      return;
+    }
+
+    final bool? replaceAll = await _chooseImportMode(
+      description: '全部替换：清空现有数据后导入；替换前的数据会自动备份为一个 ZIP。\n\n'
+          '仅追加：只添加新的角色 / 世界 / 对话，已有数据保留。',
+    );
+    if (replaceAll == null) {
+      return; // 用户取消
+    }
+
+    setState(() => _importing = true);
+    try {
+      final ExportImportResult<DataImportReport> report =
+          await widget.controller.importData(
+        bytes,
+        replaceAll: replaceAll,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!report.success || report.data == null) {
+        showSnack(context, report.message ?? '导入失败');
+        return;
+      }
+      await _showImportResult(report.data!);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '导入出错：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _importing = false);
+      }
+    }
+  }
+
+  Future<void> _exportConversations() async {
+    setState(() => _exportingConv = true);
+    try {
+      final ExportImportResult<Uint8List> result =
+          await widget.controller.exportConversations();
+      if (!mounted) {
+        return;
+      }
+      if (!result.success || result.data == null) {
+        showSnack(context, result.message ?? '导出失败');
+        return;
+      }
+      final String? outPath = await FilePicker.platform.saveFile(
+        dialogTitle: '导出对话为 ZIP',
+        fileName: 'DNA_conversations_${_timestamp()}.zip',
+        type: FileType.custom,
+        allowedExtensions: <String>['zip'],
+      );
+      if (outPath == null) {
+        return; // 用户取消
+      }
+      final File file =
+          File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
+      await file.writeAsBytes(result.data!);
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '已导出到：${file.path}');
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '导出出错：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _exportingConv = false);
+      }
+    }
+  }
+
+  Future<void> _importConversations() async {
+    final FilePickerResult? picked = await FilePicker.platform.pickFiles(
+      dialogTitle: '选择对话 ZIP',
+      type: FileType.custom,
+      allowedExtensions: <String>['zip'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) {
+      return;
+    }
+    final PlatformFile file = picked.files.first;
+    final Uint8List? bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    if (bytes == null) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '无法读取文件内容。');
+      return;
+    }
+
+    final bool? replaceAll = await _chooseImportMode(
+      description: '全部替换：清空现有对话后导入；替换前的对话会自动备份为一个 ZIP。\n\n'
+          '仅追加：只添加新的对话，已有对话保留。',
+    );
+    if (replaceAll == null) {
+      return; // 用户取消
+    }
+
+    setState(() => _importingConv = true);
+    try {
+      final ExportImportResult<DataImportReport> report =
+          await widget.controller.importConversations(
+        bytes,
+        replaceAll: replaceAll,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!report.success || report.data == null) {
+        showSnack(context, report.message ?? '导入失败');
+        return;
+      }
+      await _showImportResult(report.data!, onlyConversations: true);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      showSnack(context, '导入出错：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _importingConv = false);
+      }
+    }
   }
 
   @override
@@ -694,6 +950,92 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text('数据备份与恢复', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '将全部数据（角色、世界、对话，不含设置）打包为 ZIP 文件，'
+                          '或从 ZIP 导入。导入时支持「全部替换」或「仅追加」。',
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
+                            FilledButton.tonalIcon(
+                              onPressed: _exporting || _importing ? null : _exportAllData,
+                              icon: _exporting
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.archive_outlined),
+                              label: Text(_exporting ? '导出中...' : '导出全部数据为 ZIP'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _exporting || _importing ? null : _importData,
+                              icon: _importing
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.upload_file_outlined),
+                              label: Text(_importing ? '导入中...' : '从 ZIP 导入数据'),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 28),
+                        Text('仅对话', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '单独将对话（单聊 + 群聊）导出为 ZIP，或从 ZIP 导入对话。'
+                          '导入同样支持「全部替换」或「仅追加」。',
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
+                            FilledButton.tonalIcon(
+                              onPressed: _exportingConv || _importingConv
+                                  ? null
+                                  : _exportConversations,
+                              icon: _exportingConv
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.forum_outlined),
+                              label: Text(_exportingConv ? '导出中...' : '导出对话为 ZIP'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _exportingConv || _importingConv
+                                  ? null
+                                  : _importConversations,
+                              icon: _importingConv
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.upload_file_outlined),
+                              label: Text(_importingConv ? '导入中...' : '从 ZIP 导入对话'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 ],
               ),
             ),

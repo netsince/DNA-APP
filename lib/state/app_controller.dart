@@ -15,6 +15,8 @@ import '../services/openai_service.dart';
 import '../services/settings_service.dart';
 import '../services/ta_service.dart';
 import '../services/hive_service.dart';
+import '../services/data_backup_service.dart';
+import '../services/ta_export_import_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -424,6 +426,285 @@ class AppController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节
+  Future<ExportImportResult<Uint8List>> exportAllData() async {
+    return DataBackupService.buildZip(
+      tas: _tas,
+      worlds: _worlds,
+      conversations: <Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ],
+    );
+  }
+
+  /// 仅导出对话（单聊 + 群聊）为 ZIP 字节
+  Future<ExportImportResult<Uint8List>> exportConversations() async {
+    return DataBackupService.buildConversationsZip(
+      conversations: <Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ],
+    );
+  }
+
+  /// 从 ZIP 字节导入对话
+  /// [replaceAll] 为 true 时替换全部对话，并先自动备份替换前的对话；
+  /// 为 false 时仅追加不存在的对话（按 id 去重）。
+  Future<ExportImportResult<DataImportReport>> importConversations(
+    Uint8List zipBytes, {
+    required bool replaceAll,
+  }) async {
+    final ExportImportResult<List<Conversation>> parsed =
+        DataBackupService.parseConversationsZip(zipBytes);
+    if (!parsed.success || parsed.data == null) {
+      return ExportImportResult(
+        success: false,
+        message: parsed.message ?? '导入失败',
+      );
+    }
+    final List<Conversation> incoming = parsed.data!;
+
+    try {
+      String? backupPath;
+      String? backupError;
+
+      if (replaceAll) {
+        // 先自动备份替换前的对话
+        final ExportImportResult<Uint8List> current =
+            await exportConversations();
+        if (current.success && current.data != null) {
+          try {
+            final Directory docDir = await getApplicationDocumentsDirectory();
+            final Directory backupsDir =
+                Directory(path.join(docDir.path, 'dna_backups'));
+            if (!await backupsDir.exists()) {
+              await backupsDir.create(recursive: true);
+            }
+            final File backupFile = File(path.join(
+                backupsDir.path, 'DNA_conversations_${_timestamp()}.zip'));
+            await backupFile.writeAsBytes(current.data!);
+            backupPath = backupFile.path;
+          } catch (e) {
+            backupError = '$e';
+          }
+        } else {
+          backupError = current.message ?? '未知错误';
+        }
+
+        _conversations =
+            incoming.where((Conversation c) => !c.isGroup).toList();
+        _groupConversations =
+            incoming.where((Conversation c) => c.isGroup).toList();
+
+        await _hiveService.saveConversations(<Conversation>[
+          ..._conversations,
+          ..._groupConversations,
+        ]);
+        notifyListeners();
+        return ExportImportResult(
+          success: true,
+          data: DataImportReport(
+            replaced: true,
+            tasCount: 0,
+            worldsCount: 0,
+            conversationsCount:
+                _conversations.length + _groupConversations.length,
+            backupPath: backupPath,
+            backupError: backupError,
+          ),
+        );
+      }
+
+      // 仅追加：按 id 去重
+      final Set<String> existingIds = <String>{
+        ..._conversations.map((Conversation c) => c.id),
+        ..._groupConversations.map((Conversation c) => c.id),
+      };
+      final List<Conversation> newConvs = incoming
+          .where((Conversation c) => !existingIds.contains(c.id))
+          .toList();
+
+      _conversations = <Conversation>[
+        ..._conversations,
+        ...newConvs.where((Conversation c) => !c.isGroup),
+      ];
+      _groupConversations = <Conversation>[
+        ..._groupConversations,
+        ...newConvs.where((Conversation c) => c.isGroup),
+      ];
+
+      await _hiveService.saveConversations(<Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ]);
+      notifyListeners();
+      return ExportImportResult(
+        success: true,
+        data: DataImportReport(
+          replaced: false,
+          tasCount: 0,
+          worldsCount: 0,
+          conversationsCount: newConvs.length,
+          backupPath: null,
+          backupError: null,
+        ),
+      );
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导入失败：$e');
+    }
+  }
+
+  /// 从 ZIP 字节导入数据（不含设置）
+  /// [replaceAll] 为 true 时全部替换，并先自动备份替换前的数据；
+  /// 为 false 时仅追加不存在的条目（按 id 去重），保留现有数据。
+  Future<ExportImportResult<DataImportReport>> importData(
+    Uint8List zipBytes, {
+    required bool replaceAll,
+  }) async {
+    final ExportImportResult<ParsedBackup> parsed =
+        DataBackupService.parseZip(zipBytes);
+    if (!parsed.success || parsed.data == null) {
+      return ExportImportResult(
+        success: false,
+        message: parsed.message ?? '导入失败',
+      );
+    }
+    final ParsedBackup backup = parsed.data!;
+
+    final Directory docDir = await getApplicationDocumentsDirectory();
+    final Directory taDir = Directory(path.join(docDir.path, 'tas'));
+    String? backupPath;
+    String? backupError;
+
+    try {
+      if (replaceAll) {
+        // 先自动备份替换前的数据
+        final ExportImportResult<Uint8List> current = await exportAllData();
+        if (current.success && current.data != null) {
+          final Directory backupsDir =
+              Directory(path.join(docDir.path, 'dna_backups'));
+          if (!await backupsDir.exists()) {
+            await backupsDir.create(recursive: true);
+          }
+          final File backupFile =
+              File(path.join(backupsDir.path, 'DNA_backup_${_timestamp()}.zip'));
+          await backupFile.writeAsBytes(current.data!);
+          backupPath = backupFile.path;
+        } else {
+          backupError = current.message ?? '未知错误';
+        }
+
+        // 清空旧图片后写入新数据
+        if (await taDir.exists()) {
+          await taDir.delete(recursive: true);
+        }
+        await taDir.create(recursive: true);
+
+        final List<TA> resolvedTas = DataBackupService.resolveTasImages(
+          backup.tas,
+          backup.imageBytes,
+          taDir.path,
+        );
+
+        _tas = resolvedTas;
+        _worlds = backup.worlds;
+        _conversations =
+            backup.conversations.where((Conversation c) => !c.isGroup).toList();
+        _groupConversations =
+            backup.conversations.where((Conversation c) => c.isGroup).toList();
+
+        await _hiveService.saveTas(_tas);
+        await _hiveService.saveWorlds(_worlds);
+        await _hiveService.saveConversations(<Conversation>[
+          ..._conversations,
+          ..._groupConversations,
+        ]);
+
+        notifyListeners();
+        return ExportImportResult(
+          success: true,
+          data: DataImportReport(
+            replaced: true,
+            tasCount: _tas.length,
+            worldsCount: _worlds.length,
+            conversationsCount:
+                _conversations.length + _groupConversations.length,
+            backupPath: backupPath,
+            backupError: backupError,
+          ),
+        );
+      }
+
+      // 仅追加：跳过已存在的 id
+      if (!await taDir.exists()) {
+        await taDir.create(recursive: true);
+      }
+
+      final Set<String> existingTaIds = _tas.map((TA t) => t.id).toSet();
+      final List<TA> newTas =
+          backup.tas.where((TA t) => !existingTaIds.contains(t.id)).toList();
+      final List<TA> resolvedNewTas = DataBackupService.resolveTasImages(
+        newTas,
+        backup.imageBytes,
+        taDir.path,
+      );
+
+      final Set<String> existingWorldIds =
+          _worlds.map((World w) => w.id).toSet();
+      final List<World> newWorlds = backup.worlds
+          .where((World w) => !existingWorldIds.contains(w.id))
+          .toList();
+
+      final Set<String> existingConvIds = <String>{
+        ..._conversations.map((Conversation c) => c.id),
+        ..._groupConversations.map((Conversation c) => c.id),
+      };
+      final List<Conversation> newConvs = backup.conversations
+          .where((Conversation c) => !existingConvIds.contains(c.id))
+          .toList();
+
+      _tas = <TA>[..._tas, ...resolvedNewTas];
+      _worlds = <World>[..._worlds, ...newWorlds];
+      _conversations = <Conversation>[
+        ..._conversations,
+        ...newConvs.where((Conversation c) => !c.isGroup),
+      ];
+      _groupConversations = <Conversation>[
+        ..._groupConversations,
+        ...newConvs.where((Conversation c) => c.isGroup),
+      ];
+
+      await _hiveService.saveTas(_tas);
+      await _hiveService.saveWorlds(_worlds);
+      await _hiveService.saveConversations(<Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ]);
+
+      notifyListeners();
+      return ExportImportResult(
+        success: true,
+        data: DataImportReport(
+          replaced: false,
+          tasCount: newTas.length,
+          worldsCount: newWorlds.length,
+          conversationsCount: newConvs.length,
+          backupPath: null,
+          backupError: null,
+        ),
+      );
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导入失败：$e');
+    }
+  }
+
+  String _timestamp() {
+    final DateTime d = DateTime.now();
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}${p(d.month)}${p(d.day)}_${p(d.hour)}${p(d.minute)}${p(d.second)}';
   }
 
   Future<void> clearAllData() async {
