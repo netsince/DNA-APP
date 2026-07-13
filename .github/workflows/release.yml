@@ -11,99 +11,6 @@ permissions:
   contents: write
 
 jobs:
-  android:
-    name: Build Android
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: zulu
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Build APK
-        run: flutter build apk --release
-      - name: Build AppBundle
-        run: flutter build appbundle --release
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: ${{ github.event.release.tag_name || github.ref_name }}
-          files: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-
-  linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
-      - run: flutter pub get
-      - name: Build Linux
-        run: flutter build linux --release
-      - name: Package
-        run: cd build/linux/x64/release/bundle && zip -r ../../../dna-linux.zip . && cd ../../../../..
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: ${{ github.event.release.tag_name || github.ref_name }}
-          files: dna-linux.zip
-
-  windows:
-    name: Build Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Build Windows
-        env:
-          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
-        run: flutter build windows --release
-      - name: Package
-        shell: pwsh
-        run: Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "dna-windows.zip"
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: ${{ github.event.release.tag_name || github.ref_name }}
-          files: dna-windows.zip
-
-  macos:
-    name: Build macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Build macOS
-        run: flutter build macos --release
-      - name: Package
-        run: zip -r dna-macos.zip build/macos/Build/Products/Release
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: ${{ github.event.release.tag_name || github.ref_name }}
-          files: dna-macos.zip
-
   ios-secrets-check:
     name: Check iOS signing secrets
     runs-on: ubuntu-latest
@@ -121,6 +28,125 @@ jobs:
           else
             echo "has-secrets=false" >> "$GITHUB_OUTPUT"
           fi
+
+  build:
+    name: Build ${{ matrix.platform }} ${{ matrix.arch }} (${{ matrix.type }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Android: fat APK + split-per-abi
+          - { platform: android, runner: ubuntu-latest, type: release }
+          - { platform: android, runner: ubuntu-latest, type: debug }
+          # Linux (x64 only)
+          - { platform: linux,   runner: ubuntu-latest, type: release, arch: x64 }
+          - { platform: linux,   runner: ubuntu-latest, type: debug,   arch: x64 }
+          # Windows amd64 (x64)
+          - { platform: windows, runner: windows-latest, type: release, arch: amd64, target: windows-x64, winarch: x64 }
+          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64, target: windows-x64, winarch: x64 }
+          # Windows arm64
+          - { platform: windows, runner: windows-latest, type: release, arch: arm64, target: windows-arm64, winarch: arm64 }
+          - { platform: windows, runner: windows-latest, type: debug,   arch: arm64, target: windows-arm64, winarch: arm64 }
+          # macOS Intel (x64)
+          - { platform: macos,   runner: macos-latest, type: release, arch: x64, target: darwin-x64 }
+          - { platform: macos,   runner: macos-latest, type: debug,   arch: x64, target: darwin-x64 }
+          # macOS Apple Silicon (arm64)
+          - { platform: macos,   runner: macos-latest, type: release, arch: arm64, target: darwin-arm64 }
+          - { platform: macos,   runner: macos-latest, type: debug,   arch: arm64, target: darwin-arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        if: matrix.platform == 'android'
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - run: flutter pub get
+
+      # ---- Android: fat APK + split-per-abi APKs ----
+      - name: Build Android APK (fat, ${{ matrix.type }})
+        if: matrix.platform == 'android'
+        run: flutter build apk --${{ matrix.type }}
+      - name: Build Android APK (split-per-abi, ${{ matrix.type }})
+        if: matrix.platform == 'android'
+        run: flutter build apk --${{ matrix.type }} --split-per-abi
+
+      # ---- Linux ----
+      - name: Build Linux (${{ matrix.arch }}, ${{ matrix.type }})
+        if: matrix.platform == 'linux'
+        run: flutter build linux --${{ matrix.type }}
+
+      # ---- Windows (multi-arch via --target-platform) ----
+      - name: Build Windows (${{ matrix.arch }}, ${{ matrix.type }})
+        if: matrix.platform == 'windows'
+        env:
+          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+        run: flutter build windows --${{ matrix.type }} --target-platform=${{ matrix.target }}
+
+      # ---- macOS (multi-arch via --target-platform) ----
+      - name: Build macOS (${{ matrix.arch }}, ${{ matrix.type }})
+        if: matrix.platform == 'macos'
+        run: flutter build macos --${{ matrix.type }} --target-platform=${{ matrix.target }}
+
+      # ---- Package & Upload ----
+      - name: Upload Android
+        if: matrix.platform == 'android'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: |
+            build/app/outputs/flutter-apk/app-${{ matrix.type }}.apk
+            build/app/outputs/flutter-apk/app-*-${{ matrix.type }}.apk
+
+      - name: Package Linux
+        if: matrix.platform == 'linux'
+        run: zip -r dna-linux-${{ matrix.arch }}-${{ matrix.type }}.zip build/linux/x64/${{ matrix.type }}/bundle
+      - name: Upload Linux
+        if: matrix.platform == 'linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-linux-${{ matrix.arch }}-${{ matrix.type }}.zip
+
+      - name: Package Windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path "build\windows\${{ matrix.winarch }}\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
+      - name: Upload Windows
+        if: matrix.platform == 'windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip
+
+      - name: Package macOS
+        if: matrix.platform == 'macos'
+        run: zip -r dna-macos-${{ matrix.arch }}-${{ matrix.type }}.zip build/macos/Build/Products/${{ matrix.type }}
+      - name: Upload macOS
+        if: matrix.platform == 'macos'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-macos-${{ matrix.arch }}-${{ matrix.type }}.zip
 
   ios:
     name: Build iOS (requires signing secrets)
@@ -154,10 +180,11 @@ jobs:
       - name: Build IPA
         env:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-        run: |
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ github.event.release.tag_name || github.ref_name }}
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
           files: build/ios/ipa/*.ipa
