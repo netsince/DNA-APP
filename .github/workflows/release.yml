@@ -42,14 +42,20 @@ jobs:
           # Linux (x64 only — default; linux-arm64 is experimental)
           - { platform: linux,   runner: ubuntu-latest, type: release, arch: x64 }
           - { platform: linux,   runner: ubuntu-latest, type: debug,   arch: x64 }
-          # Windows (x64 only — `flutter build windows` has no --target-platform,
-          #   and GitHub has no Windows ARM runner, so arm64 isn't buildable here)
-          - { platform: windows, runner: windows-latest, type: release, arch: amd64 }
-          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64 }
-          # macOS: --universal produces one bundle containing BOTH Intel (x64)
-          #   and Apple Silicon (arm64) — covers both requested arches in a single artifact
-          - { platform: macos,   runner: macos-latest, type: release, arch: universal }
-          - { platform: macos,   runner: macos-latest, type: debug,   arch: universal }
+          # Windows amd64 (x64) — host build on the x64 runner
+          - { platform: windows, runner: windows-latest, type: release, arch: amd64, winarch: x64 }
+          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64, winarch: x64 }
+          # Windows arm64 — host build on the Windows-on-Arm runner
+          #   (windows-11-arm, public preview, free for public repos)
+          - { platform: windows, runner: windows-11-arm, type: release, arch: arm64, winarch: arm64 }
+          - { platform: windows, runner: windows-11-arm, type: debug,   arch: arm64, winarch: arm64 }
+          # macOS Intel (x64) — must run on an Intel runner (macos-15-intel),
+          #   since `flutter build macos` only builds the host architecture
+          - { platform: macos,   runner: macos-15-intel, type: release, arch: x64 }
+          - { platform: macos,   runner: macos-15-intel, type: debug,   arch: x64 }
+          # macOS Apple Silicon (arm64) — runs on the Apple Silicon runner
+          - { platform: macos,   runner: macos-latest, type: release, arch: arm64 }
+          - { platform: macos,   runner: macos-latest, type: debug,   arch: arm64 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -90,10 +96,10 @@ jobs:
           CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
         run: flutter build windows --${{ matrix.type }}
 
-      # ---- macOS (--universal = x64 + arm64 in one bundle) ----
+      # ---- macOS (host arch only; x64 on Intel runner, arm64 on Apple Silicon runner) ----
       - name: Build macOS (${{ matrix.arch }}, ${{ matrix.type }})
         if: matrix.platform == 'macos'
-        run: flutter build macos --${{ matrix.type }} --universal
+        run: flutter build macos --${{ matrix.type }}
 
       # ---- Package & Upload ----
       - name: Upload Android
@@ -122,7 +128,7 @@ jobs:
       - name: Package Windows
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Compress-Archive -Path "build\windows\x64\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
+        run: Compress-Archive -Path "build\windows\${{ matrix.winarch }}\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
       - name: Upload Windows
         if: matrix.platform == 'windows'
         uses: softprops/action-gh-release@v2
