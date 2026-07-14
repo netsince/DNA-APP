@@ -132,7 +132,7 @@ class ExportedCharacter {
     );
   }
 
-  TA toTA() {
+  TA toTA({Map<String, dynamic>? protection}) {
     return TA(
       id: id,
       name: name,
@@ -413,7 +413,7 @@ class TaExportImportService {
     final exported = package.character;
 
     // 构建TA对象（protection 含完整溯源包，原样保留，不编不改）
-    final ta = exported.toTA();
+    final ta = exported.toTA(protection: package.protection);
 
     return ExportImportResult(
       success: true,

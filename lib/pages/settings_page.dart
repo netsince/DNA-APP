@@ -9,6 +9,7 @@ import '../models/service_results.dart';
 import '../services/auth_service.dart';
 import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
+import '../services/app_icon_service.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
@@ -42,6 +43,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _requireAuthForApp = false;
   bool _showSplashAnimation = true;
   bool _authAvailable = false;
+  final bool _androidSupported = AppIconService.isSupported;
+  String _selectedIconKey = 'default';
   late PromptStrategy _promptStrategy;
   bool _exporting = false;
   bool _importing = false;
@@ -67,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _requireAuthForArchive = settings.requireAuthForArchive;
     _requireAuthForApp = settings.requireAuthForApp;
     _showSplashAnimation = settings.showSplashAnimation;
+    _selectedIconKey = settings.appIcon;
     _commandController = TextEditingController();
     _checkAuthAvailability();
   }
@@ -248,6 +252,18 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     showSnack(context, '开场动画设置已保存。');
+  }
+
+  Future<void> _selectIcon(AppIconOption option) async {
+    if (_selectedIconKey == option.key) {
+      return;
+    }
+    setState(() => _selectedIconKey = option.key);
+    await widget.controller.saveAppIcon(option);
+    if (!mounted) {
+      return;
+    }
+    showSnack(context, '应用图标已切换，返回桌面即可看到效果。');
   }
 
   Future<void> _runCommand() async {
@@ -890,6 +906,65 @@ class _SettingsPageState extends State<SettingsPage> {
                               },
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text('应用图标', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          if (!_androidSupported)
+                            Text(
+                              '应用图标切换仅支持 Android 平台。',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontSize: 12,
+                              ),
+                            )
+                          else
+                            const Text('选择启动器上显示的图标。'),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: AppIconService.availableOptions
+                                .map(
+                                  (AppIconOption option) => ChoiceChip(
+                                    selected: _selectedIconKey == option.key,
+                                    onSelected: _androidSupported
+                                        ? (_) => _selectIcon(option)
+                                        : null,
+                                    label: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.asset(
+                                            option.assetPath,
+                                            width: 36,
+                                            height: 36,
+                                            errorBuilder: (
+                                              BuildContext ctx,
+                                              Object err,
+                                              StackTrace? st,
+                                            ) =>
+                                                const Icon(Icons.android),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(option.label),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                         ],
                       ),
                     ),

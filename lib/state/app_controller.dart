@@ -13,6 +13,7 @@ import '../models/world.dart';
 import '../services/openai_service.dart';
 
 import '../services/settings_service.dart';
+import '../services/app_icon_service.dart';
 import '../services/ta_service.dart';
 import '../services/hive_service.dart';
 import '../services/data_backup_service.dart';
@@ -53,6 +54,17 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 启动后恢复用户选择的应用图标（仅 Android；失败不影响启动）
+    if (AppIconService.isSupported) {
+      try {
+        final AppIconOption current = _settings.appIcon == AppIconOption.alternate.key
+            ? AppIconOption.alternate
+            : AppIconOption.defaultIcon;
+        await AppIconService.setIcon(current);
+      } catch (_) {
+        // 忽略：系统未准备好或切换失败都不应阻塞应用启动
+      }
+    }
     _tas = await _hiveService.getTas();
     _worlds = await _hiveService.getWorlds();
     final allConversations = await _hiveService.getConversations();
@@ -138,6 +150,20 @@ class AppController extends ChangeNotifier {
   Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
     _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
     await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
+  Future<void> saveAppIcon(AppIconOption option) async {
+    _settings = _settings.copyWith(appIcon: option.key);
+    await _settingsService.save(_settings);
+    if (AppIconService.isSupported) {
+      try {
+        await AppIconService.setIcon(option);
+      } catch (e) {
+        debugPrint('切换应用图标失败：$e');
+      }
+    }
     notifyListeners();
   }
 

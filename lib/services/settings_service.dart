@@ -18,6 +18,7 @@ class SettingsService {
   static const String _requireAuthForArchiveKey = 'require_auth_for_archive';
   static const String _requireAuthForAppKey = 'require_auth_for_app';
   static const String _showSplashAnimationKey = 'show_splash_animation';
+  static const String _appIconKey = 'app_icon';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -46,6 +47,7 @@ class SettingsService {
       requireAuthForArchive: prefs.getBool(_requireAuthForArchiveKey) ?? false,
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
+      appIcon: prefs.getString(_appIconKey) ?? 'default',
     );
   }
 
@@ -63,5 +65,6 @@ class SettingsService {
     await prefs.setBool(_requireAuthForArchiveKey, settings.requireAuthForArchive);
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
+    await prefs.setString(_appIconKey, settings.appIcon);
   }
 }

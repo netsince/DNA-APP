@@ -14,6 +14,7 @@ class AppSettings {
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
     required this.showSplashAnimation,
+    required this.appIcon,
   });
 
   factory AppSettings.empty() {
@@ -30,6 +31,7 @@ class AppSettings {
       requireAuthForArchive: false,
       requireAuthForApp: false,
       showSplashAnimation: true,
+      appIcon: 'default',
     );
   }
 
@@ -45,6 +47,7 @@ class AppSettings {
   final bool requireAuthForArchive;
   final bool requireAuthForApp;
   final bool showSplashAnimation;
+  final String appIcon;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -60,6 +63,7 @@ class AppSettings {
       'requireAuthForArchive': requireAuthForArchive,
       'requireAuthForApp': requireAuthForApp,
       'showSplashAnimation': showSplashAnimation,
+      'appIcon': appIcon,
     };
   }
 
@@ -83,6 +87,7 @@ class AppSettings {
       requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      appIcon: (json['appIcon'] as String?) ?? 'default',
     );
   }
 
@@ -99,6 +104,7 @@ class AppSettings {
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
     bool? showSplashAnimation,
+    String? appIcon,
   }) {
     return AppSettings(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -113,6 +119,7 @@ class AppSettings {
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+      appIcon: appIcon ?? this.appIcon,
     );
   }
 }
