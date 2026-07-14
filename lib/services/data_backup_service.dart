@@ -127,7 +127,8 @@ class DataBackupService {
           if (imagePath.isNotEmpty) {
             final File file = File(imagePath);
             if (file.existsSync()) {
-              final String name = path.basename(imagePath);
+              // 用 TA id + slot + 原文件名拼接，避免不同 TA 引用同名图片时互相覆盖
+              final String name = '${ta.id}_${slot}_${path.basename(imagePath)}';
               portableImages[slot] = name;
               final List<int> bytes = file.readAsBytesSync();
               archive.addFile(ArchiveFile('$_imageDir/$name', bytes.length, bytes));

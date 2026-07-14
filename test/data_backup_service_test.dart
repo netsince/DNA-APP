@@ -131,9 +131,11 @@ void main() {
         expect(build.success, isTrue);
 
         final ParsedBackup backup = DataBackupService.parseZip(build.data!).data!;
-        // 解析后图片以相对文件名表示
-        expect(backup.tas.first.images['avatar'], 'avatar.png');
-        expect(backup.imageBytes.containsKey('avatar.png'), isTrue);
+        // 解析后图片以「TA id_slot_原文件名」的相对名表示
+        final String relName = backup.tas.first.images['avatar']!;
+        expect(relName, startsWith('ta-img_avatar_'));
+        expect(relName, endsWith('.png'));
+        expect(backup.imageBytes.containsKey(relName), isTrue);
 
         final Directory outDir = Directory('${tempDir.path}/out')..createSync();
         final List<TA> resolved = DataBackupService.resolveTasImages(
@@ -154,6 +156,49 @@ void main() {
       final ExportImportResult<ParsedBackup> parsed =
           DataBackupService.parseZip(Uint8List.fromList(ZipEncoder().encode(archive)));
       expect(parsed.success, isFalse);
+    });
+
+    test('多个 TA 引用同名图片不互相覆盖', () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('dna_collide_');
+      try {
+        final List<int> bytesA = <int>[10, 20, 30];
+        final List<int> bytesB = <int>[99, 88, 77];
+        // 两个不同目录下放同名（avatar.png）但内容不同的图片
+        final Directory dirA = Directory('${tempDir.path}/a')..createSync();
+        final Directory dirB = Directory('${tempDir.path}/b')..createSync();
+        final File imgA = File('${dirA.path}/avatar.png')..writeAsBytesSync(bytesA);
+        final File imgB = File('${dirB.path}/avatar.png')..writeAsBytesSync(bytesB);
+
+        final TA taA = _buildTa(id: 'ta-a', images: <String, String>{'avatar': imgA.path});
+        final TA taB = _buildTa(id: 'ta-b', images: <String, String>{'avatar': imgB.path});
+
+        final ExportImportResult<Uint8List> build = await DataBackupService.buildZip(
+          tas: [taA, taB],
+          worlds: const <World>[],
+          conversations: const <Conversation>[],
+        );
+        expect(build.success, isTrue);
+
+        final ParsedBackup backup = DataBackupService.parseZip(build.data!).data!;
+        expect(backup.tas.length, 2);
+        final String relA = backup.tas.first.images['avatar']!;
+        final String relB = backup.tas.last.images['avatar']!;
+        // 两个相对名必须不同
+        expect(relA, isNot(equals(relB)));
+        expect(backup.imageBytes[relA], bytesA);
+        expect(backup.imageBytes[relB], bytesB);
+
+        final Directory outDir = Directory('${tempDir.path}/out')..createSync();
+        final List<TA> resolved = DataBackupService.resolveTasImages(
+          backup.tas,
+          backup.imageBytes,
+          outDir.path,
+        );
+        expect(File(resolved[0].images['avatar']!).readAsBytesSync(), bytesA);
+        expect(File(resolved[1].images['avatar']!).readAsBytesSync(), bytesB);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
     });
   });
 
