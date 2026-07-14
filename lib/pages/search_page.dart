@@ -50,11 +50,11 @@ class _SearchPageState extends State<SearchPage> {
       setState(() {
         _results = searchGlobal(
           query: value,
-          tas: widget.controller.tas,
-          worlds: widget.controller.worlds,
+          tas: widget.controller.activeTas,
+          worlds: widget.controller.activeWorlds,
           conversations: <Conversation>[
-            ...widget.controller.conversations,
-            ...widget.controller.groupConversations,
+            ...widget.controller.activeConversations,
+            ...widget.controller.activeGroupConversations,
           ],
         );
       });
