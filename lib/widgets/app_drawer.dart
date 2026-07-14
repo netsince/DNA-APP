@@ -5,6 +5,7 @@ import '../pages/group_home_page.dart';
 import '../pages/my_home_page.dart';
 import '../pages/settings_page.dart';
 import '../pages/world_page.dart';
+import '../pages/search_page.dart';
 import '../state/app_controller.dart';
 
 enum AppSection { home, groupChats, myHome, world, settings }
@@ -59,6 +60,19 @@ class AppDrawer extends StatelessWidget {
                 Text('与汝共奏', style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.search_outlined),
+            title: const Text('搜索'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      SearchPage(controller: controller),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.home_outlined),

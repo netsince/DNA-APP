@@ -13,6 +13,7 @@ import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
 import 'conversation_create_page.dart';
 import 'conversation_edit_page.dart';
+import 'search_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
@@ -71,6 +72,18 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(_showArchived ? '归档' : '消息'),
         actions: <Widget>[
+          IconButton(
+            tooltip: '搜索',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      SearchPage(controller: widget.controller),
+                ),
+              );
+            },
+            icon: const Icon(Icons.search_outlined),
+          ),
           IconButton(
             tooltip: _showArchived ? '查看消息' : '查看归档',
             onPressed: _toggleArchived,
