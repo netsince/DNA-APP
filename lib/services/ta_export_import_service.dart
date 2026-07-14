@@ -7,30 +7,7 @@ import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../utils/id_utils.dart';
 
-String _obfuscate(String str) {
-  final hex = str.codeUnits.map((c) => c.toRadixString(16).padLeft(2, '0')).join();
-  String result = '';
-  for (int i = 0; i < hex.length; i += 2) {
-    result = hex.substring(i, i + 2) + result;
-  }
-  return result;
-}
 
-String _deobfuscate(dynamic raw) {
-  if (raw == null || raw.toString().trim().isEmpty) return '';
-  final str = raw.toString();
-  String reversed = '';
-  for (int i = 0; i < str.length; i += 2) {
-    reversed = str.substring(i, i + 2) + reversed;
-  }
-  try {
-    return String.fromCharCodes(
-      RegExp(r'.{1,2}').allMatches(reversed).map((m) => int.parse(m.group(0)!, radix: 16))
-    );
-  } catch (_) {
-    return str;
-  }
-}
 
 /// 导出导入结果
 class ExportImportResult<T> {
@@ -171,11 +148,16 @@ class ExportedCharacter {
                 assistant: d['assistant'] ?? '',
               ))
           .toList(),
+      originalLink: protection?['originalLink'] as String?,
+      protection: protection,
     );
   }
 }
 
 /// 导出包数据
+///
+/// 溯源字段（originalLink / _lk / 图片槽 fx、dataverification / Tips）由平台注入，
+/// 客户端只做「完整存储 + 原样透传」，绝不自行生成或改写，避免溯源信息失真。
 class ExportPackage {
   const ExportPackage({
     required this.version,
@@ -183,7 +165,7 @@ class ExportPackage {
     required this.exportedAt,
     required this.compressed,
     required this.character,
-    this.originalLink,
+    this.protection,
   });
 
   final int version;
@@ -191,12 +173,10 @@ class ExportPackage {
   final String exportedAt;
   final bool compressed;
   final ExportedCharacter character;
-  final String? originalLink;
+  /// 平台注入的溯源包原样存储（originalLink / _lk / Tips / images[slot].fx、dataverification）
+  final Map<String, dynamic>? protection;
 
   Map<String, dynamic> toJson() {
-    final hasLink = originalLink != null && originalLink!.isNotEmpty;
-    final encoded = hasLink ? _obfuscate(originalLink!) : null;
-
     final Map<String, dynamic> result = {
       'version': version,
       'exportType': exportType,
@@ -205,74 +185,56 @@ class ExportPackage {
       'character': character.toJson(),
     };
 
-    // Only include protection fields when this card has an original link
-    if (hasLink) {
-      final Map<String, dynamic> trackingData = {
-        'pd': 'dna-client',
-        'up': originalLink,
-        'ct': DateTime.now().toUtc().toIso8601String(),
-      };
-      final dataverificationValue = _obfuscate(jsonEncode(trackingData));
-
-      result['_lk'] = encoded;
-      result['originalLink'] = originalLink;
-
-      // Embed hidden fx and dataverification fields in all images
-      final charMap = result['character'] as Map<String, dynamic>;
-      final imagesMap = charMap['images'] as Map<String, dynamic>?;
-      if (imagesMap != null) {
-        for (final targetKey in ['square', 'landscape', 'portrait']) {
-          if (imagesMap[targetKey] is Map<String, dynamic>) {
-            final img = imagesMap[targetKey] as Map<String, dynamic>;
-            img['fx'] = encoded;
-            img['dataverification'] = dataverificationValue;
-          } else {
-            imagesMap[targetKey] = {'fx': encoded, 'dataverification': dataverificationValue};
+    // 原样放回平台注入的溯源字段（不重新生成、不改写）
+    final p = protection;
+    if (p != null && p.isNotEmpty) {
+      if (p['originalLink'] != null) result['originalLink'] = p['originalLink'];
+      if (p['_lk'] != null) result['_lk'] = p['_lk'];
+      if (p['Tips'] != null) result['Tips'] = p['Tips'];
+      final imgs = p['images'];
+      if (imgs is Map) {
+        final charImages = (result['character'] as Map<String, dynamic>)['images'];
+        if (charImages is Map) {
+          for (final slot in ['square', 'landscape', 'portrait']) {
+            final slotP = imgs[slot];
+            final img = charImages[slot];
+            if (slotP is Map && img is Map) {
+              final target = img as Map<String, dynamic>;
+              if (slotP['fx'] != null) target['fx'] = slotP['fx'];
+              if (slotP['dataverification'] != null) {
+                target['dataverification'] = slotP['dataverification'];
+              }
+            }
           }
         }
       }
     }
-
     return result;
   }
 
   static ExportPackage fromJson(Map<String, dynamic> json) {
-    String? originalLink;
+    // 完整保留溯源字段到 protection，原样透传，不解码、不丢弃
+    final Map<String, dynamic> p = {};
+    if (json['originalLink'] != null) p['originalLink'] = json['originalLink'];
+    if (json['_lk'] != null) p['_lk'] = json['_lk'];
+    if (json['Tips'] != null) p['Tips'] = json['Tips'];
 
-    // Priority 1: Check fx field inside images (most hidden)
-    final charData = json['character'] as Map<String, dynamic>?;
-    if (charData != null) {
-      final imagesData = charData['images'] as Map<String, dynamic>?;
-      if (imagesData != null) {
-        for (final key in ['square', 'landscape', 'portrait']) {
-          final img = imagesData[key] as Map<String, dynamic>?;
-          if (img != null && img.containsKey('fx')) {
-            String rawFx = img['fx'] as String? ?? '';
-            // Strip the [random10] checksum suffix if present
-            final bracketIdx = rawFx.indexOf('[');
-            if (bracketIdx > 0) {
-              rawFx = rawFx.substring(0, bracketIdx);
-            }
-            final decoded = _deobfuscate(rawFx);
-            if (decoded.isNotEmpty) {
-              originalLink = decoded;
-              break;
-            }
+    final charData = json['character'];
+    if (charData is Map<String, dynamic> && charData['images'] is Map) {
+      final imgs = <String, dynamic>{};
+      final rawImgs = charData['images'] as Map;
+      for (final slot in ['square', 'landscape', 'portrait']) {
+        final img = rawImgs[slot];
+        if (img is Map) {
+          final slotP = <String, dynamic>{};
+          if (img['fx'] != null) slotP['fx'] = img['fx'];
+          if (img['dataverification'] != null) {
+            slotP['dataverification'] = img['dataverification'];
           }
+          if (slotP.isNotEmpty) imgs[slot] = slotP;
         }
       }
-    }
-
-    // Priority 2: Check _lk field (obfuscated)
-    if (originalLink == null && json.containsKey('_lk')) {
-      final decoded = _deobfuscate(json['_lk']);
-      if (decoded.isNotEmpty) originalLink = decoded;
-    }
-
-    // Priority 3: Check originalLink field (plaintext decoy)
-    if (originalLink == null && json.containsKey('originalLink')) {
-      final raw = json['originalLink'] as String?;
-      if (raw != null && raw.isNotEmpty) originalLink = raw;
+      if (imgs.isNotEmpty) p['images'] = imgs;
     }
 
     return ExportPackage(
@@ -283,7 +245,7 @@ class ExportPackage {
       character: ExportedCharacter.fromJson(
         json['character'] as Map<String, dynamic>,
       ),
-      originalLink: originalLink,
+      protection: p.isNotEmpty ? p : null,
     );
   }
 }
@@ -393,7 +355,7 @@ class TaExportImportService {
         exportedAt: DateTime.now().toUtc().toIso8601String(),
         compressed: compressImages,
         character: exportedCharacter,
-        originalLink: character.originalLink,
+        protection: character.protection,
       );
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(package.toJson());
@@ -450,16 +412,13 @@ class TaExportImportService {
     final package = ExportPackage.fromJson(decoded);
     final exported = package.character;
 
-    // 构建TA对象（保留originalLink）
+    // 构建TA对象（protection 含完整溯源包，原样保留，不编不改）
     final ta = exported.toTA();
-    final taWithLink = (package.originalLink != null && package.originalLink!.isNotEmpty)
-        ? ta.copyWith(originalLink: package.originalLink)
-        : ta;
 
     return ExportImportResult(
       success: true,
       data: ImportResult(
-        ta: taWithLink,
+        ta: ta,
         idConflict: false, // 由调用方检查
         existingId: null,
       ),

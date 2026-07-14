@@ -13,6 +13,7 @@ class TA {
     required this.dialogueStyle,
     this.archived = false,
     this.originalLink,
+    this.protection,
   });
 
   final String id;
@@ -26,6 +27,9 @@ class TA {
   final List<DialogueTurn> dialogueStyle;
   final bool archived;
   final String? originalLink;
+  /// 隐蔽列：完整存平台注入的溯源包（originalLink / _lk / 图片槽 fx、dataverification / Tips）。
+  /// 客户端只存不编，导出时原样透传，UI 不展示，避免溯源信息失真。
+  final Map<String, dynamic>? protection;
 
   TA copyWith({
     String? name,
@@ -38,6 +42,7 @@ class TA {
     List<DialogueTurn>? dialogueStyle,
     bool? archived,
     String? originalLink,
+    Map<String, dynamic>? protection,
   }) {
     return TA(
       id: id,
@@ -51,6 +56,7 @@ class TA {
       dialogueStyle: dialogueStyle ?? this.dialogueStyle,
       archived: archived ?? this.archived,
       originalLink: originalLink ?? this.originalLink,
+      protection: protection ?? this.protection,
     );
   }
 
@@ -67,6 +73,7 @@ class TA {
       'dialogueStyle': dialogueStyle.map((DialogueTurn t) => t.toJson()).toList(),
       'archived': archived,
       'originalLink': originalLink,
+      'protection': protection,
     };
   }
 
@@ -89,6 +96,7 @@ class TA {
           : raw.whereType<Map<String, dynamic>>().map(DialogueTurn.fromJson).toList(),
       archived: (json['archived'] as bool?) ?? false,
       originalLink: json['originalLink'] as String?,
+      protection: json['protection'] as Map<String, dynamic>?,
     );
   }
 }
