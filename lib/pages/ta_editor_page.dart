@@ -217,7 +217,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('导入角色'),
-        content: const Text('将从剪贴板读取角色数据并导入。请确保剪贴板中包含有效的导出数据。'),
+        content: const Text('将从剪贴板读取角色数据并导入。支持本应用导出格式与酒馆（SillyTavern）角色卡 JSON。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -253,41 +253,30 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     final importedTA = importResult.data!.ta;
 
-    // 检查ID冲突
+    // 检查ID冲突：永不覆盖，命中则自动改用新 ID 导入为新角色
+    TA taToImport = importedTA;
     final existingTA = widget.controller.getTaById(importedTA.id);
+    if (existingTA != null) {
+      taToImport = TA(
+        id: newId(),
+        name: importedTA.name,
+        gender: importedTA.gender,
+        persona: importedTA.persona,
+        intro: importedTA.intro,
+        opening: importedTA.opening,
+        tags: importedTA.tags,
+        images: importedTA.images,
+        dialogueStyle: importedTA.dialogueStyle,
+        archived: importedTA.archived,
+        originalLink: importedTA.originalLink,
+      );
+      if (!mounted) return;
+      showSnack(context, 'ID 与已有角色冲突，已自动创建为新角色');
+    }
 
     if (!mounted) return;
-
-    if (existingTA != null) {
-      // ID冲突，询问用户
-      final action = await _showConflictDialog(existingTA.name);
-
-      if (action == null || !mounted) return;
-
-      if (action == _ConflictAction.cancel) {
-        return;
-      } else if (action == _ConflictAction.overwrite) {
-        // 保留图片（如果需要）
-        await _importWithImages(importedTA, existingTA.images);
-      } else if (action == _ConflictAction.createNew) {
-        // 创建新角色 - 重新构建TA以使用新ID
-        final newTA = TA(
-          id: newId(),
-          name: importedTA.name,
-          gender: importedTA.gender,
-          persona: importedTA.persona,
-          intro: importedTA.intro,
-          opening: importedTA.opening,
-          tags: importedTA.tags,
-          images: {},
-          dialogueStyle: importedTA.dialogueStyle,
-        );
-        await _importWithImages(newTA, {});
-      }
-    } else {
-      // 无冲突，直接导入
-      await _importWithImages(importedTA, {});
-    }
+    // 永不覆盖已有角色，故图片回落始终为空（图片从导入包内恢复）
+    await _importWithImages(taToImport, {});
   }
 
   Future<void> _importWithImages(TA ta, Map<String, String> existingImages) async {
@@ -302,13 +291,16 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     final Map<String, String> newImages = {};
 
-    // 从ExportedCharacter中恢复图片
+    // 从导出包中恢复图片（仅本应用格式内嵌图片；酒馆角色卡无此结构，跳过）
     final pasteResult = await TaExportImportService.pasteFromClipboard();
     if (pasteResult.success) {
-      final decoded = jsonDecode(pasteResult.data!);
-      final package = ExportPackage.fromJson(decoded);
+      try {
+        final decoded = jsonDecode(pasteResult.data!);
+        if (decoded is Map<String, dynamic> &&
+            (decoded.containsKey('character') || decoded.containsKey('exportType'))) {
+          final package = ExportPackage.fromJson(decoded);
 
-      for (final entry in package.character.images.entries) {
+          for (final entry in package.character.images.entries) {
         final slot = entry.key;
         final imageInfo = entry.value;
 
@@ -328,6 +320,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
         } else if (existingImages.containsKey(slot)) {
           newImages[slot] = existingImages[slot]!;
         }
+      }
+      }
+      } catch (_) {
+        // 非本应用格式（如酒馆角色卡）无内嵌图片，忽略
       }
     }
 
@@ -351,30 +347,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
     });
 
     showSnack(context, '导入成功');
-  }
-
-  Future<_ConflictAction?> _showConflictDialog(String existingName) async {
-    return showDialog<_ConflictAction>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('角色已存在'),
-        content: Text('ID与现有角色 "$existingName" 冲突，请选择操作：'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(_ConflictAction.cancel),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(_ConflictAction.createNew),
-            child: const Text('创建为新角色'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(_ConflictAction.overwrite),
-            child: const Text('覆盖现有角色'),
-          ),
-        ],
-      ),
-    );
   }
 
   String _getExtensionFromMimeType(String dataUri) {
@@ -615,12 +587,6 @@ class _ImageSlot extends StatelessWidget {
       ],
     );
   }
-}
-
-enum _ConflictAction {
-  cancel,
-  overwrite,
-  createNew,
 }
 
 class _AdaptiveTextField extends StatefulWidget {

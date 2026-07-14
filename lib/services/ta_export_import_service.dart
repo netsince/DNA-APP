@@ -5,6 +5,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
+import '../utils/id_utils.dart';
 
 String _obfuscate(String str) {
   final hex = str.codeUnits.map((c) => c.toRadixString(16).padLeft(2, '0')).join();
@@ -402,7 +403,11 @@ class TaExportImportService {
     }
   }
 
-  /// 从JSON字符串导入角色
+  /// 从JSON字符串导入角色。
+  ///
+  /// 兼容两种格式：
+  /// 1. 本应用导出的格式（含 character/exportType 字段）
+  /// 2. 酒馆（SillyTavern）角色卡 JSON（chara_card_v1/v2/v3）
   static ExportImportResult<ImportResult> importCharacter(String jsonString) {
     try {
       final decoded = jsonDecode(jsonString);
@@ -413,34 +418,160 @@ class TaExportImportService {
         );
       }
 
-      final version = decoded['version'] as int?;
-      if (version == null || version > _currentVersion) {
-        return ExportImportResult(
-          success: false,
-          message: '不支持的版本: $version (当前支持: $_currentVersion)',
-        );
+      // 优先尝试本应用格式
+      if (decoded.containsKey('character') || decoded.containsKey('exportType')) {
+        return _importOwnFormat(decoded);
       }
 
-      final package = ExportPackage.fromJson(decoded);
-      final exported = package.character;
+      // 酒馆（SillyTavern）角色卡
+      if (_looksLikeSillyTavern(decoded)) {
+        return _importSillyTavern(decoded);
+      }
 
-      // 构建TA对象（保留originalLink）
-      final ta = exported.toTA();
-      final taWithLink = (package.originalLink != null && package.originalLink!.isNotEmpty)
-          ? ta.copyWith(originalLink: package.originalLink)
-          : ta;
-
-      return ExportImportResult(
-        success: true,
-        data: ImportResult(
-          ta: taWithLink,
-          idConflict: false, // 由调用方检查
-          existingId: null,
-        ),
+      return const ExportImportResult(
+        success: false,
+        message: '不支持的文件格式：既不是本应用导出文件，也不是酒馆角色卡',
       );
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败: $e');
     }
+  }
+
+  /// 解析本应用导出的格式
+  static ExportImportResult<ImportResult> _importOwnFormat(Map<String, dynamic> decoded) {
+    final version = decoded['version'] as int?;
+    if (version == null || version > _currentVersion) {
+      return ExportImportResult(
+        success: false,
+        message: '不支持的版本: $version (当前支持: $_currentVersion)',
+      );
+    }
+
+    final package = ExportPackage.fromJson(decoded);
+    final exported = package.character;
+
+    // 构建TA对象（保留originalLink）
+    final ta = exported.toTA();
+    final taWithLink = (package.originalLink != null && package.originalLink!.isNotEmpty)
+        ? ta.copyWith(originalLink: package.originalLink)
+        : ta;
+
+    return ExportImportResult(
+      success: true,
+      data: ImportResult(
+        ta: taWithLink,
+        idConflict: false, // 由调用方检查
+        existingId: null,
+      ),
+    );
+  }
+
+  /// 判断是否为酒馆（SillyTavern）角色卡
+  static bool _looksLikeSillyTavern(Map<String, dynamic> json) {
+    final String spec = json['spec']?.toString() ?? '';
+    if (spec.startsWith('chara_card')) return true;
+
+    final dynamic data = json['data'];
+    if (data is Map<String, dynamic> &&
+        data.containsKey('name') &&
+        (data.containsKey('description') || data.containsKey('first_mes'))) {
+      return true;
+    }
+
+    // v1 扁平结构（无 spec 时）
+    if (json.containsKey('name') &&
+        !json.containsKey('exportType') &&
+        !json.containsKey('character') &&
+        (json.containsKey('description') || json.containsKey('first_mes'))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// 解析酒馆（SillyTavern）角色卡为 TA
+  static ExportImportResult<ImportResult> _importSillyTavern(Map<String, dynamic> json) {
+    // 定位数据节点：v2/v3 嵌套在 data 中，v1 为扁平结构
+    final Map<String, dynamic> data;
+    final dynamic rawData = json['data'];
+    if (rawData is Map<String, dynamic>) {
+      data = rawData;
+    } else {
+      data = json;
+    }
+
+    final String name = (data['name'] as String?) ?? '';
+    final String description = (data['description'] as String?) ?? '';
+    final String personality = (data['personality'] as String?) ?? '';
+    final String scenario = (data['scenario'] as String?) ?? '';
+    final String firstMes = (data['first_mes'] as String?) ?? '';
+    final String mesExample = (data['mes_example'] as String?) ?? '';
+    final List<String> tags = (data['tags'] as List?)
+            ?.whereType<dynamic>()
+            .map((dynamic e) => e.toString())
+            .toList() ??
+        <String>[];
+
+    // 简介：将性格与情境合并，便于在本应用中保留信息
+    final List<String> introParts = <String>[];
+    if (personality.trim().isNotEmpty) introParts.add(personality.trim());
+    if (scenario.trim().isNotEmpty) introParts.add(scenario.trim());
+    final String intro = introParts.join('\n\n');
+
+    // 示例对话：尽力解析为对话风格
+    final List<DialogueTurn> dialogueStyle = _parseExampleDialogue(mesExample);
+
+    final TA ta = TA(
+      id: newId(),
+      name: name,
+      gender: '无性',
+      persona: description,
+      intro: intro,
+      opening: firstMes,
+      tags: tags,
+      images: {},
+      dialogueStyle: dialogueStyle,
+    );
+
+    return ExportImportResult(
+      success: true,
+      data: ImportResult(
+        ta: ta,
+        idConflict: false, // 由调用方检查
+        existingId: null,
+      ),
+    );
+  }
+
+  /// 尽力解析酒馆示例对话（mes_example）为对话风格列表。
+  ///
+  /// 支持 {{user}}: / {{char}}: 标记格式，忽略多行续写与未知行。
+  static List<DialogueTurn> _parseExampleDialogue(String raw) {
+    if (raw.trim().isEmpty) return <DialogueTurn>[];
+    final List<DialogueTurn> turns = <DialogueTurn>[];
+    String? userText;
+    for (final String rawLine in raw.split('\n')) {
+      final String line = rawLine.trim();
+      if (line.isEmpty || line == '<START>' || line == '<start>') continue;
+      final RegExpMatch? userM =
+          RegExp(r'^\{\{user\}\}\s*:?\s*(.*)$', caseSensitive: false).firstMatch(line);
+      final RegExpMatch? charM =
+          RegExp(r'^\{\{char\}\}\s*:?\s*(.*)$', caseSensitive: false).firstMatch(line);
+      if (userM != null) {
+        if (userText != null) {
+          turns.add(DialogueTurn(user: userText, assistant: ''));
+        }
+        userText = userM.group(1)!.trim();
+      } else if (charM != null) {
+        final String assistant = charM.group(1)!.trim();
+        turns.add(DialogueTurn(user: userText ?? '', assistant: assistant));
+        userText = null;
+      }
+    }
+    if (userText != null) {
+      turns.add(DialogueTurn(user: userText, assistant: ''));
+    }
+    return turns;
   }
 
   /// 复制导出内容到剪贴板
