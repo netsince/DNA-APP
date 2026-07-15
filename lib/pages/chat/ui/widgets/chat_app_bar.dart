@@ -27,6 +27,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onForceSummary,
     required this.onToggleTokens,
     required this.onManageSnapshots,
+    required this.onExport,
     required this.backgroundMode,
     required this.ta,
     this.titleOverride,
@@ -48,6 +49,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Future<void> Function() onForceSummary;
   final VoidCallback onToggleTokens;
   final Future<void> Function() onManageSnapshots;
+  final Future<void> Function() onExport;
   final String backgroundMode;
   final TA? ta;
   final String? titleOverride;
@@ -117,6 +119,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onSelected: (String value) {
                   if (value == 'archive') {
                     onManageSnapshots();
+                  } else if (value == 'export') {
+                    onExport();
                   } else if (value == 'search') {
                     onToggleSearch();
                   } else if (value == 'tokens') {
@@ -158,6 +162,13 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: const ListTile(
                       leading: Icon(Icons.numbers),
                       title: Text('显示字数/Token'),
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'export',
+                    child: ListTile(
+                      leading: Icon(Icons.file_download_outlined),
+                      title: Text('导出对话'),
                     ),
                   ),
                   const PopupMenuItem<String>(

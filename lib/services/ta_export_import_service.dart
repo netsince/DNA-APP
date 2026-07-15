@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../utils/id_utils.dart';
@@ -577,6 +579,65 @@ class TaExportImportService {
       return ExportImportResult(success: true, data: targetPath);
     } catch (e) {
       return ExportImportResult(success: false, message: '保存图片失败: $e');
+    }
+  }
+
+  /// 从 data URI 推断文件扩展名
+  static String _getExtensionFromMimeType(String dataUri) {
+    final String mime = dataUri.split(';').first.replaceFirst('data:', '');
+    switch (mime) {
+      case 'image/png':
+        return '.png';
+      case 'image/jpeg':
+        return '.jpg';
+      case 'image/webp':
+        return '.webp';
+      case 'image/gif':
+        return '.gif';
+      default:
+        return '.jpg';
+    }
+  }
+
+  /// 将导出包中的内嵌图片落盘到 ta 目录，返回补全 images 的 TA。
+  ///
+  /// [packageJson] 为本应用导出包（ExportPackage）结构。无内嵌图片时直接返回原 TA。
+  static Future<ExportImportResult<TA>> restoreTaImages(
+    TA ta,
+    Map<String, dynamic> packageJson,
+  ) async {
+    try {
+      final ExportPackage package = ExportPackage.fromJson(packageJson);
+
+      final Directory docDir = await getApplicationDocumentsDirectory();
+      final Directory taDir = Directory(path.join(docDir.path, 'tas'));
+      if (!await taDir.exists()) {
+        await taDir.create(recursive: true);
+      }
+
+      final Map<String, String> newImages = <String, String>{};
+      for (final MapEntry<String, ExportedImageInfo> entry
+          in package.character.images.entries) {
+        final String slot = entry.key;
+        final ExportedImageInfo imageInfo = entry.value;
+        if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
+          final String ext = _getExtensionFromMimeType(imageInfo.data!);
+          final String fileName = '${ta.id}_$slot$ext';
+          final String targetPath = path.join(taDir.path, fileName);
+          final ExportImportResult<String> save =
+              await saveBase64Image(imageInfo.data!, targetPath);
+          if (save.success) {
+            newImages[slot] = targetPath;
+          }
+        }
+      }
+
+      return ExportImportResult(
+        success: true,
+        data: ta.copyWith(images: newImages),
+      );
+    } catch (e) {
+      return ExportImportResult(success: false, message: '恢复角色图片失败：$e');
     }
   }
 

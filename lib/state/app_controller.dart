@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -18,6 +19,8 @@ import '../services/ta_service.dart';
 import '../services/hive_service.dart';
 import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
+import '../services/conversation_export_import_service.dart';
+import '../utils/id_utils.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -50,6 +53,19 @@ class AppController extends ChangeNotifier {
   List<Conversation> get activeConversations => _conversations.where((Conversation c) => !c.archived).toList();
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
   List<Conversation> get activeGroupConversations => _groupConversations.where((Conversation c) => !c.archived).toList();
+
+  /// 角色 ID -> 角色 映射（用于导出时解析说话人 / 内嵌角色卡）
+  Map<String, TA> get tasById {
+    final Map<String, TA> map = <String, TA>{};
+    for (final TA ta in _tas) {
+      map[ta.id] = ta;
+    }
+    return map;
+  }
+
+  /// 全部对话（单聊 + 群聊）
+  List<Conversation> get allConversations =>
+      <Conversation>[..._conversations, ..._groupConversations];
 
   Future<void> initialize() async {
     await _hiveService.init();
@@ -562,6 +578,200 @@ class AppController extends ChangeNotifier {
         ...newConvs.where((Conversation c) => c.isGroup),
       ];
 
+      await _hiveService.saveConversations(<Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ]);
+      notifyListeners();
+      return ExportImportResult(
+        success: true,
+        data: DataImportReport(
+          replaced: false,
+          tasCount: 0,
+          worldsCount: 0,
+          conversationsCount: newConvs.length,
+          backupPath: null,
+          backupError: null,
+        ),
+      );
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导入失败：$e');
+    }
+  }
+
+  /// 将指定对话导出为文本（JSON 或 Markdown）。
+  ///
+  /// [includeCharacterCards] 仅对 JSON 格式生效：为 true 时把角色卡（含图片与溯源）
+  /// 内嵌进导出文件，便于对方再次导入。
+  Future<ExportImportResult<ConversationExportResult>> exportConversationsById(
+    List<String> conversationIds, {
+    required bool includeCharacterCards,
+    required ConversationExportFormat format,
+  }) async {
+    try {
+      final List<Conversation> selected = allConversations
+          .where((Conversation c) => conversationIds.contains(c.id))
+          .toList();
+      if (selected.isEmpty) {
+        return const ExportImportResult(
+          success: false,
+          message: '没有可导出的对话',
+        );
+      }
+      final ConversationExportResult result =
+          await ConversationExportImportService.buildConversationExport(
+        conversations: selected,
+        tasById: tasById,
+        format: format,
+        includeCharacterCards: includeCharacterCards,
+      );
+      return ExportImportResult(success: true, data: result);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导出失败：$e');
+    }
+  }
+
+  /// 解析对话导入 JSON，返回结构化数据（供 UI 完成角色决议）
+  ExportImportResult<ConversationImportData> parseConversationImportJson(
+    String jsonString,
+  ) {
+    return ConversationExportImportService.parseConversationImport(jsonString);
+  }
+
+  /// 应用对话导入：先按决议处理角色（导入卡 / 替换为已有），再重映射对话中的角色 ID。
+  ///
+  /// [decisions] 需覆盖 [data] 中所有被引用的角色 ID。
+  Future<ExportImportResult<DataImportReport>> applyConversationImport(
+    ConversationImportData data,
+    List<CharacterImportDecision> decisions, {
+    required bool replaceAll,
+  }) async {
+    try {
+      final Map<String, String> taIdRemap = <String, String>{};
+
+      for (final CharacterImportDecision d in decisions) {
+        if (d.importAsNew) {
+          // 导入内嵌角色卡：解析 -> 处理 ID 冲突 -> 恢复图片 -> 落库
+          final Map<String, dynamic>? pkg = data.embeddedPackages[d.originalTaId];
+          if (pkg == null) {
+            return ExportImportResult(
+              success: false,
+              message: '角色 ${d.originalTaId} 没有可导入的角色卡',
+            );
+          }
+          final ExportImportResult<ImportResult> parsed =
+              TaExportImportService.importCharacter(jsonEncode(pkg));
+          if (!parsed.success || parsed.data == null) {
+            return ExportImportResult(
+              success: false,
+              message: parsed.message ?? '角色卡解析失败',
+            );
+          }
+          TA ta = parsed.data!.ta;
+          // ID 冲突：永不覆盖，自动改用新 ID 导入为新角色
+          if (getTaById(ta.id) != null) {
+            ta = ta.copyWith(id: newId());
+          }
+          final ExportImportResult<TA> withImages =
+              await TaExportImportService.restoreTaImages(ta, pkg);
+          if (!withImages.success || withImages.data == null) {
+            return ExportImportResult(
+              success: false,
+              message: withImages.message ?? '角色图片恢复失败',
+            );
+          }
+          await upsertTa(withImages.data!);
+          taIdRemap[d.originalTaId] = withImages.data!.id;
+        } else {
+          // 使用已有角色
+          if (d.existingTaId == null || d.existingTaId!.isEmpty) {
+            return ExportImportResult(
+              success: false,
+              message: '角色 ${d.originalTaId} 未选择对应已有角色',
+            );
+          }
+          taIdRemap[d.originalTaId] = d.existingTaId!;
+        }
+      }
+
+      // 重映射对话中的角色 ID
+      List<Conversation> incoming = data.conversations.map((Conversation c) {
+        final String newTaId = taIdRemap[c.taId] ?? c.taId;
+        final List<String> newMembers = c.memberTaIds
+            .map((String id) => taIdRemap[id] ?? id)
+            .toList();
+        final String? newActive = c.activeTaId == null
+            ? null
+            : (taIdRemap[c.activeTaId!] ?? c.activeTaId);
+        return c.copyWith(
+          taId: newTaId,
+          memberTaIds: newMembers,
+          activeTaId: newActive,
+        );
+      }).toList();
+
+      String? backupPath;
+      String? backupError;
+
+      if (replaceAll) {
+        final ExportImportResult<Uint8List> current = await exportConversations();
+        if (current.success && current.data != null) {
+          try {
+            final Directory docDir = await getApplicationDocumentsDirectory();
+            final Directory backupsDir =
+                Directory(path.join(docDir.path, 'dna_backups'));
+            if (!await backupsDir.exists()) {
+              await backupsDir.create(recursive: true);
+            }
+            final File backupFile = File(path.join(
+                backupsDir.path, 'DNA_conversations_${_timestamp()}.zip'));
+            await backupFile.writeAsBytes(current.data!);
+            backupPath = backupFile.path;
+          } catch (e) {
+            backupError = '$e';
+          }
+        } else {
+          backupError = current.message ?? '未知错误';
+        }
+
+        _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
+        _groupConversations =
+            incoming.where((Conversation c) => c.isGroup).toList();
+        await _hiveService.saveConversations(<Conversation>[
+          ..._conversations,
+          ..._groupConversations,
+        ]);
+        notifyListeners();
+        return ExportImportResult(
+          success: true,
+          data: DataImportReport(
+            replaced: true,
+            tasCount: 0,
+            worldsCount: 0,
+            conversationsCount:
+                _conversations.length + _groupConversations.length,
+            backupPath: backupPath,
+            backupError: backupError,
+          ),
+        );
+      }
+
+      // 仅追加：按 id 去重
+      final Set<String> existingIds = <String>{
+        ..._conversations.map((Conversation c) => c.id),
+        ..._groupConversations.map((Conversation c) => c.id),
+      };
+      final List<Conversation> newConvs =
+          incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
+
+      _conversations = <Conversation>[
+        ..._conversations,
+        ...newConvs.where((Conversation c) => !c.isGroup),
+      ];
+      _groupConversations = <Conversation>[
+        ..._groupConversations,
+        ...newConvs.where((Conversation c) => c.isGroup),
+      ];
       await _hiveService.saveConversations(<Conversation>[
         ..._conversations,
         ..._groupConversations,

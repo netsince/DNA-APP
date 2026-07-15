@@ -1,14 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../models/conversation.dart';
 import '../models/prompt_strategy.dart';
 import '../models/service_results.dart';
 import '../services/auth_service.dart';
 import '../services/data_backup_service.dart';
+import '../services/conversation_export_import_service.dart';
 import '../services/ta_export_import_service.dart';
+import '../widgets/conversation_export_import_dialogs.dart';
 import '../services/app_icon_service.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
@@ -385,8 +389,9 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     final PlatformFile file = picked.files.first;
+    final String? filePath = file.path;
     final Uint8List? bytes = file.bytes ??
-        (file.path != null ? await File(file.path!).readAsBytes() : null);
+        (filePath != null ? await File(filePath).readAsBytes() : null);
     if (bytes == null) {
       if (!mounted) {
         return;
@@ -430,11 +435,34 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _exportConversations() async {
+  Future<void> _exportSelectedConversations() async {
     setState(() => _exportingConv = true);
     try {
-      final ExportImportResult<Uint8List> result =
-          await widget.controller.exportConversations();
+      final List<Conversation> convs = widget.controller.allConversations;
+      final Map<String, String> nameById = <String, String>{};
+      for (final Conversation c in convs) {
+        nameById[c.id] = _conversationName(c);
+      }
+      final List<String>? selected = await showConversationPickerDialog(
+        context: context,
+        conversations: convs,
+        nameById: nameById,
+      );
+      if (selected == null || selected.isEmpty) {
+        return; // 用户取消或未选择
+      }
+      final ExportOptions? options = await showExportOptionsDialog(
+        context: context,
+      );
+      if (options == null) {
+        return; // 用户取消
+      }
+      final ExportImportResult<ConversationExportResult> result =
+          await widget.controller.exportConversationsById(
+        selected,
+        includeCharacterCards: options.includeCharacterCards,
+        format: options.format,
+      );
       if (!mounted) {
         return;
       }
@@ -442,22 +470,7 @@ class _SettingsPageState extends State<SettingsPage> {
         showSnack(context, result.message ?? '导出失败');
         return;
       }
-      final String? outPath = await FilePicker.platform.saveFile(
-        dialogTitle: '导出对话为 ZIP',
-        fileName: 'DNA_conversations_${_timestamp()}.zip',
-        type: FileType.custom,
-        allowedExtensions: <String>['zip'],
-      );
-      if (outPath == null) {
-        return; // 用户取消
-      }
-      final File file =
-          File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
-      await file.writeAsBytes(result.data!);
-      if (!mounted) {
-        return;
-      }
-      showSnack(context, '已导出到：${file.path}');
+      await handleExportResult(context, result.data!);
     } catch (e) {
       if (!mounted) {
         return;
@@ -470,25 +483,56 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _importConversations() async {
+  String _conversationName(Conversation c) {
+    if (c.isGroup) {
+      return c.groupName.trim().isNotEmpty ? c.groupName.trim() : '群聊';
+    }
+    final String? name = widget.controller.getTaById(c.taId)?.name;
+    return name != null && name.isNotEmpty ? name : '未命名对话';
+  }
+
+  Future<void> _importConversationsJson() async {
     final FilePickerResult? picked = await FilePicker.platform.pickFiles(
-      dialogTitle: '选择对话 ZIP',
+      dialogTitle: '选择对话 JSON',
       type: FileType.custom,
-      allowedExtensions: <String>['zip'],
+      allowedExtensions: <String>['json'],
       withData: true,
     );
     if (picked == null || picked.files.isEmpty) {
       return;
     }
     final PlatformFile file = picked.files.first;
+    final String? filePath = file.path;
     final Uint8List? bytes = file.bytes ??
-        (file.path != null ? await File(file.path!).readAsBytes() : null);
+        (filePath != null ? await File(filePath).readAsBytes() : null);
     if (bytes == null) {
       if (!mounted) {
         return;
       }
       showSnack(context, '无法读取文件内容。');
       return;
+    }
+
+    final String jsonString = utf8.decode(bytes);
+    final ExportImportResult<ConversationImportData> parsed =
+        widget.controller.parseConversationImportJson(jsonString);
+    if (!mounted) {
+      return;
+    }
+    if (!parsed.success || parsed.data == null) {
+      showSnack(context, parsed.message ?? '导入失败');
+      return;
+    }
+    final ConversationImportData data = parsed.data!;
+    final List<NeededCharacter> needed = _buildNeededCharacters(data);
+    final List<CharacterImportDecision>? decisions =
+        await showCharacterResolutionDialog(
+      context: context,
+      needed: needed,
+      existingTas: widget.controller.tas,
+    );
+    if (decisions == null) {
+      return; // 用户取消
     }
 
     final bool? replaceAll = await _chooseImportMode(
@@ -502,8 +546,9 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _importingConv = true);
     try {
       final ExportImportResult<DataImportReport> report =
-          await widget.controller.importConversations(
-        bytes,
+          await widget.controller.applyConversationImport(
+        data,
+        decisions,
         replaceAll: replaceAll,
       );
       if (!mounted) {
@@ -524,6 +569,29 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() => _importingConv = false);
       }
     }
+  }
+
+  List<NeededCharacter> _buildNeededCharacters(ConversationImportData data) {
+    final List<NeededCharacter> list = <NeededCharacter>[];
+    for (final String taId in data.collectTaIds()) {
+      final Map<String, dynamic>? pkg = data.embeddedPackages[taId];
+      final bool hasCard = pkg != null;
+      String? cardName;
+      if (pkg != null && pkg['character'] is Map) {
+        final Object? n = (pkg['character'] as Map)['name'];
+        if (n is String && n.isNotEmpty) {
+          cardName = n;
+        }
+      }
+      list.add(
+        NeededCharacter(
+          originalTaId: taId,
+          hasCard: hasCard,
+          cardName: cardName,
+        ),
+      );
+    }
+    return list;
   }
 
   @override
@@ -1071,8 +1139,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text('仅对话', style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 8),
                         const Text(
-                          '单独将对话（单聊 + 群聊）导出为 ZIP，或从 ZIP 导入对话。'
-                          '导入同样支持「全部替换」或「仅追加」。',
+                          '把对话导出为 JSON（可内嵌角色卡）或 Markdown 文稿，方便阅读与分享；'
+                          '从 JSON 导入对话，并按需决定角色归属。',
                         ),
                         const SizedBox(height: 12),
                         Wrap(
@@ -1082,7 +1150,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             FilledButton.tonalIcon(
                               onPressed: _exportingConv || _importingConv
                                   ? null
-                                  : _exportConversations,
+                                  : _exportSelectedConversations,
                               icon: _exportingConv
                                   ? const SizedBox(
                                       width: 16,
@@ -1090,12 +1158,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Icon(Icons.forum_outlined),
-                              label: Text(_exportingConv ? '导出中...' : '导出对话为 ZIP'),
+                              label: Text(_exportingConv ? '导出中...' : '导出对话'),
                             ),
                             OutlinedButton.icon(
                               onPressed: _exportingConv || _importingConv
                                   ? null
-                                  : _importConversations,
+                                  : _importConversationsJson,
                               icon: _importingConv
                                   ? const SizedBox(
                                       width: 16,
@@ -1103,7 +1171,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Icon(Icons.upload_file_outlined),
-                              label: Text(_importingConv ? '导入中...' : '从 ZIP 导入对话'),
+                              label: Text(_importingConv ? '导入中...' : '从 JSON 导入对话'),
                             ),
                           ],
                         ),

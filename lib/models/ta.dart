@@ -32,6 +32,7 @@ class TA {
   final Map<String, dynamic>? protection;
 
   TA copyWith({
+    String? id,
     String? name,
     String? gender,
     String? persona,
@@ -45,7 +46,7 @@ class TA {
     Map<String, dynamic>? protection,
   }) {
     return TA(
-      id: id,
+      id: id ?? this.id,
       name: name ?? this.name,
       gender: gender ?? this.gender,
       persona: persona ?? this.persona,

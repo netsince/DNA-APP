@@ -13,7 +13,10 @@ import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
+import '../services/conversation_export_import_service.dart';
+import '../services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
+import '../widgets/conversation_export_import_dialogs.dart';
 import '../widgets/group_avatar.dart';
 import 'chat/chat_models.dart';
 import 'chat/chat_snapshot_store.dart';
@@ -259,8 +262,28 @@ class _ChatPageState extends State<ChatPage>
     setState(() {});
   }
 
-  ImageProvider? _avatarForTa(TA ta) {
-    final String? path = ta.images['square'];
+  Future<void> _exportCurrentConversation() async {
+    final ExportOptions? options = await showExportOptionsDialog(context: context);
+    if (options == null || !mounted) {
+      return;
+    }
+    final ExportImportResult<ConversationExportResult> result =
+        await widget.controller.exportConversationsById(
+      <String>[_conversation.id],
+      includeCharacterCards: options.includeCharacterCards,
+      format: options.format,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!result.success || result.data == null) {
+      showSnack(context, result.message ?? '导出失败');
+      return;
+    }
+    await handleExportResult(context, result.data!);
+  }
+
+  ImageProvider? _avatarForTa(TA ta) {    final String? path = ta.images['square'];
     if (path == null || path.isEmpty) {
       return null;
     }
@@ -382,6 +405,7 @@ class _ChatPageState extends State<ChatPage>
         onForceSummary: _forceSummaryPrompt,
         onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
         onManageSnapshots: _manageSnapshots,
+        onExport: _exportCurrentConversation,
         backgroundMode: _conversation.backgroundMode,
         ta: ta,
         titleOverride: _isGroup
