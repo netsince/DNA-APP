@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
@@ -302,21 +302,29 @@ class _SettingsPageState extends State<SettingsPage> {
         showSnack(context, result.message ?? '导出失败');
         return;
       }
+      final Uint8List data = result.data!;
       final String? outPath = await FilePicker.platform.saveFile(
         dialogTitle: '导出全部数据为 ZIP',
         fileName: 'DNA_${_timestamp()}.zip',
         type: FileType.custom,
         allowedExtensions: <String>['zip'],
+        bytes: data,
       );
       if (outPath == null) {
         return; // 用户取消
       }
-      final File file = File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
-      await file.writeAsBytes(result.data!);
+      // 移动端（Android/iOS）saveFile 已直接写入字节，无需再写；
+      // 桌面端需自行把字节写入用户选择的路径。
+      String savedPath = outPath;
+      if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
+        final File file = File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
+        await file.writeAsBytes(data);
+        savedPath = file.path;
+      }
       if (!mounted) {
         return;
       }
-      showSnack(context, '已导出到：${file.path}');
+      showSnack(context, '已导出到：$savedPath');
     } catch (e) {
       if (!mounted) {
         return;

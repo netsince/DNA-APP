@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
@@ -335,15 +337,22 @@ Future<void> handleExportResult(
   }
 
   // 保存到文件
+  final Uint8List bytes = utf8.encode(result.content);
   final String? outPath = await FilePicker.platform.saveFile(
     dialogTitle: '保存对话导出',
     fileName: result.suggestedFileName,
+    bytes: bytes,
   );
   if (outPath == null) return;
-  final String ext = path.extension(result.suggestedFileName);
-  final String finalPath =
-      outPath.toLowerCase().endsWith(ext.toLowerCase()) ? outPath : '$outPath$ext';
-  final File file = File(finalPath);
-  await file.writeAsString(result.content);
-  if (context.mounted) showSnack(context, '已导出到：${file.path}');
+  // 移动端（Android/iOS）saveFile 已直接写入字节；桌面端需自行写入用户选择的路径。
+  if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
+    final String ext = path.extension(result.suggestedFileName);
+    final String finalPath =
+        outPath.toLowerCase().endsWith(ext.toLowerCase()) ? outPath : '$outPath$ext';
+    final File file = File(finalPath);
+    await file.writeAsString(result.content);
+    if (context.mounted) showSnack(context, '已导出到：${file.path}');
+  } else {
+    if (context.mounted) showSnack(context, '已导出到：$outPath');
+  }
 }
