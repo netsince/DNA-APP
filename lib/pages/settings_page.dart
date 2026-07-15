@@ -448,6 +448,9 @@ class _SettingsPageState extends State<SettingsPage> {
         conversations: convs,
         nameById: nameById,
       );
+      if (!mounted) {
+        return;
+      }
       if (selected == null || selected.isEmpty) {
         return; // 用户取消或未选择
       }
