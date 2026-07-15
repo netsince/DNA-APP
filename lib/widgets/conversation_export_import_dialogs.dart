@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/conversation.dart';
@@ -337,6 +338,19 @@ Future<void> handleExportResult(
   }
 
   // 保存到文件
+  // iOS 为沙盒机制，无法自由选路径，改用系统分享面板（可存储到文件/AirDrop）。
+  if (!kIsWeb && Platform.isIOS) {
+    final Directory tempDir = await getTemporaryDirectory();
+    final File tmp = File(path.join(tempDir.path, result.suggestedFileName));
+    await tmp.writeAsString(result.content);
+    if (context.mounted) {
+      await Share.shareXFiles(
+        <XFile>[XFile(tmp.path)],
+        subject: '对话导出',
+      );
+    }
+    return;
+  }
   final Uint8List bytes = utf8.encode(result.content);
   final String? outPath = await FilePicker.platform.saveFile(
     dialogTitle: '保存对话导出',
@@ -344,8 +358,8 @@ Future<void> handleExportResult(
     bytes: bytes,
   );
   if (outPath == null) return;
-  // 移动端（Android/iOS）saveFile 已直接写入字节；桌面端需自行写入用户选择的路径。
-  if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
+  // 移动端（Android）saveFile 已直接写入字节；桌面端需自行写入用户选择的路径。
+  if (!kIsWeb && !Platform.isAndroid) {
     final String ext = path.extension(result.suggestedFileName);
     final String finalPath =
         outPath.toLowerCase().endsWith(ext.toLowerCase()) ? outPath : '$outPath$ext';

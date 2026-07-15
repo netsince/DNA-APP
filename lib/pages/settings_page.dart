@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/conversation.dart';
 import '../models/prompt_strategy.dart';
@@ -303,6 +306,21 @@ class _SettingsPageState extends State<SettingsPage> {
         return;
       }
       final Uint8List data = result.data!;
+      // iOS 为沙盒机制，无法自由选路径，改用系统分享面板（可存储到文件/AirDrop）。
+      if (!kIsWeb && Platform.isIOS) {
+        final Directory tempDir = await getTemporaryDirectory();
+        final File tmp =
+            File(path.join(tempDir.path, 'DNA_${_timestamp()}.zip'));
+        await tmp.writeAsBytes(data);
+        if (!mounted) {
+          return;
+        }
+        await Share.shareXFiles(
+          <XFile>[XFile(tmp.path)],
+          subject: 'DNA 全部数据导出',
+        );
+        return;
+      }
       final String? outPath = await FilePicker.platform.saveFile(
         dialogTitle: '导出全部数据为 ZIP',
         fileName: 'DNA_${_timestamp()}.zip',
@@ -313,10 +331,10 @@ class _SettingsPageState extends State<SettingsPage> {
       if (outPath == null) {
         return; // 用户取消
       }
-      // 移动端（Android/iOS）saveFile 已直接写入字节，无需再写；
+      // 移动端（Android）saveFile 已直接写入字节，无需再写；
       // 桌面端需自行把字节写入用户选择的路径。
       String savedPath = outPath;
-      if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
+      if (!kIsWeb && !Platform.isAndroid) {
         final File file = File(outPath.endsWith('.zip') ? outPath : '$outPath.zip');
         await file.writeAsBytes(data);
         savedPath = file.path;
