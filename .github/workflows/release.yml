@@ -76,6 +76,18 @@ jobs:
 
       - run: flutter pub get
 
+      # ---- Android signing: 还原稳定密钥，保证跨构建签名一致 ----
+      - name: Restore Android signing keystore
+        if: matrix.platform == 'android' && secrets.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storeFile=upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+
       # ---- Android: fat APK + split-per-abi APKs ----
       - name: Build Android APK (fat, ${{ matrix.type }})
         if: matrix.platform == 'android'

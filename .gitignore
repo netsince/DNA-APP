@@ -36,6 +36,12 @@ migrate_working_dir/
 # Symbolication related
 app.*.symbols
 
+# Android signing (keep keystore & credentials out of VCS)
+android/key.properties
+android/**/*.jks
+android/**/*.keystore
+android/**/*.b64
+
 # Obfuscation related
 app.*.map.json
 
