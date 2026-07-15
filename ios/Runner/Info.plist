@@ -28,6 +28,8 @@
 	<string>需要访问相册以选择角色形象。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>需要保存裁剪后的角色形象。</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>需要生物识别以解锁应用或查看归档内容。</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
