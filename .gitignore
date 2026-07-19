@@ -53,3 +53,5 @@ app.*.map.json
 /s/
 
 /dnaisland/
+
+/image-gen-prototype/
