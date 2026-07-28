@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/llm_provider.dart';
+
 /// OOBE 引导流程中的子步骤 Widget 与导航 Intent，从 oobe_page 拆分而来。
 
 class StepTracker extends StatelessWidget {
@@ -45,7 +47,7 @@ class WelcomeStep extends StatelessWidget {
             const SizedBox(height: 12),
             Text('将通过 3 个步骤完成首次配置。', style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 16),
-            const StepBullet(text: '配置 API Base URL 与 API Key，并完成连接检测'),
+            const StepBullet(text: '选择服务商、填写 API Key，并完成连接检测'),
             const StepBullet(text: '自动拉取模型或手动添加自定义模型'),
             const StepBullet(text: '完成后即可进入主界面'),
             const Spacer(),
@@ -90,24 +92,32 @@ class StepBullet extends StatelessWidget {
 class ApiStep extends StatelessWidget {
   const ApiStep({
     super.key,
+    required this.providers,
+    required this.selectedProviderId,
     required this.baseUrlController,
     required this.apiKeyController,
+    required this.baseUrlHint,
     required this.checkingApi,
     required this.apiValidated,
     required this.apiError,
     required this.ignoreApiIssue,
+    required this.onProviderChanged,
     required this.onIgnoreChanged,
     required this.onCheck,
     required this.onInputChanged,
     this.hideBaseUrl = false,
   });
 
+  final List<LlmProvider> providers;
+  final String selectedProviderId;
   final TextEditingController baseUrlController;
   final TextEditingController apiKeyController;
+  final String baseUrlHint;
   final bool checkingApi;
   final bool apiValidated;
   final String? apiError;
   final bool ignoreApiIssue;
+  final ValueChanged<String> onProviderChanged;
   final ValueChanged<bool> onIgnoreChanged;
   final VoidCallback onCheck;
   final VoidCallback onInputChanged;
@@ -122,12 +132,29 @@ class ApiStep extends StatelessWidget {
           children: <Widget>[
             Text('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
+            Text('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: providers.map((LlmProvider p) {
+                final bool selected = p.id == selectedProviderId;
+                return ChoiceChip(
+                  label: Text(p.label),
+                  selected: selected,
+                  onSelected: (_) => onProviderChanged(p.id),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
             if (!hideBaseUrl)
               TextField(
                 controller: baseUrlController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Base URL',
-                  hintText: 'https://api.openai.com/v1',
+                  hintText: baseUrlHint,
                 ),
                 onChanged: (_) => onInputChanged(),
               ),

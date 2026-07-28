@@ -37,6 +37,29 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
 
   bool get _fixedBaseUrl => widget.controller.llmProvider.fixedBaseUrl;
 
+  Future<void> _selectProvider(String id) async {
+    if (id == widget.controller.settings.provider) {
+      return;
+    }
+    final LlmProvider oldProvider = widget.controller.llmProvider;
+    final String oldDefault = oldProvider.defaultBaseUrl;
+    await widget.controller.saveProvider(id);
+    final LlmProvider newProvider = widget.controller.llmProvider;
+    setState(() {
+      _apiValidated = false;
+      _apiError = null;
+      _ignoreApiIssue = false;
+      _selectedModel = null;
+      if (newProvider.fixedBaseUrl) {
+        _baseUrlController.text = newProvider.defaultBaseUrl;
+      } else if (_baseUrlController.text.trim().isEmpty ||
+          _baseUrlController.text.trim() == oldDefault) {
+        // 之前是自动填充的默认值（或为空），替换为新厂商默认值，避免旧地址泄漏。
+        _baseUrlController.text = newProvider.defaultBaseUrl;
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +185,31 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _skipOobe() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('跳过引导？'),
+        content: const Text(
+          '如果你跳过了 OOBE，需要自行在「设置」中配置服务商、API Key 与模型等相关设置项，否则可能无法正常使用对话功能。',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续设置'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('仍然跳过'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      await widget.controller.completeOobe();
+    }
+  }
+
   Future<void> _back() async {
     if (!mounted) {
       return;
@@ -237,6 +285,13 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
             child: Scaffold(
               appBar: AppBar(
                 title: const Text('首次启动引导'),
+                actions: <Widget>[
+                  if (_stepIndex == 0)
+                    TextButton(
+                      onPressed: _skipOobe,
+                      child: const Text('跳过'),
+                    ),
+                ],
               ),
               body: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
@@ -258,8 +313,11 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
                                 children: <Widget>[
                                   WelcomeStep(),
                                   ApiStep(
+                                    providers: widget.controller.llmProviders,
+                                    selectedProviderId: widget.controller.settings.provider,
                                     baseUrlController: _baseUrlController,
                                     apiKeyController: _apiKeyController,
+                                    baseUrlHint: widget.controller.llmProvider.defaultBaseUrl,
                                     hideBaseUrl: _fixedBaseUrl,
                                     checkingApi: _checkingApi,
                                     apiValidated: _apiValidated,
@@ -268,6 +326,7 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
                                     onIgnoreChanged: (bool value) {
                                       setState(() => _ignoreApiIssue = value);
                                     },
+                                    onProviderChanged: _selectProvider,
                                     onCheck: _checkApi,
                                     onInputChanged: () {
                                       setState(() {
