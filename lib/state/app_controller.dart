@@ -126,6 +126,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存并应用主题模式（'system' / 'light' / 'dark'）。
+  Future<void> saveThemeMode(String themeMode) async {
+    _settings = _settings.copyWith(themeMode: themeMode.trim());
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveSelectedModel(String model) async {
     _settings = _settings.copyWith(selectedModel: model.trim());
     await _settingsService.save(_settings);

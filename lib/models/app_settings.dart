@@ -3,6 +3,7 @@ import 'prompt_strategy.dart';
 class AppSettings {
   const AppSettings({
     required this.provider,
+    required this.themeMode,
     required this.baseUrl,
     required this.apiKey,
     required this.selectedModel,
@@ -21,6 +22,7 @@ class AppSettings {
   factory AppSettings.empty() {
     return AppSettings(
       provider: 'openai',
+      themeMode: 'system',
       baseUrl: '',
       apiKey: '',
       selectedModel: '',
@@ -38,6 +40,7 @@ class AppSettings {
   }
 
   final String provider;
+  final String themeMode;
   final String baseUrl;
   final String apiKey;
   final String selectedModel;
@@ -55,6 +58,7 @@ class AppSettings {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
+      'themeMode': themeMode,
       'baseUrl': baseUrl,
       'apiKey': apiKey,
       'selectedModel': selectedModel,
@@ -79,6 +83,7 @@ class AppSettings {
         : PromptStrategy.defaults();
     return AppSettings(
       provider: (json['provider'] as String?) ?? 'openai',
+      themeMode: (json['themeMode'] as String?) ?? 'system',
       baseUrl: (json['baseUrl'] as String?) ?? '',
       apiKey: (json['apiKey'] as String?) ?? '',
       selectedModel: (json['selectedModel'] as String?) ?? '',
@@ -98,6 +103,7 @@ class AppSettings {
 
   AppSettings copyWith({
     String? provider,
+    String? themeMode,
     String? baseUrl,
     String? apiKey,
     String? selectedModel,
@@ -114,6 +120,7 @@ class AppSettings {
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
+      themeMode: themeMode ?? this.themeMode,
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,

@@ -15,6 +15,7 @@ class AppearanceSettingsPage extends StatefulWidget {
 class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   bool _showSplash = true;
   String _iconKey = 'default';
+  String _themeMode = 'system';
   final bool _androidOk = AppIconService.isSupported;
 
   @override
@@ -23,6 +24,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     final s = widget.controller.settings;
     _showSplash = s.showSplashAnimation;
     _iconKey = s.appIcon;
+    _themeMode = s.themeMode;
   }
 
   Future<void> _selectIcon(AppIconOption opt) async {
@@ -35,6 +37,14 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
   Future<void> _saveSplash() =>
       widget.controller.saveSplashAnimation(showSplashAnimation: _showSplash);
+
+  Future<void> _selectTheme(String mode) async {
+    if (_themeMode == mode) {
+      return;
+    }
+    setState(() => _themeMode = mode);
+    await widget.controller.saveThemeMode(mode);
+  }
 
   Future<void> _restartOobe() async {
     await widget.controller.restartOobe();
@@ -76,6 +86,28 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                     Text(opt.label),
                   ],
                 ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          Text('主题', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('选择应用外观：跟随系统、始终亮色或始终暗色。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const <Map<String, String>>[
+              <String, String>{'value': 'system', 'label': '跟随系统'},
+              <String, String>{'value': 'light', 'label': '亮色'},
+              <String, String>{'value': 'dark', 'label': '暗色'},
+            ].map((Map<String, String> m) {
+              return ChoiceChip(
+                label: Text(m['label']!),
+                selected: _themeMode == m['value'],
+                onSelected: (_) => _selectTheme(m['value']!),
               );
             }).toList(),
           ),

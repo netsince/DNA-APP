@@ -50,7 +50,7 @@ Future<void> main() async {
   );
 }
 
-class DnaApp extends StatelessWidget {
+class DnaApp extends StatefulWidget {
   const DnaApp({super.key, required this.controller});
 
   final AppController controller;
@@ -58,22 +58,52 @@ class DnaApp extends StatelessWidget {
   static const Color _fallbackSeed = Color(0xFF147B74);
 
   @override
+  State<DnaApp> createState() => _DnaAppState();
+}
+
+class _DnaAppState extends State<DnaApp> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onSettingsChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+
+  void _onSettingsChanged() => setState(() {});
+
+  static ThemeMode _resolveThemeMode(String mode) {
+    switch (mode) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         final ColorScheme lightColorScheme = lightDynamic ?? ColorScheme.fromSeed(
-          seedColor: _fallbackSeed,
+          seedColor: DnaApp._fallbackSeed,
           brightness: Brightness.light,
         );
         final ColorScheme darkColorScheme = darkDynamic ?? ColorScheme.fromSeed(
-          seedColor: _fallbackSeed,
+          seedColor: DnaApp._fallbackSeed,
           brightness: Brightness.dark,
         );
 
         return MaterialApp(
           title: 'Duet Nurturing Ally',
           debugShowCheckedModeBanner: false,
-          themeMode: ThemeMode.system,
+          themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
           theme: ThemeData(
             colorScheme: lightColorScheme,
             useMaterial3: true,
@@ -96,7 +126,7 @@ class DnaApp extends StatelessWidget {
               },
             ),
           ),
-          home: AppRoot(controller: controller),
+          home: AppRoot(controller: widget.controller),
         );
       },
     );
