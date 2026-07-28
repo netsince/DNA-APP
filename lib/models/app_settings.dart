@@ -2,6 +2,7 @@ import 'prompt_strategy.dart';
 
 class AppSettings {
   const AppSettings({
+    required this.provider,
     required this.baseUrl,
     required this.apiKey,
     required this.selectedModel,
@@ -19,6 +20,7 @@ class AppSettings {
 
   factory AppSettings.empty() {
     return AppSettings(
+      provider: 'openai',
       baseUrl: '',
       apiKey: '',
       selectedModel: '',
@@ -35,6 +37,7 @@ class AppSettings {
     );
   }
 
+  final String provider;
   final String baseUrl;
   final String apiKey;
   final String selectedModel;
@@ -51,6 +54,7 @@ class AppSettings {
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
+      'provider': provider,
       'baseUrl': baseUrl,
       'apiKey': apiKey,
       'selectedModel': selectedModel,
@@ -74,6 +78,7 @@ class AppSettings {
           )
         : PromptStrategy.defaults();
     return AppSettings(
+      provider: (json['provider'] as String?) ?? 'openai',
       baseUrl: (json['baseUrl'] as String?) ?? '',
       apiKey: (json['apiKey'] as String?) ?? '',
       selectedModel: (json['selectedModel'] as String?) ?? '',
@@ -92,6 +97,7 @@ class AppSettings {
   }
 
   AppSettings copyWith({
+    String? provider,
     String? baseUrl,
     String? apiKey,
     String? selectedModel,
@@ -107,6 +113,7 @@ class AppSettings {
     String? appIcon,
   }) {
     return AppSettings(
+      provider: provider ?? this.provider,
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,

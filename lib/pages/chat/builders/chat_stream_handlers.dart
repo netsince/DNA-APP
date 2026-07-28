@@ -15,7 +15,7 @@ mixin ChatStreamHandlers on ChatStateMixin {
     String lastText = '';
     const Duration updateInterval = Duration(milliseconds: 100);
 
-    await for (final String chunk in widget.controller.openAiService.streamChatCompletion(
+    await for (final String chunk in widget.controller.llmProvider.streamChatCompletion(
       baseUrl: baseUrl,
       apiKey: apiKey,
       model: model,

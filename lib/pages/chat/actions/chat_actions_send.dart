@@ -298,7 +298,7 @@ mixin ChatActionsSend on ChatStateMixin {
   ) async {
     try {
       final List<Future<String?>> tasks = List<Future<String?>>.generate(3, (_) async {
-        final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+        final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
           baseUrl: baseUrl,
           apiKey: apiKey,
           model: model,
@@ -325,7 +325,7 @@ mixin ChatActionsSend on ChatStateMixin {
     final List<String> results = <String>[];
     for (int i = 0; i < 3; i++) {
       try {
-        final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+        final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
           baseUrl: baseUrl,
           apiKey: apiKey,
           model: model,

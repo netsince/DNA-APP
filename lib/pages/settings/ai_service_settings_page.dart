@@ -46,7 +46,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
   Future<void> _checkApi() async {
     setState(() { _checkingApi = true; _apiMessage = null; });
     await _saveApi();
-    final r = await widget.controller.openAiService.validateApi(
+    final r = await widget.controller.llmProvider.validateApi(
       baseUrl: _baseUrlCtrl.text,
       apiKey: _apiKeyCtrl.text,
     );
@@ -56,7 +56,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
 
   Future<void> _fetchModels() async {
     setState(() { _loadingModels = true; _modelsError = null; });
-    final r = await widget.controller.openAiService.fetchModels(
+    final r = await widget.controller.llmProvider.fetchModels(
       baseUrl: _baseUrlCtrl.text,
       apiKey: _apiKeyCtrl.text,
     );
@@ -101,7 +101,10 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         children: <Widget>[
           TextField(
             controller: _baseUrlCtrl,
-            decoration: const InputDecoration(labelText: 'Base URL', hintText: 'https://api.openai.com/v1'),
+            decoration: InputDecoration(
+              labelText: 'Base URL',
+              hintText: widget.controller.llmProvider.defaultBaseUrl,
+            ),
             onChanged: (_) => _saveApi(),
           ),
           const SizedBox(height: 12),

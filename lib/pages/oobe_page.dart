@@ -82,7 +82,7 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
       apiKey: _apiKeyController.text,
     );
 
-    final ApiCheckResult result = await widget.controller.openAiService.validateApi(
+    final ApiCheckResult result = await widget.controller.llmProvider.validateApi(
       baseUrl: _baseUrlController.text,
       apiKey: _apiKeyController.text,
     );
@@ -103,7 +103,7 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
       _modelsError = null;
     });
 
-    final ModelFetchResult result = await widget.controller.openAiService.fetchModels(
+    final ModelFetchResult result = await widget.controller.llmProvider.fetchModels(
       baseUrl: _baseUrlController.text,
       apiKey: _apiKeyController.text,
     );
