@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import '../widgets/adaptive_text_field.dart';
+
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -247,12 +249,12 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     decoration: const InputDecoration(labelText: '世界名称'),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _summaryController,
                     decoration: const InputDecoration(labelText: '简介'),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _descriptionController,
                     decoration: const InputDecoration(labelText: '世界背景'),
                   ),
@@ -265,7 +267,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _forbiddenWordsController,
                     decoration: const InputDecoration(
                       labelText: '禁止输出词语',
@@ -290,7 +292,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     decoration: const InputDecoration(labelText: '词条名称'),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _entryDescriptionController,
                     decoration: const InputDecoration(labelText: '描述'),
                   ),
@@ -391,7 +393,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       decoration: const InputDecoration(labelText: '关联条目'),
                     ),
                     const SizedBox(height: 12),
-                    _AdaptiveTextField(
+                    AdaptiveTextField(
                       controller: _entryRelationController,
                       decoration: const InputDecoration(labelText: '关联内容'),
                     ),
@@ -469,57 +471,4 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   }
 }
 
-class _AdaptiveTextField extends StatefulWidget {
-  const _AdaptiveTextField({
-    required this.controller,
-    this.decoration,
-  });
 
-  final TextEditingController controller;
-  final InputDecoration? decoration;
-
-  @override
-  State<_AdaptiveTextField> createState() => _AdaptiveTextFieldState();
-}
-
-class _AdaptiveTextFieldState extends State<_AdaptiveTextField> {
-  late int _lineCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _lineCount = _calculateLineCount(widget.controller.text);
-    widget.controller.addListener(_onTextChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onTextChanged);
-    super.dispose();
-  }
-
-  void _onTextChanged() {
-    final int newLineCount = _calculateLineCount(widget.controller.text);
-    if (newLineCount != _lineCount) {
-      setState(() {
-        _lineCount = newLineCount;
-      });
-    }
-  }
-
-  int _calculateLineCount(String text) {
-    if (text.isEmpty) return 1;
-    final int count = text.split('\n').length;
-    return count < 1 ? 1 : count;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: widget.controller,
-      minLines: _lineCount,
-      maxLines: _lineCount,
-      decoration: widget.decoration,
-    );
-  }
-}

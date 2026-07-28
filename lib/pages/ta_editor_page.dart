@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
+import '../widgets/adaptive_text_field.dart';
+import 'ta_editor/image_slot.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -416,19 +418,19 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 children: <Widget>[
                   Text('TA形象', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  _ImageSlot(
+                  ImageSlot(
                     title: '1:1 形象',
                     path: _images['square'],
                     onTap: () => _pickImage('square', const CropAspectRatio(ratioX: 1, ratioY: 1)),
                   ),
                   const SizedBox(height: 12),
-                  _ImageSlot(
+                  ImageSlot(
                     title: '16:9 形象',
                     path: _images['landscape'],
                     onTap: () => _pickImage('landscape', const CropAspectRatio(ratioX: 16, ratioY: 9)),
                   ),
                   const SizedBox(height: 12),
-                  _ImageSlot(
+                  ImageSlot(
                     title: '9:16 形象',
                     path: _images['portrait'],
                     onTap: () => _pickImage('portrait', const CropAspectRatio(ratioX: 9, ratioY: 16)),
@@ -491,7 +493,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _personaController,
                     decoration: const InputDecoration(
                       labelText: '设定',
@@ -499,7 +501,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _introController,
                     decoration: const InputDecoration(
                       labelText: '介绍',
@@ -507,7 +509,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _AdaptiveTextField(
+                  AdaptiveTextField(
                     controller: _openingController,
                     decoration: const InputDecoration(
                       labelText: '开场白（可选）',
@@ -549,97 +551,4 @@ class _TaEditorPageState extends State<TaEditorPage> {
   }
 }
 
-class _ImageSlot extends StatelessWidget {
-  const _ImageSlot({required this.title, required this.path, required this.onTap});
 
-  final String title;
-  final String? path;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(child: Text(title)),
-        const SizedBox(width: 12),
-        OutlinedButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.upload_outlined),
-          label: const Text('上传'),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 72,
-          height: 72,
-          child: path == null || path!.isEmpty
-              ? Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.image_outlined),
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(File(path!), fit: BoxFit.cover),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AdaptiveTextField extends StatefulWidget {
-  const _AdaptiveTextField({
-    required this.controller,
-    this.decoration,
-  });
-
-  final TextEditingController controller;
-  final InputDecoration? decoration;
-
-  @override
-  State<_AdaptiveTextField> createState() => _AdaptiveTextFieldState();
-}
-
-class _AdaptiveTextFieldState extends State<_AdaptiveTextField> {
-  late int _lineCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _lineCount = _calculateLineCount(widget.controller.text);
-    widget.controller.addListener(_onTextChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onTextChanged);
-    super.dispose();
-  }
-
-  void _onTextChanged() {
-    final int newLineCount = _calculateLineCount(widget.controller.text);
-    if (newLineCount != _lineCount) {
-      setState(() {
-        _lineCount = newLineCount;
-      });
-    }
-  }
-
-  int _calculateLineCount(String text) {
-    if (text.isEmpty) return 1;
-    final int count = text.split('\n').length;
-    return count < 1 ? 1 : count;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: widget.controller,
-      minLines: _lineCount,
-      maxLines: _lineCount,
-      decoration: widget.decoration,
-    );
-  }
-}

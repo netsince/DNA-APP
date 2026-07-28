@@ -4,12 +4,29 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 import '../models/service_results.dart';
+import 'llm_provider.dart';
 
-class OpenAiService {
+class OpenAiService implements LlmProvider {
   OpenAiService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
+  @override
+  String get id => 'openai';
+
+  @override
+  String get label => 'OpenAI 兼容';
+
+  @override
+  String get defaultBaseUrl => 'https://api.openai.com/v1';
+
+  @override
+  bool get requiresApiKey => true;
+
+  @override
+  bool get fixedBaseUrl => false;
+
+  @override
   Future<ApiCheckResult> validateApi({
     required String baseUrl,
     required String apiKey,
@@ -56,6 +73,7 @@ class OpenAiService {
     }
   }
 
+  @override
   Future<ModelFetchResult> fetchModels({
     required String baseUrl,
     required String apiKey,
@@ -111,6 +129,7 @@ class OpenAiService {
     }
   }
 
+  @override
   Future<ChatCompletionResult> createChatCompletion({
     required String baseUrl,
     required String apiKey,
@@ -173,6 +192,7 @@ class OpenAiService {
     }
   }
 
+  @override
   Stream<String> streamChatCompletion({
     required String baseUrl,
     required String apiKey,

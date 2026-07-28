@@ -12,6 +12,9 @@ import '../models/prompt_strategy.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
+import '../services/anthropic_service.dart';
+import '../services/zhipu_service.dart';
+import '../services/llm_provider.dart';
 
 import '../services/settings_service.dart';
 import '../services/app_icon_service.dart';
@@ -30,12 +33,20 @@ class AppController extends ChangeNotifier {
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
         _taService = taService,
-        _hiveService = HiveService();
+        _hiveService = HiveService(),
+        _providerRegistry = LlmProviderRegistry(<LlmProvider>[
+          openAiService,
+          AnthropicProvider(),
+          ZhipuProvider(),
+        ]);
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
   final TaService _taService;
   final HiveService _hiveService;
+
+  /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
+  final LlmProviderRegistry _providerRegistry;
 
   AppSettings _settings = AppSettings.empty();
   List<TA> _tas = <TA>[];
@@ -45,6 +56,13 @@ class AppController extends ChangeNotifier {
 
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
+
+  /// 当前设置所选的大模型 Provider。业务层应优先使用此接口而非 openAiService。
+  LlmProvider get llmProvider => _providerRegistry[settings.provider];
+
+  /// 所有已注册的 Provider，供设置页 / OOBE 构建厂商选择列表。
+  List<LlmProvider> get llmProviders => _providerRegistry.providers;
+
   List<TA> get tas => _tas;
   List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
   List<World> get worlds => List<World>.unmodifiable(_worlds);
@@ -97,6 +115,13 @@ class AppController extends ChangeNotifier {
       baseUrl: baseUrl.trim(),
       apiKey: apiKey.trim(),
     );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 切换当前使用的大模型厂商。
+  Future<void> saveProvider(String provider) async {
+    _settings = _settings.copyWith(provider: provider.trim());
     await _settingsService.save(_settings);
     notifyListeners();
   }

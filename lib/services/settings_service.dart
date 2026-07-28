@@ -8,6 +8,7 @@ import '../models/prompt_strategy.dart';
 class SettingsService {
   static const String _baseUrlKey = 'base_url';
   static const String _apiKeyKey = 'api_key';
+  static const String _providerKey = 'provider';
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
@@ -35,6 +36,7 @@ class SettingsService {
     }
     
     return AppSettings(
+      provider: prefs.getString(_providerKey) ?? 'openai',
       baseUrl: prefs.getString(_baseUrlKey) ?? '',
       apiKey: prefs.getString(_apiKeyKey) ?? '',
       selectedModel: prefs.getString(_modelKey) ?? '',
@@ -53,6 +55,7 @@ class SettingsService {
 
   Future<void> save(AppSettings settings) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_providerKey, settings.provider);
     await prefs.setString(_baseUrlKey, settings.baseUrl);
     await prefs.setString(_apiKeyKey, settings.apiKey);
     await prefs.setString(_modelKey, settings.selectedModel);

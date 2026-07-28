@@ -130,7 +130,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       },
     ];
     setState(() => _rangeSummaryInProgress = true);
-    final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+    final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
       baseUrl: widget.controller.settings.baseUrl,
       apiKey: widget.controller.settings.apiKey,
       model: widget.controller.settings.selectedModel,
@@ -222,7 +222,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       setState(() {});
     }
 
-    final ChatCompletionResult result = await widget.controller.openAiService.createChatCompletion(
+    final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
       baseUrl: widget.controller.settings.baseUrl,
       apiKey: widget.controller.settings.apiKey,
       model: widget.controller.settings.selectedModel,
