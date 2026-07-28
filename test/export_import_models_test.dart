@@ -4,25 +4,8 @@ import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/services/data_backup_models.dart';
 import 'package:dna/services/data_backup_service.dart';
-import 'package:dna/services/ta_export_import_models.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-TA _buildTa({required String id, Map<String, String> images = const <String, String>{}}) {
-  return TA(
-    id: id,
-    name: '角色$id',
-    gender: '女',
-    persona: 'persona-$id',
-    intro: 'intro-$id',
-    opening: 'opening-$id',
-    tags: <String>['tag-a', 'tag-b'],
-    images: images,
-    dialogueStyle: const <DialogueTurn>[
-      DialogueTurn(user: 'hi', assistant: 'hello'),
-    ],
-  );
-}
 
 void main() {
   group('ExportedImageInfo 序列化', () {
@@ -388,7 +371,7 @@ void main() {
           intro: '',
           opening: '',
           tags: <String>[],
-          dialogueStyle: const <Map<String, String>>[],
+          dialogueStyle: <Map<String, String>>[],
           images: <String, ExportedImageInfo>{},
         ),
       );
