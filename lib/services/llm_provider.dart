@@ -17,6 +17,10 @@ abstract class LlmProvider {
   /// 是否需要 API Key。本地推理可返回 false。
   bool get requiresApiKey;
 
+  /// Base URL 是否固定（用户无需填写）。固定时设置页隐藏 Base URL 输入框，
+  /// 并始终使用 [defaultBaseUrl]。默认 false。
+  bool get fixedBaseUrl => false;
+
   /// 校验 API 是否可用（连通性 / 鉴权）。
   Future<ApiCheckResult> validateApi({
     required String baseUrl,

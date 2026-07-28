@@ -99,6 +99,7 @@ class ApiStep extends StatelessWidget {
     required this.onIgnoreChanged,
     required this.onCheck,
     required this.onInputChanged,
+    this.hideBaseUrl = false,
   });
 
   final TextEditingController baseUrlController;
@@ -110,6 +111,7 @@ class ApiStep extends StatelessWidget {
   final ValueChanged<bool> onIgnoreChanged;
   final VoidCallback onCheck;
   final VoidCallback onInputChanged;
+  final bool hideBaseUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -120,15 +122,16 @@ class ApiStep extends StatelessWidget {
           children: <Widget>[
             Text('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            TextField(
-              controller: baseUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Base URL',
-                hintText: 'https://api.openai.com/v1',
+            if (!hideBaseUrl)
+              TextField(
+                controller: baseUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Base URL',
+                  hintText: 'https://api.openai.com/v1',
+                ),
+                onChanged: (_) => onInputChanged(),
               ),
-              onChanged: (_) => onInputChanged(),
-            ),
-            const SizedBox(height: 12),
+            if (!hideBaseUrl) const SizedBox(height: 12),
             TextField(
               controller: apiKeyController,
               obscureText: true,

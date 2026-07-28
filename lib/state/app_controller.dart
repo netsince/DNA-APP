@@ -13,6 +13,7 @@ import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
+import '../services/zhipu_service.dart';
 import '../services/llm_provider.dart';
 
 import '../services/settings_service.dart';
@@ -33,8 +34,11 @@ class AppController extends ChangeNotifier {
         _openAiService = openAiService,
         _taService = taService,
         _hiveService = HiveService(),
-        _providerRegistry =
-            LlmProviderRegistry(<LlmProvider>[openAiService, AnthropicProvider()]);
+        _providerRegistry = LlmProviderRegistry(<LlmProvider>[
+          openAiService,
+          AnthropicProvider(),
+          ZhipuProvider(),
+        ]);
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;

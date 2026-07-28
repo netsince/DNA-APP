@@ -33,6 +33,9 @@ class AnthropicProvider implements LlmProvider {
   @override
   bool get requiresApiKey => true;
 
+  @override
+  bool get fixedBaseUrl => false;
+
   Map<String, String> _headers(String apiKey) => <String, String>{
         'x-api-key': apiKey.trim(),
         'anthropic-version': '2023-06-01',

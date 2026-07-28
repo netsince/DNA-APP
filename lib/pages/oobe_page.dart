@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/service_results.dart';
+import '../services/llm_provider.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
 import 'oobe/oobe_steps.dart';
@@ -34,11 +35,15 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
   List<String> _models = <String>[];
   String? _selectedModel;
 
+  bool get _fixedBaseUrl => widget.controller.llmProvider.fixedBaseUrl;
+
   @override
   void initState() {
     super.initState();
     final settings = widget.controller.settings;
-    _baseUrlController.text = settings.baseUrl;
+    final LlmProvider provider = widget.controller.llmProvider;
+    _baseUrlController.text =
+        provider.fixedBaseUrl ? provider.defaultBaseUrl : settings.baseUrl;
     _apiKeyController.text = settings.apiKey;
     if (settings.selectedModel.isNotEmpty) {
       _selectedModel = settings.selectedModel;
@@ -59,7 +64,9 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
       case 0:
         return true;
       case 1:
-        return _baseUrlController.text.trim().isNotEmpty &&
+        final bool baseOk =
+            _fixedBaseUrl || _baseUrlController.text.trim().isNotEmpty;
+        return baseOk &&
             _apiKeyController.text.trim().isNotEmpty &&
             (_apiValidated || (_apiError != null && _ignoreApiIssue));
       case 2:
@@ -253,6 +260,7 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
                                   ApiStep(
                                     baseUrlController: _baseUrlController,
                                     apiKeyController: _apiKeyController,
+                                    hideBaseUrl: _fixedBaseUrl,
                                     checkingApi: _checkingApi,
                                     apiValidated: _apiValidated,
                                     apiError: _apiError,

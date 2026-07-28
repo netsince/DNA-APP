@@ -27,9 +27,16 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
   void initState() {
     super.initState();
     final s = widget.controller.settings;
-    _baseUrlCtrl = TextEditingController(text: s.baseUrl);
+    final LlmProvider provider = widget.controller.llmProvider;
+    _baseUrlCtrl = TextEditingController(
+      text: provider.fixedBaseUrl ? provider.defaultBaseUrl : s.baseUrl,
+    );
     _apiKeyCtrl = TextEditingController(text: s.apiKey);
     _selectedModel = s.selectedModel.isEmpty ? null : s.selectedModel;
+    if (provider.fixedBaseUrl) {
+      // 固定地址的厂商（如智谱）无需用户填写，直接持久化默认地址。
+      _saveApi();
+    }
   }
 
   @override
@@ -87,7 +94,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
       _apiMessage = null;
       _models = <String>[];
       _selectedModel = null;
-      if (_baseUrlCtrl.text.trim().isEmpty) {
+      if (provider.fixedBaseUrl) {
         _baseUrlCtrl.text = provider.defaultBaseUrl;
       }
     });
@@ -109,6 +116,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bool fixedBaseUrl = widget.controller.llmProvider.fixedBaseUrl;
     return Scaffold(
       appBar: AppBar(title: const Text('AI 服务')),
       body: ListView(
@@ -131,22 +139,24 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 12),
-          TextField(
-            controller: _baseUrlCtrl,
-            decoration: InputDecoration(
-              labelText: 'Base URL',
-              hintText: widget.controller.llmProvider.defaultBaseUrl,
-              suffixIcon: IconButton(
-                tooltip: '恢复默认地址',
-                icon: const Icon(Icons.restore),
-                onPressed: () {
-                  _baseUrlCtrl.text = widget.controller.llmProvider.defaultBaseUrl;
-                  _saveApi();
-                },
+          if (!fixedBaseUrl)
+            TextField(
+              controller: _baseUrlCtrl,
+              decoration: InputDecoration(
+                labelText: 'Base URL',
+                hintText: widget.controller.llmProvider.defaultBaseUrl,
+                suffixIcon: IconButton(
+                  tooltip: '恢复默认地址',
+                  icon: const Icon(Icons.restore),
+                  onPressed: () {
+                    _baseUrlCtrl.text = widget.controller.llmProvider.defaultBaseUrl;
+                    _saveApi();
+                  },
+                ),
               ),
+              onChanged: (_) => _saveApi(),
             ),
-            onChanged: (_) => _saveApi(),
-          ),
+          if (!fixedBaseUrl) const SizedBox(height: 12),
           const SizedBox(height: 12),
           TextField(
             controller: _apiKeyCtrl,

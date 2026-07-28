@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,70 +7,79 @@ import 'package:flutter/foundation.dart';
 import '../models/service_results.dart';
 import 'llm_provider.dart';
 
-class OpenAiService implements LlmProvider {
-  OpenAiService({http.Client? client}) : _client = client ?? http.Client();
+/// 智谱 GLM 适配器。
+///
+/// 智谱开放平台提供 OpenAI 兼容协议（Bearer 鉴权、相同的 SSE 流形态），
+/// 但 API 版本路径是 `/v4` 而非 `/v1`，因此端点不能沿用 OpenAiService 的
+/// 「一律补 /v1」逻辑。这里把版本段写死在 [defaultBaseUrl] 中，直接拼接
+/// `/chat/completions` 与 `/models`，避免多出一个 `/v1`。
+///
+/// 该厂商的 Base URL 固定，用户只需填写 API Key，故 [fixedBaseUrl] 返回 true。
+class ZhipuProvider implements LlmProvider {
+  ZhipuProvider({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
   @override
-  String get id => 'openai';
+  String get id => 'zhipu';
 
   @override
-  String get label => 'OpenAI 兼容';
+  String get label => '智谱 GLM';
 
   @override
-  String get defaultBaseUrl => 'https://api.openai.com/v1';
+  String get defaultBaseUrl => 'https://open.bigmodel.cn/api/paas/v4';
 
   @override
   bool get requiresApiKey => true;
 
+  /// 该厂商的 Base URL 固定，无需用户填写。
   @override
-  bool get fixedBaseUrl => false;
+  bool get fixedBaseUrl => true;
+
+  Map<String, String> _headers(String apiKey) => <String, String>{
+        'Authorization': 'Bearer ${apiKey.trim()}',
+        'Content-Type': 'application/json',
+      };
+
+  /// 归一化 baseUrl：去掉尾部斜杠后直接作为前缀，不再追加版本段。
+  String _root(String baseUrl) =>
+      baseUrl.trim().replaceAll(RegExp(r'/+$|/v1$'), '');
+
+  String _chatEndpoint(String baseUrl) => '${_root(baseUrl)}/chat/completions';
+
+  String _modelsEndpoint(String baseUrl) => '${_root(baseUrl)}/models';
 
   @override
   Future<ApiCheckResult> validateApi({
     required String baseUrl,
     required String apiKey,
   }) async {
-    final String normalizedBase = baseUrl.trim();
     final String normalizedKey = apiKey.trim();
-    if (normalizedBase.isEmpty || normalizedKey.isEmpty) {
+    if (normalizedKey.isEmpty) {
       return const ApiCheckResult(
         success: false,
-        message: '请先填写 base URL 和 API key。',
+        message: '请先填写 API key。',
       );
     }
 
-    final Uri endpoint;
     try {
-      endpoint = Uri.parse(_modelsEndpoint(normalizedBase));
-    } catch (_) {
-      return const ApiCheckResult(success: false, message: 'base URL 格式无效。');
-    }
-
-    try {
-      final http.Response response = await _client.get(
-        endpoint,
-        headers: <String, String>{
-          'Authorization': 'Bearer $normalizedKey',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 12));
-      debugPrint('OpenAI /models raw response: ${response.body}');
+      final http.Response response = await _client
+          .get(
+            Uri.parse(_modelsEndpoint(baseUrl)),
+            headers: _headers(normalizedKey),
+          )
+          .timeout(const Duration(seconds: 12));
+      debugPrint('Zhipu /models raw response: ${response.body}');
 
       if (response.statusCode == 200) {
         return const ApiCheckResult(success: true, message: '连接验证成功。');
       }
-
       return ApiCheckResult(
         success: false,
         message: _extractError(response.body, response.statusCode),
       );
     } catch (error) {
-      return ApiCheckResult(
-        success: false,
-        message: '连接失败：$error',
-      );
+      return ApiCheckResult(success: false, message: '连接失败：$error');
     }
   }
 
@@ -78,38 +88,32 @@ class OpenAiService implements LlmProvider {
     required String baseUrl,
     required String apiKey,
   }) async {
-    final Uri endpoint = Uri.parse(_modelsEndpoint(baseUrl.trim()));
-
     try {
-      final http.Response response = await _client.get(
-        endpoint,
-        headers: <String, String>{
-          'Authorization': 'Bearer ${apiKey.trim()}',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 12));
+      final http.Response response = await _client
+          .get(
+            Uri.parse(_modelsEndpoint(baseUrl)),
+            headers: _headers(apiKey.trim()),
+          )
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode != 200) {
         return ModelFetchResult(
-          models: const <String>[],
+          models: _fallbackModels,
           errorMessage: _extractError(response.body, response.statusCode),
         );
       }
 
       final Object? decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) {
-        return const ModelFetchResult(
-          models: <String>[],
+        return ModelFetchResult(
+          models: _fallbackModels,
           errorMessage: '模型返回格式无效。',
         );
       }
 
       final Object? data = decoded['data'];
       if (data is! List) {
-        return const ModelFetchResult(
-          models: <String>[],
-          errorMessage: '模型列表为空。',
-        );
+        return ModelFetchResult(models: _fallbackModels);
       }
 
       final List<String> models = data
@@ -120,10 +124,13 @@ class OpenAiService implements LlmProvider {
           .toList()
         ..sort();
 
+      if (models.isEmpty) {
+        return ModelFetchResult(models: _fallbackModels);
+      }
       return ModelFetchResult(models: models);
     } catch (error) {
       return ModelFetchResult(
-        models: const <String>[],
+        models: _fallbackModels,
         errorMessage: '获取模型失败：$error',
       );
     }
@@ -145,15 +152,11 @@ class OpenAiService implements LlmProvider {
       );
     }
 
-    final Uri endpoint = Uri.parse(_chatEndpoint(baseUrl.trim()));
     try {
       final http.Response response = await _client
           .post(
-            endpoint,
-            headers: <String, String>{
-              'Authorization': 'Bearer $normalizedKey',
-              'Content-Type': 'application/json',
-            },
+            Uri.parse(_chatEndpoint(baseUrl)),
+            headers: _headers(normalizedKey),
             body: jsonEncode(<String, dynamic>{
               'model': normalizedModel,
               'messages': messages,
@@ -161,7 +164,7 @@ class OpenAiService implements LlmProvider {
             }),
           )
           .timeout(const Duration(seconds: 20));
-      debugPrint('OpenAI /chat/completions raw response: ${response.body}');
+      debugPrint('Zhipu /chat/completions raw response: ${response.body}');
 
       if (response.statusCode != 200) {
         return ChatCompletionResult(
@@ -206,12 +209,8 @@ class OpenAiService implements LlmProvider {
       return;
     }
 
-    final Uri endpoint = Uri.parse(_chatEndpoint(baseUrl.trim()));
-    final http.Request request = http.Request('POST', endpoint)
-      ..headers.addAll(<String, String>{
-        'Authorization': 'Bearer $normalizedKey',
-        'Content-Type': 'application/json',
-      })
+    final http.Request request = http.Request('POST', Uri.parse(_chatEndpoint(baseUrl)))
+      ..headers.addAll(_headers(normalizedKey))
       ..body = jsonEncode(<String, dynamic>{
         'model': normalizedModel,
         'messages': messages,
@@ -268,22 +267,6 @@ class OpenAiService implements LlmProvider {
     }
   }
 
-  String _modelsEndpoint(String baseUrl) {
-    final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.toLowerCase().endsWith('/v1')) {
-      return '$trimmed/models';
-    }
-    return '$trimmed/v1/models';
-  }
-
-  String _chatEndpoint(String baseUrl) {
-    final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.toLowerCase().endsWith('/v1')) {
-      return '$trimmed/chat/completions';
-    }
-    return '$trimmed/v1/chat/completions';
-  }
-
   String _extractError(String responseBody, int statusCode) {
     try {
       final Object? decoded = jsonDecode(responseBody);
@@ -301,4 +284,12 @@ class OpenAiService implements LlmProvider {
     }
     return 'HTTP $statusCode: 请求失败。';
   }
+
+  /// 智谱模型兜底列表（拉取失败时回退）。
+  static const List<String> _fallbackModels = <String>[
+    'glm-4.5-air',
+    'glm-4.5',
+    'glm-4-plus',
+    'glm-4-flash',
+  ];
 }
