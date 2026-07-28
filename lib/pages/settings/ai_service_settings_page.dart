@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/dialogs.dart';
 
@@ -79,6 +80,20 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     await widget.controller.saveSelectedModel(_selectedModel!.trim());
   }
 
+  Future<void> _selectProvider(LlmProvider provider) async {
+    if (provider.id == widget.controller.settings.provider) return;
+    await widget.controller.saveProvider(provider.id);
+    setState(() {
+      _apiMessage = null;
+      _models = <String>[];
+      _selectedModel = null;
+      if (_baseUrlCtrl.text.trim().isEmpty) {
+        _baseUrlCtrl.text = provider.defaultBaseUrl;
+      }
+    });
+    await _saveApi();
+  }
+
   Future<void> _addCustomModel() async {
     final v = await showTextInputDialog(
       context: context, title: '输入自定义模型', hintText: '例如 gpt-4.1-mini', confirmText: '确定',
@@ -99,11 +114,36 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          Text('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.controller.llmProviders.map((LlmProvider p) {
+              final bool selected = p.id == widget.controller.settings.provider;
+              return ChoiceChip(
+                label: Text(p.label),
+                selected: selected,
+                onSelected: (_) => _selectProvider(p),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 12),
           TextField(
             controller: _baseUrlCtrl,
             decoration: InputDecoration(
               labelText: 'Base URL',
               hintText: widget.controller.llmProvider.defaultBaseUrl,
+              suffixIcon: IconButton(
+                tooltip: '恢复默认地址',
+                icon: const Icon(Icons.restore),
+                onPressed: () {
+                  _baseUrlCtrl.text = widget.controller.llmProvider.defaultBaseUrl;
+                  _saveApi();
+                },
+              ),
             ),
             onChanged: (_) => _saveApi(),
           ),
