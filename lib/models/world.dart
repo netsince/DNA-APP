@@ -20,6 +20,7 @@ class World {
   final bool archived;
 
   World copyWith({
+    String? id,
     String? name,
     String? summary,
     String? description,
@@ -29,7 +30,7 @@ class World {
     bool? archived,
   }) {
     return World(
-      id: id,
+      id: id ?? this.id,
       name: name ?? this.name,
       summary: summary ?? this.summary,
       description: description ?? this.description,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../widgets/adaptive_text_field.dart';
 
 import '../models/world.dart';
+import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 
@@ -203,8 +204,8 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     });
   }
 
-  Future<void> _save() async {
-    final World world = World(
+  World _buildCurrentWorld() {
+    return World(
       id: _worldId,
       name: _nameController.text.trim(),
       summary: _summaryController.text.trim(),
@@ -213,11 +214,122 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
       entries: _entries,
     );
+  }
+
+  Future<void> _save() async {
+    final World world = _buildCurrentWorld();
     await widget.controller.upsertWorld(world);
     if (!mounted) {
       return;
     }
     Navigator.of(context).pop();
+  }
+
+  /// 将当前编辑中的世界观复制到剪贴板（含子词条），便于分享或跨设备粘贴。
+  Future<void> _copyToClipboard() async {
+    final String worldName = _nameController.text.trim();
+    if (worldName.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写世界名称再复制。')),
+      );
+      return;
+    }
+    final ExportImportResult<String> result =
+        WorldExportImportService.exportWorld(_buildCurrentWorld());
+    if (!mounted) return;
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? '导出失败')),
+      );
+      return;
+    }
+    final ExportImportResult<void> copyResult =
+        await WorldExportImportService.copyToClipboard(result.data!);
+    if (!mounted) return;
+    if (copyResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('已复制到剪贴板，可以粘贴分享'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(copyResult.message ?? '复制到剪贴板失败')),
+      );
+    }
+  }
+
+  /// 从剪贴板读取世界观 JSON 并导入。命中已有 ID 时自动创建为新世界，不覆盖。
+  Future<void> _importFromClipboard() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('导入世界观'),
+        content: const Text('将从剪贴板读取世界观数据并导入。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('从剪贴板导入'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ExportImportResult<String> pasteResult =
+        await WorldExportImportService.pasteFromClipboard();
+    if (!mounted) return;
+    if (!pasteResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(pasteResult.message ?? '读取剪贴板失败')),
+      );
+      return;
+    }
+
+    final ExportImportResult<World> importResult =
+        WorldExportImportService.importWorld(pasteResult.data!);
+    if (!mounted) return;
+    if (!importResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(importResult.message ?? '导入失败')),
+      );
+      return;
+    }
+
+    World worldToImport = importResult.data!;
+    // 检查 ID 冲突：命中已有世界则改用新 ID，作为新世界导入，绝不覆盖。
+    final World? existing = widget.controller.getWorldById(worldToImport.id);
+    if (existing != null) {
+      worldToImport = worldToImport.copyWith(id: newId());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ID 与已有世界冲突，已自动创建为新世界')),
+      );
+    }
+
+    await widget.controller.upsertWorld(worldToImport);
+    if (!mounted) return;
+
+    // 用导入的数据回填当前编辑页，方便查看/继续编辑。
+    setState(() {
+      _worldId = worldToImport.id;
+      _nameController.text = worldToImport.name;
+      _summaryController.text = worldToImport.summary;
+      _descriptionController.text = worldToImport.description;
+      _tagsController.text = worldToImport.tags.join(', ');
+      _forbiddenWordsController.text = worldToImport.forbiddenWords.join(', ');
+      _entries = List<WorldEntry>.from(worldToImport.entries);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('导入成功')),
+    );
   }
 
   @override
@@ -226,6 +338,40 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       appBar: AppBar(
         title: Text(widget.world == null ? '创建世界' : '编辑世界'),
         actions: <Widget>[
+          PopupMenuButton<String>(
+            onSelected: (String value) {
+              switch (value) {
+                case 'copy':
+                  _copyToClipboard();
+                  break;
+                case 'import':
+                  _importFromClipboard();
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'copy',
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.content_copy_outlined),
+                    SizedBox(width: 8),
+                    Text('复制到剪贴板'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'import',
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.content_paste_outlined),
+                    SizedBox(width: 8),
+                    Text('从剪贴板导入'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             onPressed: _save,
             icon: const Icon(Icons.save_outlined),
