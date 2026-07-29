@@ -63,6 +63,8 @@ class SettingsService {
       sherpaModelSource:
           prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
       sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,
+      sherpaCustomBaseUrl: prefs.getString(_sherpaCustomBaseUrlKey),
+      sherpaModelPath: prefs.getString(_sherpaModelPathKey),
       selectedVoiceModelId:
           prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
     );

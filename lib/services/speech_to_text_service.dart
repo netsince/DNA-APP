@@ -86,9 +86,7 @@ class SpeechToTextService {
       if (text.isNotEmpty) {
         _partialController.add(text);
       }
-      if (_recognizer!.isEndpoint(_stream!)) {
-        _recognizer!.reset(_stream!);
-      }
+      // 不在端点处 reset：连续听写时保留已识别内容，避免停顿导致文字被清空。
     });
 
     _isRecording = true;

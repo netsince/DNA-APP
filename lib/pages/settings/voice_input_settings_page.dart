@@ -60,7 +60,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('基于 sherpa-onnx 的完全离线语音转文字，长按聊天输入框的麦克风按钮即可说话并自动发送。模型需先下载（约数十 MB）。',
+          Text('下载模型后，点聊天输入框的麦克风即可语音输入。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 16),
@@ -114,23 +114,23 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
             child: Column(
               children: <Widget>[
                 RadioListTile<String>(
-                  title: const Text('自动选择（探测可达源并回退）'),
-                  subtitle: const Text('依次尝试，前一个失败自动换下一个'),
+                  title: const Text('自动选择'),
+                  subtitle: const Text('依次尝试可达的源'),
                   value: 'auto',
                 ),
                 RadioListTile<String>(
-                  title: const Text('ModelScope（国内镜像）'),
-                  subtitle: const Text('严格使用，失败直接报错不回退'),
+                  title: const Text('ModelScope（国内）'),
+                  subtitle: const Text('只用此源'),
                   value: 'modelscope',
                 ),
                 RadioListTile<String>(
-                  title: const Text('GitHub Releases'),
-                  subtitle: const Text('严格使用，失败直接报错不回退'),
+                  title: const Text('GitHub'),
+                  subtitle: const Text('只用此源'),
                   value: 'github',
                 ),
                 RadioListTile<String>(
                   title: const Text('自定义服务器'),
-                  subtitle: const Text('严格使用，失败直接报错不回退'),
+                  subtitle: const Text('只用此源'),
                   value: 'custom',
                 ),
               ],
@@ -196,7 +196,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
             ),
           ],
           const SizedBox(height: 16),
-          Text('提示：首次下载需联网（一次性），之后完全离线。「自动选择」会探测并自动回退到可用源；单独选择某一来源则严格只用它，失败直接报错。',
+          Text('首次下载需联网，之后完全离线使用。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
         ],

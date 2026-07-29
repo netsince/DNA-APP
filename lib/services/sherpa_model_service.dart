@@ -154,6 +154,9 @@ class SherpaModelDownloadService {
     await modelDir.create(recursive: true);
 
     final http.Client client = http.Client();
+    // 临时文件：流式写入磁盘，绝不在内存中攒整包（避免 List<int> 8 字节/元素撑爆内存）。
+    final File tmpFile = File(path.join(baseDir.path, '.${model.id}.part'));
+    IOSink? sink;
     try {
       final http.Request request =
           http.Request('GET', Uri.parse(source.urlFor(model.fileName)));
@@ -172,11 +175,11 @@ class SherpaModelDownloadService {
       }
 
       final int? total = response.contentLength;
-      final List<int> bytes = <int>[];
       int received = 0;
       int lastReceived = 0;
       DateTime lastStamp = DateTime.now();
 
+      sink = tmpFile.openWrite();
       await for (final List<int> chunk in response.stream.timeout(
         _requestTimeout,
         onTimeout: (EventSink<List<int>> sink) {
@@ -184,7 +187,7 @@ class SherpaModelDownloadService {
           throw const SocketException('下载中断（超时）');
         },
       )) {
-        bytes.addAll(chunk);
+        sink.add(chunk);
         received += chunk.length;
 
         final DateTime now = DateTime.now();
@@ -199,11 +202,18 @@ class SherpaModelDownloadService {
           lastStamp = now;
         }
       }
+      await sink.flush();
+      await sink.close();
+      sink = null;
 
       onProgress?.call(total != null && total > 0 ? 1.0 : null, received, total,
           null);
 
-      await _extractTarBz2(Uint8List.fromList(bytes), modelDir);
+      await _extractTarBz2(tmpFile, modelDir);
+      // 解压完成后删除压缩包
+      if (await tmpFile.exists()) {
+        await tmpFile.delete();
+      }
       return SherpaDownloadResult(success: true, modelDir: modelDir.path);
     } on SocketException catch (e) {
       return SherpaDownloadResult(
@@ -216,6 +226,11 @@ class SherpaModelDownloadService {
         message: '来源「${source.label}」下载失败：$e',
       );
     } finally {
+      try {
+        await sink?.close();
+      } catch (_) {
+        // 忽略：下载已失败，关闭失败不影响错误处理
+      }
       client.close();
     }
   }
@@ -231,10 +246,12 @@ class SherpaModelDownloadService {
     }
   }
 
-  /// 解压 .tar.bz2 到 [target]。
-  static Future<void> _extractTarBz2(Uint8List bytes, Directory target) async {
-    final Uint8List bz2Bytes = BZip2Decoder().decodeBytes(bytes);
-    final Archive archive = TarDecoder().decodeBytes(bz2Bytes);
+  /// 解压 .tar.bz2 文件 [compressed] 到 [target]。
+  static Future<void> _extractTarBz2(File compressed, Directory target) async {
+    final Uint8List compressedBytes = await compressed.readAsBytes();
+    final Uint8List tarBytes = BZip2Decoder().decodeBytes(compressedBytes);
+    // compressedBytes 已完成使命，置空便于 GC 尽早回收，降低峰值内存。
+    final Archive archive = TarDecoder().decodeBytes(tarBytes);
     for (final ArchiveFile file in archive.files) {
       final String outPath = path.join(target.path, file.name);
       if (file.isFile) {
