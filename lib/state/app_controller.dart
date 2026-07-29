@@ -198,6 +198,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「删除角色卡前强制输入角色名」开关。
+  Future<void> saveRequireNameToDeleteTa(bool value) async {
+    _settings = _settings.copyWith(requireNameToDeleteTa: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
     _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
     await _settingsService.save(_settings);
@@ -288,6 +295,60 @@ class AppController extends ChangeNotifier {
     _tas = _tas.where((TA ta) => ta.id != id).toList();
     await _hiveService.deleteTa(id);
     notifyListeners();
+  }
+
+  /// 删除角色卡并自动备份其完整 JSON（含图片）到特定目录。
+  ///
+  /// 备份路径：`<应用文档目录>/dna_backups/deleted_ta/TA_<名称>_<时间戳>.json`。
+  /// 返回备份文件的绝对路径；导出或写盘失败时返回 null（但仍会执行删除）。
+  /// 同时清理该角色在 `tas/` 目录下的图片文件，避免残留孤儿文件。
+  Future<String?> deleteTaWithBackup(String id) async {
+    final TA? ta = getTaById(id);
+    if (ta == null) {
+      return null;
+    }
+
+    String? backupPath;
+    final ExportImportResult<String> exportResult =
+        await TaExportImportService.exportCharacter(ta);
+    if (exportResult.success && exportResult.data != null) {
+      try {
+        final Directory docDir = await getApplicationDocumentsDirectory();
+        final Directory dir =
+            Directory(path.join(docDir.path, 'dna_backups', 'deleted_ta'));
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        final String safeName =
+            ta.name.replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_').trim();
+        final File backupFile = File(
+          path.join(dir.path, 'TA_${safeName}_${_timestamp()}.json'),
+        );
+        await backupFile.writeAsString(exportResult.data!);
+        backupPath = backupFile.path;
+      } catch (_) {
+        // 备份失败不阻断删除
+      }
+    }
+
+    // 清理该角色的图片文件
+    try {
+      final Directory docDir = await getApplicationDocumentsDirectory();
+      final Directory taDir = Directory(path.join(docDir.path, 'tas'));
+      if (await taDir.exists()) {
+        await for (final FileSystemEntity entity in taDir.list()) {
+          if (entity is File &&
+              path.basename(entity.path).startsWith('${ta.id}_')) {
+            await entity.delete();
+          }
+        }
+      }
+    } catch (_) {
+      // 图片清理失败不阻断删除
+    }
+
+    await deleteTa(id);
+    return backupPath;
   }
 
   Future<void> setTaArchived({

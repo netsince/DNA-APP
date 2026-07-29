@@ -16,6 +16,7 @@ class AppSettings {
     required this.promptStrategy,
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
+    required this.requireNameToDeleteTa,
     required this.showSplashAnimation,
     required this.appIcon,
     required this.snackDurationMs,
@@ -43,6 +44,7 @@ class AppSettings {
       promptStrategy: PromptStrategy.defaults(),
       requireAuthForArchive: false,
       requireAuthForApp: false,
+      requireNameToDeleteTa: true,
       showSplashAnimation: true,
       appIcon: 'default',
       snackDurationMs: 1000,
@@ -69,6 +71,12 @@ class AppSettings {
   final PromptStrategy promptStrategy;
   final bool requireAuthForArchive;
   final bool requireAuthForApp;
+
+  /// 删除角色卡前是否强制输入完整角色名。
+  /// 开启时：输入角色名 → 5 秒滚动确认（可反悔）。
+  /// 关闭时：改为长按右下角按钮 5 秒删除（滚动同步进行）。
+  final bool requireNameToDeleteTa;
+
   final bool showSplashAnimation;
   final String appIcon;
   final int snackDurationMs;
@@ -110,6 +118,7 @@ class AppSettings {
       'promptStrategy': promptStrategy.toJson(),
       'requireAuthForArchive': requireAuthForArchive,
       'requireAuthForApp': requireAuthForApp,
+      'requireNameToDeleteTa': requireNameToDeleteTa,
       'showSplashAnimation': showSplashAnimation,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
@@ -144,6 +153,7 @@ class AppSettings {
       promptStrategy: promptStrategy,
       requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
+      requireNameToDeleteTa: (json['requireNameToDeleteTa'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
@@ -172,6 +182,7 @@ class AppSettings {
     PromptStrategy? promptStrategy,
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
+    bool? requireNameToDeleteTa,
     bool? showSplashAnimation,
     String? appIcon,
     int? snackDurationMs,
@@ -197,6 +208,7 @@ class AppSettings {
       promptStrategy: promptStrategy ?? this.promptStrategy,
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
+      requireNameToDeleteTa: requireNameToDeleteTa ?? this.requireNameToDeleteTa,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,

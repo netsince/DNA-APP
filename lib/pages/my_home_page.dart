@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/ta.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
+import 'ta_delete_confirm_page.dart';
 import 'ta_editor_page.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -223,6 +224,21 @@ class _TaItem extends StatelessWidget {
                       id: ta.id,
                       archived: false,
                     );
+                  } else if (value == 'delete') {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    final bool? deleted = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute<bool>(
+                        builder: (BuildContext context) => TaDeleteConfirmPage(
+                          controller: controller,
+                          ta: ta,
+                        ),
+                      ),
+                    );
+                    if (deleted == true && context.mounted) {
+                      // 删除页已自行提示，这里无需额外操作。
+                    }
                   }
                 },
                 itemBuilder: (BuildContext context) {
@@ -233,6 +249,14 @@ class _TaItem extends StatelessWidget {
                         child: ListTile(
                           leading: Icon(Icons.unarchive_outlined),
                           title: Text('恢复'),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('删除'),
                         ),
                       ),
                     ];
