@@ -23,6 +23,7 @@ import '../services/hive_service.dart';
 import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
+import '../services/world_export_import_service.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 
@@ -297,6 +298,32 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 将 JSON 字符串写入 `<文档目录>/dna_backups/<subDir>/<fileNameBase>_<时间戳>.json`。
+  /// 失败时返回 null（不阻断删除流程）。
+  Future<String?> _writeBackupJson(
+    String json,
+    String subDir,
+    String fileNameBase,
+  ) async {
+    try {
+      final Directory docDir = await getApplicationDocumentsDirectory();
+      final Directory dir =
+          Directory(path.join(docDir.path, 'dna_backups', subDir));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      final String safeBase =
+          fileNameBase.replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_').trim();
+      final File backupFile = File(
+        path.join(dir.path, '${safeBase}_${_timestamp()}.json'),
+      );
+      await backupFile.writeAsString(json);
+      return backupFile.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 删除角色卡并自动备份其完整 JSON（含图片）到特定目录。
   ///
   /// 备份路径：`<应用文档目录>/dna_backups/deleted_ta/TA_<名称>_<时间戳>.json`。
@@ -312,23 +339,11 @@ class AppController extends ChangeNotifier {
     final ExportImportResult<String> exportResult =
         await TaExportImportService.exportCharacter(ta);
     if (exportResult.success && exportResult.data != null) {
-      try {
-        final Directory docDir = await getApplicationDocumentsDirectory();
-        final Directory dir =
-            Directory(path.join(docDir.path, 'dna_backups', 'deleted_ta'));
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
-        final String safeName =
-            ta.name.replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_').trim();
-        final File backupFile = File(
-          path.join(dir.path, 'TA_${safeName}_${_timestamp()}.json'),
-        );
-        await backupFile.writeAsString(exportResult.data!);
-        backupPath = backupFile.path;
-      } catch (_) {
-        // 备份失败不阻断删除
-      }
+      backupPath = await _writeBackupJson(
+        exportResult.data!,
+        'deleted_ta',
+        'TA_${ta.name}',
+      );
     }
 
     // 清理该角色的图片文件
@@ -348,6 +363,70 @@ class AppController extends ChangeNotifier {
     }
 
     await deleteTa(id);
+    return backupPath;
+  }
+
+  /// 删除世界并自动备份其 JSON 到特定目录。
+  ///
+  /// 备份路径：`<应用文档目录>/dna_backups/deleted_world/World_<名称>_<时间戳>.json`。
+  Future<String?> deleteWorldWithBackup(String id) async {
+    final World? world = getWorldById(id);
+    if (world == null) {
+      return null;
+    }
+    String? backupPath;
+    final ExportImportResult<String> exportResult =
+        WorldExportImportService.exportWorld(world);
+    if (exportResult.success && exportResult.data != null) {
+      backupPath = await _writeBackupJson(
+        exportResult.data!,
+        'deleted_world',
+        'World_${world.name}',
+      );
+    }
+    await deleteWorld(id);
+    return backupPath;
+  }
+
+  /// 删除对话（单聊或群聊）并自动备份其 JSON 到特定目录。
+  ///
+  /// 备份路径：`<应用文档目录>/dna_backups/deleted_conversations/` 下，文件名以
+  /// `Conv_`（单聊）或 `Group_`（群聊）开头，后接标题与时间戳。删除方式按对话
+  /// 类型分别走单聊 / 群聊删除。
+  Future<String?> deleteConversationWithBackup(String id) async {
+    Conversation? conv;
+    try {
+      conv = _conversations.firstWhere((Conversation c) => c.id == id);
+    } catch (_) {
+      conv = null;
+    }
+    if (conv == null) {
+      try {
+        conv = _groupConversations.firstWhere((Conversation c) => c.id == id);
+      } catch (_) {
+        conv = null;
+      }
+    }
+    if (conv == null) {
+      return null;
+    }
+
+    final String title = conv.isGroup
+        ? (conv.groupName.trim().isNotEmpty ? conv.groupName.trim() : 'Group')
+        : (getTaById(conv.taId)?.name.isNotEmpty == true
+            ? getTaById(conv.taId)!.name
+            : 'Conv');
+    final String? backupPath = await _writeBackupJson(
+      jsonEncode(conv.toJson()),
+      'deleted_conversations',
+      '${conv.isGroup ? 'Group' : 'Conv'}_$title',
+    );
+
+    if (conv.isGroup) {
+      await deleteGroupConversation(id);
+    } else {
+      await deleteConversation(id);
+    }
     return backupPath;
   }
 

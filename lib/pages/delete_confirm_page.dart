@@ -1,39 +1,59 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
-import '../models/dialogue_style.dart';
-import '../models/ta.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
 
-/// 角色卡删除确认页。
+/// 通用删除确认页。
 ///
-/// 仅用于已归档的角色卡。提供两种删除确认方式（由设置项
-/// `requireNameToDeleteTa` 决定）：
+/// 统一的「强制确认删除」机制，适用于角色卡 / 世界 / 单聊 / 群聊等可归档实体。
 ///
-/// * 强制输入角色名（默认）：先完整输入角色名，点击「确认删除」后，整个页面
-///   自动从上到下滚动 5 秒展示当前角色内容；滚动期间可「反悔」取消，反悔后想
-///   再删需重新走 5 秒滚动确认。
-/// * 长按删除（关闭强制输入后）：右下角长按按钮 5 秒，期间页面同步自动从上到
-///   下滚动展示内容；松开则重置，需从头再按 5 秒。
+/// 两种确认模式由 [requireName] 决定：
+/// * 强制输入名称（默认，[requireName] 为 true）：先完整输入 [validNames] 中的
+///   某个名称，点击「确认删除」后，整个页面自动从上到下滚动 5 秒展示当前内容；
+///   滚动期间可「反悔」取消，反悔后想再删需重新走 5 秒滚动确认。
+/// * 长按删除（[requireName] 为 false，仅角色卡在关闭对应设置时启用）：右下角
+///   长按按钮 5 秒，期间页面同步自动从上到下滚动展示内容；松开则重置，需从头
+///   再按 5 秒。
 ///
-/// 删除成功后自动备份该角色的完整 JSON（含图片）到特定目录。
-class TaDeleteConfirmPage extends StatefulWidget {
-  const TaDeleteConfirmPage({
+/// 删除成功后由 [onDelete] 负责写库与备份，并返回备份文件路径（或 null）。
+class DeleteConfirmPage extends StatefulWidget {
+  const DeleteConfirmPage({
     super.key,
     required this.controller,
-    required this.ta,
+    required this.title,
+    required this.entityName,
+    required this.validNames,
+    required this.promptHint,
+    required this.contentBuilder,
+    required this.onDelete,
+    this.requireName = true,
   });
 
   final AppController controller;
-  final TA ta;
+  final String title;
+  final String entityName;
+
+  /// 可接受的确认识别名（输入去除首尾空白后需命中其中之一）。
+  /// 为空时退化为「输入任意非空内容」即可（用于关联数据缺失的兜底）。
+  final List<String> validNames;
+
+  /// 输入框上方的提示文案（告知用户应输入什么）。
+  final String promptHint;
+
+  /// 构建可滚动的内容预览（传入本页 context，以便读取主题）。
+  final List<Widget> Function(BuildContext) contentBuilder;
+
+  /// 执行删除与备份，返回备份文件路径；失败返回 null。
+  final Future<String?> Function() onDelete;
+
+  /// 是否强制输入名称确认。false 时改用长按按钮（5 秒）。
+  final bool requireName;
 
   @override
-  State<TaDeleteConfirmPage> createState() => _TaDeleteConfirmPageState();
+  State<DeleteConfirmPage> createState() => _DeleteConfirmPageState();
 }
 
-class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
+class _DeleteConfirmPageState extends State<DeleteConfirmPage>
     with TickerProviderStateMixin {
   static const Duration _confirmDuration = Duration(seconds: 5);
 
@@ -41,9 +61,7 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
   late final AnimationController _animController;
   late final TextEditingController _nameInput;
 
-  /// 模式 A：是否处于 5 秒滚动确认阶段。
   bool _scrolling = false;
-  /// 模式 B：是否正在长按。
   bool _pressing = false;
   bool _deleting = false;
 
@@ -69,11 +87,15 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
     super.dispose();
   }
 
-  bool get _requireName => widget.controller.settings.requireNameToDeleteTa;
-
   bool get _autoScrolling => _scrolling || _pressing;
 
-  bool get _nameMatches => _nameInput.text.trim() == widget.ta.name;
+  bool get _nameMatches {
+    final String input = _nameInput.text.trim();
+    if (widget.validNames.isEmpty) {
+      return input.isNotEmpty;
+    }
+    return widget.validNames.contains(input);
+  }
 
   void _onAnimTick() {
     if (_scrollController.hasClients) {
@@ -88,13 +110,11 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
     }
   }
 
-  /// 启动 5 秒自动滚动确认（模式 A）。
   void _startAutoScrollConfirm() {
     if (!_nameMatches) {
       return;
     }
     setState(() => _scrolling = true);
-    // 等一帧拿到准确的 maxScrollExtent 后再开始。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_scrollController.hasClients) {
@@ -104,7 +124,6 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
     });
   }
 
-  /// 反悔：取消滚动确认，回到输入阶段。
   void _regret() {
     _animController.stop();
     _animController.reset();
@@ -115,8 +134,6 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
       setState(() => _scrolling = false);
     }
   }
-
-  // ===== 模式 B：长按 =====
 
   void _onPressDown() {
     if (_deleting) return;
@@ -133,7 +150,6 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
   void _onPressUp() {
     if (_deleting) return;
     if (_animController.status == AnimationStatus.completed) {
-      // 已完成，删除流程接管。
       return;
     }
     _animController.stop();
@@ -149,12 +165,13 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
   Future<void> _doDelete() async {
     if (_deleting) return;
     _deleting = true;
-    final String? backupPath =
-        await widget.controller.deleteTaWithBackup(widget.ta.id);
+    final String? backupPath = await widget.onDelete();
     if (!mounted) return;
     showSnack(
       context,
-      backupPath != null ? '已删除「${widget.ta.name}」，JSON 备份已保存' : '已删除「${widget.ta.name}」',
+      backupPath != null
+          ? '已删除「${widget.entityName}」，JSON 备份已保存'
+          : '已删除「${widget.entityName}」',
       behavior: SnackBarBehavior.floating,
     );
     if (mounted) {
@@ -167,29 +184,36 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
     return s < 0 ? 0 : s;
   }
 
-  // ===== UI =====
-
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('删除角色')),
+      appBar: AppBar(title: Text(widget.title)),
       body: Column(
         children: <Widget>[
           _buildTopBar(cs),
-          Expanded(child: _buildContent(cs)),
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              physics: _autoScrolling ? const NeverScrollableScrollPhysics() : null,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+              children: <Widget>[
+                ...widget.contentBuilder(context),
+                const SizedBox(height: 240),
+              ],
+            ),
+          ),
         ],
       ),
-      floatingActionButton: !_requireName ? _buildLongPressButton(cs) : null,
+      floatingActionButton:
+          widget.requireName ? null : _buildLongPressButton(cs),
     );
   }
 
   Widget _buildTopBar(ColorScheme cs) {
     final TextTheme tt = Theme.of(context).textTheme;
-    final String name = widget.ta.name;
 
-    if (_requireName) {
-      // 模式 A
+    if (widget.requireName) {
       if (_scrolling) {
         return AnimatedBuilder(
           animation: _animController,
@@ -236,7 +260,7 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              '请完整输入角色名「$name」以确认删除',
+              widget.promptHint,
               style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -244,7 +268,7 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
               controller: _nameInput,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: '角色名',
+                labelText: '名称',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
@@ -268,7 +292,6 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
       );
     }
 
-    // 模式 B
     if (_pressing) {
       return AnimatedBuilder(
         animation: _animController,
@@ -301,7 +324,7 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       color: cs.errorContainer.withValues(alpha: 0.25),
       child: Text(
-        '长按右下角按钮 5 秒以删除角色「$name」。期间页面会自动滚动供你查阅，松开需重头开始。',
+        '长按右下角按钮 5 秒以删除。期间页面会自动滚动供你查阅，松开需重头开始。',
         style: tt.bodyMedium,
       ),
     );
@@ -355,171 +378,6 @@ class _TaDeleteConfirmPageState extends State<TaDeleteConfirmPage>
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildContent(ColorScheme cs) {
-    final TA ta = widget.ta;
-    final TextTheme tt = Theme.of(context).textTheme;
-    return ListView(
-      controller: _scrollController,
-      physics: _autoScrolling ? const NeverScrollableScrollPhysics() : null,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-      children: <Widget>[
-        _buildImageSection(cs, tt, ta),
-        const SizedBox(height: 12),
-        _buildInfoSection(cs, tt, ta),
-        if (ta.dialogueStyle.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 12),
-          _buildDialogueSection(cs, tt, ta),
-        ],
-        const SizedBox(height: 240),
-      ],
-    );
-  }
-
-  Widget _buildImageSection(ColorScheme cs, TextTheme tt, TA ta) {
-    final List<Widget> slots = <Widget>[];
-    void addSlot(String title, String? p, double aspect) {
-      slots.add(Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(title, style: tt.titleMedium),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: AspectRatio(
-                aspectRatio: aspect,
-                child: _imageOrPlaceholder(p, cs),
-              ),
-            ),
-          ],
-        ),
-      ));
-    }
-
-    addSlot('1:1 形象', ta.images['square'], 1);
-    addSlot('16:9 形象', ta.images['landscape'], 16 / 9);
-    addSlot('9:16 形象', ta.images['portrait'], 9 / 16);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('TA 形象', style: tt.titleLarge),
-            const SizedBox(height: 12),
-            ...slots,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _imageOrPlaceholder(String? p, ColorScheme cs) {
-    if (p == null || p.isEmpty) {
-      return Container(
-        color: cs.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: Icon(Icons.broken_image_outlined, color: cs.onSurfaceVariant),
-      );
-    }
-    return Image.file(
-      File(p),
-      fit: BoxFit.cover,
-      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-        return Container(
-          color: cs.surfaceContainerHighest,
-          alignment: Alignment.center,
-          child: Icon(Icons.broken_image_outlined, color: cs.onSurfaceVariant),
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoSection(ColorScheme cs, TextTheme tt, TA ta) {
-    Widget row(String label, String value) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(label,
-                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-            const SizedBox(height: 2),
-            Text(value.isEmpty ? '（空）' : value, style: tt.bodyMedium),
-          ],
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('人设', style: tt.titleLarge),
-            const SizedBox(height: 12),
-            row('名字', ta.name),
-            row('性别', ta.gender),
-            row('设定', ta.persona),
-            row('介绍', ta.intro),
-            row('开场白', ta.opening),
-            if (ta.tags.isNotEmpty) ...<Widget>[
-              Text('标签',
-                  style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: ta.tags
-                    .map((String t) => Chip(label: Text(t)))
-                    .toList(),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDialogueSection(ColorScheme cs, TextTheme tt, TA ta) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('对话风格', style: tt.titleLarge),
-            const SizedBox(height: 12),
-            for (final DialogueTurn turn in ta.dialogueStyle) ...<Widget>[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('我：${turn.user}',
-                        style: tt.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text('TA：${turn.assistant}', style: tt.bodyMedium),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ],
-        ),
       ),
     );
   }

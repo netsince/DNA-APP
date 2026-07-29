@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../models/ta.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
-import 'ta_delete_confirm_page.dart';
+import 'delete_confirm_page.dart';
+import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -230,9 +231,16 @@ class _TaItem extends StatelessWidget {
                     }
                     final bool? deleted = await Navigator.of(context).push<bool>(
                       MaterialPageRoute<bool>(
-                        builder: (BuildContext context) => TaDeleteConfirmPage(
+                        builder: (BuildContext context) => DeleteConfirmPage(
                           controller: controller,
-                          ta: ta,
+                          title: '删除角色',
+                          entityName: ta.name,
+                          validNames: <String>[ta.name],
+                          promptHint: '请完整输入角色名「${ta.name}」以确认删除',
+                          contentBuilder: (BuildContext ctx) =>
+                              buildTaPreviewSections(ctx, ta),
+                          onDelete: () => controller.deleteTaWithBackup(ta.id),
+                          requireName: controller.settings.requireNameToDeleteTa,
                         ),
                       ),
                     );

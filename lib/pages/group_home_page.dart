@@ -7,6 +7,8 @@ import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
+import 'delete_confirm_page.dart';
+import 'delete_preview_builders.dart';
 import 'group_create_page.dart';
 import 'group_edit_page.dart';
 
@@ -170,6 +172,36 @@ class _GroupItem extends StatelessWidget {
                 id: group.id,
                 archived: false,
               );
+            } else if (value == 'delete') {
+              if (!context.mounted) return;
+              final List<String> memberNames = group.memberTaIds
+                  .map(controller.getTaById)
+                  .whereType<TA>()
+                  .map((TA t) => t.name)
+                  .where((String n) => n.isNotEmpty)
+                  .toList();
+              final String hint = memberNames.isNotEmpty
+                  ? '请完整输入任意一名成员名（${memberNames.join(' / ')}）以确认删除'
+                  : '该群聊成员名缺失，请输入任意文字以确认删除';
+              await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (BuildContext context) => DeleteConfirmPage(
+                    controller: controller,
+                    title: '删除群聊',
+                    entityName: group.groupName.trim().isNotEmpty
+                        ? group.groupName.trim()
+                        : '该群聊',
+                    validNames: memberNames,
+                    promptHint: hint,
+                    contentBuilder: (BuildContext ctx) =>
+                        buildConversationPreviewSections(
+                            ctx, controller, group),
+                    onDelete: () =>
+                        controller.deleteConversationWithBackup(group.id),
+                    requireName: true,
+                  ),
+                ),
+              );
             }
           },
           itemBuilder: (BuildContext context) {
@@ -180,6 +212,14 @@ class _GroupItem extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.unarchive_outlined),
                     title: Text('恢复'),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline),
+                    title: Text('删除'),
                   ),
                 ),
               ];

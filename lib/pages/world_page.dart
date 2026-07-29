@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_drawer.dart';
+import 'delete_confirm_page.dart';
+import 'delete_preview_builders.dart';
 import 'world_editor_page.dart';
 
 class WorldPage extends StatefulWidget {
@@ -196,6 +198,24 @@ class _WorldItem extends StatelessWidget {
                       id: world.id,
                       archived: false,
                     );
+                  } else if (value == 'delete') {
+                    if (!context.mounted) return;
+                    await Navigator.of(context).push<bool>(
+                      MaterialPageRoute<bool>(
+                        builder: (BuildContext context) => DeleteConfirmPage(
+                          controller: controller,
+                          title: '删除世界',
+                          entityName: world.name,
+                          validNames: <String>[world.name],
+                          promptHint: '请完整输入世界名「${world.name}」以确认删除',
+                          contentBuilder: (BuildContext ctx) =>
+                              buildWorldPreviewSections(ctx, world),
+                          onDelete: () =>
+                              controller.deleteWorldWithBackup(world.id),
+                          requireName: true,
+                        ),
+                      ),
+                    );
                   }
                 },
                 itemBuilder: (BuildContext context) {
@@ -206,6 +226,14 @@ class _WorldItem extends StatelessWidget {
                         child: ListTile(
                           leading: Icon(Icons.unarchive_outlined),
                           title: Text('恢复'),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('删除'),
                         ),
                       ),
                     ];

@@ -9,6 +9,8 @@ import '../../state/app_controller.dart';
 import '../../widgets/group_avatar.dart';
 import '../chat_page.dart';
 import '../conversation_edit_page.dart';
+import '../delete_confirm_page.dart';
+import '../delete_preview_builders.dart';
 
 class ConversationListBody extends StatelessWidget {
   const ConversationListBody({
@@ -184,6 +186,33 @@ class _ConversationItem extends StatelessWidget {
                     id: conversation.id,
                     archived: false,
                   );
+                } else if (value == 'delete') {
+                  if (!context.mounted) return;
+                  final TA? ta = controller.getTaById(conversation.taId);
+                  final String taName = ta?.name ?? '';
+                  final List<String> validNames =
+                      taName.isNotEmpty ? <String>[taName] : <String>[];
+                  final String promptHint = taName.isNotEmpty
+                      ? '请完整输入你对话的角色名「$taName」以确认删除'
+                      : '该对话关联角色名缺失，请输入任意文字以确认删除';
+                  await Navigator.of(context).push<bool>(
+                    MaterialPageRoute<bool>(
+                      builder: (BuildContext context) => DeleteConfirmPage(
+                        controller: controller,
+                        title: '删除对话',
+                        entityName: taName.isNotEmpty ? taName : '该对话',
+                        validNames: validNames,
+                        promptHint: promptHint,
+                        contentBuilder: (BuildContext ctx) =>
+                            buildConversationPreviewSections(
+                                ctx, controller, conversation),
+                        onDelete: () =>
+                            controller.deleteConversationWithBackup(
+                                conversation.id),
+                        requireName: true,
+                      ),
+                    ),
+                  );
                 }
               },
               itemBuilder: (BuildContext context) {
@@ -194,6 +223,14 @@ class _ConversationItem extends StatelessWidget {
                       child: ListTile(
                         leading: Icon(Icons.unarchive_outlined),
                         title: Text('恢复'),
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('删除'),
                       ),
                     ),
                   ];
