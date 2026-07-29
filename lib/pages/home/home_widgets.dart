@@ -209,7 +209,7 @@ class _ConversationItem extends StatelessWidget {
                         onDelete: () =>
                             controller.deleteConversationWithBackup(
                                 conversation.id),
-                        requireName: true,
+                        requireName: controller.settings.requireNameToDelete,
                       ),
                     ),
                   );

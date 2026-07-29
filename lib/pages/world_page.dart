@@ -212,7 +212,7 @@ class _WorldItem extends StatelessWidget {
                               buildWorldPreviewSections(ctx, world),
                           onDelete: () =>
                               controller.deleteWorldWithBackup(world.id),
-                          requireName: true,
+                          requireName: controller.settings.requireNameToDelete,
                         ),
                       ),
                     );

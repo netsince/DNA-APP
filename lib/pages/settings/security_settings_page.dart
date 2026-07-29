@@ -15,7 +15,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   bool _authForApp = false;
   bool _authForArchive = false;
   bool _authAvailable = false;
-  bool _requireNameToDeleteTa = true;
+  bool _requireNameToDelete = true;
 
   @override
   void initState() {
@@ -23,7 +23,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     final s = widget.controller.settings;
     _authForApp = s.requireAuthForApp;
     _authForArchive = s.requireAuthForArchive;
-    _requireNameToDeleteTa = s.requireNameToDeleteTa;
+    _requireNameToDelete = s.requireNameToDelete;
     _checkAuth();
   }
 
@@ -75,12 +75,12 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           const Divider(height: 32),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('强制输入角色名以删除'),
-            subtitle: const Text('删除角色卡前需完整输入角色名，并在 5 秒滚动确认中可反悔；关闭后改为长按右下角按钮 5 秒删除。'),
-            value: _requireNameToDeleteTa,
+            title: const Text('删除前强制输入名称'),
+            subtitle: const Text('删除前需完整输入对应名称（角色名 / 世界名 / 对话角色名 / 群成员名），并在 5 秒滚动确认中可反悔；关闭后改为长按右下角按钮 5 秒删除。四类可归档实体统一生效。'),
+            value: _requireNameToDelete,
             onChanged: (v) {
-              setState(() => _requireNameToDeleteTa = v);
-              widget.controller.saveRequireNameToDeleteTa(v);
+              setState(() => _requireNameToDelete = v);
+              widget.controller.saveRequireNameToDelete(v);
             },
           ),
         ],

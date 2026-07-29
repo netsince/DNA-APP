@@ -198,7 +198,7 @@ class _GroupItem extends StatelessWidget {
                             ctx, controller, group),
                     onDelete: () =>
                         controller.deleteConversationWithBackup(group.id),
-                    requireName: true,
+                    requireName: controller.settings.requireNameToDelete,
                   ),
                 ),
               );

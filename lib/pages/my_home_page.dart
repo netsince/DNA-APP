@@ -240,7 +240,7 @@ class _TaItem extends StatelessWidget {
                           contentBuilder: (BuildContext ctx) =>
                               buildTaPreviewSections(ctx, ta),
                           onDelete: () => controller.deleteTaWithBackup(ta.id),
-                          requireName: controller.settings.requireNameToDeleteTa,
+                          requireName: controller.settings.requireNameToDelete,
                         ),
                       ),
                     );

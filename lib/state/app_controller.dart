@@ -199,9 +199,9 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存「删除角色卡前强制输入角色名」开关。
-  Future<void> saveRequireNameToDeleteTa(bool value) async {
-    _settings = _settings.copyWith(requireNameToDeleteTa: value);
+  /// 保存「删除前强制输入名称」开关（对四类可归档实体统一生效）。
+  Future<void> saveRequireNameToDelete(bool value) async {
+    _settings = _settings.copyWith(requireNameToDelete: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
