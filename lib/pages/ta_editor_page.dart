@@ -208,7 +208,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
     if (!mounted) return;
 
     if (copyResult.success) {
-      showSnack(context, '已复制到剪贴板，可以粘贴分享');
+      showSnack(
+        context,
+        '已复制到剪贴板，可以粘贴分享',
+        duration: const Duration(milliseconds: 1200),
+        behavior: SnackBarBehavior.floating,
+      );
     } else {
       showSnack(context, '导出完成，但复制到剪贴板失败');
     }
