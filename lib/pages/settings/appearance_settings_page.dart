@@ -16,6 +16,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   bool _showSplash = true;
   String _iconKey = 'default';
   String _themeMode = 'system';
+  int _snackDurationMs = 1000;
   final bool _androidOk = AppIconService.isSupported;
 
   @override
@@ -25,6 +26,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     _showSplash = s.showSplashAnimation;
     _iconKey = s.appIcon;
     _themeMode = s.themeMode;
+    _snackDurationMs = s.snackDurationMs;
   }
 
   Future<void> _selectIcon(AppIconOption opt) async {
@@ -119,6 +121,46 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             subtitle: const Text('关闭后将直接进入应用，不再播放启动动画。'),
             value: _showSplash,
             onChanged: (v) { setState(() => _showSplash = v); _saveSplash(); },
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          Text('底部提示显示时长',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('控制复制、保存等操作底部提示（SnackBar）停留的时间。',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Slider(
+                  value: _snackDurationMs.toDouble(),
+                  min: 1000,
+                  max: 10000,
+                  divisions: 18,
+                  label: '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
+                  onChanged: (v) =>
+                      setState(() => _snackDurationMs = v.round()),
+                  onChangeEnd: (v) =>
+                      widget.controller.saveSnackDuration(v.round()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 64,
+                child: Text(
+                  '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
           ),
           const Padding(
             padding: EdgeInsets.only(bottom: 8),

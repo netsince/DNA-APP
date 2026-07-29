@@ -17,6 +17,7 @@ class AppSettings {
     required this.requireAuthForApp,
     required this.showSplashAnimation,
     required this.appIcon,
+    required this.snackDurationMs,
   });
 
   factory AppSettings.empty() {
@@ -36,6 +37,7 @@ class AppSettings {
       requireAuthForApp: false,
       showSplashAnimation: true,
       appIcon: 'default',
+      snackDurationMs: 1000,
     );
   }
 
@@ -54,6 +56,7 @@ class AppSettings {
   final bool requireAuthForApp;
   final bool showSplashAnimation;
   final String appIcon;
+  final int snackDurationMs;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -72,6 +75,7 @@ class AppSettings {
       'requireAuthForApp': requireAuthForApp,
       'showSplashAnimation': showSplashAnimation,
       'appIcon': appIcon,
+      'snackDurationMs': snackDurationMs,
     };
   }
 
@@ -98,6 +102,7 @@ class AppSettings {
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       appIcon: (json['appIcon'] as String?) ?? 'default',
+      snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
     );
   }
 
@@ -117,6 +122,7 @@ class AppSettings {
     bool? requireAuthForApp,
     bool? showSplashAnimation,
     String? appIcon,
+    int? snackDurationMs,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -134,6 +140,7 @@ class AppSettings {
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       appIcon: appIcon ?? this.appIcon,
+      snackDurationMs: snackDurationMs ?? this.snackDurationMs,
     );
   }
 }

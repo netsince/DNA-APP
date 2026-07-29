@@ -205,7 +205,6 @@ mixin ChatUiHelpers on ChatStateMixin {
       showSnack(
         context,
         '已复制到剪贴板',
-        duration: const Duration(milliseconds: 1200),
         behavior: SnackBarBehavior.floating,
       );
       return;

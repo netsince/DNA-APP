@@ -24,6 +24,7 @@ import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
 import '../utils/id_utils.dart';
+import '../utils/ui_feedback.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -88,6 +89,8 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 同步底部提示（SnackBar）的显示时长到全局
+    setSnackDuration(Duration(milliseconds: _settings.snackDurationMs));
     // 启动后恢复用户选择的应用图标（仅 Android；失败不影响启动）
     if (AppIconService.isSupported) {
       try {
@@ -198,6 +201,14 @@ class AppController extends ChangeNotifier {
   Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
     _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
     await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存底部提示（SnackBar）的显示时长（毫秒），并即时同步到全局。
+  Future<void> saveSnackDuration(int snackDurationMs) async {
+    _settings = _settings.copyWith(snackDurationMs: snackDurationMs);
+    await _settingsService.save(_settings);
+    setSnackDuration(Duration(milliseconds: snackDurationMs));
     notifyListeners();
   }
 
@@ -988,6 +999,7 @@ class AppController extends ChangeNotifier {
     } catch (_) {
     }
     _settings = AppSettings.empty();
+    setSnackDuration(const Duration(milliseconds: 1000));
     _tas = <TA>[];
     _worlds = <World>[];
     _conversations = <Conversation>[];

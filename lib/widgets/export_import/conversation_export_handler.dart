@@ -18,13 +18,13 @@ Future<void> handleExportResult(BuildContext context, ConversationExportResult r
   final bytes = Uint8List.fromList(utf8.encode(content));
   if (kIsWeb) {
     await Clipboard.setData(ClipboardData(text: content));
-    if (context.mounted)
+    if (context.mounted) {
       showSnack(
         context,
         '已复制内容到剪贴板（Web 端）。',
-        duration: const Duration(milliseconds: 1200),
         behavior: SnackBarBehavior.floating,
       );
+    }
     return;
   }
   if (Platform.isIOS) {

@@ -21,6 +21,7 @@ class SettingsService {
   static const String _requireAuthForAppKey = 'require_auth_for_app';
   static const String _showSplashAnimationKey = 'show_splash_animation';
   static const String _appIconKey = 'app_icon';
+  static const String _snackDurationMsKey = 'snack_duration_ms';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -52,6 +53,7 @@ class SettingsService {
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
       appIcon: prefs.getString(_appIconKey) ?? 'default',
+      snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
     );
   }
 
@@ -72,5 +74,6 @@ class SettingsService {
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
     await prefs.setString(_appIconKey, settings.appIcon);
+    await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
   }
 }

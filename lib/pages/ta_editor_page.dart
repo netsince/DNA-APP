@@ -211,7 +211,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
       showSnack(
         context,
         '已复制到剪贴板，可以粘贴分享',
-        duration: const Duration(milliseconds: 1200),
         behavior: SnackBarBehavior.floating,
       );
     } else {
