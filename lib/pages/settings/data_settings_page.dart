@@ -15,6 +15,7 @@ import '../../state/app_controller.dart';
 import '../../utils/dialogs.dart';
 import '../../utils/ui_feedback.dart';
 import '../../widgets/conversation_export_import_dialogs.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class DataSettingsPage extends StatefulWidget {
   const DataSettingsPage({super.key, required this.controller});
@@ -74,11 +75,11 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   Future<bool?> _pickMode({required String desc}) => showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('导入方式'),
-      content: Text(desc),
+      title: const FitText('导入方式'),
+      content: FitText(desc),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('仅追加')),
-        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('全部替换')),
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const FitText('仅追加')),
+        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const FitText('全部替换')),
       ],
     ),
   );
@@ -95,7 +96,7 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
       }
     }
     if (!mounted) return;
-    await showInfoDialog(context: context, title: '导入完成', content: Text(sb.toString()));
+    await showInfoDialog(context: context, title: '导入完成', content: FitText(sb.toString()));
   }
 
   Future<void> _importAll() async {
@@ -201,13 +202,13 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('数据管理')),
+      appBar: AppBar(title: const FitText('数据管理')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('全部数据', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          FitText('全部数据', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('将全部数据（角色、世界、对话，不含设置）打包为 ZIP 文件，或从 ZIP 导入。',
+          FitText('将全部数据（角色、世界、对话，不含设置）打包为 ZIP 文件，或从 ZIP 导入。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 12),
           Wrap(
@@ -218,23 +219,23 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
                 icon: _exporting
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.archive_outlined),
-                label: Text(_exporting ? '导出中...' : '导出全部数据'),
+                label: FitText(_exporting ? '导出中...' : '导出全部数据'),
               ),
               OutlinedButton.icon(
                 onPressed: _exporting || _importing ? null : _importAll,
                 icon: _importing
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.upload_file_outlined),
-                label: Text(_importing ? '导入中...' : '从 ZIP 导入'),
+                label: FitText(_importing ? '导入中...' : '从 ZIP 导入'),
               ),
             ],
           ),
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
-          Text('仅对话', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          FitText('仅对话', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('导出为 JSON（可内嵌角色卡）或 Markdown，方便阅读与分享。',
+          FitText('导出为 JSON（可内嵌角色卡）或 Markdown，方便阅读与分享。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 12),
           Wrap(
@@ -245,14 +246,14 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
                 icon: _exportingConv
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.forum_outlined),
-                label: Text(_exportingConv ? '导出中...' : '导出对话'),
+                label: FitText(_exportingConv ? '导出中...' : '导出对话'),
               ),
               OutlinedButton.icon(
                 onPressed: _exportingConv || _importingConv ? null : _importConv,
                 icon: _importingConv
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.upload_file_outlined),
-                label: Text(_importingConv ? '导入中...' : '从 JSON 导入'),
+                label: FitText(_importingConv ? '导入中...' : '从 JSON 导入'),
               ),
             ],
           ),

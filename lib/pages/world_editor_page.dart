@@ -7,6 +7,7 @@ import '../models/world.dart';
 import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class WorldEditorPage extends StatefulWidget {
   const WorldEditorPage({super.key, required this.controller, this.world});
@@ -145,7 +146,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     final String description = _entryDescriptionController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写词条名称。')),
+        const SnackBar(content: FitText('请填写词条名称。')),
       );
       return;
     }
@@ -156,7 +157,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       final bool hasText = relationText.isNotEmpty;
       if (hasTarget != hasText) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('关联需要同时选择条目并填写内容。')),
+          const SnackBar(content: FitText('关联需要同时选择条目并填写内容。')),
         );
         return;
       }
@@ -231,7 +232,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     if (worldName.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填写世界名称再复制。')),
+        const SnackBar(content: FitText('请先填写世界名称再复制。')),
       );
       return;
     }
@@ -240,7 +241,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     if (!mounted) return;
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? '导出失败')),
+        SnackBar(content: FitText(result.message ?? '导出失败')),
       );
       return;
     }
@@ -250,13 +251,13 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     if (copyResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('已复制到剪贴板，可以粘贴分享'),
+          content: FitText('已复制到剪贴板，可以粘贴分享'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(copyResult.message ?? '复制到剪贴板失败')),
+        SnackBar(content: FitText(copyResult.message ?? '复制到剪贴板失败')),
       );
     }
   }
@@ -266,16 +267,16 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('导入世界观'),
-        content: const Text('将从剪贴板读取世界观数据并导入。'),
+        title: const FitText('导入世界观'),
+        content: const FitText('将从剪贴板读取世界观数据并导入。'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: const FitText('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('从剪贴板导入'),
+            child: const FitText('从剪贴板导入'),
           ),
         ],
       ),
@@ -287,7 +288,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     if (!mounted) return;
     if (!pasteResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(pasteResult.message ?? '读取剪贴板失败')),
+        SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
       );
       return;
     }
@@ -297,7 +298,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     if (!mounted) return;
     if (!importResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(importResult.message ?? '导入失败')),
+        SnackBar(content: FitText(importResult.message ?? '导入失败')),
       );
       return;
     }
@@ -309,7 +310,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       worldToImport = worldToImport.copyWith(id: newId());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ID 与已有世界冲突，已自动创建为新世界')),
+        const SnackBar(content: FitText('ID 与已有世界冲突，已自动创建为新世界')),
       );
     }
 
@@ -328,7 +329,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('导入成功')),
+      const SnackBar(content: FitText('导入成功')),
     );
   }
 
@@ -336,7 +337,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.world == null ? '创建世界' : '编辑世界'),
+        title: FitText(widget.world == null ? '创建世界' : '编辑世界'),
         actions: <Widget>[
           PopupMenuButton<String>(
             onSelected: (String value) {
@@ -356,7 +357,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   children: <Widget>[
                     Icon(Icons.content_copy_outlined),
                     SizedBox(width: 8),
-                    Text('复制到剪贴板'),
+                    FitText('复制到剪贴板'),
                   ],
                 ),
               ),
@@ -366,7 +367,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   children: <Widget>[
                     Icon(Icons.content_paste_outlined),
                     SizedBox(width: 8),
-                    Text('从剪贴板导入'),
+                    FitText('从剪贴板导入'),
                   ],
                 ),
               ),
@@ -388,7 +389,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('世界背景信息', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('世界背景信息', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,
@@ -431,7 +432,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('世界观子词条', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('世界观子词条', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _entryNameController,
@@ -448,11 +449,11 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     items: const <DropdownMenuItem<WorldEntryType>>[
                       DropdownMenuItem(
                         value: WorldEntryType.noun,
-                        child: Text('名词'),
+                        child: FitText('名词'),
                       ),
                       DropdownMenuItem(
                         value: WorldEntryType.person,
-                        child: Text('人物'),
+                        child: FitText('人物'),
                       ),
                     ],
                     onChanged: (WorldEntryType? value) {
@@ -474,15 +475,15 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       items: const <DropdownMenuItem<WorldPersonGender>>[
                         DropdownMenuItem(
                           value: WorldPersonGender.male,
-                          child: Text('男'),
+                          child: FitText('男'),
                         ),
                         DropdownMenuItem(
                           value: WorldPersonGender.female,
-                          child: Text('女'),
+                          child: FitText('女'),
                         ),
                         DropdownMenuItem(
                           value: WorldPersonGender.other,
-                          child: Text('其他'),
+                          child: FitText('其他'),
                         ),
                       ],
                       onChanged: (WorldPersonGender? value) {
@@ -504,11 +505,11 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       items: const <DropdownMenuItem<WorldPersonStatus>>[
                         DropdownMenuItem(
                           value: WorldPersonStatus.normal,
-                          child: Text('正常'),
+                          child: FitText('正常'),
                         ),
                         DropdownMenuItem(
                           value: WorldPersonStatus.dead,
-                          child: Text('死亡'),
+                          child: FitText('死亡'),
                         ),
                       ],
                       onChanged: (WorldPersonStatus? value) {
@@ -525,7 +526,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                           .map(
                             (WorldEntry entry) => DropdownMenuItem<String>(
                               value: entry.id,
-                              child: Text(entry.name.isEmpty ? '未命名词条' : entry.name),
+                              child: FitText(entry.name.isEmpty ? '未命名词条' : entry.name),
                             ),
                           )
                           .toList(),
@@ -548,46 +549,46 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   FilledButton.icon(
                     onPressed: _addEntry,
                     icon: const Icon(Icons.add),
-                    label: const Text('保存词条'),
+                    label: const FitText('保存词条'),
                   ),
                   const SizedBox(height: 16),
                   if (_entries.isEmpty)
-                    const Text('暂无子词条')
+                    const FitText('暂无子词条')
                   else
                     Column(
                       children: _entries
                           .map(
                             (WorldEntry entry) => ListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: Text(
+                              title: FitText(
                                 entry.name.isEmpty ? '未命名词条' : entry.name,
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   if (entry.description.isNotEmpty)
-                                    Text(entry.description),
+                                    FitText(entry.description),
                                   const SizedBox(height: 4),
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 4,
                                     children: <Widget>[
-                                      Chip(label: Text(_typeLabel(entry.type))),
+                                      Chip(label: FitText(_typeLabel(entry.type))),
                                       if (entry.type == WorldEntryType.person &&
                                           entry.gender != null)
-                                        Chip(label: Text(_genderLabel(entry.gender!))),
+                                        Chip(label: FitText(_genderLabel(entry.gender!))),
                                       if (entry.type == WorldEntryType.person &&
                                           (entry.age ?? '').isNotEmpty)
-                                        Chip(label: Text('年龄 ${entry.age}')),
+                                        Chip(label: FitText('年龄 ${entry.age}')),
                                       if (entry.type == WorldEntryType.person &&
                                           entry.status != null)
-                                        Chip(label: Text(_statusLabel(entry.status!))),
+                                        Chip(label: FitText(_statusLabel(entry.status!))),
                                     ],
                                   ),
                                   if (entry.relation != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
+                                      child: FitText(
                                         '关联：${_entryNameById(entry.relation!.targetId)} · ${entry.relation!.content}',
                                       ),
                                     ),
@@ -611,7 +612,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.save_outlined),
-        label: const Text('保存世界'),
+        label: const FitText('保存世界'),
       ),
     );
   }

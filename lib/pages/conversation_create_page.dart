@@ -6,6 +6,7 @@ import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class ConversationCreatePage extends StatefulWidget {
   const ConversationCreatePage({super.key, required this.controller});
@@ -73,7 +74,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('新建会话'),
+        title: const FitText('新建会话'),
         actions: <Widget>[
           IconButton(
             onPressed: _create,
@@ -91,10 +92,10 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (tas.isEmpty)
-                    const Text('暂无TA，请先在“我家”创建TA。')
+                    const FitText('暂无TA，请先在“我家”创建TA。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedTaId,
@@ -103,7 +104,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
                           .map(
                             (TA ta) => DropdownMenuItem<String>(
                               value: ta.id,
-                              child: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
+                              child: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
                             ),
                           )
                           .toList(),
@@ -120,20 +121,20 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('选择世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('选择世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (worlds.isEmpty)
-                    const Text('暂无世界背景，可在“世界”页面创建。')
+                    const FitText('暂无世界背景，可在“世界”页面创建。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedWorldId,
                       decoration: const InputDecoration(labelText: '世界背景'),
                       items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: '', child: Text('不选择')),
+                        const DropdownMenuItem<String>(value: '', child: FitText('不选择')),
                         ...worlds.map(
                           (World world) => DropdownMenuItem<String>(
                             value: world.id,
-                            child: Text(world.name.isEmpty ? '未命名世界' : world.name),
+                            child: FitText(world.name.isEmpty ? '未命名世界' : world.name),
                           ),
                         ),
                       ],
@@ -154,7 +155,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('备注', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('备注', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _noteController,
@@ -169,7 +170,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.check),
-        label: const Text('创建会话'),
+        label: const FitText('创建会话'),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/conversation.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 选择要导出的对话。
 Future<List<String>?> showConversationPickerDialog({
@@ -13,7 +14,7 @@ Future<List<String>?> showConversationPickerDialog({
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        title: const Text('选择要导出的对话'),
+        title: const FitText('选择要导出的对话'),
         content: SizedBox(
           width: double.maxFinite,
           height: 400,
@@ -24,7 +25,7 @@ Future<List<String>?> showConversationPickerDialog({
                 final sel = selected.contains(c.id);
                 return CheckboxListTile(
                   value: sel,
-                  title: Text(n),
+                  title: FitText(n),
                   onChanged: (v) {
                     setSB(() {
                       if (v == true) {
@@ -40,10 +41,10 @@ Future<List<String>?> showConversationPickerDialog({
           ),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const FitText('取消')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, selected.toList()),
-            child: const Text('确定'),
+            child: const FitText('确定'),
           ),
         ],
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../models/conversation.dart';
 import '../../chat_models.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 typedef ShowMessageMenu = void Function({
   required Offset position,
@@ -109,7 +110,7 @@ class ChatMessageList extends StatelessWidget {
                       children: <Widget>[
                         Icon(Icons.auto_awesome, size: 18),
                         SizedBox(width: 6),
-                        Text('建议生成摘要'),
+                        FitText('建议生成摘要'),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -118,11 +119,11 @@ class ChatMessageList extends StatelessWidget {
                       children: <Widget>[
                         FilledButton.tonal(
                           onPressed: summaryInProgress ? null : () => onStartSummary(message),
-                          child: const Text('生成摘要'),
+                          child: const FitText('生成摘要'),
                         ),
                         OutlinedButton(
                           onPressed: () => onDismissSummary(message.id),
-                          child: const Text('忽略'),
+                          child: const FitText('忽略'),
                         ),
                       ],
                     ),
@@ -174,13 +175,13 @@ class ChatMessageList extends StatelessWidget {
                       children: <Widget>[
                         Icon(Icons.article_outlined, size: 18),
                         SizedBox(width: 6),
-                        Text('摘要已生成'),
+                        FitText('摘要已生成'),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(preview, style: textTheme.bodySmall),
+                    FitText(preview, style: textTheme.bodySmall),
                     const SizedBox(height: 4),
-                    Text(
+                    FitText(
                       '长按/右键查看/删除',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -234,7 +235,7 @@ class ChatMessageList extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
-                    Text(
+                    FitText(
                       speakerName,
                       style: textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
@@ -266,21 +267,21 @@ class ChatMessageList extends StatelessWidget {
                             children: <Widget>[
                               Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
                               const SizedBox(width: 4),
-                              Text(
+                              FitText(
                                 '思考内容',
                                 style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
                               ),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(thoughtText, style: textTheme.bodySmall),
+                          FitText(thoughtText, style: textTheme.bodySmall),
                         ],
                       ),
                     ),
                   ],
                   if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
                     const SizedBox(height: 6),
-                    Text(
+                    FitText(
                       '字数 $charCount / Token $tokenCount',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),

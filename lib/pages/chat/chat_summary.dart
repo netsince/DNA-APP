@@ -150,7 +150,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
-          child: Text(result.content!.trim()),
+          child: FitText(result.content!.trim()),
         ),
       ),
     );

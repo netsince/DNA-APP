@@ -7,6 +7,7 @@ import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'world_editor_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.controller});
@@ -36,7 +37,7 @@ class _WorldPageState extends State<WorldPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showArchived ? '世界归档' : '世界'),
+        title: FitText(_showArchived ? '世界归档' : '世界'),
         actions: <Widget>[
           IconButton(
             tooltip: _showArchived ? '查看世界' : '查看归档',
@@ -95,13 +96,13 @@ class _WorldListBody extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(showArchived ? '还没有归档世界。' : '暂无世界背景，先创建一个吧。'),
+                FitText(showArchived ? '还没有归档世界。' : '暂无世界背景，先创建一个吧。'),
                 const SizedBox(height: 12),
                 if (!showArchived)
                   FilledButton.icon(
                     onPressed: onCreateWorld,
                     icon: const Icon(Icons.add),
-                    label: const Text('创建世界'),
+                    label: const FitText('创建世界'),
                   ),
               ],
             ),
@@ -164,9 +165,9 @@ class _WorldItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(world.name.isEmpty ? '未命名世界' : world.name),
+                    FitText(world.name.isEmpty ? '未命名世界' : world.name),
                     const SizedBox(height: 6),
-                    Text(
+                    FitText(
                       world.summary.isEmpty ? '暂无简介' : world.summary,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -177,7 +178,7 @@ class _WorldItem extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: world.tags
-                            .map((String tag) => Chip(label: Text(tag)))
+                            .map((String tag) => Chip(label: FitText(tag)))
                             .toList(),
                       ),
                     ],
@@ -229,7 +230,7 @@ class _WorldItem extends StatelessWidget {
                         value: 'unarchive',
                         child: ListTile(
                           leading: Icon(Icons.unarchive_outlined),
-                          title: Text('恢复'),
+                          title: FitText('恢复'),
                         ),
                       ),
                       const PopupMenuDivider(),
@@ -237,7 +238,7 @@ class _WorldItem extends StatelessWidget {
                         value: 'delete',
                         child: ListTile(
                           leading: Icon(Icons.delete_outline),
-                          title: Text('删除'),
+                          title: FitText('删除'),
                         ),
                       ),
                     ];
@@ -247,7 +248,7 @@ class _WorldItem extends StatelessWidget {
                       value: 'archive',
                       child: ListTile(
                         leading: Icon(Icons.archive_outlined),
-                        title: Text('归档'),
+                        title: FitText('归档'),
                       ),
                     ),
                   ];

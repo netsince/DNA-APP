@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/llm_provider.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// OOBE 引导流程中的子步骤 Widget 与导航 Intent，从 oobe_page 拆分而来。
 
@@ -43,15 +44,15 @@ class WelcomeStep extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('与汝共奏', style: Theme.of(context).textTheme.headlineSmall),
+            FitText('与汝共奏', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-            Text('将通过 3 个步骤完成首次配置。', style: Theme.of(context).textTheme.bodyLarge),
+            FitText('将通过 3 个步骤完成首次配置。', style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 16),
             const StepBullet(text: '选择服务商、填写 API Key，并完成连接检测'),
             const StepBullet(text: '自动拉取模型或手动添加自定义模型'),
             const StepBullet(text: '完成后即可进入主界面'),
             const Spacer(),
-            Text(
+            FitText(
               '提示：方向键或滑动手势可在步骤之间移动。',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -82,7 +83,7 @@ class StepBullet extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
           ),
-          Expanded(child: Text(text)),
+          Expanded(child: FitText(text)),
         ],
       ),
     );
@@ -130,9 +131,9 @@ class ApiStep extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: ListView(
           children: <Widget>[
-            Text('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
+            FitText('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            Text('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            FitText('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -140,7 +141,7 @@ class ApiStep extends StatelessWidget {
               children: providers.map((LlmProvider p) {
                 final bool selected = p.id == selectedProviderId;
                 return ChoiceChip(
-                  label: Text(p.label),
+                  label: FitText(p.label),
                   selected: selected,
                   onSelected: (_) => onProviderChanged(p.id),
                 );
@@ -175,25 +176,25 @@ class ApiStep extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.verified_outlined),
-              label: Text(checkingApi ? '检测中...' : '保存并检测 API'),
+              label: FitText(checkingApi ? '检测中...' : '保存并检测 API'),
             ),
             if (apiValidated) ...<Widget>[
               const SizedBox(height: 10),
-              Text(
+              FitText(
                 '连接验证成功。',
                 style: TextStyle(color: Colors.green.shade700),
               ),
             ],
             if (apiError != null) ...<Widget>[
               const SizedBox(height: 10),
-              Text(
+              FitText(
                 apiError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               CheckboxListTile(
                 value: ignoreApiIssue,
-                title: const Text('忽略此问题'),
-                subtitle: const Text('勾选后允许跳过本次检测并进入下一步。'),
+                title: const FitText('忽略此问题'),
+                subtitle: const FitText('勾选后允许跳过本次检测并进入下一步。'),
                 controlAffinity: ListTileControlAffinity.leading,
                 onChanged: (bool? value) => onIgnoreChanged(value ?? false),
               ),
@@ -233,7 +234,7 @@ class ModelStep extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text('步骤 2/3 · 模型选择', style: Theme.of(context).textTheme.titleLarge),
+            FitText('步骤 2/3 · 模型选择', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
@@ -246,19 +247,19 @@ class ModelStep extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh),
-                  label: Text(loadingModels ? '加载中...' : '刷新模型列表'),
+                  label: FitText(loadingModels ? '加载中...' : '刷新模型列表'),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: onCustom,
                   icon: const Icon(Icons.edit),
-                  label: const Text('自定义模型'),
+                  label: const FitText('自定义模型'),
                 ),
               ],
             ),
             if (modelsError != null) ...<Widget>[
               const SizedBox(height: 10),
-              Text(
+              FitText(
                 modelsError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
@@ -270,7 +271,7 @@ class ModelStep extends StatelessWidget {
                 child: loadingModels
                     ? const Center(child: CircularProgressIndicator())
                     : models.isEmpty
-                        ? const Center(child: Text('暂无可用模型，请先刷新或使用自定义模型。'))
+                        ? const Center(child: FitText('暂无可用模型，请先刷新或使用自定义模型。'))
                         : ListView.builder(
                             itemCount: models.length,
                             itemBuilder: (BuildContext context, int index) {
@@ -280,7 +281,7 @@ class ModelStep extends StatelessWidget {
                                 leading: Icon(
                                   selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                                 ),
-                                title: Text(model),
+                                title: FitText(model),
                                 onTap: () => onSelect(model),
                               );
                             },
@@ -325,12 +326,12 @@ class OobeFooter extends StatelessWidget {
       children: <Widget>[
         OutlinedButton(
           onPressed: stepIndex == 0 ? null : onBack,
-          child: const Text('上一步'),
+          child: const FitText('上一步'),
         ),
         const Spacer(),
         FilledButton(
           onPressed: canGoNext ? onNext : null,
-          child: Text(nextLabel),
+          child: FitText(nextLabel),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class AdvancedSettingsPage extends StatefulWidget {
   const AdvancedSettingsPage({super.key, required this.controller});
@@ -37,7 +38,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('高级')),
+      appBar: AppBar(title: const FitText('高级')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -55,11 +56,11 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                   children: <Widget>[
                     Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
                     const SizedBox(width: 8),
-                    Text('危险操作', style: TextStyle(fontWeight: FontWeight.w600, color: cs.error, fontSize: 16)),
+                    FitText('危险操作', style: TextStyle(fontWeight: FontWeight.w600, color: cs.error, fontSize: 16)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('输入命令并执行。命令大小写敏感。请确保您清楚自己在做什么。',
+                FitText('输入命令并执行。命令大小写敏感。请确保您清楚自己在做什么。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
                 const SizedBox(height: 16),
                 TextField(
@@ -75,7 +76,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                       backgroundColor: cs.error,
                       foregroundColor: cs.onError,
                     ),
-                    child: const Text('执行命令'),
+                    child: const FitText('执行命令'),
                   ),
                 ),
               ],

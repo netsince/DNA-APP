@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../models/ta.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 typedef SearchChanged = void Function(String value);
 typedef NavigateMatch = void Function(int direction);
@@ -72,7 +73,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onChanged: onSearchChanged,
                   ),
                 ),
-                Text(
+                FitText(
                   searchMatchesCount > 0 && searchMatchIndex >= 0
                       ? '${searchMatchIndex + 1}/$searchMatchesCount'
                       : '0/0',
@@ -80,7 +81,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ],
             )
-          : Text(
+          : FitText(
               titleOverride ?? (ta?.name.isNotEmpty == true ? ta!.name : '聊天'),
             ),
       actions: searching
@@ -137,7 +138,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     enabled: !rangeSummaryInProgress,
                     child: const ListTile(
                       leading: Icon(Icons.summarize_outlined),
-                      title: Text('范围总结'),
+                      title: FitText('范围总结'),
                     ),
                   ),
                   PopupMenuItem<String>(
@@ -145,7 +146,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     enabled: !summaryInProgress,
                     child: const ListTile(
                       leading: Icon(Icons.auto_awesome),
-                      title: Text('强制摘要'),
+                      title: FitText('强制摘要'),
                     ),
                   ),
                   CheckedPopupMenuItem<String>(
@@ -153,7 +154,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     checked: searching,
                     child: const ListTile(
                       leading: Icon(Icons.search),
-                      title: Text('消息搜索'),
+                      title: FitText('消息搜索'),
                     ),
                   ),
                   CheckedPopupMenuItem<String>(
@@ -161,21 +162,21 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     checked: showTokenCounts,
                     child: const ListTile(
                       leading: Icon(Icons.numbers),
-                      title: Text('显示字数/Token'),
+                      title: FitText('显示字数/Token'),
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'export',
                     child: ListTile(
                       leading: Icon(Icons.file_download_outlined),
-                      title: Text('导出对话'),
+                      title: FitText('导出对话'),
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'archive',
                     child: ListTile(
                       leading: Icon(Icons.save),
-                      title: Text('存档'),
+                      title: FitText('存档'),
                     ),
                   ),
                 ],

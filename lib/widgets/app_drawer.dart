@@ -7,6 +7,7 @@ import '../pages/settings_page.dart';
 import '../pages/world_page.dart';
 import '../pages/search_page.dart';
 import '../state/app_controller.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 enum AppSection { home, groupChats, myHome, world, settings }
 
@@ -55,15 +56,15 @@ class AppDrawer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('Duet Nurturing Ally', style: Theme.of(context).textTheme.titleLarge),
+                FitText('Duet Nurturing Ally', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                Text('与汝共奏', style: Theme.of(context).textTheme.bodyMedium),
+                FitText('与汝共奏', style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
           ),
           ListTile(
             leading: const Icon(Icons.search_outlined),
-            title: const Text('搜索'),
+            title: const FitText('搜索'),
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(
@@ -76,31 +77,31 @@ class AppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.home_outlined),
-            title: const Text('首页'),
+            title: const FitText('首页'),
             selected: current == AppSection.home,
             onTap: () => _navigate(context, AppSection.home),
           ),
           ListTile(
             leading: const Icon(Icons.forum_outlined),
-            title: const Text('群聊'),
+            title: const FitText('群聊'),
             selected: current == AppSection.groupChats,
             onTap: () => _navigate(context, AppSection.groupChats),
           ),
           ListTile(
             leading: const Icon(Icons.people_outline),
-            title: const Text('我家'),
+            title: const FitText('我家'),
             selected: current == AppSection.myHome,
             onTap: () => _navigate(context, AppSection.myHome),
           ),
           ListTile(
             leading: const Icon(Icons.public_outlined),
-            title: const Text('世界'),
+            title: const FitText('世界'),
             selected: current == AppSection.world,
             onTap: () => _navigate(context, AppSection.world),
           ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
-            title: const Text('设置'),
+            title: const FitText('设置'),
             selected: current == AppSection.settings,
             onTap: () => _navigate(context, AppSection.settings),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 将 colorScheme.primary 系列替换为指定强调色（用于让弹框跟随角色取色）。
 ThemeData _withAccent(ThemeData base, Color? accentColor) {
@@ -33,16 +34,16 @@ Future<bool> showConfirmDialog({
       return Theme(
         data: _withAccent(baseTheme, accentColor),
         child: AlertDialog(
-          title: Text(title),
-          content: Text(content),
+          title: FitText(title),
+          content: FitText(content),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(cancelText),
+              child: FitText(cancelText),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(confirmText),
+              child: FitText(confirmText),
             ),
           ],
         ),
@@ -129,7 +130,7 @@ class _TextInputDialogState extends State<_TextInputDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: FitText(widget.title),
       content: TextField(
         controller: _controller,
         minLines: widget.minLines,
@@ -140,11 +141,11 @@ class _TextInputDialogState extends State<_TextInputDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(widget.cancelText),
+          child: FitText(widget.cancelText),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-          child: Text(widget.confirmText),
+          child: FitText(widget.confirmText),
         ),
       ],
     );
@@ -165,12 +166,12 @@ Future<void> showInfoDialog({
       return Theme(
         data: _withAccent(baseTheme, accentColor),
         child: AlertDialog(
-          title: Text(title),
+          title: FitText(title),
           content: content,
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(closeText),
+              child: FitText(closeText),
             ),
           ],
         ),

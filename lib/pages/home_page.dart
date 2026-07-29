@@ -8,6 +8,7 @@ import '../widgets/app_drawer.dart';
 import 'conversation_create_page.dart';
 import 'search_page.dart';
 import 'home/home_widgets.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
@@ -64,7 +65,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showArchived ? '归档' : '消息'),
+        title: FitText(_showArchived ? '归档' : '消息'),
         actions: <Widget>[
           IconButton(
             tooltip: '搜索',

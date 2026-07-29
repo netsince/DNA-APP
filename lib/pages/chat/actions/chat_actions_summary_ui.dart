@@ -15,7 +15,7 @@ mixin ChatActionsSummaryUi on ChatStateMixin {
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
-          child: Text(summary.text),
+          child: FitText(summary.text),
         ),
       ),
     );

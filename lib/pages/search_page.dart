@@ -11,6 +11,7 @@ import '../state/app_controller.dart';
 import 'chat_page.dart';
 import 'ta_editor_page.dart';
 import 'world_editor_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key, required this.controller});
@@ -151,7 +152,7 @@ class _SearchPageState extends State<SearchPage> {
       ),
       body: _results.isEmpty
           ? Center(
-              child: Text(
+              child: FitText(
                 _queryController.text.isEmpty ? '输入关键词开始检索' : '没有匹配的结果',
               ),
             )
@@ -209,7 +210,7 @@ class _ResultSection extends StatelessWidget {
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
+          child: FitText(
             '$_title（${items.length}）',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
@@ -219,10 +220,10 @@ class _ResultSection extends StatelessWidget {
         ...items.map((SearchResult item) {
           return ListTile(
             leading: leadingBuilder(kind),
-            title: Text(item.title),
+            title: FitText(item.title),
             subtitle: item.snippet != null
-                ? Text(item.snippet!, maxLines: 2, overflow: TextOverflow.ellipsis)
-                : Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ? FitText(item.snippet!, maxLines: 2, overflow: TextOverflow.ellipsis)
+                : FitText(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
             onTap: () => onTap(item),
           );
         }),

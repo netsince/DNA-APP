@@ -12,6 +12,7 @@ import 'services/openai_service.dart';
 import 'services/ta_service.dart';
 import 'services/settings_service.dart';
 import 'state/app_controller.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 Future<void> main() async {
   runZonedGuarded(
@@ -33,7 +34,7 @@ Future<void> main() async {
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
+              child: FitText(
                 '发生错误，应用已切换到保护界面。\n${details.exceptionAsString()}',
                 textAlign: TextAlign.center,
               ),

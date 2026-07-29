@@ -4,6 +4,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class AppearanceSettingsPage extends StatefulWidget {
   const AppearanceSettingsPage({super.key, required this.controller});
@@ -72,7 +73,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     final Color? result = await showDialog<Color>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
-        title: const Text('选择强调色'),
+        title: const FitText('选择强调色'),
         content: SingleChildScrollView(
           child: ColorPicker(
             pickerColor: pickerColor,
@@ -84,11 +85,11 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+            child: const FitText('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(pickerColor),
-            child: const Text('确定'),
+            child: const FitText('确定'),
           ),
         ],
       ),
@@ -109,21 +110,21 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('外观与体验')),
+      appBar: AppBar(title: const FitText('外观与体验')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('应用图标',
+          FitText('应用图标',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           if (!_androidOk)
-            Text('应用图标切换仅支持 Android 平台。',
+            FitText('应用图标切换仅支持 Android 平台。',
                 style: TextStyle(color: cs.error, fontSize: 12))
           else
-            Text('选择启动器上显示的图标。',
+            FitText('选择启动器上显示的图标。',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -147,7 +148,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                           errorBuilder: (_, _, _) => const Icon(Icons.android)),
                     ),
                     const SizedBox(width: 10),
-                    Text(opt.label),
+                    FitText(opt.label),
                   ],
                 ),
               );
@@ -155,13 +156,13 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           ),
           const SizedBox(height: 24),
           const Divider(),
-          Text('主题',
+          FitText('主题',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('选择应用外观：跟随系统、始终亮色或始终暗色。',
+          FitText('选择应用外观：跟随系统、始终亮色或始终暗色。',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -176,7 +177,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
               <String, String>{'value': 'dark', 'label': '暗色'},
             ].map((Map<String, String> m) {
               return ChoiceChip(
-                label: Text(m['label']!),
+                label: FitText(m['label']!),
                 selected: _themeMode == m['value'],
                 onSelected: (_) => _selectTheme(m['value']!),
               );
@@ -184,13 +185,13 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           ),
           const SizedBox(height: 24),
           const Divider(),
-          Text('强调色',
+          FitText('强调色',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(
+          FitText(
               '自动：主界面跟随系统取色，聊天界面使用角色卡图片的主色。\n自定义：统一使用你指定的颜色。',
               style: Theme.of(context)
                   .textTheme
@@ -205,7 +206,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
               <String, String>{'value': 'custom', 'label': '自定义'},
             ].map((Map<String, String> m) {
               return ChoiceChip(
-                label: Text(m['label']!),
+                label: FitText(m['label']!),
                 selected: _accentMode == m['value'],
                 onSelected: (_) => _selectAccentMode(m['value']!),
               );
@@ -224,8 +225,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                   border: Border.all(color: cs.outlineVariant),
                 ),
               ),
-              title: const Text('自定义颜色'),
-              subtitle: const Text('点击选择强调色'),
+              title: const FitText('自定义颜色'),
+              subtitle: const FitText('点击选择强调色'),
               onTap: _pickColor,
             ),
           ],
@@ -233,8 +234,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           const Divider(),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('开场动画'),
-            subtitle: const Text('关闭后将直接进入应用，不再播放启动动画。'),
+            title: const FitText('开场动画'),
+            subtitle: const FitText('关闭后将直接进入应用，不再播放启动动画。'),
             value: _showSplash,
             onChanged: (v) {
               setState(() => _showSplash = v);
@@ -244,8 +245,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           const SizedBox(height: 16),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('主页底部导航栏'),
-            subtitle: const Text('开启后，在主页 / 群聊 / 我家 / 世界 底部显示导航栏，方便快速切换。默认关闭。'),
+            title: const FitText('主页底部导航栏'),
+            subtitle: const FitText('开启后，在主页 / 群聊 / 我家 / 世界 底部显示导航栏，方便快速切换。默认关闭。'),
             value: _showBottomNav,
             onChanged: (v) {
               setState(() => _showBottomNav = v);
@@ -254,13 +255,13 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           ),
           const SizedBox(height: 24),
           const Divider(),
-          Text('底部提示显示时长',
+          FitText('底部提示显示时长',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('控制复制、保存等操作底部提示（SnackBar）停留的时间。',
+          FitText('控制复制、保存等操作底部提示（SnackBar）停留的时间。',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -283,7 +284,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
               const SizedBox(width: 12),
               SizedBox(
                 width: 64,
-                child: Text(
+                child: FitText(
                   '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
                   textAlign: TextAlign.right,
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -293,12 +294,12 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
           ),
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text('可重新进入首次启动引导流程。'),
+            child: FitText('可重新进入首次启动引导流程。'),
           ),
           OutlinedButton.icon(
             onPressed: _restartOobe,
             icon: const Icon(Icons.restart_alt),
-            label: const Text('重新进入 OOBE'),
+            label: const FitText('重新进入 OOBE'),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import '../widgets/group_avatar.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class GroupCreatePage extends StatefulWidget {
   const GroupCreatePage({super.key, required this.controller});
@@ -76,7 +77,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('新建群聊'),
+        title: const FitText('新建群聊'),
         actions: <Widget>[
           IconButton(
             onPressed: _create,
@@ -94,14 +95,14 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('群名称', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('群名称', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,
                     decoration: const InputDecoration(labelText: '群名称（可选）'),
                   ),
                   const SizedBox(height: 16),
-                  Text('群设定', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('群设定', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _promptController,
@@ -123,20 +124,20 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (worlds.isEmpty)
-                    const Text('暂无世界背景，可在“世界”页面创建。')
+                    const FitText('暂无世界背景，可在“世界”页面创建。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedWorldId,
                       decoration: const InputDecoration(labelText: '世界背景'),
                       items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: '', child: Text('不选择')),
+                        const DropdownMenuItem<String>(value: '', child: FitText('不选择')),
                         ...worlds.map(
                           (World world) => DropdownMenuItem<String>(
                             value: world.id,
-                            child: Text(world.name.isEmpty ? '未命名世界' : world.name),
+                            child: FitText(world.name.isEmpty ? '未命名世界' : world.name),
                           ),
                         ),
                       ],
@@ -157,17 +158,17 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('群成员（至少选一位）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('群成员（至少选一位）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (tas.isEmpty)
-                    const Text('暂无TA，请先在“我家”创建TA。')
+                    const FitText('暂无TA，请先在“我家”创建TA。')
                   else
                     Column(
                       children: tas.map((TA ta) {
                         final bool checked = _selectedTaIds.contains(ta.id);
                         return CheckboxListTile(
                           value: checked,
-                          title: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
+                          title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
                           controlAffinity: ListTileControlAffinity.leading,
                           onChanged: (bool? value) {
                             setState(() {
@@ -185,7 +186,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
                     const SizedBox(height: 12),
                     Row(
                       children: <Widget>[
-                        const Text('群头像预览：'),
+                        const FitText('群头像预览：'),
                         const SizedBox(width: 8),
                         GroupAvatar(tas: selectedTas, size: 56),
                       ],
@@ -200,7 +201,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.check),
-        label: const Text('创建群聊'),
+        label: const FitText('创建群聊'),
       ),
     );
   }

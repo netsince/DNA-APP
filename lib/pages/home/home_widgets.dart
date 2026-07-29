@@ -11,6 +11,7 @@ import '../chat_page.dart';
 import '../conversation_edit_page.dart';
 import '../delete_confirm_page.dart';
 import '../delete_preview_builders.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class ConversationListBody extends StatelessWidget {
   const ConversationListBody({
@@ -39,7 +40,7 @@ class ConversationListBody extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
+                FitText(
                   showArchived ? '还没有归档会话。' : '还没有会话，点击右上角 + 新建。',
                 ),
                 const SizedBox(height: 12),
@@ -47,7 +48,7 @@ class ConversationListBody extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onCreateConversation,
                     icon: const Icon(Icons.add),
-                    label: const Text('新建会话'),
+                    label: const FitText('新建会话'),
                   ),
               ],
             ),
@@ -134,13 +135,13 @@ class _ConversationItem extends StatelessWidget {
         } else {
           leading = CircleAvatar(
             radius: 22,
-            child: Text(ta.name.isNotEmpty ? ta.name[0] : '?'),
+            child: FitText(ta.name.isNotEmpty ? ta.name[0] : '?'),
           );
         }
       } else {
         leading = CircleAvatar(
           radius: 22,
-          child: Text(ta.name.isNotEmpty ? ta.name[0] : '?'),
+          child: FitText(ta.name.isNotEmpty ? ta.name[0] : '?'),
         );
       }
     } else {
@@ -153,8 +154,8 @@ class _ConversationItem extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: leading,
-        title: Text(title),
-        subtitle: Text(subtitle),
+        title: FitText(title),
+        subtitle: FitText(subtitle),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -222,7 +223,7 @@ class _ConversationItem extends StatelessWidget {
                       value: 'unarchive',
                       child: ListTile(
                         leading: Icon(Icons.unarchive_outlined),
-                        title: Text('恢复'),
+                        title: FitText('恢复'),
                       ),
                     ),
                     const PopupMenuDivider(),
@@ -230,7 +231,7 @@ class _ConversationItem extends StatelessWidget {
                       value: 'delete',
                       child: ListTile(
                         leading: Icon(Icons.delete_outline),
-                        title: Text('删除'),
+                        title: FitText('删除'),
                       ),
                     ),
                   ];
@@ -240,14 +241,14 @@ class _ConversationItem extends StatelessWidget {
                     value: 'edit',
                     child: ListTile(
                       leading: Icon(Icons.edit_outlined),
-                      title: Text('更改信息'),
+                      title: FitText('更改信息'),
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'archive',
                     child: ListTile(
                       leading: Icon(Icons.archive_outlined),
-                      title: Text('归档'),
+                      title: FitText('归档'),
                     ),
                   ),
                 ];

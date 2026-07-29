@@ -20,11 +20,11 @@ mixin ChatActionsSnapshots on ChatStateMixin {
         return Theme(
           data: _accentTheme,
           child: AlertDialog(
-            title: const Text('存档管理'),
+            title: const FitText('存档管理'),
           content: SizedBox(
             width: double.maxFinite,
             child: snapshots.isEmpty
-                ? const Text('暂无存档')
+                ? const FitText('暂无存档')
                 : ListView.builder(
                     shrinkWrap: true,
                     itemCount: snapshots.length,
@@ -32,8 +32,8 @@ mixin ChatActionsSnapshots on ChatStateMixin {
                       final ChatSnapshot snapshot = snapshots[index];
                       final DateTime time = DateTime.fromMillisecondsSinceEpoch(snapshot.timestamp);
                       return ListTile(
-                        title: Text(snapshot.name),
-                        subtitle: Text(time.toString().substring(0, 19)),
+                        title: FitText(snapshot.name),
+                        subtitle: FitText(time.toString().substring(0, 19)),
                         onTap: () => Navigator.of(context).pop('load:$index'),
                       );
                     },
@@ -42,11 +42,11 @@ mixin ChatActionsSnapshots on ChatStateMixin {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
+              child: const FitText('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop('create'),
-              child: const Text('新建存档'),
+              child: const FitText('新建存档'),
             ),
           ],
         ),

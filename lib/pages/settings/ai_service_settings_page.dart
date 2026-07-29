@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/dialogs.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class AiServiceSettingsPage extends StatefulWidget {
   const AiServiceSettingsPage({super.key, required this.controller});
@@ -118,11 +119,11 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     final cs = Theme.of(context).colorScheme;
     final bool fixedBaseUrl = widget.controller.llmProvider.fixedBaseUrl;
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 服务')),
+      appBar: AppBar(title: const FitText('AI 服务')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          FitText('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -130,7 +131,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
             children: widget.controller.llmProviders.map((LlmProvider p) {
               final bool selected = p.id == widget.controller.settings.provider;
               return ChoiceChip(
-                label: Text(p.label),
+                label: FitText(p.label),
                 selected: selected,
                 onSelected: (_) => _selectProvider(p),
               );
@@ -170,7 +171,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
             icon: _checkingApi
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.network_check),
-            label: Text(_checkingApi ? '检测中...' : '检测连接'),
+            label: FitText(_checkingApi ? '检测中...' : '检测连接'),
           ),
           if (_apiMessage != null) ...[
             const SizedBox(height: 8),
@@ -183,7 +184,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(_apiMessage!,
+                  child: FitText(_apiMessage!,
                       style: TextStyle(color: _apiMessage!.contains('成功') ? cs.primary : cs.error)),
                 ),
               ],
@@ -192,7 +193,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 12),
-          Text('模型选择', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          FitText('模型选择', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10, runSpacing: 10,
@@ -202,24 +203,24 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                 icon: _loadingModels
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.refresh),
-                label: Text(_loadingModels ? '加载中...' : '刷新模型'),
+                label: FitText(_loadingModels ? '加载中...' : '刷新模型'),
               ),
               OutlinedButton.icon(
                 onPressed: _addCustomModel,
                 icon: const Icon(Icons.edit),
-                label: const Text('自定义模型'),
+                label: const FitText('自定义模型'),
               ),
             ],
           ),
           if (_modelsError != null) ...[
             const SizedBox(height: 8),
-            Text(_modelsError!, style: TextStyle(color: cs.error)),
+            FitText(_modelsError!, style: TextStyle(color: cs.error)),
           ],
           const SizedBox(height: 8),
           if (_models.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
+              child: FitText(
                 _selectedModel == null ? '尚未加载模型，可先点击"刷新模型"。' : '当前模型：$_selectedModel',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -232,7 +233,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                   dense: true, visualDensity: VisualDensity.compact,
                   leading: Icon(sel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                       color: sel ? cs.primary : null),
-                  title: Text(model),
+                  title: FitText(model),
                   onTap: () { setState(() => _selectedModel = model); _saveModel(); },
                 );
               }).toList(),

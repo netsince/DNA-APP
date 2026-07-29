@@ -41,21 +41,21 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: 'view_summary',
             child: ListTile(
               leading: Icon(Icons.article_outlined),
-              title: Text('查看摘要'),
+              title: FitText('查看摘要'),
             ),
           ),
           PopupMenuItem<String>(
             value: 'edit_summary',
             child: ListTile(
               leading: Icon(Icons.edit_outlined),
-              title: Text('编辑摘要'),
+              title: FitText('编辑摘要'),
             ),
           ),
           PopupMenuItem<String>(
             value: 'delete_summary',
             child: ListTile(
               leading: Icon(Icons.delete_outline),
-              title: Text('删除摘要'),
+              title: FitText('删除摘要'),
             ),
           ),
         ],
@@ -83,14 +83,14 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: 'start_summary',
             child: ListTile(
               leading: Icon(Icons.auto_awesome),
-              title: Text('生成摘要'),
+              title: FitText('生成摘要'),
             ),
           ),
           PopupMenuItem<String>(
             value: 'dismiss_summary',
             child: ListTile(
               leading: Icon(Icons.close),
-              title: Text('忽略提示'),
+              title: FitText('忽略提示'),
             ),
           ),
         ],
@@ -126,7 +126,7 @@ mixin ChatUiHelpers on ChatStateMixin {
             enabled: canContinue,
             child: ListTile(
               leading: Icon(Icons.play_arrow),
-              title: Text('继续说'),
+              title: FitText('继续说'),
             ),
           ),
         if (isAssistant)
@@ -135,7 +135,7 @@ mixin ChatUiHelpers on ChatStateMixin {
             enabled: canContinue && !retryDisabled,
             child: const ListTile(
               leading: Icon(Icons.refresh),
-              title: Text('重说'),
+              title: FitText('重说'),
             ),
           ),
         if (isAssistant)
@@ -143,7 +143,7 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: 'edit',
             child: ListTile(
               leading: Icon(Icons.edit),
-              title: Text('更改文字'),
+              title: FitText('更改文字'),
             ),
           ),
         if (isAssistant)
@@ -151,7 +151,7 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: 'rollback',
             child: ListTile(
               leading: Icon(Icons.undo),
-              title: Text('回溯到此处'),
+              title: FitText('回溯到此处'),
             ),
           ),
         if (hasThought)
@@ -159,21 +159,21 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: isThoughtVisible ? 'hide_thought' : 'show_thought',
             child: ListTile(
               leading: Icon(isThoughtVisible ? Icons.psychology : Icons.psychology_outlined),
-              title: Text(isThoughtVisible ? '隐藏思考' : '查看思考'),
+              title: FitText(isThoughtVisible ? '隐藏思考' : '查看思考'),
             ),
           ),
         const PopupMenuItem<String>(
           value: 'copy',
           child: ListTile(
             leading: Icon(Icons.copy),
-            title: Text('复制'),
+            title: FitText('复制'),
           ),
         ),
         const PopupMenuItem<String>(
           value: 'share',
           child: ListTile(
             leading: Icon(Icons.share),
-            title: Text('分享'),
+            title: FitText('分享'),
           ),
         ),
         if (widget.controller.settings.allowDeleteMessage)
@@ -181,7 +181,7 @@ mixin ChatUiHelpers on ChatStateMixin {
             value: 'delete_message',
             child: ListTile(
               leading: Icon(Icons.delete_outline),
-              title: Text('删除本条'),
+              title: FitText('删除本条'),
             ),
           ),
       ],
@@ -228,12 +228,12 @@ mixin ChatUiHelpers on ChatStateMixin {
         builder: (BuildContext dialogContext) => Theme(
           data: _accentTheme,
           child: AlertDialog(
-            title: const Text('删除本条消息'),
-            content: const Text('将仅删除这一条消息，不影响其他记录。确定吗？'),
+            title: const FitText('删除本条消息'),
+            content: const FitText('将仅删除这一条消息，不影响其他记录。确定吗？'),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('取消'),
+                child: const FitText('取消'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -241,7 +241,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                   backgroundColor: cs.error,
                   foregroundColor: cs.onError,
                 ),
-                child: const Text('删除'),
+                child: const FitText('删除'),
               ),
             ],
           ),
@@ -340,9 +340,9 @@ mixin ChatUiHelpers on ChatStateMixin {
                       children: <Widget>[
                         Icon(Icons.refresh, color: cs.primary),
                         const SizedBox(width: 8),
-                        Text('重说结果', style: theme.textTheme.titleLarge),
+                        FitText('重说结果', style: theme.textTheme.titleLarge),
                         const SizedBox(width: 8),
-                        Text(
+                        FitText(
                           '共 ${options.length} 条',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: cs.onSurfaceVariant,
@@ -359,7 +359,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                               color: cs.secondaryContainer,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text(
+                            child: FitText(
                               '已选第 ${selectedIndex! + 1} 条',
                               style: theme.textTheme.labelMedium?.copyWith(
                                 color: cs.onSecondaryContainer,
@@ -401,7 +401,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                             onPressed: loading
                                 ? null
                                 : () => Navigator.of(sheetContext).pop(),
-                            child: const Text('取消'),
+                            child: const FitText('取消'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -415,7 +415,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
                                 : const Icon(Icons.autorenew),
-                            label: Text(loading ? '生成中…' : '再生成三条'),
+                            label: FitText(loading ? '生成中…' : '再生成三条'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -425,7 +425,7 @@ mixin ChatUiHelpers on ChatStateMixin {
                                 ? null
                                 : () => Navigator.of(sheetContext)
                                     .pop(options[selectedIndex!]),
-                            child: const Text('使用'),
+                            child: const FitText('使用'),
                           ),
                         ),
                       ],
@@ -469,7 +469,7 @@ mixin ChatUiHelpers on ChatStateMixin {
         return Theme(
           data: _accentTheme,
           child: AlertDialog(
-            title: const Text('更改文字'),
+            title: const FitText('更改文字'),
             content: TextField(
             controller: controller,
             minLines: 3,
@@ -479,11 +479,11 @@ mixin ChatUiHelpers on ChatStateMixin {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
+              child: const FitText('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('保存'),
+              child: const FitText('保存'),
             ),
           ],
         ),
@@ -514,16 +514,16 @@ mixin ChatUiHelpers on ChatStateMixin {
         return Theme(
           data: _accentTheme,
           child: AlertDialog(
-            title: const Text('确认回溯'),
-            content: const Text('将丢弃此气泡之后的所有记录，确定要回溯吗？'),
+            title: const FitText('确认回溯'),
+            content: const FitText('将丢弃此气泡之后的所有记录，确定要回溯吗？'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
+              child: const FitText('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('回溯'),
+              child: const FitText('回溯'),
             ),
           ],
         ),
@@ -596,7 +596,7 @@ class _RetryOriginalCard extends StatelessWidget {
               children: <Widget>[
                 Icon(Icons.chat_bubble_outline, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 6),
-                Text(
+                FitText(
                   '当前回复',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -605,7 +605,7 @@ class _RetryOriginalCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
+            FitText(
               text.trim().isEmpty ? '（空）' : text,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -664,7 +664,7 @@ class RetryOptionCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 13,
                   backgroundColor: selected ? cs.primary : cs.primaryContainer,
-                  child: Text(
+                  child: FitText(
                     '${index + 1}',
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: selected ? cs.onPrimary : cs.onPrimaryContainer,
@@ -688,7 +688,7 @@ class RetryOptionCard extends StatelessWidget {
                               color: cs.tertiaryContainer,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text(
+                            child: FitText(
                               '新',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: cs.onTertiaryContainer,
@@ -696,7 +696,7 @@ class RetryOptionCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Text(
+                      FitText(
                         text,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: selected ? cs.onPrimaryContainer : null,

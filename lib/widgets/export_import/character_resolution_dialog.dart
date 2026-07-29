@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/ta.dart';
 import '../../services/conversation_export_import_service.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 导入对话时，处理缺失/重名的角色卡。返回角色决议列表（取消时为 null）。
 Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
@@ -19,7 +20,7 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        title: const Text('匹配角色'),
+        title: const FitText('匹配角色'),
         content: SizedBox(
           width: double.maxFinite,
           height: 400,
@@ -30,18 +31,18 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    FitText(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                     RadioGroup<String>(
                       groupValue: modeById[n.originalTaId]!,
                       onChanged: (v) => setSB(() => modeById[n.originalTaId] = v!),
                       child: Column(
                         children: <Widget>[
                           RadioListTile<String>(
-                            title: const Text('新建角色卡'),
+                            title: const FitText('新建角色卡'),
                             value: 'create',
                           ),
                           RadioListTile<String>(
-                            title: const Text('关联到已有角色'),
+                            title: const FitText('关联到已有角色'),
                             value: 'link',
                           ),
                         ],
@@ -56,7 +57,7 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
                               ? existingTas.first.id
                               : assignById[n.originalTaId],
                           items: existingTas
-                              .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+                              .map((t) => DropdownMenuItem(value: t.id, child: FitText(t.name)))
                               .toList(),
                           onChanged: (v) => setSB(() => assignById[n.originalTaId] = v!),
                         ),
@@ -69,7 +70,7 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
           ),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const FitText('取消')),
           FilledButton(
             onPressed: () {
               final out = <CharacterImportDecision>[];
@@ -89,7 +90,7 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
               }
               Navigator.pop(ctx, out);
             },
-            child: const Text('确定'),
+            child: const FitText('确定'),
           ),
         ],
       );

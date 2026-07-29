@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 角色编辑器中的单张图片上传槽（头像、背景图等）。
 class ImageSlot extends StatelessWidget {
@@ -14,12 +15,12 @@ class ImageSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Expanded(child: Text(title)),
+        Expanded(child: FitText(title)),
         const SizedBox(width: 12),
         OutlinedButton.icon(
           onPressed: onTap,
           icon: const Icon(Icons.upload_outlined),
-          label: const Text('上传'),
+          label: const FitText('上传'),
         ),
         const SizedBox(width: 12),
         SizedBox(

@@ -7,6 +7,7 @@ import '../models/dialogue_style.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 删除确认页的「内容预览」构建器集合。
 ///
@@ -51,7 +52,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('TA 形象', style: tt.titleLarge),
+            FitText('TA 形象', style: tt.titleLarge),
             const SizedBox(height: 12),
             ...slots,
           ],
@@ -65,7 +66,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('人设', style: tt.titleLarge),
+            FitText('人设', style: tt.titleLarge),
             const SizedBox(height: 12),
             _infoRow(cs, tt, '名字', ta.name),
             _infoRow(cs, tt, '性别', ta.gender),
@@ -73,14 +74,14 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
             _infoRow(cs, tt, '介绍', ta.intro),
             _infoRow(cs, tt, '开场白', ta.opening),
             if (ta.tags.isNotEmpty) ...<Widget>[
-              Text('标签',
+              FitText('标签',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children:
-                    ta.tags.map((String t) => Chip(label: Text(t))).toList(),
+                    ta.tags.map((String t) => Chip(label: FitText(t))).toList(),
               ),
             ],
           ],
@@ -95,7 +96,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('对话风格', style: tt.titleLarge),
+              FitText('对话风格', style: tt.titleLarge),
               const SizedBox(height: 12),
               for (final DialogueTurn turn in ta.dialogueStyle) ...<Widget>[
                 Container(
@@ -108,11 +109,11 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('我：${turn.user}',
+                      FitText('我：${turn.user}',
                           style: tt.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('TA：${turn.assistant}', style: tt.bodyMedium),
+                      FitText('TA：${turn.assistant}', style: tt.bodyMedium),
                     ],
                   ),
                 ),
@@ -139,33 +140,33 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('世界信息', style: tt.titleLarge),
+            FitText('世界信息', style: tt.titleLarge),
             const SizedBox(height: 12),
             _infoRow(cs, tt, '名称', world.name),
             _infoRow(cs, tt, '简介', world.summary),
             _infoRow(cs, tt, '描述', world.description),
             if (world.tags.isNotEmpty) ...<Widget>[
-              Text('标签',
+              FitText('标签',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: world.tags
-                    .map((String t) => Chip(label: Text(t)))
+                    .map((String t) => Chip(label: FitText(t)))
                     .toList(),
               ),
             ],
             if (world.forbiddenWords.isNotEmpty) ...<Widget>[
               const SizedBox(height: 10),
-              Text('屏蔽词',
+              FitText('屏蔽词',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: world.forbiddenWords
-                    .map((String t) => Chip(label: Text(t)))
+                    .map((String t) => Chip(label: FitText(t)))
                     .toList(),
               ),
             ],
@@ -181,7 +182,7 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('词条（${world.entries.length}）', style: tt.titleLarge),
+              FitText('词条（${world.entries.length}）', style: tt.titleLarge),
               const SizedBox(height: 12),
               for (final WorldEntry entry in world.entries) ...<Widget>[
                 Container(
@@ -194,11 +195,11 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(entry.name,
+                      FitText(entry.name,
                           style: tt.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(entry.description, style: tt.bodyMedium),
+                      FitText(entry.description, style: tt.bodyMedium),
                     ],
                   ),
                 ),
@@ -243,7 +244,7 @@ List<Widget> buildConversationPreviewSections(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(conv.isGroup ? '群聊信息' : '对话信息', style: tt.titleLarge),
+            FitText(conv.isGroup ? '群聊信息' : '对话信息', style: tt.titleLarge),
             const SizedBox(height: 12),
             _infoRow(cs, tt, conv.isGroup ? '群名' : '角色', displayTitle),
             if (world != null) _infoRow(cs, tt, '世界', world.name),
@@ -260,7 +261,7 @@ List<Widget> buildConversationPreviewSections(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('消息记录', style: tt.titleLarge),
+            FitText('消息记录', style: tt.titleLarge),
             const SizedBox(height: 12),
             for (final ConversationMessage m in conv.messages) ...<Widget>[
               Container(
@@ -273,7 +274,7 @@ List<Widget> buildConversationPreviewSections(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
+                    FitText(
                       m.role == 'user'
                           ? '我'
                           : (conv.isGroup
@@ -282,7 +283,7 @@ List<Widget> buildConversationPreviewSections(
                       style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
-                    Text(m.text.isEmpty ? '（空）' : m.text,
+                    FitText(m.text.isEmpty ? '（空）' : m.text,
                         style: tt.bodyMedium),
                   ],
                 ),
@@ -309,9 +310,9 @@ Widget _infoRow(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+        FitText(label, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
         const SizedBox(height: 2),
-        Text(value.isEmpty ? '（空）' : value, style: tt.bodyMedium),
+        FitText(value.isEmpty ? '（空）' : value, style: tt.bodyMedium),
       ],
     ),
   );
@@ -330,7 +331,7 @@ Widget _previewSlot(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(title, style: tt.titleMedium),
+        FitText(title, style: tt.titleMedium),
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(10),

@@ -9,6 +9,7 @@ import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.controller});
@@ -38,7 +39,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showArchived ? 'TA归档' : '我家'),
+        title: FitText(_showArchived ? 'TA归档' : '我家'),
         actions: <Widget>[
           IconButton(
             tooltip: _showArchived ? '查看TA' : '查看归档',
@@ -100,13 +101,13 @@ class _TaListBody extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(showArchived ? '还没有归档TA。' : '暂无TA，先创建一个吧。'),
+                FitText(showArchived ? '还没有归档TA。' : '暂无TA，先创建一个吧。'),
                 const SizedBox(height: 12),
                 if (!showArchived)
                   FilledButton.icon(
                     onPressed: onCreateTa,
                     icon: const Icon(Icons.add),
-                    label: const Text('创建TA'),
+                    label: const FitText('创建TA'),
                   ),
               ],
             ),
@@ -191,9 +192,9 @@ class _TaItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(ta.name.isEmpty ? '未命名TA' : ta.name),
+                    FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
                     const SizedBox(height: 6),
-                    Text(
+                    FitText(
                       ta.intro.isEmpty ? '暂无介绍' : ta.intro,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -204,7 +205,7 @@ class _TaItem extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: ta.tags
-                            .map((String tag) => Chip(label: Text(tag)))
+                            .map((String tag) => Chip(label: FitText(tag)))
                             .toList(),
                       ),
                     ],
@@ -260,7 +261,7 @@ class _TaItem extends StatelessWidget {
                         value: 'unarchive',
                         child: ListTile(
                           leading: Icon(Icons.unarchive_outlined),
-                          title: Text('恢复'),
+                          title: FitText('恢复'),
                         ),
                       ),
                       const PopupMenuDivider(),
@@ -268,7 +269,7 @@ class _TaItem extends StatelessWidget {
                         value: 'delete',
                         child: ListTile(
                           leading: Icon(Icons.delete_outline),
-                          title: Text('删除'),
+                          title: FitText('删除'),
                         ),
                       ),
                     ];
@@ -278,7 +279,7 @@ class _TaItem extends StatelessWidget {
                       value: 'archive',
                       child: ListTile(
                         leading: Icon(Icons.archive_outlined),
-                        title: Text('归档'),
+                        title: FitText('归档'),
                       ),
                     ),
                   ];

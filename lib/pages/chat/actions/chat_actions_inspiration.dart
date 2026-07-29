@@ -160,10 +160,10 @@ mixin ChatActionsInspiration on ChatStateMixin {
                       children: <Widget>[
                         Icon(Icons.lightbulb, color: cs.primary),
                         const SizedBox(width: 8),
-                        Text('灵感列表', style: theme.textTheme.titleLarge),
+                        FitText('灵感列表', style: theme.textTheme.titleLarge),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
+                          child: FitText(
                             '主题：$_inspirationPrompt',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
@@ -180,7 +180,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24),
-                              child: Text(
+                              child: FitText(
                                 '暂无灵感，请点「再试」。',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: cs.onSurfaceVariant,
@@ -219,7 +219,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                             onPressed: loading
                                 ? null
                                 : () => Navigator.of(sheetContext).pop(),
-                            child: const Text('关闭'),
+                            child: const FitText('关闭'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -233,7 +233,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
                                 : const Icon(Icons.autorenew),
-                            label: Text(loading ? '生成中…' : '再试'),
+                            label: FitText(loading ? '生成中…' : '再试'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -249,7 +249,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                                     );
                                     Navigator.of(sheetContext).pop();
                                   },
-                            child: const Text('使用'),
+                            child: const FitText('使用'),
                           ),
                         ),
                       ],

@@ -9,6 +9,7 @@ import 'settings/conversation_settings_page.dart';
 import 'settings/voice_input_settings_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, required this.controller});
@@ -18,7 +19,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(title: const FitText('设置')),
       drawer: AppDrawer(controller: controller, current: AppSection.settings),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -102,8 +103,8 @@ class _MenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: FitText(title),
+      subtitle: FitText(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );

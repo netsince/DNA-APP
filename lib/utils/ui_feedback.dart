@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 底部提示（SnackBar）的默认显示时长，由设置项统一控制。
 Duration _globalSnackDuration = const Duration(milliseconds: 1000);
@@ -18,7 +19,7 @@ void showSnack(
   messenger.clearSnackBars();
   messenger.showSnackBar(
     SnackBar(
-      content: Text(message),
+      content: FitText(message),
       duration: duration ?? _globalSnackDuration,
       behavior: behavior,
     ),

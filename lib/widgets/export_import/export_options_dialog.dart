@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/conversation_export_import_service.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 导出选项。
 class ExportOptions {
@@ -35,30 +36,30 @@ Future<ExportOptions?> showExportOptionsDialog({
     builder: (ctx) => Theme(
       data: dialogTheme,
       child: AlertDialog(
-        title: const Text('导出选项'),
+        title: const FitText('导出选项'),
         content: StatefulBuilder(
           builder: (bc, setSB) => Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('内嵌角色卡'),
+                title: const FitText('内嵌角色卡'),
                 value: includeCards,
                 onChanged: (v) => setSB(() => includeCards = v),
               ),
               const SizedBox(height: 8),
-              const Text('导出格式'),
+              const FitText('导出格式'),
               RadioGroup<ConversationExportFormat>(
                 groupValue: format,
                 onChanged: (v) => setSB(() => format = v!),
                 child: Column(
                   children: <Widget>[
                     RadioListTile<ConversationExportFormat>(
-                      title: const Text('JSON（可再导入）'),
+                      title: const FitText('JSON（可再导入）'),
                       value: ConversationExportFormat.json,
                     ),
                     RadioListTile<ConversationExportFormat>(
-                      title: const Text('Markdown（便于阅读）'),
+                      title: const FitText('Markdown（便于阅读）'),
                       value: ConversationExportFormat.markdown,
                     ),
                   ],
@@ -68,10 +69,10 @@ Future<ExportOptions?> showExportOptionsDialog({
           ),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const FitText('取消')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ExportOptions(includeCharacterCards: includeCards, format: format)),
-            child: const Text('确定'),
+            child: const FitText('确定'),
           ),
         ],
       ),

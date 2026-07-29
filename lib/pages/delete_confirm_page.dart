@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 通用删除确认页。
 ///
@@ -188,7 +189,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: FitText(widget.title)),
       body: Column(
         children: <Widget>[
           _buildTopBar(cs),
@@ -234,7 +235,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
                   Row(
                     children: <Widget>[
                       Expanded(
-                        child: Text(
+                        child: FitText(
                           '正在滚动确认，$_remainingSeconds 秒后删除…',
                           style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                         ),
@@ -242,7 +243,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
                       TextButton.icon(
                         onPressed: _regret,
                         icon: const Icon(Icons.undo),
-                        label: const Text('反悔'),
+                        label: const FitText('反悔'),
                       ),
                     ],
                   ),
@@ -259,7 +260,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
+            FitText(
               widget.promptHint,
               style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
@@ -280,7 +281,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
               child: FilledButton.icon(
                 onPressed: _nameMatches ? _startAutoScrollConfirm : null,
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('确认删除'),
+                label: const FitText('确认删除'),
                 style: FilledButton.styleFrom(
                   backgroundColor: cs.error,
                   foregroundColor: cs.onError,
@@ -309,7 +310,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
                   backgroundColor: cs.error.withValues(alpha: 0.15),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                FitText(
                   '保持按住，$_remainingSeconds 秒后删除…（松开需重头开始）',
                   style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                 ),
@@ -323,7 +324,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       color: cs.errorContainer.withValues(alpha: 0.25),
-      child: Text(
+      child: FitText(
         '长按右下角按钮 5 秒以删除。期间页面会自动滚动供你查阅，松开需重头开始。',
         style: tt.bodyMedium,
       ),
@@ -365,7 +366,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
                   children: <Widget>[
                     Icon(Icons.delete_outline, color: cs.error),
                     const SizedBox(height: 2),
-                    Text(
+                    FitText(
                       _pressing ? '$_remainingSeconds' : '长按',
                       style: TextStyle(
                         color: cs.error,

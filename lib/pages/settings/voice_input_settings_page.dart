@@ -4,6 +4,7 @@ import '../../models/voice_models.dart';
 import '../../services/sherpa_model_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 语音输入设置：选择模型、选择下载源、下载/删除离线模型。
 class VoiceInputSettingsPage extends StatefulWidget {
@@ -52,22 +53,22 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
     final s = widget.controller.settings;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('语音输入')),
+      appBar: AppBar(title: const FitText('语音输入')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('离线语音识别',
+          FitText('离线语音识别',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('下载模型后，点聊天输入框的麦克风即可语音输入。',
+          FitText('下载模型后，点聊天输入框的麦克风即可语音输入。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 16),
           const Divider(),
 
           // 模型选择
-          Text('识别模型',
+          FitText('识别模型',
               style: theme.textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
@@ -81,7 +82,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                   .map((VoiceModelOption m) =>
                       DropdownMenuItem<VoiceModelOption>(
                         value: m,
-                        child: Text(m.label),
+                        child: FitText(m.label),
                       ))
                   .toList(),
               onChanged: _downloading
@@ -95,13 +96,13 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(_model.description,
+          FitText(_model.description,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 16),
 
           // 下载源
-          Text('下载来源',
+          FitText('下载来源',
               style: theme.textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w600)),
           RadioGroup<String>(
@@ -114,23 +115,23 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
             child: Column(
               children: <Widget>[
                 RadioListTile<String>(
-                  title: const Text('自动选择'),
-                  subtitle: const Text('依次尝试可达的源'),
+                  title: const FitText('自动选择'),
+                  subtitle: const FitText('依次尝试可达的源'),
                   value: 'auto',
                 ),
                 RadioListTile<String>(
-                  title: const Text('ModelScope（国内）'),
-                  subtitle: const Text('只用此源'),
+                  title: const FitText('ModelScope（国内）'),
+                  subtitle: const FitText('只用此源'),
                   value: 'modelscope',
                 ),
                 RadioListTile<String>(
-                  title: const Text('GitHub'),
-                  subtitle: const Text('只用此源'),
+                  title: const FitText('GitHub'),
+                  subtitle: const FitText('只用此源'),
                   value: 'github',
                 ),
                 RadioListTile<String>(
-                  title: const Text('自定义服务器'),
-                  subtitle: const Text('只用此源'),
+                  title: const FitText('自定义服务器'),
+                  subtitle: const FitText('只用此源'),
                   value: 'custom',
                 ),
               ],
@@ -157,22 +158,22 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
           if (_readyForCurrent) ...<Widget>[
             ListTile(
               leading: const Icon(Icons.check_circle, color: Colors.green),
-              title: const Text('模型已就绪'),
-              subtitle: Text(_model.label),
+              title: const FitText('模型已就绪'),
+              subtitle: FitText(_model.label),
             ),
             Row(
               children: <Widget>[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _downloading ? null : _download,
-                    child: const Text('重新下载'),
+                    child: const FitText('重新下载'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _downloading ? null : _delete,
-                    child: const Text('删除'),
+                    child: const FitText('删除'),
                   ),
                 ),
               ],
@@ -181,7 +182,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
             if (_downloading) ...<Widget>[
               LinearProgressIndicator(value: _progress),
               const SizedBox(height: 8),
-              Text(_status,
+              FitText(_status,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 12),
@@ -191,12 +192,12 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               child: FilledButton.icon(
                 onPressed: _downloading ? null : _download,
                 icon: const Icon(Icons.download),
-                label: Text(_downloading ? '下载中…' : '下载模型'),
+                label: FitText(_downloading ? '下载中…' : '下载模型'),
               ),
             ),
           ],
           const SizedBox(height: 16),
-          Text('首次下载需联网，之后完全离线使用。',
+          FitText('首次下载需联网，之后完全离线使用。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
         ],

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class GroupAvatar extends StatelessWidget {
   const GroupAvatar({
@@ -60,7 +61,7 @@ class GroupAvatar extends StatelessWidget {
                   height: half,
                   color: surfaceContainerHigh,
                   alignment: Alignment.center,
-                  child: Text(label, style: labelMedium),
+                  child: FitText(label, style: labelMedium),
                 );
               }
 
@@ -70,7 +71,7 @@ class GroupAvatar extends StatelessWidget {
                   height: constraints.maxHeight,
                   color: surfaceContainerHigh,
                   alignment: Alignment.center,
-                  child: Text('?', style: labelMedium),
+                  child: FitText('?', style: labelMedium),
                 );
               }
               if (picked.length == 1) {

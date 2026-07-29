@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../state/app_controller.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
   const SecuritySettingsPage({super.key, required this.controller});
@@ -40,7 +41,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('安全与隐私')),
+      appBar: AppBar(title: const FitText('安全与隐私')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -51,7 +52,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 children: <Widget>[
                   Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.error),
                   const SizedBox(width: 6),
-                  Text('当前设备不支持生物识别验证',
+                  FitText('当前设备不支持生物识别验证',
                       style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
                 ],
               ),
@@ -59,15 +60,15 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           else ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('进入软件需验证'),
-              subtitle: const Text('开启后每次进入应用或从后台切回都需要验证身份。'),
+              title: const FitText('进入软件需验证'),
+              subtitle: const FitText('开启后每次进入应用或从后台切回都需要验证身份。'),
               value: _authForApp,
               onChanged: (v) { setState(() => _authForApp = v); _save(); },
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('查看归档需验证'),
-              subtitle: const Text('开启后进入任意归档页面需要验证身份。'),
+              title: const FitText('查看归档需验证'),
+              subtitle: const FitText('开启后进入任意归档页面需要验证身份。'),
               value: _authForArchive,
               onChanged: (v) { setState(() => _authForArchive = v); _save(); },
             ),
@@ -75,8 +76,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           const Divider(height: 32),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('删除前强制输入名称'),
-            subtitle: const Text('删除前需完整输入对应名称（角色名 / 世界名 / 对话角色名 / 群成员名），并在 5 秒滚动确认中可反悔；关闭后改为长按右下角按钮 5 秒删除。四类可归档实体统一生效。'),
+            title: const FitText('删除前强制输入名称'),
+            subtitle: const FitText('删除前需完整输入对应名称（角色名 / 世界名 / 对话角色名 / 群成员名），并在 5 秒滚动确认中可反悔；关闭后改为长按右下角按钮 5 秒删除。四类可归档实体统一生效。'),
             value: _requireNameToDelete,
             onChanged: (v) {
               setState(() => _requireNameToDelete = v);

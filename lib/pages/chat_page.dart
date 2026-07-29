@@ -31,6 +31,7 @@ import 'chat/state/chat_controller.dart';
 import 'chat/ui/widgets/chat_app_bar.dart';
 import 'chat/ui/widgets/chat_input_bar.dart';
 import 'chat/ui/widgets/chat_message_list.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 part 'chat/state/chat_state_mixin.dart';
 part 'chat/ui/chat_ui_helpers.dart';
@@ -239,7 +240,7 @@ class _ChatPageState extends State<ChatPage>
           child: StatefulBuilder(
             builder: (BuildContext context, void Function(void Function()) setDialogState) {
               return AlertDialog(
-                title: const Text('添加群成员'),
+                title: const FitText('添加群成员'),
               content: SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
@@ -259,7 +260,7 @@ class _ChatPageState extends State<ChatPage>
                           }
                         });
                       },
-                      title: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
+                      title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
                     );
                   },
                 ),
@@ -267,11 +268,11 @@ class _ChatPageState extends State<ChatPage>
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
+                  child: const FitText('取消'),
                 ),
                 FilledButton(
                   onPressed: selected.isEmpty ? null : () => Navigator.of(context).pop(selected.toList()),
-                  child: const Text('添加'),
+                  child: const FitText('添加'),
                 ),
               ],
             );
@@ -344,7 +345,7 @@ class _ChatPageState extends State<ChatPage>
       ),
       child: Row(
         children: <Widget>[
-          const Text('发言控制'),
+          const FitText('发言控制'),
           const SizedBox(width: 10),
           Expanded(
             child: SizedBox(
@@ -369,7 +370,7 @@ class _ChatPageState extends State<ChatPage>
                               : surfaceContainerHighest,
                           foregroundImage: avatar,
                           child: avatar == null
-                              ? Text(
+                              ? FitText(
                                   ta.name.isNotEmpty ? ta.name[0] : '?',
                                   style: textTheme.labelMedium,
                                 )
@@ -378,7 +379,7 @@ class _ChatPageState extends State<ChatPage>
                         const SizedBox(height: 2),
                         SizedBox(
                           width: 56,
-                          child: Text(
+                          child: FitText(
                             ta.name.isEmpty ? '未命名' : ta.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -507,7 +508,7 @@ class _ChatPageState extends State<ChatPage>
                         color: assistantBubble,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Text('对方正在输入...'),
+                      child: const FitText('对方正在输入...'),
                     ),
                   ),
                 ),
@@ -611,11 +612,11 @@ class _SummaryProgressBar extends StatelessWidget {
             children: <Widget>[
               const Icon(Icons.auto_awesome, size: 16),
               const SizedBox(width: 6),
-              const Text('正在生成摘要...'),
+              const FitText('正在生成摘要...'),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: onCancel,
-                child: const Text('停止'),
+                child: const FitText('停止'),
               ),
             ],
           ),

@@ -17,6 +17,7 @@ import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class TaEditorPage extends StatefulWidget {
   const TaEditorPage({super.key, required this.controller, this.ta});
@@ -154,16 +155,16 @@ class _TaEditorPageState extends State<TaEditorPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('导出角色'),
+          title: const FitText('导出角色'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('将角色数据导出为JSON格式，包含文字设定和图片。'),
+              const FitText('将角色数据导出为JSON格式，包含文字设定和图片。'),
               const SizedBox(height: 16),
               CheckboxListTile(
-                title: const Text('压缩图片'),
-                subtitle: const Text('减小导出文件大小（推荐）'),
+                title: const FitText('压缩图片'),
+                subtitle: const FitText('减小导出文件大小（推荐）'),
                 value: compressImages,
                 onChanged: (value) {
                   setState(() => compressImages = value ?? true);
@@ -174,11 +175,11 @@ class _TaEditorPageState extends State<TaEditorPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
+              child: const FitText('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('导出'),
+              child: const FitText('导出'),
             ),
           ],
         ),
@@ -222,16 +223,16 @@ class _TaEditorPageState extends State<TaEditorPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('导入角色'),
-        content: const Text('将从剪贴板读取角色数据并导入。支持本应用导出格式与酒馆（SillyTavern）角色卡 JSON。'),
+        title: const FitText('导入角色'),
+        content: const FitText('将从剪贴板读取角色数据并导入。支持本应用导出格式与酒馆（SillyTavern）角色卡 JSON。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: const FitText('取消'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('从剪贴板导入'),
+            child: const FitText('从剪贴板导入'),
           ),
         ],
       ),
@@ -368,7 +369,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.ta == null ? '创建TA' : '编辑TA'),
+        title: FitText(widget.ta == null ? '创建TA' : '编辑TA'),
         actions: <Widget>[
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -388,7 +389,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                   children: [
                     Icon(Icons.upload_outlined),
                     SizedBox(width: 8),
-                    Text('导出角色'),
+                    FitText('导出角色'),
                   ],
                 ),
               ),
@@ -398,7 +399,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                   children: [
                     Icon(Icons.download_outlined),
                     SizedBox(width: 8),
-                    Text('导入角色'),
+                    FitText('导入角色'),
                   ],
                 ),
               ),
@@ -420,7 +421,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('TA形象', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('TA形象', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   ImageSlot(
                     title: '1:1 形象',
@@ -450,7 +451,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('人设栏目', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('人设栏目', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -472,7 +473,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                       });
                     },
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('对话风格'),
+                    label: const FitText('对话风格'),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -484,10 +485,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     initialValue: _gender,
                     decoration: const InputDecoration(labelText: '性别'),
                     items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem(value: '男', child: Text('男')),
-                      DropdownMenuItem(value: '女', child: Text('女')),
-                      DropdownMenuItem(value: '无性', child: Text('无性')),
-                      DropdownMenuItem(value: '其他', child: Text('其他')),
+                      DropdownMenuItem(value: '男', child: FitText('男')),
+                      DropdownMenuItem(value: '女', child: FitText('女')),
+                      DropdownMenuItem(value: '无性', child: FitText('无性')),
+                      DropdownMenuItem(value: '其他', child: FitText('其他')),
                     ],
                     onChanged: (String? value) {
                       if (value == null) {
@@ -531,7 +532,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>
 [
-                  Text('标签', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('标签', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _tagsController,
@@ -549,7 +550,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.save_outlined),
-        label: const Text('保存TA'),
+        label: const FitText('保存TA'),
       ),
     );
   }

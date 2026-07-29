@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../services/speech_to_text_service.dart';
 import '../../../../state/app_controller.dart';
 import '../../../../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class ChatInputBar extends StatefulWidget {
   const ChatInputBar({
@@ -445,7 +446,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     child: OutlinedButton.icon(
                       onPressed: _editTranscript,
                       icon: const Icon(Icons.edit_outlined),
-                      label: const Text('修改'),
+                      label: const FitText('修改'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -453,7 +454,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     child: OutlinedButton.icon(
                       onPressed: _discardReview,
                       icon: const Icon(Icons.close),
-                      label: const Text('取消'),
+                      label: const FitText('取消'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -461,7 +462,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     child: FilledButton.icon(
                       onPressed: _sendFromReview,
                       icon: const Icon(Icons.send),
-                      label: const Text('发送'),
+                      label: const FitText('发送'),
                     ),
                   ),
                 ],
@@ -541,7 +542,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
+        child: FitText(
           hasText ? _transcript : placeholder,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: hasText ? cs.onSurface : cs.onSurfaceVariant,
@@ -576,7 +577,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               size: 28,
             ),
             const SizedBox(height: 6),
-            Text(
+            FitText(
               listening
                   ? (_enteredByLongPress ? '松开发送' : '再点一次停止')
                   : '按住或点击说话',

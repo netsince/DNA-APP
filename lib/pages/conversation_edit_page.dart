@@ -5,6 +5,7 @@ import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class ConversationEditPage extends StatefulWidget {
   const ConversationEditPage({
@@ -63,7 +64,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('更改信息'),
+        title: const FitText('更改信息'),
         actions: <Widget>[
           IconButton(
             onPressed: _save,
@@ -81,10 +82,10 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (tas.isEmpty)
-                    const Text('暂无TA，请先在"我家"创建TA。')
+                    const FitText('暂无TA，请先在"我家"创建TA。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedTaId,
@@ -93,7 +94,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
                           .map(
                             (TA ta) => DropdownMenuItem<String>(
                               value: ta.id,
-                              child: Text(ta.name.isEmpty ? '未命名TA' : ta.name),
+                              child: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
                             ),
                           )
                           .toList(),
@@ -111,10 +112,10 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('选择世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('选择世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (worlds.isEmpty)
-                    const Text('暂无世界背景，可在"世界"页面创建。')
+                    const FitText('暂无世界背景，可在"世界"页面创建。')
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedWorldId ?? '',
@@ -122,12 +123,12 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
                       items: <DropdownMenuItem<String>>[
                         const DropdownMenuItem<String>(
                           value: '',
-                          child: Text('不选择'),
+                          child: FitText('不选择'),
                         ),
                         ...worlds.map(
                           (World world) => DropdownMenuItem<String>(
                             value: world.id,
-                            child: Text(
+                            child: FitText(
                               world.name.isEmpty ? '未命名世界' : world.name,
                             ),
                           ),
@@ -151,7 +152,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('备注', style: Theme.of(context).textTheme.titleLarge),
+                  FitText('备注', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _noteController,
@@ -166,7 +167,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.check),
-        label: const Text('保存'),
+        label: const FitText('保存'),
       ),
     );
   }

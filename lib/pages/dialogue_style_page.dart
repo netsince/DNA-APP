@@ -3,6 +3,7 @@
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
 import '../state/app_controller.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class DialogueStylePage extends StatefulWidget {
   const DialogueStylePage({super.key, required this.controller, required this.ta});
@@ -55,7 +56,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('对话风格'),
+        title: const FitText('对话风格'),
         actions: <Widget>[
           IconButton(
             onPressed: _save,
@@ -75,7 +76,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('轮次 ${index + 1}', style: Theme.of(context).textTheme.titleMedium),
+                  FitText('轮次 ${index + 1}', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   TextFormField(
                     initialValue: turn.user,
@@ -99,7 +100,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                       child: TextButton.icon(
                         onPressed: () => _removeTurn(index),
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('删除轮次'),
+                        label: const FitText('删除轮次'),
                       ),
                     ),
                   ],
@@ -112,7 +113,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addTurn,
         icon: const Icon(Icons.add),
-        label: const Text('添加轮次'),
+        label: const FitText('添加轮次'),
       ),
     );
   }

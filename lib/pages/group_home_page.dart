@@ -12,6 +12,7 @@ import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'group_create_page.dart';
 import 'group_edit_page.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class GroupHomePage extends StatefulWidget {
   const GroupHomePage({super.key, required this.controller});
@@ -42,7 +43,7 @@ class _GroupHomePageState extends State<GroupHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showArchived ? '群聊归档' : '群聊'),
+        title: FitText(_showArchived ? '群聊归档' : '群聊'),
         actions: <Widget>[
           IconButton(
             tooltip: _showArchived ? '查看群聊' : '查看归档',
@@ -95,13 +96,13 @@ class _GroupListBody extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(showArchived ? '还没有归档群聊。' : '还没有群聊，点击右上角 + 新建。'),
+                FitText(showArchived ? '还没有归档群聊。' : '还没有群聊，点击右上角 + 新建。'),
                 const SizedBox(height: 12),
                 if (!showArchived)
                   FilledButton.icon(
                     onPressed: onCreateGroup,
                     icon: const Icon(Icons.add),
-                    label: const Text('新建群聊'),
+                    label: const FitText('新建群聊'),
                   ),
               ],
             ),
@@ -152,8 +153,8 @@ class _GroupItem extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: GroupAvatar(tas: members, size: 44),
-        title: Text(title),
-        subtitle: Text(subtitle),
+        title: FitText(title),
+        subtitle: FitText(subtitle),
         trailing: PopupMenuButton<String>(
           tooltip: '更多操作',
           onSelected: (String value) async {
@@ -216,7 +217,7 @@ class _GroupItem extends StatelessWidget {
                   value: 'unarchive',
                   child: ListTile(
                     leading: Icon(Icons.unarchive_outlined),
-                    title: Text('恢复'),
+                    title: FitText('恢复'),
                   ),
                 ),
                 const PopupMenuDivider(),
@@ -224,7 +225,7 @@ class _GroupItem extends StatelessWidget {
                   value: 'delete',
                   child: ListTile(
                     leading: Icon(Icons.delete_outline),
-                    title: Text('删除'),
+                    title: FitText('删除'),
                   ),
                 ),
               ];
@@ -234,14 +235,14 @@ class _GroupItem extends StatelessWidget {
                 value: 'edit',
                 child: ListTile(
                   leading: Icon(Icons.edit_outlined),
-                  title: Text('更改信息'),
+                  title: FitText('更改信息'),
                 ),
               ),
               const PopupMenuItem<String>(
                 value: 'archive',
                 child: ListTile(
                   leading: Icon(Icons.archive_outlined),
-                  title: Text('归档'),
+                  title: FitText('归档'),
                 ),
               ),
             ];

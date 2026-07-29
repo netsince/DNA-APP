@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({
@@ -67,12 +68,12 @@ class _AuthPageState extends State<AuthPage> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 24),
-                Text(
+                FitText(
                   '需要验证身份',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                FitText(
                   '请使用生物识别或设备密码验证身份',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -95,7 +96,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
+                          child: FitText(
                             _errorMessage!,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.error,
@@ -119,7 +120,7 @@ class _AuthPageState extends State<AuthPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.fingerprint),
-                    label: Text(_isAuthenticating ? '验证中...' : '开始验证'),
+                    label: FitText(_isAuthenticating ? '验证中...' : '开始验证'),
                   ),
                 ),
               ],

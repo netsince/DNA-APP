@@ -6,6 +6,7 @@ import '../services/llm_provider.dart';
 import '../state/app_controller.dart';
 import '../utils/dialogs.dart';
 import 'oobe/oobe_steps.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 class OobePage extends StatefulWidget {
   const OobePage({super.key, required this.controller});
@@ -189,18 +190,18 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('跳过引导？'),
-        content: const Text(
+        title: const FitText('跳过引导？'),
+        content: const FitText(
           '如果你跳过了 OOBE，需要自行在「设置」中配置服务商、API Key 与模型等相关设置项，否则可能无法正常使用对话功能。',
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('继续设置'),
+            child: const FitText('继续设置'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('仍然跳过'),
+            child: const FitText('仍然跳过'),
           ),
         ],
       ),
@@ -284,12 +285,12 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
             },
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('首次启动引导'),
+                title: const FitText('首次启动引导'),
                 actions: <Widget>[
                   if (_stepIndex == 0)
                     TextButton(
                       onPressed: _skipOobe,
-                      child: const Text('跳过'),
+                      child: const FitText('跳过'),
                     ),
                 ],
               ),
