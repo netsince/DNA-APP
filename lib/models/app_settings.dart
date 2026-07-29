@@ -24,6 +24,8 @@ class AppSettings {
     required this.sherpaModelReady,
     this.sherpaModelPath,
     required this.selectedVoiceModelId,
+    required this.accentMode,
+    this.customAccentColor,
   });
 
   factory AppSettings.empty() {
@@ -49,6 +51,8 @@ class AppSettings {
       sherpaModelReady: false,
       sherpaModelPath: null,
       selectedVoiceModelId: kVoiceModelDefaultId,
+      accentMode: 'auto',
+      customAccentColor: null,
     );
   }
 
@@ -85,6 +89,12 @@ class AppSettings {
   /// 当前选中的语音识别模型 id。
   final String selectedVoiceModelId;
 
+  /// 强调色（莫奈取色）模式：'auto' 跟随系统/角色卡；'custom' 使用自定义色。
+  final String accentMode;
+
+  /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
+  final int? customAccentColor;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -108,6 +118,8 @@ class AppSettings {
       'sherpaModelReady': sherpaModelReady,
       'sherpaModelPath': sherpaModelPath,
       'selectedVoiceModelId': selectedVoiceModelId,
+      'accentMode': accentMode,
+      'customAccentColor': customAccentColor,
     };
   }
 
@@ -141,6 +153,8 @@ class AppSettings {
       sherpaModelPath: json['sherpaModelPath'] as String?,
       selectedVoiceModelId:
           (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
+      accentMode: (json['accentMode'] as String?) ?? 'auto',
+      customAccentColor: json['customAccentColor'] as int?,
     );
   }
 
@@ -166,6 +180,8 @@ class AppSettings {
     bool? sherpaModelReady,
     String? sherpaModelPath,
     String? selectedVoiceModelId,
+    String? accentMode,
+    int? customAccentColor,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -189,6 +205,8 @@ class AppSettings {
       sherpaModelReady: sherpaModelReady ?? this.sherpaModelReady,
       sherpaModelPath: sherpaModelPath ?? this.sherpaModelPath,
       selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
+      accentMode: accentMode ?? this.accentMode,
+      customAccentColor: customAccentColor ?? this.customAccentColor,
     );
   }
 }

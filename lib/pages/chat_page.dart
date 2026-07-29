@@ -10,6 +10,7 @@ import '../utils/api_guard.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
 import '../models/conversation.dart';
+import '../models/app_settings.dart';
 import '../models/ta.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
@@ -108,9 +109,38 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   Future<void> _loadAccent() async {
+    final s = widget.controller.settings;
+    // 自定义模式：直接使用用户指定颜色，跳过角色卡取色。
+    if (s.accentMode == 'custom' && s.customAccentColor != null) {
+      if (mounted) {
+        setState(() => _accent = Color(s.customAccentColor!));
+      }
+      return;
+    }
+
     final TA? ta = _ta;
-    final String? path = ta?.images['square'];
-    if (path == null || path.isEmpty || !File(path).existsSync()) {
+    // 自动模式下强调色跟随角色卡图片：优先用当前显示的背景图，否则依次回退到
+    // 方形头像 / 竖屏图 / 横屏图，取第一张存在的图片，确保只要有角色卡图片就能取色。
+    final bool useLandscape =
+        MediaQuery.of(context).size.width >= MediaQuery.of(context).size.height;
+    final List<String?> candidates = <String?>[
+      if (_conversation.backgroundMode == 'image')
+        ta?.images[useLandscape ? 'landscape' : 'portrait'],
+      ta?.images['square'],
+      ta?.images['portrait'],
+      ta?.images['landscape'],
+    ];
+    String? path;
+    for (final String? candidate in candidates) {
+      if (candidate != null && candidate.isNotEmpty && File(candidate).existsSync()) {
+        path = candidate;
+        break;
+      }
+    }
+    if (path == null) {
+      if (mounted) {
+        setState(() => _accent = null);
+      }
       return;
     }
 
@@ -204,10 +234,12 @@ class _ChatPageState extends State<ChatPage>
     final List<String>? updated = await showDialog<List<String>>(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, void Function(void Function()) setDialogState) {
-            return AlertDialog(
-              title: const Text('添加群成员'),
+        return Theme(
+          data: _accentTheme,
+          child: StatefulBuilder(
+            builder: (BuildContext context, void Function(void Function()) setDialogState) {
+              return AlertDialog(
+                title: const Text('添加群成员'),
               content: SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
@@ -244,9 +276,10 @@ class _ChatPageState extends State<ChatPage>
               ],
             );
           },
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
     if (updated == null || updated.isEmpty) {
       return;
     }
@@ -263,7 +296,10 @@ class _ChatPageState extends State<ChatPage>
   }
 
   Future<void> _exportCurrentConversation() async {
-    final ExportOptions? options = await showExportOptionsDialog(context: context);
+    final ExportOptions? options = await showExportOptionsDialog(
+      context: context,
+      accentColor: _accent,
+    );
     if (options == null || !mounted) {
       return;
     }
@@ -481,14 +517,17 @@ class _ChatPageState extends State<ChatPage>
                   color: colorScheme.surfaceContainerHigh,
                   borderColor: colorScheme.outlineVariant,
                 ),
-              ChatInputBar(
-                controller: widget.controller,
-                inputController: _inputController,
-                inputFocusNode: _inputFocusNode,
-                sending: _sending,
-                inspirationInProgress: _inspirationInProgress,
-                onSend: _send,
-                onStartInspiration: _startInspiration,
+              Theme(
+                data: _accentTheme,
+                child: ChatInputBar(
+                  controller: widget.controller,
+                  inputController: _inputController,
+                  inputFocusNode: _inputFocusNode,
+                  sending: _sending,
+                  inspirationInProgress: _inspirationInProgress,
+                  onSend: _send,
+                  onStartInspiration: _startInspiration,
+                ),
               ),
             ],
           ),

@@ -243,6 +243,20 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存强调色（莫奈取色）模式：'auto' 或 'custom'。
+  Future<void> saveAccentMode(String mode) async {
+    _settings = _settings.copyWith(accentMode: mode.trim());
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存自定义强调色（ARGB 整数），仅当模式为 'custom' 时生效。
+  Future<void> saveCustomAccentColor(int? color) async {
+    _settings = _settings.copyWith(customAccentColor: color);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);

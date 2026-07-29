@@ -99,6 +99,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
       title: '生成灵感',
       hintText: '生成灵感：例如 重新开场/ 继续推进 / 某个话题',
       confirmText: '生成',
+      accentColor: _accent,
     );
   }
 
@@ -146,9 +147,11 @@ mixin ChatActionsInspiration on ChatStateMixin {
             final List<String> options = _inspirationOptions;
             final int firstNewIndex = options.length - newlyAddedCount;
 
-            return ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: screen.height * 0.85),
-              child: Column(
+            return Theme(
+              data: _accentTheme,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: screen.height * 0.85),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Padding(
@@ -254,10 +257,11 @@ mixin ChatActionsInspiration on ChatStateMixin {
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 }

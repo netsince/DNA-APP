@@ -89,46 +89,72 @@ class _DnaAppState extends State<DnaApp> {
 
   @override
   Widget build(BuildContext context) {
+    final String accentMode = widget.controller.settings.accentMode;
+    final int? customAccentColor = widget.controller.settings.customAccentColor;
+
+    if (accentMode == 'custom') {
+      // 自定义：用用户指定颜色作为种子，统一生成整套 Material 3 配色。
+      final Color seed = customAccentColor != null
+          ? Color(customAccentColor)
+          : DnaApp._fallbackSeed;
+      final ColorScheme lightColorScheme = ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.light,
+      );
+      final ColorScheme darkColorScheme = ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.dark,
+      );
+      return _buildMaterialApp(lightColorScheme, darkColorScheme);
+    }
+
+    // 自动：主界面跟随系统动态取色（Monet），取不到则用默认种子色。
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        final ColorScheme lightColorScheme = lightDynamic ?? ColorScheme.fromSeed(
-          seedColor: DnaApp._fallbackSeed,
-          brightness: Brightness.light,
-        );
-        final ColorScheme darkColorScheme = darkDynamic ?? ColorScheme.fromSeed(
-          seedColor: DnaApp._fallbackSeed,
-          brightness: Brightness.dark,
-        );
-
-        return MaterialApp(
-          title: 'Duet Nurturing Ally',
-          debugShowCheckedModeBanner: false,
-          themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
-          theme: ThemeData(
-            colorScheme: lightColorScheme,
-            useMaterial3: true,
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: <TargetPlatform, PageTransitionsBuilder>{
-                TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-              },
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: darkColorScheme,
-            useMaterial3: true,
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: <TargetPlatform, PageTransitionsBuilder>{
-                TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-              },
-            ),
-          ),
-          home: AppRoot(controller: widget.controller),
-        );
+        final ColorScheme lightColorScheme = lightDynamic ??
+            ColorScheme.fromSeed(
+              seedColor: DnaApp._fallbackSeed,
+              brightness: Brightness.light,
+            );
+        final ColorScheme darkColorScheme = darkDynamic ??
+            ColorScheme.fromSeed(
+              seedColor: DnaApp._fallbackSeed,
+              brightness: Brightness.dark,
+            );
+        return _buildMaterialApp(lightColorScheme, darkColorScheme);
       },
+    );
+  }
+
+  Widget _buildMaterialApp(
+      ColorScheme lightColorScheme, ColorScheme darkColorScheme) {
+    return MaterialApp(
+      title: 'Duet Nurturing Ally',
+      debugShowCheckedModeBanner: false,
+      themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
+      theme: ThemeData(
+        colorScheme: lightColorScheme,
+        useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
+      darkTheme: ThemeData(
+        colorScheme: darkColorScheme,
+        useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
+            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
+      ),
+      home: AppRoot(controller: widget.controller),
     );
   }
 }

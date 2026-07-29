@@ -11,7 +11,10 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
   late final ChatController _chatController;
   late Conversation _conversation;
   Color? _accent;
+  String? _lastAccentMode;
+  int? _lastCustomAccentColor;
   
+
   // 缓存图片 provider 避免重复创建
   final Map<String, ImageProvider> _imageCache = <String, ImageProvider>{};
 
@@ -81,6 +84,11 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _chatController = ChatController(scrollController: _scrollController);
+
+    // 记录当前 accent 设置，用于检测设置页切换后实时刷新聊天页取色。
+    _lastAccentMode = widget.controller.settings.accentMode;
+    _lastCustomAccentColor = widget.controller.settings.customAccentColor;
+    widget.controller.addListener(_onSettingsChanged);
     Conversation? existing;
     if (widget.isGroup) {
       existing = widget.controller.getGroupById(widget.conversationId);
@@ -133,6 +141,7 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.controller.removeListener(_onSettingsChanged);
     _inputController.dispose();
     _inputFocusNode.dispose();
     _scrollController.dispose();
@@ -164,6 +173,42 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
         _keyboardWasOpen = false;
       }
     });
+  }
+
+  // 设置页切换 accent 模式/颜色后，实时刷新聊天页取色
+  void _onSettingsChanged() {
+    if (!mounted) {
+      return;
+    }
+    final AppSettings s = widget.controller.settings;
+    if (s.accentMode != _lastAccentMode || s.customAccentColor != _lastCustomAccentColor) {
+      _lastAccentMode = s.accentMode;
+      _lastCustomAccentColor = s.customAccentColor;
+      _loadAccent();
+    }
+  }
+
+  // 把 colorScheme.primary 系列替换为当前角色取色（_accent），供底部输入栏与
+  // 子页面弹框使用；无取色时回退到默认主题。
+  ThemeData get _accentTheme {
+    final ThemeData base = Theme.of(context);
+    final Color? accent = _accent;
+    if (accent == null) {
+      return base;
+    }
+    final Color onAccent =
+        ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
+            ? Colors.white
+            : Colors.black;
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        primary: accent,
+        onPrimary: onAccent,
+        primaryContainer:
+            Color.alphaBlend(accent.withValues(alpha: 0.16), base.colorScheme.surface),
+        onPrimaryContainer: accent,
+      ),
+    );
   }
 
   // 缓存图片 provider

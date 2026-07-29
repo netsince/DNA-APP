@@ -653,6 +653,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     if (_voiceMode) {
       return _buildVoicePanel();
     }
+    final ColorScheme cs = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
       child: Padding(
@@ -681,6 +682,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             if (!_hasInput)
               IconButton(
                 tooltip: '灵感',
+                color: cs.primary,
                 onPressed: widget.inspirationInProgress
                     ? null
                     : () => widget.onStartInspiration(),
@@ -696,6 +698,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             // 发送按钮改成图标
             IconButton(
               tooltip: widget.sending ? '发送中...' : '发送',
+              color: cs.primary,
               onPressed: widget.sending ? null : widget.onSend,
               icon: widget.sending
                   ? const SizedBox(

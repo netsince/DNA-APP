@@ -273,9 +273,11 @@ mixin ChatUiHelpers on ChatStateMixin {
 
             final int firstNewIndex = options.length - newlyAddedCount;
 
-            return ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: screen.height * 0.85),
-              child: Column(
+            return Theme(
+              data: _accentTheme,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: screen.height * 0.85),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Padding(
@@ -377,11 +379,12 @@ mixin ChatUiHelpers on ChatStateMixin {
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
     if (selected == null) {
       return;
     }
@@ -409,9 +412,11 @@ mixin ChatUiHelpers on ChatStateMixin {
     final String? updated = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('更改文字'),
-          content: TextField(
+        return Theme(
+          data: _accentTheme,
+          child: AlertDialog(
+            title: const Text('更改文字'),
+            content: TextField(
             controller: controller,
             minLines: 3,
             maxLines: 8,
@@ -427,9 +432,10 @@ mixin ChatUiHelpers on ChatStateMixin {
               child: const Text('保存'),
             ),
           ],
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
     if (updated == null) {
       return;
     }
@@ -451,9 +457,11 @@ mixin ChatUiHelpers on ChatStateMixin {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('确认回溯'),
-          content: const Text('将丢弃此气泡之后的所有记录，确定要回溯吗？'),
+        return Theme(
+          data: _accentTheme,
+          child: AlertDialog(
+            title: const Text('确认回溯'),
+            content: const Text('将丢弃此气泡之后的所有记录，确定要回溯吗？'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -464,9 +472,10 @@ mixin ChatUiHelpers on ChatStateMixin {
               child: const Text('回溯'),
             ),
           ],
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
     if (confirmed != true) {
       return;
     }

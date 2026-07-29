@@ -17,8 +17,10 @@ mixin ChatActionsSnapshots on ChatStateMixin {
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('存档管理'),
+        return Theme(
+          data: _accentTheme,
+          child: AlertDialog(
+            title: const Text('存档管理'),
           content: SizedBox(
             width: double.maxFinite,
             child: snapshots.isEmpty
@@ -47,9 +49,10 @@ mixin ChatActionsSnapshots on ChatStateMixin {
               child: const Text('新建存档'),
             ),
           ],
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
     if (action == null) {
       return;
     }
@@ -61,6 +64,7 @@ mixin ChatActionsSnapshots on ChatStateMixin {
         title: '创建存档',
         hintText: '输入存档名称',
         initialValue: defaultName,
+        accentColor: _accent,
       );
       if (name == null || name.trim().isEmpty) {
         return;
@@ -91,6 +95,7 @@ mixin ChatActionsSnapshots on ChatStateMixin {
         context: context,
         title: '确认加载存档',
         content: '将覆盖当前对话并无法撤销，确定要继续吗？',
+        accentColor: _accent,
       );
       if (!confirmed) {
         return;

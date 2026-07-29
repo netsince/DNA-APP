@@ -28,6 +28,8 @@ class SettingsService {
   static const String _sherpaModelReadyKey = 'sherpa_model_ready';
   static const String _sherpaModelPathKey = 'sherpa_model_path';
   static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
+  static const String _accentModeKey = 'accent_mode';
+  static const String _customAccentColorKey = 'custom_accent_color';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -67,6 +69,8 @@ class SettingsService {
       sherpaModelPath: prefs.getString(_sherpaModelPathKey),
       selectedVoiceModelId:
           prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
+      accentMode: prefs.getString(_accentModeKey) ?? 'auto',
+      customAccentColor: prefs.getInt(_customAccentColorKey),
     );
   }
 
@@ -103,5 +107,12 @@ class SettingsService {
     }
     await prefs.setString(
         _sherpaSelectedModelKey, settings.selectedVoiceModelId);
+    await prefs.setString(_accentModeKey, settings.accentMode);
+    if (settings.customAccentColor != null) {
+      await prefs.setInt(
+          _customAccentColorKey, settings.customAccentColor!);
+    } else {
+      await prefs.remove(_customAccentColorKey);
+    }
   }
 }
