@@ -17,6 +17,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   bool _autoSummary = true;
   bool _retrySeq = false;
   bool _inspireSummary = false;
+  bool _allowDeleteMessage = false;
 
   @override
   void initState() {
@@ -26,6 +27,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _summaryCtrl = TextEditingController(text: s.summaryTurnInterval.toString());
     _retrySeq = s.retrySequential;
     _inspireSummary = s.inspirationIncludeSummary;
+    _allowDeleteMessage = s.allowDeleteMessage;
     _strategy = s.promptStrategy;
   }
 
@@ -116,6 +118,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
             subtitle: const Text('开启后会在生成灵感时附带最近摘要。默认关闭以节省 token。'),
             value: _inspireSummary,
             onChanged: (v) { setState(() => _inspireSummary = v); _saveInspire(); },
+          ),
+          const Divider(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('任意删除对话项'),
+            subtitle: const Text('开启后，在聊天页长按/右键单条消息会显示「删除本条」，仅删除该条消息。'),
+            value: _allowDeleteMessage,
+            onChanged: (v) {
+              setState(() => _allowDeleteMessage = v);
+              widget.controller.saveAllowDeleteMessage(v);
+            },
           ),
           const Divider(),
           // --- Summary ---

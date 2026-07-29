@@ -17,6 +17,7 @@ class AppSettings {
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
     required this.requireNameToDeleteTa,
+    required this.allowDeleteMessage,
     required this.showSplashAnimation,
     required this.appIcon,
     required this.snackDurationMs,
@@ -45,6 +46,7 @@ class AppSettings {
       requireAuthForArchive: false,
       requireAuthForApp: false,
       requireNameToDeleteTa: true,
+      allowDeleteMessage: false,
       showSplashAnimation: true,
       appIcon: 'default',
       snackDurationMs: 1000,
@@ -76,6 +78,9 @@ class AppSettings {
   /// 开启时：输入角色名 → 5 秒滚动确认（可反悔）。
   /// 关闭时：改为长按右下角按钮 5 秒删除（滚动同步进行）。
   final bool requireNameToDeleteTa;
+
+  /// 是否允许在聊天页删除单条对话消息（长按/右键菜单显示「删除本条」）。
+  final bool allowDeleteMessage;
 
   final bool showSplashAnimation;
   final String appIcon;
@@ -119,6 +124,7 @@ class AppSettings {
       'requireAuthForArchive': requireAuthForArchive,
       'requireAuthForApp': requireAuthForApp,
       'requireNameToDeleteTa': requireNameToDeleteTa,
+      'allowDeleteMessage': allowDeleteMessage,
       'showSplashAnimation': showSplashAnimation,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
@@ -154,6 +160,7 @@ class AppSettings {
       requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
       requireNameToDeleteTa: (json['requireNameToDeleteTa'] as bool?) ?? true,
+      allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
@@ -183,6 +190,7 @@ class AppSettings {
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
     bool? requireNameToDeleteTa,
+    bool? allowDeleteMessage,
     bool? showSplashAnimation,
     String? appIcon,
     int? snackDurationMs,
@@ -209,6 +217,7 @@ class AppSettings {
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
       requireNameToDeleteTa: requireNameToDeleteTa ?? this.requireNameToDeleteTa,
+      allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,

@@ -206,6 +206,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「允许在聊天页删除单条对话消息」开关。
+  Future<void> saveAllowDeleteMessage(bool value) async {
+    _settings = _settings.copyWith(allowDeleteMessage: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
     _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
     await _settingsService.save(_settings);

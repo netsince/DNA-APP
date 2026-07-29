@@ -25,6 +25,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       FocusManager.instance.primaryFocus?.unfocus();
       return;
     }
+    final ColorScheme cs = Theme.of(context).colorScheme;
     final RelativeRect anchor = RelativeRect.fromLTRB(
       position.dx,
       position.dy,
@@ -175,6 +176,14 @@ mixin ChatUiHelpers on ChatStateMixin {
             title: Text('分享'),
           ),
         ),
+        if (widget.controller.settings.allowDeleteMessage)
+          PopupMenuItem<String>(
+            value: 'delete_message',
+            child: ListTile(
+              leading: Icon(Icons.delete_outline),
+              title: Text('删除本条'),
+            ),
+          ),
       ],
     );
     _scrollAfterMenu();
@@ -211,6 +220,51 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
     if (action == 'share') {
       await Share.share(message.text);
+      return;
+    }
+    if (action == 'delete_message') {
+      final bool? confirmed = await showDialog<bool>(
+        context: context, // ignore: use_build_context_synchronously
+        builder: (BuildContext dialogContext) => Theme(
+          data: _accentTheme,
+          child: AlertDialog(
+            title: const Text('删除本条消息'),
+            content: const Text('将仅删除这一条消息，不影响其他记录。确定吗？'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.error,
+                  foregroundColor: cs.onError,
+                ),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        return;
+      }
+      // 仅删除指定的一条消息，不动其他记录（非回溯、非批量）。
+      _conversation = _conversation.copyWith(
+        messages: _conversation.messages
+            .where((ConversationMessage m) => m.id != message.id)
+            .toList(),
+      );
+      if (_isGroup) {
+        await widget.controller.upsertGroupConversation(_conversation);
+      } else {
+        await widget.controller.upsertConversation(_conversation);
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
       return;
     }
     if (action == 'show_thought') {

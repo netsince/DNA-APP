@@ -21,6 +21,7 @@ class SettingsService {
   static const String _requireAuthForArchiveKey = 'require_auth_for_archive';
   static const String _requireAuthForAppKey = 'require_auth_for_app';
   static const String _requireNameToDeleteTaKey = 'require_name_to_delete_ta';
+  static const String _allowDeleteMessageKey = 'allow_delete_message';
   static const String _showSplashAnimationKey = 'show_splash_animation';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
@@ -61,6 +62,7 @@ class SettingsService {
       requireAuthForArchive: prefs.getBool(_requireAuthForArchiveKey) ?? false,
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
       requireNameToDeleteTa: prefs.getBool(_requireNameToDeleteTaKey) ?? true,
+      allowDeleteMessage: prefs.getBool(_allowDeleteMessageKey) ?? false,
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
       appIcon: prefs.getString(_appIconKey) ?? 'default',
       snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
@@ -92,6 +94,7 @@ class SettingsService {
     await prefs.setBool(_requireAuthForArchiveKey, settings.requireAuthForArchive);
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
     await prefs.setBool(_requireNameToDeleteTaKey, settings.requireNameToDeleteTa);
+    await prefs.setBool(_allowDeleteMessageKey, settings.allowDeleteMessage);
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
