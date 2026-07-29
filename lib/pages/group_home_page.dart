@@ -4,6 +4,7 @@ import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
@@ -61,6 +62,10 @@ class _GroupHomePageState extends State<GroupHomePage> {
         showArchived: _showArchived,
         onCreateGroup: _createGroup,
       ),
+      bottomNavigationBar: widget.controller.settings.showBottomNav
+          ? AppBottomNav(
+              controller: widget.controller, current: AppSection.groupChats)
+          : null,
     );
   }
 }

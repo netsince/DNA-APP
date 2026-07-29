@@ -19,6 +19,7 @@ class AppSettings {
     required this.requireNameToDelete,
     required this.allowDeleteMessage,
     required this.showSplashAnimation,
+    required this.showBottomNav,
     required this.appIcon,
     required this.snackDurationMs,
     required this.sherpaModelSource,
@@ -48,6 +49,7 @@ class AppSettings {
       requireNameToDelete: true,
       allowDeleteMessage: false,
       showSplashAnimation: true,
+      showBottomNav: false,
       appIcon: 'default',
       snackDurationMs: 1000,
       sherpaModelSource: 'auto',
@@ -83,6 +85,10 @@ class AppSettings {
   final bool allowDeleteMessage;
 
   final bool showSplashAnimation;
+
+  /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
+  final bool showBottomNav;
+
   final String appIcon;
   final int snackDurationMs;
 
@@ -126,6 +132,7 @@ class AppSettings {
       'requireNameToDelete': requireNameToDelete,
       'allowDeleteMessage': allowDeleteMessage,
       'showSplashAnimation': showSplashAnimation,
+      'showBottomNav': showBottomNav,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
       'sherpaModelSource': sherpaModelSource,
@@ -162,6 +169,7 @@ class AppSettings {
       requireNameToDelete: (json['requireNameToDelete'] as bool?) ?? true,
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
       sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
@@ -192,6 +200,7 @@ class AppSettings {
     bool? requireNameToDelete,
     bool? allowDeleteMessage,
     bool? showSplashAnimation,
+    bool? showBottomNav,
     String? appIcon,
     int? snackDurationMs,
     String? sherpaModelSource,
@@ -219,6 +228,7 @@ class AppSettings {
       requireNameToDelete: requireNameToDelete ?? this.requireNameToDelete,
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+      showBottomNav: showBottomNav ?? this.showBottomNav,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
       sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,

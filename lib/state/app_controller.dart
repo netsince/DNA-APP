@@ -219,6 +219,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
+  Future<void> saveShowBottomNav(bool value) async {
+    _settings = _settings.copyWith(showBottomNav: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存底部提示（SnackBar）的显示时长（毫秒），并即时同步到全局。
   Future<void> saveSnackDuration(int snackDurationMs) async {
     _settings = _settings.copyWith(snackDurationMs: snackDurationMs);

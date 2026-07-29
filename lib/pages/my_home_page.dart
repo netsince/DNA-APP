@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
 import '../state/app_controller.dart';
+import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
@@ -58,6 +59,9 @@ class _MyHomePageState extends State<MyHomePage> {
         showArchived: _showArchived,
         onCreateTa: _createTa,
       ),
+      bottomNavigationBar: widget.controller.settings.showBottomNav
+          ? AppBottomNav(controller: widget.controller, current: AppSection.myHome)
+          : null,
       floatingActionButton: !_showArchived
           ? FloatingActionButton(
               onPressed: _createTa,

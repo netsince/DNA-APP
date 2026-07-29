@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
@@ -56,6 +57,9 @@ class _WorldPageState extends State<WorldPage> {
         showArchived: _showArchived,
         onCreateWorld: _createWorld,
       ),
+      bottomNavigationBar: widget.controller.settings.showBottomNav
+          ? AppBottomNav(controller: widget.controller, current: AppSection.world)
+          : null,
       floatingActionButton: !_showArchived
           ? FloatingActionButton(
               onPressed: _createWorld,

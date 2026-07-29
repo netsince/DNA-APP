@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
+import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import 'conversation_create_page.dart';
 import 'search_page.dart';
@@ -95,6 +96,9 @@ class _HomePageState extends State<HomePage> {
         showArchived: _showArchived,
         onCreateConversation: _createConversation,
       ),
+      bottomNavigationBar: widget.controller.settings.showBottomNav
+          ? AppBottomNav(controller: widget.controller, current: AppSection.home)
+          : null,
     );
   }
 }

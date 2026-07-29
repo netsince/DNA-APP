@@ -15,6 +15,7 @@ class AppearanceSettingsPage extends StatefulWidget {
 
 class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   bool _showSplash = true;
+  bool _showBottomNav = false;
   String _iconKey = 'default';
   String _themeMode = 'system';
   int _snackDurationMs = 1000;
@@ -29,6 +30,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     super.initState();
     final s = widget.controller.settings;
     _showSplash = s.showSplashAnimation;
+    _showBottomNav = s.showBottomNav;
     _iconKey = s.appIcon;
     _themeMode = s.themeMode;
     _snackDurationMs = s.snackDurationMs;
@@ -49,6 +51,9 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
   Future<void> _saveSplash() =>
       widget.controller.saveSplashAnimation(showSplashAnimation: _showSplash);
+
+  Future<void> _saveBottomNav(bool v) =>
+      widget.controller.saveShowBottomNav(v);
 
   Future<void> _selectTheme(String mode) async {
     if (_themeMode == mode) return;
@@ -234,6 +239,17 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             onChanged: (v) {
               setState(() => _showSplash = v);
               _saveSplash();
+            },
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('主页底部导航栏'),
+            subtitle: const Text('开启后，在主页 / 群聊 / 我家 / 世界 底部显示导航栏，方便快速切换。默认关闭。'),
+            value: _showBottomNav,
+            onChanged: (v) {
+              setState(() => _showBottomNav = v);
+              _saveBottomNav(v);
             },
           ),
           const SizedBox(height: 24),
