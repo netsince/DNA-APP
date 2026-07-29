@@ -6,12 +6,14 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
   file_selector_windows
   local_auth_windows
+  record_windows
   share_plus
   url_launcher_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
   jni
+  sherpa_onnx_windows
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

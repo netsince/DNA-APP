@@ -482,6 +482,7 @@ class _ChatPageState extends State<ChatPage>
                   borderColor: colorScheme.outlineVariant,
                 ),
               ChatInputBar(
+                controller: widget.controller,
                 inputController: _inputController,
                 inputFocusNode: _inputFocusNode,
                 sending: _sending,

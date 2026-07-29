@@ -1,4 +1,5 @@
 import 'prompt_strategy.dart';
+import 'voice_models.dart';
 
 class AppSettings {
   const AppSettings({
@@ -18,6 +19,11 @@ class AppSettings {
     required this.showSplashAnimation,
     required this.appIcon,
     required this.snackDurationMs,
+    required this.sherpaModelSource,
+    this.sherpaCustomBaseUrl,
+    required this.sherpaModelReady,
+    this.sherpaModelPath,
+    required this.selectedVoiceModelId,
   });
 
   factory AppSettings.empty() {
@@ -38,6 +44,11 @@ class AppSettings {
       showSplashAnimation: true,
       appIcon: 'default',
       snackDurationMs: 1000,
+      sherpaModelSource: 'auto',
+      sherpaCustomBaseUrl: null,
+      sherpaModelReady: false,
+      sherpaModelPath: null,
+      selectedVoiceModelId: kVoiceModelDefaultId,
     );
   }
 
@@ -58,6 +69,22 @@ class AppSettings {
   final String appIcon;
   final int snackDurationMs;
 
+  /// 语音识别模型来源偏好：'auto' | 'modelscope' | 'github' | 'custom'。
+  /// 'auto' 才会探测并回退；其余为严格单选，失败直接报错。
+  final String sherpaModelSource;
+
+  /// 自定义模型服务器根地址（source 为 'custom' 时生效）。
+  final String? sherpaCustomBaseUrl;
+
+  /// 模型是否已下载就绪（本地存在可用模型）。
+  final bool sherpaModelReady;
+
+  /// 已下载模型的本地目录路径。
+  final String? sherpaModelPath;
+
+  /// 当前选中的语音识别模型 id。
+  final String selectedVoiceModelId;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -76,6 +103,11 @@ class AppSettings {
       'showSplashAnimation': showSplashAnimation,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
+      'sherpaModelSource': sherpaModelSource,
+      'sherpaCustomBaseUrl': sherpaCustomBaseUrl,
+      'sherpaModelReady': sherpaModelReady,
+      'sherpaModelPath': sherpaModelPath,
+      'selectedVoiceModelId': selectedVoiceModelId,
     };
   }
 
@@ -103,6 +135,12 @@ class AppSettings {
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
+      sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
+      sherpaCustomBaseUrl: json['sherpaCustomBaseUrl'] as String?,
+      sherpaModelReady: (json['sherpaModelReady'] as bool?) ?? false,
+      sherpaModelPath: json['sherpaModelPath'] as String?,
+      selectedVoiceModelId:
+          (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
     );
   }
 
@@ -123,6 +161,11 @@ class AppSettings {
     bool? showSplashAnimation,
     String? appIcon,
     int? snackDurationMs,
+    String? sherpaModelSource,
+    String? sherpaCustomBaseUrl,
+    bool? sherpaModelReady,
+    String? sherpaModelPath,
+    String? selectedVoiceModelId,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -141,6 +184,11 @@ class AppSettings {
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
+      sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,
+      sherpaCustomBaseUrl: sherpaCustomBaseUrl ?? this.sherpaCustomBaseUrl,
+      sherpaModelReady: sherpaModelReady ?? this.sherpaModelReady,
+      sherpaModelPath: sherpaModelPath ?? this.sherpaModelPath,
+      selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
     );
   }
 }

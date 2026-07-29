@@ -55,6 +55,8 @@ dependencies:
   dynamic_color: ^1.7.0
   archive: ^4.0.0
   file_picker: ^8.1.7
+  sherpa_onnx: ^1.13.4
+  record: ^5.1.2
 
 dev_dependencies:
   flutter_test:
@@ -82,6 +84,13 @@ flutter_launcher_icons:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+# record 5.2.1 将 record_linux 约束在 ^0.7.0（实际仅解析到 0.7.2），
+# 但 record_platform_interface 被解析到 1.6.0；0.7.2 未实现 1.6.0 新增的
+# startStream / hasPermission(request) 等抽象成员，导致 Linux 构建失败。
+# 强制使用实现了 1.6.0 接口的 record_linux 1.3.1（要求 Flutter>=3.24、Dart>=3.5）。
+dependency_overrides:
+  record_linux: 1.3.1
 
 # The following section is specific to Flutter packages.
 flutter:

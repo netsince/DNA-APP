@@ -24,6 +24,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>用于离线语音输入：长按说话将自动转为文字并发送。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>需要访问相册以选择角色形象。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

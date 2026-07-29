@@ -1,8 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../services/speech_to_text_service.dart';
+import '../../../../state/app_controller.dart';
+import '../../../../utils/ui_feedback.dart';
 
 class ChatInputBar extends StatefulWidget {
   const ChatInputBar({
     super.key,
+    required this.controller,
     required this.inputController,
     required this.inputFocusNode,
     required this.sending,
@@ -12,6 +19,7 @@ class ChatInputBar extends StatefulWidget {
     this.onTap,
   });
 
+  final AppController controller;
   final TextEditingController inputController;
   final FocusNode inputFocusNode;
   final bool sending;
@@ -50,18 +58,33 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 防止程序化修改文本时递归触发自动补全。
   bool _isAdjusting = false;
 
+  /// 是否正在语音录音。
+  bool _recording = false;
+
+  StreamSubscription<String>? _partialSub;
+
   @override
   void initState() {
     super.initState();
     _prevText = widget.inputController.text;
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
+    _partialSub = SpeechToTextService.instance.partial.listen(_onPartial);
   }
 
   @override
   void dispose() {
     widget.inputController.removeListener(_onInputChanged);
+    _partialSub?.cancel();
     super.dispose();
+  }
+
+  /// 当前选中的模型是否已下载就绪。
+  bool get _voiceReady {
+    final String? p = widget.controller.settings.sherpaModelPath;
+    return widget.controller.settings.sherpaModelReady &&
+        p != null &&
+        p.endsWith(widget.controller.settings.selectedVoiceModelId);
   }
 
   void _onInputChanged() {
@@ -71,6 +94,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
         _hasInput = hasText;
       });
     }
+  }
+
+  /// 语音识别实时结果：录音中同步到输入框。
+  void _onPartial(String text) {
+    if (!_recording) {
+      return;
+    }
+    widget.inputController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 
   /// 自动补全括号：输入左括号时补上右括号并把光标置于中间；
@@ -128,6 +162,87 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _prevSelection = curSel;
   }
 
+  Future<void> _startVoice() async {
+    final String? path = widget.controller.settings.sherpaModelPath;
+    if (path == null || !widget.controller.settings.sherpaModelReady) {
+      if (mounted) {
+        showSnack(context, '请先在「设置 → 语音输入」中下载模型');
+      }
+      return;
+    }
+    try {
+      await SpeechToTextService.instance.ensureInitialized(path);
+    } catch (e) {
+      if (mounted) {
+        showSnack(context, '模型初始化失败：$e');
+      }
+      return;
+    }
+
+    final bool ok = await SpeechToTextService.instance.start();
+    if (!ok) {
+      if (mounted) {
+        showSnack(context, '无法使用麦克风，请检查系统麦克风权限');
+      }
+      return;
+    }
+    widget.inputController.clear();
+    if (mounted) {
+      setState(() => _recording = true);
+    }
+  }
+
+  Future<void> _stopVoice() async {
+    if (!_recording) {
+      return;
+    }
+    final String text = await SpeechToTextService.instance.stop();
+    if (mounted) {
+      setState(() => _recording = false);
+    }
+    if (text.isNotEmpty) {
+      final String existing = widget.inputController.text;
+      final String combined = existing.isEmpty ? text : '$existing $text';
+      widget.inputController.value = TextEditingValue(
+        text: combined,
+        selection: TextSelection.collapsed(offset: combined.length),
+      );
+      widget.onSend();
+    }
+  }
+
+  Future<void> _cancelVoice() async {
+    await SpeechToTextService.instance.cancel();
+    if (mounted) {
+      setState(() => _recording = false);
+    }
+  }
+
+  Widget _buildMic() {
+    if (!_voiceReady) {
+      return IconButton(
+        tooltip: '语音输入（需先下载模型）',
+        onPressed: () =>
+            showSnack(context, '请先在「设置 → 语音输入」中下载语音模型'),
+        icon: const Icon(Icons.mic_none_outlined),
+      );
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: (_) => _startVoice(),
+      onLongPressEnd: (_) => _stopVoice(),
+      onLongPressCancel: () => _cancelVoice(),
+      onTap: () => showSnack(context, '长按麦克风按钮说话，松手自动发送'),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Icon(
+          Icons.mic,
+          color: _recording ? Colors.red : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -143,17 +258,24 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 minLines: 1,
                 maxLines: 4,
                 onChanged: _onChanged,
-                decoration: const InputDecoration(hintText: '输入消息...'),
+                decoration: InputDecoration(
+                  hintText: _recording ? '聆听中…松手发送' : '输入消息...',
+                ),
                 onSubmitted: (_) => widget.onSend(),
                 onTap: widget.onTap,
               ),
             ),
             const SizedBox(width: 8),
+            // 语音输入按钮（长按说话）
+            _buildMic(),
+            const SizedBox(width: 8),
             // 当输入框没有内容时显示灵感按钮
             if (!_hasInput)
               IconButton(
                 tooltip: '灵感',
-                onPressed: widget.inspirationInProgress ? null : () => widget.onStartInspiration(),
+                onPressed: widget.inspirationInProgress
+                    ? null
+                    : () => widget.onStartInspiration(),
                 icon: widget.inspirationInProgress
                     ? const SizedBox(
                         width: 18,

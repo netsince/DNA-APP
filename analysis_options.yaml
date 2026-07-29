@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # 排除项目根目录下误生成的第三方源码目录（来自 sherpa-onnx 内部 MNN 引擎的
+  # flatbuffers 测试代码，不属于本应用，不应被分析器扫描）。
+  exclude:
+    - s/**
+    - "**/MNN/**"
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

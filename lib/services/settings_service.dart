@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/prompt_strategy.dart';
+import '../models/voice_models.dart';
 
 class SettingsService {
   static const String _baseUrlKey = 'base_url';
@@ -22,6 +23,11 @@ class SettingsService {
   static const String _showSplashAnimationKey = 'show_splash_animation';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
+  static const String _sherpaModelSourceKey = 'sherpa_model_source';
+  static const String _sherpaCustomBaseUrlKey = 'sherpa_custom_base_url';
+  static const String _sherpaModelReadyKey = 'sherpa_model_ready';
+  static const String _sherpaModelPathKey = 'sherpa_model_path';
+  static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -54,6 +60,11 @@ class SettingsService {
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
       appIcon: prefs.getString(_appIconKey) ?? 'default',
       snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
+      sherpaModelSource:
+          prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
+      sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,
+      selectedVoiceModelId:
+          prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
     );
   }
 
@@ -75,5 +86,20 @@ class SettingsService {
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
+    await prefs.setString(_sherpaModelSourceKey, settings.sherpaModelSource);
+    if (settings.sherpaCustomBaseUrl != null) {
+      await prefs.setString(
+          _sherpaCustomBaseUrlKey, settings.sherpaCustomBaseUrl!);
+    } else {
+      await prefs.remove(_sherpaCustomBaseUrlKey);
+    }
+    await prefs.setBool(_sherpaModelReadyKey, settings.sherpaModelReady);
+    if (settings.sherpaModelPath != null) {
+      await prefs.setString(_sherpaModelPathKey, settings.sherpaModelPath!);
+    } else {
+      await prefs.remove(_sherpaModelPathKey);
+    }
+    await prefs.setString(
+        _sherpaSelectedModelKey, settings.selectedVoiceModelId);
   }
 }

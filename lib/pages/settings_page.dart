@@ -6,6 +6,7 @@ import 'settings/advanced_settings_page.dart';
 import 'settings/ai_service_settings_page.dart';
 import 'settings/appearance_settings_page.dart';
 import 'settings/conversation_settings_page.dart';
+import 'settings/voice_input_settings_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
 
@@ -51,6 +52,12 @@ class SettingsPage extends StatelessWidget {
                     title: '外观与体验',
                     subtitle: '应用图标、动画及引导流程',
                     onTap: () => _push(context, AppearanceSettingsPage(controller: controller)),
+                  ),
+                  _MenuItem(
+                    icon: Icons.mic_outlined,
+                    title: '语音输入',
+                    subtitle: '离线语音转文字（需下载模型）',
+                    onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
                   ),
                   _MenuItem(
                     icon: Icons.storage_outlined,

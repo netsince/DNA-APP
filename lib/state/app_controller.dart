@@ -212,6 +212,37 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存语音识别模型来源偏好。
+  Future<void> saveSherpaModelSource(String source) async {
+    _settings = _settings.copyWith(sherpaModelSource: source);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存自定义模型服务器根地址。
+  Future<void> saveSherpaCustomBaseUrl(String? url) async {
+    _settings = _settings.copyWith(sherpaCustomBaseUrl: url);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 记录模型是否已下载就绪及其本地目录。
+  Future<void> setSherpaModelReady(String? modelPath) async {
+    _settings = _settings.copyWith(
+      sherpaModelReady: modelPath != null && modelPath.isNotEmpty,
+      sherpaModelPath: modelPath,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存当前选中的语音识别模型 id。
+  Future<void> saveSelectedVoiceModel(String id) async {
+    _settings = _settings.copyWith(selectedVoiceModelId: id);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);
