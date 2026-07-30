@@ -568,26 +568,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
           borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              listening ? Icons.mic : Icons.mic_none,
-              color: listening ? cs.onError : cs.onPrimary,
-              size: 28,
-            ),
-            const SizedBox(height: 6),
-            FitText(
-              listening
-                  ? (_enteredByLongPress ? '松开发送' : '再点一次停止')
-                  : '按住或点击说话',
-              style: TextStyle(
-                color: listening ? cs.onError : cs.onPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            listening ? Icons.mic : Icons.mic_none,
+            color: listening ? cs.onError : cs.onPrimary,
+            size: 28,
+          ),
+        ],
+      ),
       ),
     );
   }
@@ -676,11 +666,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
             ),
             const SizedBox(width: 8),
-            // 语音输入按钮（点击进入语音模式）
-            _buildMic(),
-            const SizedBox(width: 8),
-            // 当输入框没有内容时显示灵感按钮
-            if (!_hasInput)
+            if (!_hasInput) ...<Widget>[
+              // 语音输入按钮（点击进入语音模式）
+              _buildMic(),
+              const SizedBox(width: 8),
+              // 当输入框没有内容时显示灵感按钮
               IconButton(
                 tooltip: '灵感',
                 color: cs.primary,
@@ -695,20 +685,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       )
                     : const Icon(Icons.auto_awesome_outlined),
               ),
-            const SizedBox(width: 8),
-            // 发送按钮改成图标
-            IconButton(
-              tooltip: widget.sending ? '发送中...' : '发送',
-              color: cs.primary,
-              onPressed: widget.sending ? null : widget.onSend,
-              icon: widget.sending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
-            ),
+            ] else ...<Widget>[
+              // 输入框有内容时显示发送按钮
+              IconButton(
+                tooltip: widget.sending ? '发送中...' : '发送',
+                color: cs.primary,
+                onPressed: widget.sending ? null : widget.onSend,
+                icon: widget.sending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+              ),
+            ],
           ],
         ),
       ),
