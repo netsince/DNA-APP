@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
@@ -22,6 +23,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _promptController = TextEditingController();
   String? _selectedWorldId;
+  String? _selectedIdentityId;
   final Set<String> _selectedTaIds = <String>{};
 
   @override
@@ -51,6 +53,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
       id: id,
       taId: memberIds.first,
       worldId: _selectedWorldId,
+      identityId: _selectedIdentityId,
       note: '',
       messages: const <ConversationMessage>[],
       backgroundMode: 'none',
@@ -73,6 +76,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
   Widget build(BuildContext context) {
     final List<TA> tas = widget.controller.activeTas;
     final List<World> worlds = widget.controller.activeWorlds;
+    final List<UserIdentity> identities = widget.controller.identities;
     final List<TA> selectedTas = tas.where((TA t) => _selectedTaIds.contains(t.id)).toList();
 
     return Scaffold(
@@ -151,6 +155,38 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
               ),
             ),
           ),
+          if (identities.isNotEmpty) const SizedBox(height: 12),
+          if (identities.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    FitText('我的身份（可选）', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedIdentityId,
+                      decoration: const InputDecoration(labelText: '身份'),
+                      items: <DropdownMenuItem<String>>[
+                        const DropdownMenuItem<String>(value: '', child: FitText('不选择')),
+                        ...identities.map(
+                          (UserIdentity idt) => DropdownMenuItem<String>(
+                            value: idt.id,
+                            child: FitText(idt.name.isEmpty ? '未命名身份' : idt.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: (String? value) {
+                        setState(() {
+                          _selectedIdentityId = (value == null || value.isEmpty) ? null : value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           Card(
             child: Padding(

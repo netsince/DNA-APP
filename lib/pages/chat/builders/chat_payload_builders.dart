@@ -8,6 +8,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
       world: _world,
       groupPrompt: _conversation.groupPrompt,
       strategy: widget.controller.settings.promptStrategy,
+      identity: widget.controller.getIdentityById(_conversation.identityId),
     );
   }
 

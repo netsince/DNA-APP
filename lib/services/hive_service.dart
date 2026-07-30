@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../models/conversation.dart';
 
 class HiveService {
   static const String _tasBox = 'tas';
+  static const String _identitiesBox = 'identities';
   static const String _worldsBox = 'worlds';
   static const String _conversationsBox = 'conversations';
   static const String _settingsBox = 'settings';
@@ -113,8 +115,42 @@ class HiveService {
     }
   }
 
+  Future<List<UserIdentity>> getIdentities() async {
+    final box = await Hive.openBox<String>(_identitiesBox);
+    return box.values.map((json) => UserIdentity.fromJson(jsonDecode(json))).toList();
+  }
+
+  Future<void> saveIdentities(List<UserIdentity> identities) async {
+    final box = await Hive.openBox<String>(_identitiesBox);
+    await box.clear();
+    for (int i = 0; i < identities.length; i++) {
+      await box.put(i.toString(), jsonEncode(identities[i].toJson()));
+    }
+  }
+
+  Future<void> upsertIdentity(UserIdentity identity) async {
+    final box = await Hive.openBox<String>(_identitiesBox);
+    final identities = await getIdentities();
+    final index = identities.indexWhere((i) => i.id == identity.id);
+    if (index >= 0) {
+      await box.putAt(index, jsonEncode(identity.toJson()));
+    } else {
+      await box.add(jsonEncode(identity.toJson()));
+    }
+  }
+
+  Future<void> deleteIdentity(String id) async {
+    final box = await Hive.openBox<String>(_identitiesBox);
+    final identities = await getIdentities();
+    final index = identities.indexWhere((i) => i.id == id);
+    if (index >= 0) {
+      await box.deleteAt(index);
+    }
+  }
+
   Future<void> clearAll() async {
     await Hive.deleteBoxFromDisk(_tasBox);
+    await Hive.deleteBoxFromDisk(_identitiesBox);
     await Hive.deleteBoxFromDisk(_worldsBox);
     await Hive.deleteBoxFromDisk(_conversationsBox);
     await Hive.deleteBoxFromDisk(_settingsBox);

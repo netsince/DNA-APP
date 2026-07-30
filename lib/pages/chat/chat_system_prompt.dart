@@ -1,6 +1,7 @@
 import '../../models/dialogue_style.dart';
 import '../../models/prompt_strategy.dart';
 import '../../models/ta.dart';
+import '../../models/user_identity.dart';
 import '../../models/world.dart';
 
 class ChatSystemPrompt {
@@ -9,6 +10,7 @@ class ChatSystemPrompt {
     required World? world,
     String? groupPrompt,
     PromptStrategy? strategy,
+    UserIdentity? identity,
   }) {
     final List<DialogueTurn> style = ta?.dialogueStyle ?? <DialogueTurn>[];
     final PromptStrategy effectiveStrategy = strategy ?? PromptStrategy.defaults();
@@ -48,6 +50,14 @@ class ChatSystemPrompt {
       system.writeln('13) $extraRule');
     }
     
+    if (identity != null) {
+      if (identity.persona.isNotEmpty) {
+        system.writeln('用户人设：${identity.persona}');
+      }
+      if (identity.intro.isNotEmpty) {
+        system.writeln('用户介绍：${identity.intro}');
+      }
+    }
     if (ta != null) {
       if (ta.persona.isNotEmpty) {
         system.writeln('人设：${ta.persona}');

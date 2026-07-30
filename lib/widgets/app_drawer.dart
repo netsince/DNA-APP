@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/home_page.dart';
 import '../pages/group_home_page.dart';
+import '../pages/identity_page.dart';
 import '../pages/my_home_page.dart';
 import '../pages/settings_page.dart';
 import '../pages/world_page.dart';
@@ -9,7 +10,7 @@ import '../pages/search_page.dart';
 import '../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-enum AppSection { home, groupChats, myHome, world, settings }
+enum AppSection { home, groupChats, myHome, identity, world, settings }
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, required this.controller, required this.current});
@@ -32,6 +33,9 @@ class AppDrawer extends StatelessWidget {
         break;
       case AppSection.myHome:
         page = MyHomePage(controller: controller);
+        break;
+      case AppSection.identity:
+        page = IdentityPage(controller: controller);
         break;
       case AppSection.world:
         page = WorldPage(controller: controller);
@@ -92,6 +96,12 @@ class AppDrawer extends StatelessWidget {
             title: const FitText('我家'),
             selected: current == AppSection.myHome,
             onTap: () => _navigate(context, AppSection.myHome),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const FitText('身份'),
+            selected: current == AppSection.identity,
+            onTap: () => _navigate(context, AppSection.identity),
           ),
           ListTile(
             leading: const Icon(Icons.public_outlined),

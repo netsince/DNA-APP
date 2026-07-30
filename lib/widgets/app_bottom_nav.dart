@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/group_home_page.dart';
 import '../pages/home_page.dart';
+import '../pages/identity_page.dart';
 import '../pages/my_home_page.dart';
 import '../pages/world_page.dart';
 import '../state/app_controller.dart';
@@ -15,6 +16,8 @@ Widget _buildSectionPage(AppSection target, AppController controller) {
       return GroupHomePage(controller: controller);
     case AppSection.myHome:
       return MyHomePage(controller: controller);
+    case AppSection.identity:
+      return IdentityPage(controller: controller);
     case AppSection.world:
       return WorldPage(controller: controller);
     case AppSection.settings:

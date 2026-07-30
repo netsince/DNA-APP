@@ -10,6 +10,7 @@ import '../models/app_settings.dart';
 import '../models/conversation.dart';
 import '../models/prompt_strategy.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
@@ -52,6 +53,7 @@ class AppController extends ChangeNotifier {
 
   AppSettings _settings = AppSettings.empty();
   List<TA> _tas = <TA>[];
+  List<UserIdentity> _identities = <UserIdentity>[];
   List<World> _worlds = <World>[];
   List<Conversation> _conversations = <Conversation>[];
   List<Conversation> _groupConversations = <Conversation>[];
@@ -70,6 +72,7 @@ class AppController extends ChangeNotifier {
 
   List<TA> get tas => _tas;
   List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
+  List<UserIdentity> get identities => List<UserIdentity>.unmodifiable(_identities);
   List<World> get worlds => List<World>.unmodifiable(_worlds);
   List<World> get activeWorlds => _worlds.where((World w) => !w.archived).toList();
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
@@ -107,6 +110,7 @@ class AppController extends ChangeNotifier {
       }
     }
     _tas = await _hiveService.getTas();
+    _identities = await _hiveService.getIdentities();
     _worlds = await _hiveService.getWorlds();
     final allConversations = await _hiveService.getConversations();
     _conversations = allConversations.where((c) => !c.isGroup).toList();
@@ -483,6 +487,37 @@ class AppController extends ChangeNotifier {
       taId: taId,
       slot: slot,
     );
+  }
+
+  Future<void> upsertIdentity(UserIdentity identity) async {
+    final int index = _identities.indexWhere((UserIdentity item) => item.id == identity.id);
+    if (index == -1) {
+      _identities = <UserIdentity>[..._identities, identity];
+    } else {
+      final List<UserIdentity> updated = <UserIdentity>[..._identities];
+      updated[index] = identity;
+      _identities = updated;
+    }
+    await _hiveService.upsertIdentity(identity);
+    notifyListeners();
+  }
+
+  Future<void> deleteIdentity(String id) async {
+    _identities = _identities.where((UserIdentity i) => i.id != id).toList();
+    await _hiveService.deleteIdentity(id);
+    notifyListeners();
+  }
+
+  UserIdentity? getIdentityById(String? id) {
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+    for (final UserIdentity identity in _identities) {
+      if (identity.id == id) {
+        return identity;
+      }
+    }
+    return null;
   }
 
   Future<void> upsertWorld(World world) async {

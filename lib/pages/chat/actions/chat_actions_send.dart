@@ -111,6 +111,7 @@ mixin ChatActionsSend on ChatStateMixin {
         world: _world,
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
+        identity: widget.controller.getIdentityById(_conversation.identityId),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -181,6 +182,7 @@ mixin ChatActionsSend on ChatStateMixin {
       world: _world,
       groupPrompt: _conversation.groupPrompt,
       strategy: widget.controller.settings.promptStrategy,
+      identity: widget.controller.getIdentityById(_conversation.identityId),
     );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
@@ -279,6 +281,7 @@ mixin ChatActionsSend on ChatStateMixin {
         world: _world,
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
+        identity: widget.controller.getIdentityById(_conversation.identityId),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -383,6 +386,7 @@ mixin ChatActionsSend on ChatStateMixin {
         world: _world,
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
+        identity: widget.controller.getIdentityById(_conversation.identityId),
       ),
       messages: slice.messages,
       summaryText: summary?.text,

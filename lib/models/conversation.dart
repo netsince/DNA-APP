@@ -13,6 +13,7 @@ class Conversation {
     required this.groupPrompt,
     required this.memberTaIds,
     required this.activeTaId,
+    this.identityId,
   });
 
   final String id;
@@ -29,6 +30,9 @@ class Conversation {
   final List<String> memberTaIds;
   final String? activeTaId;
 
+  /// 用户选择的本聊天中使用的身份 ID（可选）。
+  final String? identityId;
+
   Conversation copyWith({
     String? taId,
     String? worldId,
@@ -42,6 +46,7 @@ class Conversation {
     String? groupPrompt,
     List<String>? memberTaIds,
     String? activeTaId,
+    String? identityId,
   }) {
     return Conversation(
       id: id,
@@ -57,6 +62,7 @@ class Conversation {
       groupPrompt: groupPrompt ?? this.groupPrompt,
       memberTaIds: memberTaIds ?? this.memberTaIds,
       activeTaId: activeTaId ?? this.activeTaId,
+      identityId: identityId ?? this.identityId,
     );
   }
 
@@ -75,6 +81,7 @@ class Conversation {
       'groupPrompt': groupPrompt,
       'memberTaIds': memberTaIds,
       'activeTaId': activeTaId,
+      'identityId': identityId,
     };
   }
 
@@ -119,6 +126,7 @@ class Conversation {
       groupPrompt: (json['groupPrompt'] as String?) ?? '',
       memberTaIds: memberTaIds,
       activeTaId: activeTaId,
+      identityId: json['identityId'] as String?,
     );
   }
 }
