@@ -33,6 +33,8 @@ class SettingsService {
   static const String _accentModeKey = 'accent_mode';
   static const String _customAccentColorKey = 'custom_accent_color';
   static const String _showBottomNavKey = 'show_bottom_nav';
+  static const String _autoBackupKey = 'auto_backup';
+  static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -77,6 +79,7 @@ class SettingsService {
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
       customAccentColor: prefs.getInt(_customAccentColorKey),
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
+      autoBackup: prefs.getBool(_autoBackupKey) ?? true,
     );
   }
 
@@ -123,5 +126,18 @@ class SettingsService {
       await prefs.remove(_customAccentColorKey);
     }
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
+    await prefs.setBool(_autoBackupKey, settings.autoBackup);
+  }
+
+  /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。
+  Future<String> getLastAutoBackupDate() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastAutoBackupDateKey) ?? '';
+  }
+
+  /// 记录上次自动备份的日期（格式 YYYY-MM-DD）。
+  Future<void> saveLastAutoBackupDate(String date) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastAutoBackupDateKey, date);
   }
 }

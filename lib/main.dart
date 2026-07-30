@@ -11,6 +11,7 @@ import 'pages/splash_page.dart';
 import 'services/openai_service.dart';
 import 'services/ta_service.dart';
 import 'services/settings_service.dart';
+import 'services/auto_backup_service.dart';
 import 'state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -25,6 +26,9 @@ Future<void> main() async {
         taService: TaService(),
       );
       await controller.initialize();
+
+      // 每日自动备份：首次进入应用时在后台静默执行（失败不影响启动）。
+      unawaited(AutoBackupService.maybeBackup(controller));
 
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);

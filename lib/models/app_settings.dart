@@ -18,6 +18,7 @@ class AppSettings {
     required this.requireAuthForApp,
     required this.requireNameToDelete,
     required this.allowDeleteMessage,
+    required this.autoBackup,
     required this.showSplashAnimation,
     required this.showBottomNav,
     required this.appIcon,
@@ -48,6 +49,7 @@ class AppSettings {
       requireAuthForApp: false,
       requireNameToDelete: true,
       allowDeleteMessage: false,
+      autoBackup: true,
       showSplashAnimation: true,
       showBottomNav: false,
       appIcon: 'default',
@@ -83,6 +85,10 @@ class AppSettings {
 
   /// 是否允许在聊天页删除单条对话消息（长按/右键菜单显示「删除本条」）。
   final bool allowDeleteMessage;
+
+  /// 是否开启每日自动备份（默认开启）。开启后每天首次进入应用时在软件外部
+  /// 静默生成一份全量备份，保留最近 5 天，全程无提示。
+  final bool autoBackup;
 
   final bool showSplashAnimation;
 
@@ -131,6 +137,7 @@ class AppSettings {
       'requireAuthForApp': requireAuthForApp,
       'requireNameToDelete': requireNameToDelete,
       'allowDeleteMessage': allowDeleteMessage,
+      'autoBackup': autoBackup,
       'showSplashAnimation': showSplashAnimation,
       'showBottomNav': showBottomNav,
       'appIcon': appIcon,
@@ -168,6 +175,7 @@ class AppSettings {
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
       requireNameToDelete: (json['requireNameToDelete'] as bool?) ?? true,
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
+      autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       appIcon: (json['appIcon'] as String?) ?? 'default',
@@ -199,6 +207,7 @@ class AppSettings {
     bool? requireAuthForApp,
     bool? requireNameToDelete,
     bool? allowDeleteMessage,
+    bool? autoBackup,
     bool? showSplashAnimation,
     bool? showBottomNav,
     String? appIcon,
@@ -227,6 +236,7 @@ class AppSettings {
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
       requireNameToDelete: requireNameToDelete ?? this.requireNameToDelete,
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
+      autoBackup: autoBackup ?? this.autoBackup,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       appIcon: appIcon ?? this.appIcon,

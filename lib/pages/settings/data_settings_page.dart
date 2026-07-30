@@ -30,6 +30,7 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   bool _importing = false;
   bool _exportingConv = false;
   bool _importingConv = false;
+  bool _autoBackup = true;
 
   String _ts() {
     final d = DateTime.now();
@@ -199,6 +200,15 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _autoBackup = widget.controller.settings.autoBackup;
+  }
+
+  Future<void> _saveAutoBackup(bool v) =>
+      widget.controller.saveAutoBackup(v);
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
@@ -206,6 +216,24 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          FitText('自动备份', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          FitText('开启后，每天首次进入应用时自动在软件外部（公共目录）生成一份全量备份，保留最近 5 天，全程无提示。关闭后停止自动备份。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('每日自动备份'),
+            subtitle: const FitText('数据存于软件外部，卸载后依然保留。'),
+            value: _autoBackup,
+            onChanged: (v) {
+              setState(() => _autoBackup = v);
+              _saveAutoBackup(v);
+            },
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 8),
           FitText('全部数据', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           FitText('将全部数据（角色、世界、对话，不含设置）打包为 ZIP 文件，或从 ZIP 导入。',

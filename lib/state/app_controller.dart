@@ -59,6 +59,9 @@ class AppController extends ChangeNotifier {
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
 
+  /// 底层设置存储（供自动备份等需要读写独立偏好项的场景使用）。
+  SettingsService get settingsService => _settingsService;
+
   /// 当前设置所选的大模型 Provider。业务层应优先使用此接口而非 openAiService。
   LlmProvider get llmProvider => _providerRegistry[settings.provider];
 
@@ -222,6 +225,13 @@ class AppController extends ChangeNotifier {
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
+  Future<void> saveAutoBackup(bool value) async {
+    _settings = _settings.copyWith(autoBackup: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
