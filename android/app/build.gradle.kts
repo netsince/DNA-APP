@@ -63,6 +63,14 @@ android {
             signingConfig = if (useReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
+
+    // sherpa_onnx 与 onnxruntime 插件都捆绑 libonnxruntime.so，合并时冲突。
+    // 二者均为 ONNX Runtime（API 兼容），pickFirst 只保留一份即可。
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libonnxruntime.so"
+        }
+    }
 }
 
 flutter {
