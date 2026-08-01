@@ -143,6 +143,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     await TtsService.instance.deleteModels();
     // 删除模型后自动关闭 TTS（未就绪时不允许开启）。
     await widget.controller.saveTtsEnabled(false);
+    if (!mounted) return;
     showSnack(context, '模型已删除。');
     await _refresh();
   }

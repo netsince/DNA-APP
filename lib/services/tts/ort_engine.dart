@@ -1,3 +1,6 @@
+// 该文件必须使用 onnxruntime 的私有绑定（src/bindings/...），因为官方包
+// 未公开导出这些低层 FFI 类型（OrtApi/OrtValue 等）。
+// ignore_for_file: implementation_imports
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
@@ -54,7 +57,7 @@ class OrtSessionWrapper {
   }
 
   /// 用原始 ORT API 直接把 float 张量读成扁平 Float32List。
-  /// 相比 `OrtValue.value`（内部建扁平 List<num> 再 reshape 成嵌套，且要再次展平）
+  /// 相比 `OrtValue.value`（内部建扁平 List&lt;num&gt; 再 reshape 成嵌套，且要再次展平）
   /// 这里只做一次拷贝，避免 GPT 每步 KV cache 的大量重复分配。
   Float32List readFloatTensor(OrtValue value) {
     final bg.OrtApi api = OrtEnv.instance.ortApiPtr.ref;

@@ -60,6 +60,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
     );
     if (ok != true || !mounted) return;
     await TtsAudioCache.instance.clear();
+    if (!mounted) return;
     showSnack(context, '缓存已清理。');
     await _refresh();
   }

@@ -45,12 +45,18 @@ Float64List topPkLogits(
       return math.exp(safe[idx[i]] - maxLog);
     });
     double sum = 0;
-    for (int i = 0; i < n; i++) sum += sortedProbs[i];
-    for (int i = 0; i < n; i++) sortedProbs[i] /= sum;
+    for (int i = 0; i < n; i++) {
+      sum += sortedProbs[i];
+    }
+    for (int i = 0; i < n; i++) {
+      sortedProbs[i] /= sum;
+    }
     // cumulative
     final List<double> cum = List<double>.filled(n, 0);
     cum[0] = sortedProbs[0];
-    for (int i = 1; i < n; i++) cum[i] = cum[i - 1] + sortedProbs[i];
+    for (int i = 1; i < n; i++) {
+      cum[i] = cum[i - 1] + sortedProbs[i];
+    }
     // remove mask（在排序空间 idx 上）。与 numpy 一致：
     //   remove[i] = (cum[i] - sortedProbs[i]) > topP   （即前 i-1 项概率和 > topP）
     //   remove[:min_keep] = False（至少保留 min_keep 个）
@@ -79,9 +85,13 @@ Float64List softmax(List<double> logits) {
     s += out[i];
   }
   if (s <= 0 || !s.isFinite) {
-    for (int i = 0; i < logits.length; i++) out[i] = 1.0;
+    for (int i = 0; i < logits.length; i++) {
+      out[i] = 1.0;
+    }
   } else {
-    for (int i = 0; i < logits.length; i++) out[i] /= s;
+    for (int i = 0; i < logits.length; i++) {
+      out[i] /= s;
+    }
   }
   return out;
 }
@@ -115,14 +125,18 @@ List<double> applyRepetitionPenalty(
 /// 计算一个复频谱向量的幅度（供校验用）。
 double norm(List<double> v) {
   double s = 0;
-  for (final double x in v) s += x * x;
+  for (final double x in v) {
+    s += x * x;
+  }
   return math.sqrt(s);
 }
 
 /// numpy.linalg.norm 默认（Frobenius）对一个向量。
 double linalgNorm(Float32List v) {
   double s = 0;
-  for (final double x in v) s += x * x;
+  for (final double x in v) {
+    s += x * x;
+  }
   return math.sqrt(s);
 }
 

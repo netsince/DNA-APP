@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -65,16 +64,16 @@ class TtsPlayer {
     final int dataLen = samples.length * 2;
     final ByteData out = ByteData(44 + dataLen);
 
-    void _str(int offset, String s) {
+    void str(int offset, String s) {
       for (int i = 0; i < s.length; i++) {
         out.setUint8(offset + i, s.codeUnitAt(i));
       }
     }
 
-    _str(0, 'RIFF');
+    str(0, 'RIFF');
     out.setUint32(4, 36 + dataLen, Endian.little);
-    _str(8, 'WAVE');
-    _str(12, 'fmt ');
+    str(8, 'WAVE');
+    str(12, 'fmt ');
     out.setUint32(16, 16, Endian.little); // fmt chunk size
     out.setUint16(20, 1, Endian.little); // PCM
     out.setUint16(22, 1, Endian.little); // mono
@@ -82,7 +81,7 @@ class TtsPlayer {
     out.setUint32(28, sampleRate * 2, Endian.little); // byte rate
     out.setUint16(32, 2, Endian.little); // block align
     out.setUint16(34, 16, Endian.little); // bits per sample
-    _str(36, 'data');
+    str(36, 'data');
     out.setUint32(40, dataLen, Endian.little);
 
     // 峰值归一化：若峰值超过 0.95，整体压到 0.95，避免 16-bit 削波导致刺耳失真。

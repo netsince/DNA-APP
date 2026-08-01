@@ -1,8 +1,3 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-
-import 'llm_provider.dart';
 import 'openai_service.dart';
 
 /// DeepSeek 适配器。
@@ -29,13 +24,13 @@ class DeepSeekService extends OpenAiService {
   bool get fixedBaseUrl => false;
 
   @override
-  String _modelsEndpoint(String baseUrl) {
+  String modelsEndpoint(String baseUrl) {
     final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
     return '$trimmed/models';
   }
 
   @override
-  String _chatEndpoint(String baseUrl) {
+  String chatEndpoint(String baseUrl) {
     final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
     return '$trimmed/chat/completions';
   }

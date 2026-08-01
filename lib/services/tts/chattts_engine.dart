@@ -422,9 +422,13 @@ class ChatTtsEngine {
       }
     }
     final Float32List attn = Float32List(t);
-    for (int i = 0; i < t; i++) attn[i] = 1;
+    for (int i = 0; i < t; i++) {
+      attn[i] = 1;
+    }
     final Int64List pos = Int64List(t);
-    for (int i = 0; i < t; i++) pos[i] = i;
+    for (int i = 0; i < t; i++) {
+      pos[i] = i;
+    }
 
     final (Float32List hidden, Map<String, (Float32List, List<int>)> past) =
         _gptForward(emb, attn, pos, null, forCode: !inferText);
@@ -449,7 +453,9 @@ class ChatTtsEngine {
         final Float32List logits = headSess.readFloatTensor(head[0]);
         head[0].release();
         List<double> l = logits.toList();
-        for (int i = 0; i < l.length; i++) l[i] /= temperature;
+        for (int i = 0; i < l.length; i++) {
+          l[i] /= temperature;
+        }
         if (repetitionPenalty != 1.0) {
           l = applyRepetitionPenalty(l, seq4.toList(), repetitionPenalty, kNumText, 16);
         }
@@ -516,7 +522,9 @@ class ChatTtsEngine {
 
       final int newLen = oldLen + 1;
       final Float32List attnNew = Float32List(newLen);
-      for (int i = 0; i < newLen; i++) attnNew[i] = 1;
+      for (int i = 0; i < newLen; i++) {
+        attnNew[i] = 1;
+      }
       final Int64List posNew = Int64List.fromList(<int>[newLen - 1]);
       final (Float32List h2, Map<String, (Float32List, List<int>)> p2) =
           _gptForward(nextEmb, attnNew, posNew, past, forCode: !inferText);

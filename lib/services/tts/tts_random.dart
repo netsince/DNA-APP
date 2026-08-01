@@ -236,7 +236,9 @@ class TtsRandom {
     // cdf /= cdf[-1]（numpy 无条件整体归一化）
     final double total = cdf[n - 1];
     if (total > 0) {
-      for (int i = 0; i < n; i++) cdf[i] /= total;
+      for (int i = 0; i < n; i++) {
+        cdf[i] /= total;
+      }
     }
     // searchsorted side='right': 第一个 cdf[i] > r
     for (int i = 0; i < n; i++) {

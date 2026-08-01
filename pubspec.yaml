@@ -59,6 +59,7 @@ dependencies:
   sherpa_onnx: ^1.13.4
   record: ^5.1.2
   onnxruntime: ^1.4.1
+  ffi: ^2.0.1
   audioplayers: ^6.7.1
   crypto: ^3.0.7
 

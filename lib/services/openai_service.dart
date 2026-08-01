@@ -42,7 +42,7 @@ class OpenAiService implements LlmProvider {
 
     final Uri endpoint;
     try {
-      endpoint = Uri.parse(_modelsEndpoint(normalizedBase));
+      endpoint = Uri.parse(modelsEndpoint(normalizedBase));
     } catch (_) {
       return const ApiCheckResult(success: false, message: 'base URL 格式无效。');
     }
@@ -78,7 +78,7 @@ class OpenAiService implements LlmProvider {
     required String baseUrl,
     required String apiKey,
   }) async {
-    final Uri endpoint = Uri.parse(_modelsEndpoint(baseUrl.trim()));
+    final Uri endpoint = Uri.parse(modelsEndpoint(baseUrl.trim()));
 
     try {
       final http.Response response = await _client.get(
@@ -145,7 +145,7 @@ class OpenAiService implements LlmProvider {
       );
     }
 
-    final Uri endpoint = Uri.parse(_chatEndpoint(baseUrl.trim()));
+    final Uri endpoint = Uri.parse(chatEndpoint(baseUrl.trim()));
     try {
       final http.Response response = await _client
           .post(
@@ -206,7 +206,7 @@ class OpenAiService implements LlmProvider {
       return;
     }
 
-    final Uri endpoint = Uri.parse(_chatEndpoint(baseUrl.trim()));
+    final Uri endpoint = Uri.parse(chatEndpoint(baseUrl.trim()));
     final http.Request request = http.Request('POST', endpoint)
       ..headers.addAll(<String, String>{
         'Authorization': 'Bearer $normalizedKey',
@@ -268,7 +268,7 @@ class OpenAiService implements LlmProvider {
     }
   }
 
-  String _modelsEndpoint(String baseUrl) {
+  String modelsEndpoint(String baseUrl) {
     final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
     if (trimmed.toLowerCase().endsWith('/v1')) {
       return '$trimmed/models';
@@ -276,7 +276,7 @@ class OpenAiService implements LlmProvider {
     return '$trimmed/v1/models';
   }
 
-  String _chatEndpoint(String baseUrl) {
+  String chatEndpoint(String baseUrl) {
     final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
     if (trimmed.toLowerCase().endsWith('/v1')) {
       return '$trimmed/chat/completions';

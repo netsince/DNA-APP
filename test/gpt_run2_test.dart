@@ -21,27 +21,35 @@ void main() {
     final OrtEngine ort = OrtEngine(threads: 2);
     final OrtSessionWrapper gpt = ort.gpt(modelsDir);
 
-    final OrtRunOptions runOpts = OrtRunOptions();
-    // 标准创建：OrtValue.createTensor
-    final Map<String, OrtValue> feeds = <String, OrtValue>{
-      'inputs_embeds': OrtValue.createTensor(emb, <int>[1, t, 768]),
-      'attention_mask': OrtValue.createTensor(attn, <int>[1, attn.length]),
-      'position_ids': OrtValue.createTensor(pos, <int>[1, t]),
+    final Map<String, Float32List> floatInputs = <String, Float32List>{
+      'inputs_embeds': emb,
+      'attention_mask': attn,
     };
+    final Map<String, Int64List> intInputs = <String, Int64List>{
+      'position_ids': pos,
+    };
+    final Map<String, List<int>> shapes = <String, List<int>>{
+      'inputs_embeds': <int>[1, t, 768],
+      'attention_mask': <int>[1, attn.length],
+      'position_ids': <int>[1, t],
+    };
+    // 标准创建：空 KV cache（0 长度 past）。
     for (int i = 0; i < 20; i++) {
-      feeds['past.${2 * i}.k'] = OrtValue.createTensor(Float32List(0), <int>[1, 12, 0, 64]);
-      feeds['past.${2 * i + 1}.v'] = OrtValue.createTensor(Float32List(0), <int>[1, 12, 0, 64]);
+      floatInputs['past.${2 * i}.k'] = Float32List(0);
+      shapes['past.${2 * i}.k'] = <int>[1, 12, 0, 64];
+      floatInputs['past.${2 * i + 1}.v'] = Float32List(0);
+      shapes['past.${2 * i + 1}.v'] = <int>[1, 12, 0, 64];
     }
+
     final List<String> outNames = <String>['hidden'];
-    for (int i = 0; i < 40; i++) {
-      outNames.add('present.$i.${i.isEven ? 'k' : 'v'}');
+    for (int i = 0; i < 20; i++) {
+      outNames.add('present.$i.k');
+      outNames.add('present.$i.v');
     }
-    final raw = gpt.session.run(runOpts, feeds, outNames);
-    final Float32List hidden = gpt.readFloatTensor(raw![0]!);
-    for (final OrtValue v in feeds.values) {
-      v.release();
-    }
-    runOpts.release();
+
+    final List<OrtValue> raw =
+        gpt.run(floatInputs, intInputs, shapes, outputNames: outNames);
+    final Float32List hidden = gpt.readFloatTensor(raw[0]);
 
     double maxDiff = 0;
     for (int i = 0; i < pyHidden.length; i++) {
@@ -50,7 +58,9 @@ void main() {
     }
     // ignore: avoid_print
     print('dart hidden0=${hidden.take(6).toList()}');
+    // ignore: avoid_print
     print('py   hidden0=${pyHidden.take(6).toList()}');
+    // ignore: avoid_print
     print('maxDiff=$maxDiff');
     expect(maxDiff, lessThan(1e-3));
   });
