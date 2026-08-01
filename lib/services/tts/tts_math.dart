@@ -1,73 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// 确定性 RNG：xoshiro256**（与 numpy 非逐位一致，但同 seed 在 Dart 内确定）。
-/// 用于 GPT 采样与 speaker 采样，保证「同 seed → 同输出」。
-class TtsRandom {
-  TtsRandom(int seed) {
-    // 由 32 位 seed 扩展为 4 个 64 位状态
-    _s0 = _splitMix64(seed);
-    _s1 = _splitMix64(_s0);
-    _s2 = _splitMix64(_s1);
-    _s3 = _splitMix64(_s2);
-  }
-
-  late int _s0, _s1, _s2, _s3;
-
-  static int _splitMix64(int x) {
-    x = (x + 0x9E3779B97F4A7C15) & 0xFFFFFFFFFFFFFFFF;
-    x = ((x ^ (x >> 30)) * 0xBF58476D1CE4E5B9) & 0xFFFFFFFFFFFFFFFF;
-    x = ((x ^ (x >> 27)) * 0x94D049BB133111EB) & 0xFFFFFFFFFFFFFFFF;
-    return (x ^ (x >> 31)) & 0xFFFFFFFFFFFFFFFF;
-  }
-
-  // 左移用 <<，右移必须用逻辑右移 >>>（算术 >> 会符号扩展，损坏 64 位位型，
-  // 导致 nextDouble 偏向大值、choice 过早命中 EOS）。
-  static int _rotl(int x, int k) =>
-      ((x << k) | (x >>> (64 - k))) & 0xFFFFFFFFFFFFFFFF;
-
-  /// 返回 [0, 2^64) 的伪随机 64 位整数。
-  int nextUint64() {
-    final int result = (_rotl(_s1 * 5, 7) * 9) & 0xFFFFFFFFFFFFFFFF;
-    final int t = (_s1 << 17) & 0xFFFFFFFFFFFFFFFF;
-    _s2 ^= _s0;
-    _s3 ^= _s1;
-    _s1 ^= _s2;
-    _s0 ^= _s3;
-    _s2 ^= t;
-    _s3 = _rotl(_s3, 45);
-    return result;
-  }
-
-  /// 返回 [0,1) 的双精度随机数。
-  ///
-  /// 必须用无符号右移 `>>>`：`nextUint64()` 是有符号 64 位，`>>` 算术右移会让
-  /// 最高位为 1 的值保持为负，导致返回负数（choice 会误判为小下标 token）。
-  double nextDouble() => (nextUint64() >>> 11) / 9007199254740992.0;
-
-  /// 标准正态（Box-Muller）。
-  double nextGaussian() {
-    double u = 0, v = 0;
-    double s = 0;
-    do {
-      u = nextDouble() * 2 - 1;
-      v = nextDouble() * 2 - 1;
-      s = u * u + v * v;
-    } while (s >= 1 || s == 0);
-    return u * math.sqrt(-2.0 * math.log(s) / s);
-  }
-
-  /// 按概率分布 `probs`（长度 n，和为 1）采样一个下标。
-  int choice(List<double> probs) {
-    final double r = nextDouble();
-    double cum = 0;
-    for (int i = 0; i < probs.length; i++) {
-      cum += probs[i];
-      if (r < cum) return i;
-    }
-    return probs.length - 1;
-  }
-}
+/// 确定性 RNG（PCG64，精确复刻 numpy default_rng）见 `tts_random.dart`。
 
 /// 应用 top-k / top-p 过滤，返回过滤后的 logits（与 numpy 实现一致）。
 Float64List topPkLogits(
@@ -117,16 +51,13 @@ Float64List topPkLogits(
     final List<double> cum = List<double>.filled(n, 0);
     cum[0] = sortedProbs[0];
     for (int i = 1; i < n; i++) cum[i] = cum[i - 1] + sortedProbs[i];
-    // remove mask（在 idx 排序空间）
+    // remove mask（在排序空间 idx 上）。与 numpy 一致：
+    //   remove[i] = (cum[i] - sortedProbs[i]) > topP   （即前 i-1 项概率和 > topP）
+    //   remove[:min_keep] = False（至少保留 min_keep 个）
     final List<bool> removed = List<bool>.filled(n, false);
     final int minKeep = math.min(minTokensToKeep, n);
-    for (int i = n - 1; i >= minKeep; i--) {
-      // 从后往前累积，去掉累积概率超过 topP 的
-      if (i == n - 1) {
-        removed[idx[i]] = (cum[i] - sortedProbs[i]) > topP;
-      } else {
-        removed[idx[i]] = removed[idx[i + 1]] || (cum[i] - sortedProbs[i]) > topP;
-      }
+    for (int i = minKeep; i < n; i++) {
+      if (cum[i] - sortedProbs[i] > topP) removed[idx[i]] = true;
     }
     for (int i = 0; i < n; i++) {
       if (removed[i]) out[i] = double.negativeInfinity;

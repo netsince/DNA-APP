@@ -4,6 +4,7 @@ import 'package:onnxruntime/onnxruntime.dart';
 
 import 'ort_engine.dart';
 import 'tts_math.dart';
+import 'tts_random.dart';
 import 'wordpiece_tokenizer.dart';
 
 /// 常量（与 Python 端一致）
@@ -35,6 +36,47 @@ class ChatTtsEngine {
   final OrtEngine _ort;
   final int threads;
 
+  /// float32 → float16 半精度（IEEE 754 二进制16），返回 16 位。
+  static int _f32ToF16(double value) {
+    final ByteData b = ByteData(4);
+    b.setFloat32(0, value, Endian.little);
+    final int f = b.getUint32(0, Endian.little);
+    final int sign = (f >> 16) & 0x8000;
+    final int exp = (f >> 23) & 0xff;
+    final int mant = f & 0x7fffff;
+    if (exp == 0xff) {
+      return sign | 0x7c00 | (mant != 0 ? 0x200 : 0);
+    }
+    if (exp == 0) return sign; // 非规格化 float32 → 0
+    int e = exp - 127 + 15;
+    if (e >= 31) return sign | 0x7c00; // 溢出 → inf
+    if (e <= 0) {
+      if (e < -10) return sign;
+      final int m = mant | 0x800000;
+      final int sh = 14 - e;
+      return sign | ((m >> sh) & 0x3ff);
+    }
+    return sign | (e << 10) | ((mant >> 13) & 0x3ff);
+  }
+
+  /// float16 → float32。
+  static double _f16ToF32(int h) {
+    final int sign = (h & 0x8000) << 16;
+    final int exp = (h >> 10) & 0x1f;
+    final int mant = h & 0x3ff;
+    int bits;
+    if (exp == 0x1f) {
+      bits = sign | 0x7f800000 | (mant != 0 ? 0x400000 : 0);
+    } else if (exp == 0) {
+      bits = sign; // 0（或 subnormal 被丢弃，spk 值范围不涉及）
+    } else {
+      bits = sign | ((exp - 15 + 127) << 23) | (mant << 13);
+    }
+    final ByteData b = ByteData(4);
+    b.setUint32(0, bits, Endian.little);
+    return b.getFloat32(0, Endian.little);
+  }
+
   /// 合成一段文本为 24kHz 单声道浮点音频。
   Float32List synthesize(
     String text, {
@@ -51,14 +93,20 @@ class ChatTtsEngine {
     // 切分文本（与 Python 一致）
     final List<String> texts = _splitText(text);
 
-    // 采样 speaker 向量
+    // 采样 speaker 向量。
+    // Python 端 spk_vec 经 Speaker._encode 做 float16 编码往返（有损）后，
+    // apply_speaker 再 _decode 回 float32 并归一化。这里复刻该 float16 往返，
+    // 使 spk_emb 位置输入与 Python 逐位一致。
     final Float32List spkVec = _sampleSpeaker(seed);
-    final double spkNorm = linalgNorm(spkVec);
+    final Float32List spkDecoded = Float32List(kHidden);
+    for (int i = 0; i < kHidden; i++) {
+      spkDecoded[i] = _f16ToF32(_f32ToF16(spkVec[i]));
+    }
+    final double spkNorm = linalgNorm(spkDecoded);
     final Float32List spkNormed = Float32List(kHidden);
     for (int i = 0; i < kHidden; i++) {
-      spkNormed[i] = spkVec[i] / (spkNorm < 1e-12 ? 1 : spkNorm);
+      spkNormed[i] = spkDecoded[i] / (spkNorm < 1e-12 ? 1 : spkNorm);
     }
-
     final List<Float32List> wavs = <Float32List>[];
     for (final String rawPart in texts) {
       String part = rawPart.trim();
@@ -265,8 +313,9 @@ class ChatTtsEngine {
     Float32List inputsEmbeds, // [T, H]
     Float32List attentionMask, // [T]
     Int64List positionIds, // [T]
-    Map<String, (Float32List, List<int>)>? past,
-  ) {
+    Map<String, (Float32List, List<int>)>? past, {
+    bool forCode = false,
+  }) {
     final int t = inputsEmbeds.length ~/ kHidden;
     final Map<String, Float32List> floatInputs = <String, Float32List>{
       'inputs_embeds': inputsEmbeds,
@@ -302,7 +351,8 @@ class ChatTtsEngine {
       }
     }
 
-    final OrtSessionWrapper gpt = _ort.gpt(modelsDir);
+    // refine 用共享 gpt 会话；code 生成用独立会话，避免 refine 污染 code 首步。
+    final OrtSessionWrapper gpt = forCode ? _ort.gptCode(modelsDir) : _ort.gpt(modelsDir);
     final List<OrtValue> out = gpt.run(
           floatInputs,
           intInputs,
@@ -310,6 +360,7 @@ class ChatTtsEngine {
           outputNames: _gptOutputNames(),
         );
     final Float32List hidden = gpt.readFloatTensor(out[0]);
+
     final Map<String, (Float32List, List<int>)> newPast =
         <String, (Float32List, List<int>)>{};
     for (int i = 0; i < kNumLayers * 2; i++) {
@@ -364,10 +415,11 @@ class ChatTtsEngine {
     for (int i = 0; i < t; i++) pos[i] = i;
 
     final (Float32List hidden, Map<String, (Float32List, List<int>)> past) =
-        _gptForward(emb, attn, pos, null);
+        _gptForward(emb, attn, pos, null, forCode: !inferText);
     Float32List curHidden = Float32List.fromList(
       hidden.sublist((t - 1) * kHidden, t * kHidden),
     );
+    // （调试已移除）
 
     final TtsRandom rng = seed != null ? TtsRandom(seed) : TtsRandom(_randSeed());
 
@@ -455,7 +507,7 @@ class ChatTtsEngine {
       for (int i = 0; i < newLen; i++) attnNew[i] = 1;
       final Int64List posNew = Int64List.fromList(<int>[newLen - 1]);
       final (Float32List h2, Map<String, (Float32List, List<int>)> p2) =
-          _gptForward(nextEmb, attnNew, posNew, past);
+          _gptForward(nextEmb, attnNew, posNew, past, forCode: !inferText);
       past..clear()..addAll(p2);
       curHidden = Float32List.fromList(h2.sublist(0, kHidden));
       onProgress?.call((step + 1) / maxNewToken);
