@@ -32,6 +32,7 @@ class AppSettings {
     this.customAccentColor,
     required this.ttsEnabled,
     this.ttsGlobalSeed,
+    this.ttsQuoteOnly = true,
   });
 
   factory AppSettings.empty() {
@@ -65,6 +66,7 @@ class AppSettings {
       customAccentColor: null,
       ttsEnabled: false,
       ttsGlobalSeed: null,
+      ttsQuoteOnly: true,
     );
   }
 
@@ -130,6 +132,10 @@ class AppSettings {
   /// 全局 TTS seed：角色未单独设置 seed 时使用（保证音色稳定）。
   final int? ttsGlobalSeed;
 
+  /// 合成时是否「引号内容优先」：开启时优先只读引号内的内容，
+  /// 无引号内容则读全文；关闭时始终读全文。两者都永远排除括号内容。
+  final bool ttsQuoteOnly;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -161,6 +167,7 @@ class AppSettings {
       'customAccentColor': customAccentColor,
       'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
+      'ttsQuoteOnly': ttsQuoteOnly,
     };
   }
 
@@ -202,6 +209,7 @@ class AppSettings {
       customAccentColor: json['customAccentColor'] as int?,
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
+      ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
     );
   }
 
@@ -235,6 +243,7 @@ class AppSettings {
     int? customAccentColor,
     bool? ttsEnabled,
     int? ttsGlobalSeed,
+    bool? ttsQuoteOnly,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -266,6 +275,7 @@ class AppSettings {
       customAccentColor: customAccentColor ?? this.customAccentColor,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
+      ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
     );
   }
 }

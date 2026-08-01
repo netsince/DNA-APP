@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'chattts_engine.dart';
 import 'tts_audio_cache.dart';
 import 'tts_config.dart';
+import 'tts_text_cleaner.dart';
 
 /// 端侧语音合成服务。
 ///
@@ -150,11 +151,14 @@ class TtsService {
     int? globalSeed,
     bool doRefine = true,
     bool useCache = true,
+    bool quoteOnly = true,
     void Function(double progress)? onProgress,
   }) async {
     final int? seed = roleSeed ?? globalSeed;
+    // 合成前清理：永远排除括号内容；quoteOnly 时优先只读引号内容。
+    final String clean = cleanTtsText(text, quoteOnly: quoteOnly);
     final String key = TtsAudioCache.instance.keyFor(
-      text: text,
+      text: clean,
       seed: seed,
       doRefine: doRefine,
     );
@@ -175,7 +179,7 @@ class TtsService {
       modelsDir: dir,
       tokenizerJsonPath: path.join(dir, 'tokenizer/tokenizer.json'),
       speakerJsonString: speakerJsonString,
-      text: text,
+      text: clean,
       seed: seed,
       doRefine: doRefine,
       onProgress: onProgress,

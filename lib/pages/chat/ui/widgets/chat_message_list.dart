@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../../models/conversation.dart';
+import '../../../../services/tts/tts_player.dart';
+import '../../../../services/tts/tts_service.dart';
 import '../../chat_models.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -19,6 +23,9 @@ typedef MessageAction = Future<void> Function(ConversationMessage message);
 typedef MessageIdAction = Future<void> Function(String messageId);
 
 typedef TaNameForId = String? Function(String? taId);
+
+/// 解析角色固定语音 seed：返回对应 TA 的 voiceSeed（无则 null）。
+typedef VoiceSeedForTa = int? Function(String? taId);
 
 class ChatMessageList extends StatelessWidget {
   const ChatMessageList({
@@ -40,6 +47,10 @@ class ChatMessageList extends StatelessWidget {
     required this.showSpeakerLabels,
     required this.taNameForId,
     required this.visibleThoughtMessageIds,
+    this.ttsEnabled = false,
+    this.ttsGlobalSeed,
+    this.voiceSeedForTa,
+    this.ttsQuoteOnly = true,
   });
 
   final Conversation conversation;
@@ -59,6 +70,18 @@ class ChatMessageList extends StatelessWidget {
   final bool showSpeakerLabels;
   final TaNameForId taNameForId;
   final Set<String> visibleThoughtMessageIds;
+
+  /// 是否启用端侧语音合成（AppSettings.ttsEnabled）。
+  final bool ttsEnabled;
+
+  /// 全局 TTS seed（角色未设 seed 时兜底）。
+  final int? ttsGlobalSeed;
+
+  /// 解析角色固定 seed：根据 speakerTaId 返回对应 TA 的 voiceSeed（无则 null）。
+  final VoiceSeedForTa? voiceSeedForTa;
+
+  /// 合成时是否「引号内容优先」（AppSettings.ttsQuoteOnly）。
+  final bool ttsQuoteOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +257,15 @@ class ChatMessageList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  if (!isUser && ttsEnabled && message.text.trim().isNotEmpty) ...<Widget>[
+                    _MessagePlayButton(
+                      text: message.text,
+                      roleSeed: voiceSeedForTa?.call(message.speakerTaId),
+                      globalSeed: ttsGlobalSeed,
+                      quoteOnly: ttsQuoteOnly,
+                    ),
+                    const SizedBox(height: 6),
+                  ],
                   if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
                     FitText(
                       speakerName,
@@ -294,6 +326,93 @@ class ChatMessageList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 对方气泡左上角的语音合成播放按钮。
+///
+/// 点击 → 合成（显示百分比）→ 自动播放；合成结果经 TtsAudioCache 去重，
+/// 已合成过的内容再次点击会命中缓存直接重播。
+class _MessagePlayButton extends StatefulWidget {
+  const _MessagePlayButton({
+    required this.text,
+    this.roleSeed,
+    this.globalSeed,
+    this.quoteOnly = true,
+  });
+
+  final String text;
+  final int? roleSeed;
+  final int? globalSeed;
+  final bool quoteOnly;
+
+  @override
+  State<_MessagePlayButton> createState() => _MessagePlayButtonState();
+}
+
+class _MessagePlayButtonState extends State<_MessagePlayButton> {
+  bool _busy = false;
+  String _status = '';
+
+  Future<void> _play() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _status = '0%';
+    });
+    // 让进度先渲染一帧（引擎同步推理在后台 isolate，不阻塞 UI）
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    try {
+      final Float32List wav = await TtsService.instance.synthesize(
+        widget.text,
+        roleSeed: widget.roleSeed,
+        globalSeed: widget.globalSeed,
+        quoteOnly: widget.quoteOnly,
+        onProgress: (double p) {
+          if (!mounted) return;
+          setState(() => _status = '${(p * 100).round()}%');
+        },
+      );
+      if (!mounted) return;
+      setState(() => _status = '播放中…');
+      await TtsPlayer.instance.play(wav);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = '';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText('语音合成失败：$e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          iconSize: 20,
+          onPressed: _busy ? null : _play,
+          icon: Icon(
+            _busy ? Icons.hourglass_top : Icons.play_circle_outline,
+            color: cs.primary,
+          ),
+          tooltip: '朗读',
+        ),
+        if (_busy && _status.isNotEmpty)
+          FitText(_status, style: Theme.of(context).textTheme.labelSmall),
+      ],
     );
   }
 }

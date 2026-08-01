@@ -495,6 +495,11 @@ class _ChatPageState extends State<ChatPage>
                     showSpeakerLabels: _isGroup,
                     taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
                     visibleThoughtMessageIds: _visibleThoughtMessageIds,
+                    ttsEnabled: widget.controller.settings.ttsEnabled,
+                    ttsGlobalSeed: widget.controller.settings.ttsGlobalSeed,
+                    voiceSeedForTa: (String? id) =>
+                        widget.controller.getTaById(id ?? '')?.voiceSeed,
+                    ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
                 ),
               ),
               if (_sending)

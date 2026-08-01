@@ -307,6 +307,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「引号内容优先」开关：开启时合成优先只读引号内内容。
+  Future<void> saveTtsQuoteOnly(bool value) async {
+    _settings = _settings.copyWith(ttsQuoteOnly: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);

@@ -165,6 +165,17 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
             value: enabled,
             onChanged: (bool v) => widget.controller.saveTtsEnabled(v),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('优先朗读引号内容'),
+            subtitle: const FitText(
+              '开启：文本含引号时只读引号内的内容；不含引号则读全文。'
+              '括号内容始终不会朗读。',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: widget.controller.settings.ttsQuoteOnly,
+            onChanged: (bool v) => widget.controller.saveTtsQuoteOnly(v),
+          ),
           const Divider(),
 
           // 全局 seed
