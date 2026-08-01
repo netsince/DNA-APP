@@ -230,100 +230,108 @@ class ChatMessageList extends StatelessWidget {
         return Align(
           key: key,
           alignment: alignment,
-          child: GestureDetector(
-            onLongPressStart: (LongPressStartDetails details) {
-              onShowMessageMenu(
-                position: details.globalPosition,
-                message: message,
-                index: index,
-              );
-            },
-            onSecondaryTapDown: (TapDownDetails details) {
-              onShowMessageMenu(
-                position: details.globalPosition,
-                message: message,
-                index: index,
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              constraints: const BoxConstraints(maxWidth: 520),
-              decoration: BoxDecoration(
-                color: bubbleColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (!isUser && ttsEnabled && message.text.trim().isNotEmpty) ...<Widget>[
-                    _MessagePlayButton(
-                      text: message.text,
-                      globalSeed: ttsGlobalSeed,
-                      voiceSeedForTa: voiceSeedForTa,
-                      speakerTaId: message.speakerTaId,
-                      quoteOnly: ttsQuoteOnly,
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
-                    FitText(
-                      speakerName,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  RichText(
-                    text: _buildHighlightedText(
-                      context,
-                      message.text,
-                      searchQuery,
-                      colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-                    ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              GestureDetector(
+                onLongPressStart: (LongPressStartDetails details) {
+                  onShowMessageMenu(
+                    position: details.globalPosition,
+                    message: message,
+                    index: index,
+                  );
+                },
+                onSecondaryTapDown: (TapDownDetails details) {
+                  onShowMessageMenu(
+                    position: details.globalPosition,
+                    message: message,
+                    index: index,
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
+                        FitText(
+                          speakerName,
+                          style: textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      RichText(
+                        text: _buildHighlightedText(
+                          context,
+                          message.text,
+                          searchQuery,
+                          colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
+                      if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
-                              const SizedBox(width: 4),
-                              FitText(
-                                '思考内容',
-                                style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                              Row(
+                                children: <Widget>[
+                                  Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
+                                  const SizedBox(width: 4),
+                                  FitText(
+                                    '思考内容',
+                                    style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 6),
+                              FitText(thoughtText, style: textTheme.bodySmall),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          FitText(thoughtText, style: textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
-                    const SizedBox(height: 6),
-                    FitText(
-                      '字数 $charCount / Token $tokenCount',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ],
+                        ),
+                      ],
+                      if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
+                        const SizedBox(height: 6),
+                        FitText(
+                          '字数 $charCount / Token $tokenCount',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
+              // 仅对方（左侧）气泡显示悬浮朗读球，半溢出左上角。
+              if (!isUser && ttsEnabled && message.text.trim().isNotEmpty)
+                Positioned(
+                  top: -8,
+                  left: -8,
+                  child: _MessagePlayButton(
+                    text: message.text,
+                    globalSeed: ttsGlobalSeed,
+                    voiceSeedForTa: voiceSeedForTa,
+                    speakerTaId: message.speakerTaId,
+                    quoteOnly: ttsQuoteOnly,
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -409,22 +417,46 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          iconSize: 20,
-          onPressed: _busy ? null : _play,
-          icon: Icon(
-            _busy ? Icons.hourglass_top : Icons.play_circle_outline,
-            color: cs.primary,
+    final Color fg = cs.onPrimaryContainer;
+    return Tooltip(
+      message: '朗读',
+      child: Material(
+        color: cs.primaryContainer.withValues(alpha: 0.92),
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: _busy ? null : _play,
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: Center(child: _buildFace(cs, fg)),
           ),
-          tooltip: '朗读',
         ),
-        if (_busy && _status.isNotEmpty)
-          FitText(_status, style: Theme.of(context).textTheme.labelSmall),
-      ],
+      ),
+    );
+  }
+
+  /// 悬浮球内部内容：空闲显示播放图标；合成中显示百分比数字；播放中显示小转圈。
+  Widget _buildFace(ColorScheme cs, Color fg) {
+    if (!_busy) {
+      return Icon(Icons.play_arrow, size: 16, color: fg);
+    }
+    if (_status.endsWith('%')) {
+      return Text(
+        _status.replaceAll('%', ''),
+        style: TextStyle(
+          fontSize: 8.5,
+          height: 1,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      );
+    }
+    return const SizedBox(
+      width: 12,
+      height: 12,
+      child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
 }
