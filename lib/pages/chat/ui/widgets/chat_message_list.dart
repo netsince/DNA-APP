@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -362,14 +363,61 @@ class _MessagePlayButton extends StatefulWidget {
   State<_MessagePlayButton> createState() => _MessagePlayButtonState();
 }
 
-class _MessagePlayButtonState extends State<_MessagePlayButton> {
+class _MessagePlayButtonState extends State<_MessagePlayButton>
+    with SingleTickerProviderStateMixin {
   bool _busy = false;
+  bool _playing = false;
   String _status = '';
 
+  /// 播放中「正在朗读」的波形动画。
+  late final AnimationController _waveCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // 监听全局播放状态：当前播放被停止或自然播完时，复位本按钮的播放中状态。
+    TtsPlayer.instance.playing.addListener(_onTtsPlayingChanged);
+  }
+
+  @override
+  void dispose() {
+    TtsPlayer.instance.playing.removeListener(_onTtsPlayingChanged);
+    _waveCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTtsPlayingChanged() {
+    if (!mounted) return;
+    if (!TtsPlayer.instance.playing.value && _playing) {
+      _stopWave();
+      setState(() {
+        _playing = false;
+        _status = '';
+      });
+    }
+  }
+
+  void _startWave() {
+    if (!_waveCtrl.isAnimating) {
+      _waveCtrl.repeat(reverse: true);
+    }
+  }
+
+  void _stopWave() {
+    if (_waveCtrl.isAnimating) {
+      _waveCtrl.stop();
+      _waveCtrl.value = 0;
+    }
+  }
+
   Future<void> _play() async {
-    if (_busy) return;
+    if (_busy || _playing) return;
     setState(() {
       _busy = true;
+      _playing = false;
       _status = '0%';
     });
     // 让进度先渲染一帧（引擎同步推理在后台 isolate，不阻塞 UI）
@@ -395,17 +443,20 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
         await TtsPlayer.instance.play(wav);
         return;
       }
-      setState(() => _status = '播放中…');
-      await TtsPlayer.instance.play(wav);
-      if (!mounted) return;
       setState(() {
         _busy = false;
+        _playing = true;
         _status = '';
       });
+      _startWave();
+      await TtsPlayer.instance.play(wav);
+      // 播放自然结束/被其它播放停止时，由 TtsPlayer.playing 监听统一复位。
     } catch (e) {
       if (!mounted) return;
+      _stopWave();
       setState(() {
         _busy = false;
+        _playing = false;
         _status = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -414,10 +465,60 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
     }
   }
 
+  Future<void> _stop() async {
+    _stopWave();
+    await TtsPlayer.instance.stop();
+    if (!mounted) return;
+    setState(() {
+      _playing = false;
+      _status = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final Color fg = cs.onPrimaryContainer;
+    // 播放中：显示「正在朗读」的波形动画球 + 独立停止按钮。
+    if (_playing) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Tooltip(
+            message: '正在朗读',
+            child: Material(
+              color: cs.primaryContainer.withValues(alpha: 0.92),
+              shape: const CircleBorder(),
+              elevation: 2,
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: Center(child: _buildPlayingFace(fg)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 3),
+          Tooltip(
+            message: '停止',
+            child: Material(
+              color: cs.primaryContainer.withValues(alpha: 0.92),
+              shape: const CircleBorder(),
+              elevation: 2,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _stop,
+                child: const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Center(child: Icon(Icons.stop, size: 14)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // 空闲 / 合成中：单个悬浮球。
     return Tooltip(
       message: '朗读',
       child: Material(
@@ -437,26 +538,46 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
     );
   }
 
-  /// 悬浮球内部内容：空闲显示播放图标；合成中显示百分比数字；播放中显示小转圈。
+  /// 悬浮球内部内容：空闲显示播放图标；合成中显示百分比数字。
   Widget _buildFace(ColorScheme cs, Color fg) {
     if (!_busy) {
       return Icon(Icons.play_arrow, size: 16, color: fg);
     }
-    if (_status.endsWith('%')) {
-      return Text(
-        _status.replaceAll('%', ''),
-        style: TextStyle(
-          fontSize: 8.5,
-          height: 1,
-          fontWeight: FontWeight.w600,
-          color: fg,
-        ),
-      );
-    }
-    return const SizedBox(
-      width: 12,
-      height: 12,
-      child: CircularProgressIndicator(strokeWidth: 2),
+    return Text(
+      _status.replaceAll('%', ''),
+      style: TextStyle(
+        fontSize: 8.5,
+        height: 1,
+        fontWeight: FontWeight.w600,
+        color: fg,
+      ),
+    );
+  }
+
+  /// 播放中的波形动画：三根跳动的竖条，直观表示「正在朗读」。
+  Widget _buildPlayingFace(Color fg) {
+    return AnimatedBuilder(
+      animation: _waveCtrl,
+      builder: (BuildContext context, Widget? _) {
+        final double t = _waveCtrl.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: List<Widget>.generate(3, (int i) {
+            final double h =
+                6 + 7 * (0.5 + 0.5 * math.sin(t * 2 * math.pi - i * 1.4));
+            return Container(
+              width: 3,
+              height: h,
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+              decoration: BoxDecoration(
+                color: fg,
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

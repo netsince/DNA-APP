@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -17,18 +18,37 @@ class TtsPlayer {
 
   AudioPlayer? _player;
 
+  /// 当前是否正在播放（播放完成/停止时自动复位），供 UI 显示「正在朗读」状态。
+  final ValueNotifier<bool> playing = ValueNotifier<bool>(false);
+
   /// 播放合成结果。若已有音频在播会先停止。
   Future<void> play(Float32List samples) async {
     await stop();
     final File wav = await _writeWav(samples);
     final AudioPlayer player = AudioPlayer();
     _player = player;
+    playing.value = true;
+    // 音频自然播完时复位「正在播放」状态。
+    player.onPlayerComplete.listen((_) {
+      if (_player == player) {
+        _player = null;
+        playing.value = false;
+      }
+    });
+    player.onPlayerStateChanged.listen((PlayerState s) {
+      if ((s == PlayerState.stopped || s == PlayerState.completed) &&
+          _player == player) {
+        _player = null;
+        playing.value = false;
+      }
+    });
     await player.play(DeviceFileSource(wav.path), mode: PlayerMode.lowLatency);
   }
 
   Future<void> stop() async {
     final AudioPlayer? p = _player;
     _player = null;
+    playing.value = false;
     if (p != null) {
       try {
         await p.stop();
