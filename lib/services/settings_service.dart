@@ -34,6 +34,7 @@ class SettingsService {
   static const String _customAccentColorKey = 'custom_accent_color';
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
+  static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
@@ -82,6 +83,7 @@ class SettingsService {
       customAccentColor: prefs.getInt(_customAccentColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
       ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
+      voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
     );
@@ -135,6 +137,7 @@ class SettingsService {
     } else {
       await prefs.remove(_ttsGlobalSeedKey);
     }
+    await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
   }

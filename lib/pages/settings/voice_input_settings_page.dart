@@ -64,7 +64,20 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
           FitText('下载模型后，点聊天输入框的麦克风即可语音输入。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('启用语音输入'),
+            subtitle: _readyForCurrent
+                ? null
+                : const FitText('请先下载模型才能启用',
+                    style: TextStyle(fontSize: 12)),
+            value: _readyForCurrent && s.voiceInputEnabled,
+            onChanged: _readyForCurrent
+                ? (bool v) => widget.controller.saveVoiceInputEnabled(v)
+                : null,
+          ),
+          const SizedBox(height: 8),
           const Divider(),
 
           // 模型选择
@@ -154,13 +167,16 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
           const SizedBox(height: 16),
           const Divider(),
 
-          // 状态与下载
+          // 下载/删除按钮置前
+          if (_downloading) ...<Widget>[
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 8),
+            FitText(_status,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 12),
+          ],
           if (_readyForCurrent) ...<Widget>[
-            ListTile(
-              leading: const Icon(Icons.check_circle, color: Colors.green),
-              title: const FitText('模型已就绪'),
-              subtitle: FitText(_model.label),
-            ),
             Row(
               children: <Widget>[
                 Expanded(
@@ -179,14 +195,6 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               ],
             ),
           ] else ...<Widget>[
-            if (_downloading) ...<Widget>[
-              LinearProgressIndicator(value: _progress),
-              const SizedBox(height: 8),
-              FitText(_status,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(height: 12),
-            ],
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -196,7 +204,17 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // 状态
+          if (_readyForCurrent) ...<Widget>[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.check_circle, color: Colors.green),
+              title: const FitText('模型已就绪'),
+              subtitle: FitText(_model.label),
+            ),
+            const SizedBox(height: 8),
+          ],
           FitText('首次下载需联网，之后完全离线使用。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
@@ -291,6 +309,8 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
   Future<void> _delete() async {
     await SherpaModelDownloadService.deleteModel(_model.id);
     await widget.controller.setSherpaModelReady(null);
+    // 删除模型后自动关闭语音输入（未就绪时不允许开启）。
+    await widget.controller.saveVoiceInputEnabled(false);
     if (mounted) {
       showSnack(context, '已删除本地模型。');
     }

@@ -154,7 +154,8 @@ class TtsService {
     bool quoteOnly = true,
     void Function(double progress)? onProgress,
   }) async {
-    final int? seed = roleSeed ?? globalSeed;
+    // 全局 seed 未设置时兜底用 1（保证音色稳定，不再每次随机）。
+    final int seed = roleSeed ?? globalSeed ?? 1;
     // 合成前清理：永远排除括号内容；quoteOnly 时优先只读引号内容。
     final String clean = cleanTtsText(text, quoteOnly: quoteOnly);
     final String key = TtsAudioCache.instance.keyFor(

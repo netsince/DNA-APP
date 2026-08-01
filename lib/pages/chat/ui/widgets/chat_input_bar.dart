@@ -666,10 +666,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
             ),
             const SizedBox(width: 8),
-            if (!_hasInput) ...<Widget>[
-              // 语音输入按钮（点击进入语音模式）
+            // 语音输入按钮：仅在「离线语音输入」开关开启时显示。
+            if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
               _buildMic(),
               const SizedBox(width: 8),
+            ],
+            if (!_hasInput) ...<Widget>[
               // 当输入框没有内容时显示灵感按钮
               IconButton(
                 tooltip: '灵感',

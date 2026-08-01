@@ -30,6 +30,7 @@ class AppSettings {
     required this.selectedVoiceModelId,
     required this.accentMode,
     this.customAccentColor,
+    required this.voiceInputEnabled,
     required this.ttsEnabled,
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
@@ -64,6 +65,7 @@ class AppSettings {
       selectedVoiceModelId: kVoiceModelDefaultId,
       accentMode: 'auto',
       customAccentColor: null,
+      voiceInputEnabled: false,
       ttsEnabled: false,
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
@@ -126,6 +128,9 @@ class AppSettings {
   /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
   final int? customAccentColor;
 
+  /// 是否启用离线语音输入（STT）。关闭时聊天输入框不显示麦克风按钮。
+  final bool voiceInputEnabled;
+
   /// 是否启用端侧语音合成（TTS）。
   final bool ttsEnabled;
 
@@ -165,6 +170,7 @@ class AppSettings {
       'selectedVoiceModelId': selectedVoiceModelId,
       'accentMode': accentMode,
       'customAccentColor': customAccentColor,
+      'voiceInputEnabled': voiceInputEnabled,
       'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
@@ -207,6 +213,7 @@ class AppSettings {
           (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
       accentMode: (json['accentMode'] as String?) ?? 'auto',
       customAccentColor: json['customAccentColor'] as int?,
+      voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? false,
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
@@ -241,6 +248,7 @@ class AppSettings {
     String? selectedVoiceModelId,
     String? accentMode,
     int? customAccentColor,
+    bool? voiceInputEnabled,
     bool? ttsEnabled,
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
@@ -273,6 +281,7 @@ class AppSettings {
       selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
       accentMode: accentMode ?? this.accentMode,
       customAccentColor: customAccentColor ?? this.customAccentColor,
+      voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,

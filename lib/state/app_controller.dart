@@ -293,6 +293,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「离线语音输入（STT）」开关。
+  Future<void> saveVoiceInputEnabled(bool value) async {
+    _settings = _settings.copyWith(voiceInputEnabled: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「端侧语音合成（TTS）」开关。
   Future<void> saveTtsEnabled(bool value) async {
     _settings = _settings.copyWith(ttsEnabled: value);

@@ -38,6 +38,9 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     return '${bps.toStringAsFixed(0)} B/s';
   }
 
+  /// 全局 seed 允许的最大值（与引擎能力对齐）。
+  static const int _maxSeed = 0x7FFFFFFF;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +62,11 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
       ready = await TtsService.instance.isModelsReady();
     } catch (_) {
       ready = false;
+    }
+    if (!mounted) return;
+    // 模型未就绪时不允许开启：强制保持关闭。
+    if (!ready && widget.controller.settings.ttsEnabled) {
+      await widget.controller.saveTtsEnabled(false);
     }
     if (!mounted) return;
     setState(() {
@@ -133,8 +141,17 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     );
     if (ok != true || !mounted) return;
     await TtsService.instance.deleteModels();
+    // 删除模型后自动关闭 TTS（未就绪时不允许开启）。
+    await widget.controller.saveTtsEnabled(false);
     showSnack(context, '模型已删除。');
     await _refresh();
+  }
+
+  /// 清除全局 seed，使其回退到默认值 1（解锁输入框以便重新填写）。
+  void _clearSeed() {
+    _seedCtrl.text = '';
+    widget.controller.saveTtsGlobalSeed(null);
+    setState(() {});
   }
 
   @override
@@ -162,8 +179,14 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const FitText('启用语音合成'),
-            value: enabled,
-            onChanged: (bool v) => widget.controller.saveTtsEnabled(v),
+            subtitle: _ready
+                ? null
+                : const FitText('请先下载模型才能启用',
+                    style: TextStyle(fontSize: 12)),
+            value: _ready && enabled,
+            onChanged: _ready
+                ? (bool v) => widget.controller.saveTtsEnabled(v)
+                : null,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -184,21 +207,36 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           FitText(
-            '角色未单独设置 seed 时使用此值，保证音色稳定。留空则每次随机。',
+            '角色未单独设置 seed 时使用此值。留空则自动使用 1；填写后锁定不再改动。'
+            '最大不超过 $_maxSeed。',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           SeedInputField(
             controller: _seedCtrl,
-            label: '全局 Seed（整数，可留空）',
+            label: '全局 Seed（整数）',
+            enabled: _seedCtrl.text.trim().isEmpty,
+            maxValue: _maxSeed,
             onChanged: (String raw) {
               final int? seed = raw.trim().isEmpty
                   ? null
                   : int.tryParse(raw.trim());
               widget.controller.saveTtsGlobalSeed(seed);
+              setState(() {});
             },
           ),
+          if (_seedCtrl.text.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _clearSeed,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const FitText('清除 Seed（恢复默认 1）'),
+              ),
+            ),
+          ],
           const Divider(),
 
           // 模型
@@ -206,16 +244,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
               style: theme.textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              _ready ? Icons.check_circle : Icons.download_outlined,
-              color: _ready ? Colors.green : cs.onSurfaceVariant,
-            ),
-            title: FitText(_ready ? '模型已就绪' : '模型未下载'),
-            subtitle: FitText(_status),
-          ),
-          const SizedBox(height: 8),
+          // 下载/删除按钮置前
           if (_downloading) ...<Widget>[
             if (_progress != null) ...<Widget>[
               LinearProgressIndicator(value: _progress),
@@ -260,6 +289,17 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
             ),
           ],
           const SizedBox(height: 12),
+          // 状态
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              _ready ? Icons.check_circle : Icons.download_outlined,
+              color: _ready ? Colors.green : cs.onSurfaceVariant,
+            ),
+            title: FitText(_ready ? '模型已就绪' : '模型未下载'),
+            subtitle: FitText(_status),
+          ),
+          const SizedBox(height: 8),
           FitText('模型约 400MB，含 GPT/Embed/DVAE/Vocos，首次下载后完全离线。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant)),
