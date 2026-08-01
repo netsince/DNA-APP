@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -146,11 +148,9 @@ class _ChatPageState extends State<ChatPage>
     }
 
     try {
-      // 使用 compute 在后台线程处理图片颜色提取
-      final Color? dominantColor = await compute<_ExtractColorParams, Color?>(
-        _extractDominantColor,
-        _ExtractColorParams(path: path),
-      );
+      // 提取图片主色调（用 dart:ui 按 64x64 解码，避免在后台 isolate 里
+      // 走 ImageProvider 触发 PaintingBinding 未初始化的问题）
+      final Color? dominantColor = await _extractDominantColor(path);
 
       if (!mounted || dominantColor == null) {
         return;
@@ -544,25 +544,32 @@ class _ChatPageState extends State<ChatPage>
   }
 }
 
-// 用于 compute 的参数类
-class _ExtractColorParams {
-  _ExtractColorParams({required this.path});
-  final String path;
-}
-
-// 在后台线程提取主色调
-Future<Color?> _extractDominantColor(_ExtractColorParams params) async {
+// 提取图片主色调。使用 dart:ui 的 instantiateImageCodec 按 64x64 解码并交给
+// PaletteGenerator.fromImage 计算，避免像 fromImageProvider 那样依赖
+// PaintingBinding（在后台 isolate 里会报「Binding has not yet been initialized」）。
+Future<Color?> _extractDominantColor(String path) async {
   try {
-    final File file = File(params.path);
+    final File file = File(path);
     if (!file.existsSync()) {
       return null;
     }
-    final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-      FileImage(file),
-      size: const Size(64, 64), // 减小尺寸以加快处理
+    final Uint8List bytes = await file.readAsBytes();
+    // 解码时直接缩放到 64x64，既快又不阻塞 UI（单帧、小尺寸）。
+    final ui.Codec codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: 64,
+      targetHeight: 64,
+    );
+    final ui.FrameInfo frame = await codec.getNextFrame();
+    final ui.Image image = frame.image;
+    final PaletteGenerator palette = await PaletteGenerator.fromImage(
+      image,
       maximumColorCount: 4, // 减少颜色数量
     );
-    return palette.dominantColor?.color;
+    final Color? color = palette.dominantColor?.color;
+    image.dispose();
+    codec.dispose();
+    return color;
   } catch (e) {
     return null;
   }

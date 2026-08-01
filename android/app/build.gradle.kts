@@ -64,8 +64,12 @@ android {
         }
     }
 
-    // sherpa_onnx 与 onnxruntime 插件都捆绑 libonnxruntime.so，合并时冲突。
-    // 二者均为 ONNX Runtime（API 兼容），pickFirst 只保留一份即可。
+    // sherpa_onnx(语音输入) 与 onnxruntime 插件(TTS) 都捆绑 libonnxruntime.so，
+    // 但版本不同（sherpa:1.27.0 / onnxruntime 插件:1.15.1），同名 so 合并时冲突。
+    // sherpa 的 libsherpa-onnx-c-api.so 编译期绑定 1.27.0，不可替换；而 onnxruntime
+    // 插件的 Dart 绑定走标准 onnxruntime C API、向后兼容，可复用 1.27.0。
+    // 因此这里在 app 自身 jniLibs 放置 sherpa 的 1.27.0（见 src/main/jniLibs），
+    // 并 pickFirst 保留它，丢弃 onnxruntime 插件自带的旧版，让 TTS 复用同一份。
     packaging {
         jniLibs {
             pickFirsts += "**/libonnxruntime.so"
