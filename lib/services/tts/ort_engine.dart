@@ -88,6 +88,35 @@ class OrtSessionWrapper {
     return out;
   }
 
+  /// 读取张量形状（维度列表），用于确认 KV cache 等输出的真实布局。
+  List<int> readFloatTensorShape(OrtValue value) {
+    final bg.OrtApi api = OrtEnv.instance.ortApiPtr.ref;
+    final infoPtrPtr = calloc<Pointer<bg.OrtTensorTypeAndShapeInfo>>();
+    api.GetTensorTypeAndShape.asFunction<
+            bg.OrtStatusPtr Function(
+                Pointer<bg.OrtValue>, Pointer<Pointer<bg.OrtTensorTypeAndShapeInfo>>)>()(
+        Pointer.fromAddress(value.address), infoPtrPtr);
+    final info = infoPtrPtr.value;
+    final rankPtr = calloc<Size>();
+    api.GetDimensionsCount.asFunction<
+            bg.OrtStatusPtr Function(
+                Pointer<bg.OrtTensorTypeAndShapeInfo>, Pointer<Size>)>()(
+        info, rankPtr);
+    final int rank = rankPtr.value;
+    final dimsPtr = calloc<Int64>(rank);
+    api.GetDimensions.asFunction<
+            bg.OrtStatusPtr Function(
+                Pointer<bg.OrtTensorTypeAndShapeInfo>, Pointer<Int64>, int)>()(
+        info, dimsPtr, rank);
+    final List<int> out = <int>[
+      for (int i = 0; i < rank; i++) dimsPtr[i],
+    ];
+    calloc.free(infoPtrPtr);
+    calloc.free(rankPtr);
+    calloc.free(dimsPtr);
+    return out;
+  }
+
   List<String> get inputNames => _session.inputNames;
   List<String> get outputNames => _session.outputNames;
 

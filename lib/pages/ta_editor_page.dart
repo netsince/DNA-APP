@@ -18,6 +18,7 @@ import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/seed_input_field.dart';
 
 class TaEditorPage extends StatefulWidget {
   const TaEditorPage({super.key, required this.controller, this.ta});
@@ -35,6 +36,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
   late final TextEditingController _introController;
   late final TextEditingController _openingController;
   late final TextEditingController _tagsController;
+  late final TextEditingController _seedController;
 
   late String _gender;
   late String _taId;
@@ -51,6 +53,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _introController = TextEditingController(text: ta?.intro ?? '');
     _openingController = TextEditingController(text: ta?.opening ?? '');
     _tagsController = TextEditingController(text: (ta?.tags ?? <String>[]).join(', '));
+    _seedController =
+        TextEditingController(text: ta?.voiceSeed?.toString() ?? '');
     _gender = ta?.gender ?? '无性';
     _images = Map<String, String>.from(ta?.images ?? <String, String>{});
     _dialogueStyle = List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
@@ -63,6 +67,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _introController.dispose();
     _openingController.dispose();
     _tagsController.dispose();
+    _seedController.dispose();
     super.dispose();
   }
 
@@ -123,6 +128,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
         .toList();
   }
 
+  int? _parseSeed() {
+    final String raw = _seedController.text.trim();
+    if (raw.isEmpty) return null;
+    return int.tryParse(raw);
+  }
+
   TA _buildCurrentTA() {
     return TA(
       id: _taId,
@@ -134,6 +145,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       tags: _parseTags(_tagsController.text),
       images: _images,
       dialogueStyle: _dialogueStyle,
+      voiceSeed: _parseSeed(),
     );
   }
 
@@ -276,6 +288,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
         dialogueStyle: importedTA.dialogueStyle,
         archived: importedTA.archived,
         originalLink: importedTA.originalLink,
+        voiceSeed: importedTA.voiceSeed,
       );
       if (!mounted) return;
       showSnack(context, 'ID 与已有角色冲突，已自动创建为新角色');
@@ -349,6 +362,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       _introController.text = finalTA.intro;
       _openingController.text = finalTA.opening;
       _tagsController.text = finalTA.tags.join(', ');
+      _seedController.text = finalTA.voiceSeed?.toString() ?? '';
       _images = Map<String, String>.from(finalTA.images);
       _dialogueStyle = List<DialogueTurn>.from(finalTA.dialogueStyle);
     });
@@ -519,6 +533,20 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     decoration: const InputDecoration(
                       labelText: '开场白（可选）',
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  SeedInputField(
+                    controller: _seedController,
+                    label: '语音合成 Seed（可选）',
+                    hint: '留空则用全局 seed',
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '该角色固定音色，未设置时使用全局语音合成 seed。',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),

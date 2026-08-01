@@ -32,6 +32,8 @@ class SettingsService {
   static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
   static const String _accentModeKey = 'accent_mode';
   static const String _customAccentColorKey = 'custom_accent_color';
+  static const String _ttsEnabledKey = 'tts_enabled';
+  static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
@@ -78,6 +80,8 @@ class SettingsService {
           prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
       customAccentColor: prefs.getInt(_customAccentColorKey),
+      ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
+      ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
     );
@@ -124,6 +128,12 @@ class SettingsService {
           _customAccentColorKey, settings.customAccentColor!);
     } else {
       await prefs.remove(_customAccentColorKey);
+    }
+    await prefs.setBool(_ttsEnabledKey, settings.ttsEnabled);
+    if (settings.ttsGlobalSeed != null) {
+      await prefs.setInt(_ttsGlobalSeedKey, settings.ttsGlobalSeed!);
+    } else {
+      await prefs.remove(_ttsGlobalSeedKey);
     }
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);

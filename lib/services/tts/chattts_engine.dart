@@ -46,6 +46,7 @@ class ChatTtsEngine {
     int maxNewText = 384,
     int maxNewCode = 2048,
     bool doRefine = true,
+    void Function(double progress)? onProgress,
   }) {
     // 切分文本（与 Python 一致）
     final List<String> texts = _splitText(text);
@@ -62,8 +63,15 @@ class ChatTtsEngine {
     for (final String rawPart in texts) {
       String part = rawPart.trim();
       if (part.isEmpty) continue;
+      // refine 约占 0~20%，code 生成约占 20~95%，后处理 95~100%
       if (doRefine) {
-        part = _refineText(part, temperature: 0.7, maxNewToken: maxNewText, seed: seed);
+        part = _refineText(
+          part,
+          temperature: 0.7,
+          maxNewToken: maxNewText,
+          seed: seed,
+          onProgress: (double p) => onProgress?.call(p * 0.20),
+        );
       }
       // code 生成
       final String decorated = tokenizer.decorateCodePrompt(
@@ -86,6 +94,7 @@ class ChatTtsEngine {
         maxNewToken: maxNewCode,
         repetitionPenalty: repetitionPenalty,
         seed: seed,
+        onProgress: (double p) => onProgress?.call(0.20 + p * 0.75),
       );
       // 取生成部分
       final int totalLen = codeIds.length ~/ 4;
@@ -131,6 +140,7 @@ class ChatTtsEngine {
         384,
       );
       wavs.add(wav);
+      onProgress?.call(1.0);
     }
 
     if (wavs.isEmpty) return Float32List(0);
@@ -219,6 +229,7 @@ class ChatTtsEngine {
     required double temperature,
     required int maxNewToken,
     int? seed,
+    void Function(double progress)? onProgress,
   }) {
     final String decorated = tokenizer.decorateTextPrompt(text);
     final List<int> ids = tokenizer.encode(decorated);
@@ -234,23 +245,27 @@ class ChatTtsEngine {
       maxNewToken: maxNewToken,
       repetitionPenalty: 1.0,
       seed: seed,
+      onProgress: onProgress,
     );
-    // 取生成部分，去掉 [break_0] 及之后
+    // 取生成部分，跳过所有特殊 token（>= break_0_ids 的过滤掉，保留文本）。
+    // 与 Python `new_ids[new_ids < break_0_ids]` 一致：是过滤而非遇到第一个就 break。
     final List<int> newIds = <int>[];
     for (int i = startIdx; i < gen.length ~/ 4; i++) {
       final int id = gen[i * 4];
-      if (id >= tokenizer.break0Id) break;
+      if (id >= tokenizer.break0Id) continue;
       newIds.add(id);
     }
     return tokenizer.decode(newIds);
   }
 
   // ---- GPT 前向（含 KV cache） ----
-  (Float32List hidden, Map<String, Float32List> past) _gptForward(
+  /// past 的每个条目携带 (数据, 真实shape)，回喂时原样使用，
+  /// 以适配本模型 KV cache 的首维可能非 1（导出怪癖，Python 端为 40）。
+  (Float32List hidden, Map<String, (Float32List, List<int>)> past) _gptForward(
     Float32List inputsEmbeds, // [T, H]
     Float32List attentionMask, // [T]
     Int64List positionIds, // [T]
-    Map<String, Float32List>? past, // layer -> (past.N.k / past.N.v) [1,NH,L,HD]
+    Map<String, (Float32List, List<int>)>? past,
   ) {
     final int t = inputsEmbeds.length ~/ kHidden;
     final Map<String, Float32List> floatInputs = <String, Float32List>{
@@ -262,7 +277,9 @@ class ChatTtsEngine {
     };
     final Map<String, List<int>> shapes = <String, List<int>>{
       'inputs_embeds': <int>[1, t, kHidden],
-      'attention_mask': <int>[1, t],
+      // attention_mask 覆盖「past 缓存 + 当前 token」的完整长度，
+      // 循环里 inputs_embeds 只有 1 个 token，但 mask 长度 = 1 + past_len。
+      'attention_mask': <int>[1, attentionMask.length],
       'position_ids': <int>[1, t],
     };
     if (past == null) {
@@ -278,11 +295,10 @@ class ChatTtsEngine {
       for (int i = 0; i < kNumLayers; i++) {
         final String nameK = 'past.${2 * i}.k';
         final String nameV = 'past.${2 * i + 1}.v';
-        floatInputs[nameK] = past[nameK]!;
-        floatInputs[nameV] = past[nameV]!;
-        final int len = past[nameK]!.length ~/ (kNumHeads * kHeadDim);
-        shapes[nameK] = <int>[1, kNumHeads, len, kHeadDim];
-        shapes[nameV] = <int>[1, kNumHeads, len, kHeadDim];
+        floatInputs[nameK] = past[nameK]!.$1;
+        floatInputs[nameV] = past[nameV]!.$1;
+        shapes[nameK] = past[nameK]!.$2;
+        shapes[nameV] = past[nameV]!.$2;
       }
     }
 
@@ -294,10 +310,14 @@ class ChatTtsEngine {
           outputNames: _gptOutputNames(),
         );
     final Float32List hidden = gpt.readFloatTensor(out[0]);
-    final Map<String, Float32List> newPast = <String, Float32List>{};
+    final Map<String, (Float32List, List<int>)> newPast =
+        <String, (Float32List, List<int>)>{};
     for (int i = 0; i < kNumLayers * 2; i++) {
       // present.{i}.{k/v} 对应回灌的 past.{i}.{k/v}（i 偶为 k，奇为 v）
-      newPast['past.$i.${i.isEven ? 'k' : 'v'}'] = gpt.readFloatTensor(out[1 + i]);
+      newPast['past.$i.${i.isEven ? 'k' : 'v'}'] = (
+        gpt.readFloatTensor(out[1 + i]),
+        gpt.readFloatTensorShape(out[1 + i]),
+      );
     }
     for (final OrtValue v in out) {
       v.release();
@@ -328,6 +348,7 @@ class ChatTtsEngine {
     required int maxNewToken,
     required double repetitionPenalty,
     int? seed,
+    void Function(double progress)? onProgress,
   }) {
     final int t = emb.length ~/ kHidden;
     // 注意：inputIds 需展开为 4 vq
@@ -342,7 +363,7 @@ class ChatTtsEngine {
     final Int64List pos = Int64List(t);
     for (int i = 0; i < t; i++) pos[i] = i;
 
-    final (Float32List hidden, Map<String, Float32List> past) =
+    final (Float32List hidden, Map<String, (Float32List, List<int>)> past) =
         _gptForward(emb, attn, pos, null);
     Float32List curHidden = Float32List.fromList(
       hidden.sublist((t - 1) * kHidden, t * kHidden),
@@ -386,9 +407,10 @@ class ChatTtsEngine {
         head[0].release();
         newTokens = Int64List(4);
         for (int v = 0; v < 4; v++) {
-          // 每路 vq 独立归一化
+          // 每路 vq 独立归一化。
+          // head_code 输出 [B,T,626,4]，末位是 vq、626 是词表，行主序扁平索引 = k*4 + v。
           final List<double> l = List<double>.generate(kNumAudio, (int k) {
-            return logits4[v * kNumAudio + k] / temperature;
+            return logits4[k * 4 + v] / temperature;
           });
           final Float64List filtered = topPkLogits(l, topP: topP, topK: topK);
           final Float64List probs = softmax(filtered.toList());
@@ -432,10 +454,11 @@ class ChatTtsEngine {
       final Float32List attnNew = Float32List(newLen);
       for (int i = 0; i < newLen; i++) attnNew[i] = 1;
       final Int64List posNew = Int64List.fromList(<int>[newLen - 1]);
-      final (Float32List h2, Map<String, Float32List> p2) =
+      final (Float32List h2, Map<String, (Float32List, List<int>)> p2) =
           _gptForward(nextEmb, attnNew, posNew, past);
       past..clear()..addAll(p2);
       curHidden = Float32List.fromList(h2.sublist(0, kHidden));
+      onProgress?.call((step + 1) / maxNewToken);
     }
     return seq4;
   }
@@ -450,6 +473,7 @@ class ChatTtsEngine {
     required int maxNewToken,
     required double repetitionPenalty,
     int? seed,
+    void Function(double progress)? onProgress,
   }) {
     return _generate(
       emb,
@@ -462,6 +486,7 @@ class ChatTtsEngine {
       maxNewToken: maxNewToken,
       repetitionPenalty: repetitionPenalty,
       seed: seed,
+      onProgress: onProgress,
     );
   }
 
@@ -475,6 +500,7 @@ class ChatTtsEngine {
     required int maxNewToken,
     required double repetitionPenalty,
     int? seed,
+    void Function(double progress)? onProgress,
   }) {
     return _generate(
       emb,
@@ -487,6 +513,7 @@ class ChatTtsEngine {
       maxNewToken: maxNewToken,
       repetitionPenalty: repetitionPenalty,
       seed: seed,
+      onProgress: onProgress,
     );
   }
 

@@ -30,6 +30,8 @@ class AppSettings {
     required this.selectedVoiceModelId,
     required this.accentMode,
     this.customAccentColor,
+    required this.ttsEnabled,
+    this.ttsGlobalSeed,
   });
 
   factory AppSettings.empty() {
@@ -61,6 +63,8 @@ class AppSettings {
       selectedVoiceModelId: kVoiceModelDefaultId,
       accentMode: 'auto',
       customAccentColor: null,
+      ttsEnabled: false,
+      ttsGlobalSeed: null,
     );
   }
 
@@ -120,6 +124,12 @@ class AppSettings {
   /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
   final int? customAccentColor;
 
+  /// 是否启用端侧语音合成（TTS）。
+  final bool ttsEnabled;
+
+  /// 全局 TTS seed：角色未单独设置 seed 时使用（保证音色稳定）。
+  final int? ttsGlobalSeed;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -149,6 +159,8 @@ class AppSettings {
       'selectedVoiceModelId': selectedVoiceModelId,
       'accentMode': accentMode,
       'customAccentColor': customAccentColor,
+      'ttsEnabled': ttsEnabled,
+      'ttsGlobalSeed': ttsGlobalSeed,
     };
   }
 
@@ -188,6 +200,8 @@ class AppSettings {
           (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
       accentMode: (json['accentMode'] as String?) ?? 'auto',
       customAccentColor: json['customAccentColor'] as int?,
+      ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
+      ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
     );
   }
 
@@ -219,6 +233,8 @@ class AppSettings {
     String? selectedVoiceModelId,
     String? accentMode,
     int? customAccentColor,
+    bool? ttsEnabled,
+    int? ttsGlobalSeed,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -248,6 +264,8 @@ class AppSettings {
       selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
       accentMode: accentMode ?? this.accentMode,
       customAccentColor: customAccentColor ?? this.customAccentColor,
+      ttsEnabled: ttsEnabled ?? this.ttsEnabled,
+      ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
     );
   }
 }

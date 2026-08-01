@@ -293,6 +293,20 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「端侧语音合成（TTS）」开关。
+  Future<void> saveTtsEnabled(bool value) async {
+    _settings = _settings.copyWith(ttsEnabled: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存全局 TTS seed（角色未设 seed 时兜底）。null 表示未设置。
+  Future<void> saveTtsGlobalSeed(int? seed) async {
+    _settings = _settings.copyWith(ttsGlobalSeed: seed);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);

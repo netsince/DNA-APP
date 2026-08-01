@@ -14,6 +14,7 @@ class TA {
     this.archived = false,
     this.originalLink,
     this.protection,
+    this.voiceSeed,
   });
 
   final String id;
@@ -27,6 +28,9 @@ class TA {
   final List<DialogueTurn> dialogueStyle;
   final bool archived;
   final String? originalLink;
+
+  /// 该角色固定的语音合成 seed（未设置时用全局 seed）。
+  final int? voiceSeed;
   /// 隐蔽列：完整存平台注入的溯源包（originalLink / _lk / 图片槽 fx、dataverification / Tips）。
   /// 客户端只存不编，导出时原样透传，UI 不展示，避免溯源信息失真。
   final Map<String, dynamic>? protection;
@@ -44,6 +48,7 @@ class TA {
     bool? archived,
     String? originalLink,
     Map<String, dynamic>? protection,
+    int? voiceSeed,
   }) {
     return TA(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class TA {
       archived: archived ?? this.archived,
       originalLink: originalLink ?? this.originalLink,
       protection: protection ?? this.protection,
+      voiceSeed: voiceSeed ?? this.voiceSeed,
     );
   }
 
@@ -75,6 +81,7 @@ class TA {
       'archived': archived,
       'originalLink': originalLink,
       'protection': protection,
+      'voiceSeed': voiceSeed,
     };
   }
 
@@ -98,6 +105,7 @@ class TA {
       archived: (json['archived'] as bool?) ?? false,
       originalLink: json['originalLink'] as String?,
       protection: json['protection'] as Map<String, dynamic>?,
+      voiceSeed: json['voiceSeed'] as int?,
     );
   }
 }

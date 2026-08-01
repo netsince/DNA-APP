@@ -21,8 +21,10 @@ class TtsRandom {
     return (x ^ (x >> 31)) & 0xFFFFFFFFFFFFFFFF;
   }
 
+  // 左移用 <<，右移必须用逻辑右移 >>>（算术 >> 会符号扩展，损坏 64 位位型，
+  // 导致 nextDouble 偏向大值、choice 过早命中 EOS）。
   static int _rotl(int x, int k) =>
-      ((x << k) | (x >> (64 - k))) & 0xFFFFFFFFFFFFFFFF;
+      ((x << k) | (x >>> (64 - k))) & 0xFFFFFFFFFFFFFFFF;
 
   /// 返回 [0, 2^64) 的伪随机 64 位整数。
   int nextUint64() {
@@ -38,7 +40,10 @@ class TtsRandom {
   }
 
   /// 返回 [0,1) 的双精度随机数。
-  double nextDouble() => (nextUint64() >> 11) / 9007199254740992.0;
+  ///
+  /// 必须用无符号右移 `>>>`：`nextUint64()` 是有符号 64 位，`>>` 算术右移会让
+  /// 最高位为 1 的值保持为负，导致返回负数（choice 会误判为小下标 token）。
+  double nextDouble() => (nextUint64() >>> 11) / 9007199254740992.0;
 
   /// 标准正态（Box-Muller）。
   double nextGaussian() {
@@ -203,8 +208,10 @@ Float32List istft(
   int win,
   int pad,
 ) {
-  // 输入为 onnxruntime 展平的 [n_fft, T]（bin 优先）：索引 = bin*T + frame
-  final int t = (realFlat.length ~/ nFft); // 帧数
+  // Vocos 输出的 real/imag 为 [n_fft/2, T]（bin 优先，numpy irfft 的输入），
+  // 与 numpy_istft 的 irfft(spec, n=n_fft) 一致：读 bins 0..half-1，Nyquist(=half) 置 0。
+  final int half = nFft ~/ 2;
+  final int t = (realFlat.length ~/ half); // 帧数
   // window = hanning(win)
   final Float64List window = Float64List(win);
   for (int i = 0; i < win; i++) {
@@ -216,14 +223,15 @@ Float32List istft(
     // 构造全谱
     final List<double> re = List<double>.filled(nFft, 0);
     final List<double> im = List<double>.filled(nFft, 0);
-    final int half = nFft ~/ 2;
-    // bin 0..half（numpy irfft 只取前 n//2+1 个 bin）
-    for (int k = 0; k <= half; k++) {
+    // bin 0..half-1 来自输入
+    for (int k = 0; k < half; k++) {
       final int o = k * t + fi;
       re[k] = realFlat[o];
       im[k] = imagFlat[o];
     }
-    // 负频率 = 共轭
+    // bin = half (Nyquist) 置 0；负频率 = 共轭
+    re[half] = 0;
+    im[half] = 0;
     for (int k = 1; k < half; k++) {
       re[nFft - k] = re[k];
       im[nFft - k] = -im[k];

@@ -7,6 +7,8 @@ import 'settings/ai_service_settings_page.dart';
 import 'settings/appearance_settings_page.dart';
 import 'settings/conversation_settings_page.dart';
 import 'settings/voice_input_settings_page.dart';
+import 'settings/tts_settings_page.dart';
+import 'settings/tts_cache_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -59,6 +61,18 @@ class SettingsPage extends StatelessWidget {
                     title: '语音输入',
                     subtitle: '离线语音转文字（需下载模型）',
                     onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
+                  ),
+                  _MenuItem(
+                    icon: Icons.record_voice_over_outlined,
+                    title: '语音合成',
+                    subtitle: '角色语音播放（端侧 TTS）',
+                    onTap: () => _push(context, TtsSettingsPage(controller: controller)),
+                  ),
+                  _MenuItem(
+                    icon: Icons.cleaning_services_outlined,
+                    title: '语音缓存',
+                    subtitle: '查看并清理已合成音频缓存',
+                    onTap: () => _push(context, const TtsCachePage()),
                   ),
                   _MenuItem(
                     icon: Icons.storage_outlined,
