@@ -108,17 +108,27 @@ class ChatTtsEngine {
       spkNormed[i] = spkDecoded[i] / (spkNorm < 1e-12 ? 1 : spkNorm);
     }
     final List<Float32List> wavs = <Float32List>[];
+    // 长文本会被 _splitText 切成多片逐片合成。若每片各自从 0 计进度、片尾又
+    // 打到 1.0，进度条就会「100% → 0%」反复跳，被误认为重复合成。
+    // 这里把每片进度按顺序映射到整体 0~1，保证整体单调递增、最后一片才到 100%。
+    final int partCount = texts.where((String s) => s.trim().isNotEmpty).length;
+    int partIndex = 0;
     for (final String rawPart in texts) {
       String part = rawPart.trim();
       if (part.isEmpty) continue;
-      // refine 约占 0~20%，code 生成约占 20~95%，后处理 95~100%
+      // 本片占据整体进度的区间 [partStart, partStart+partSpan]。
+      final double partStart = partIndex / partCount;
+      final double partSpan = 1 / partCount;
+      partIndex++;
+      // refine 约占本片的 0~20%，code 生成约占 20~95%，后处理 95~100%
       if (doRefine) {
         part = _refineText(
           part,
           temperature: 0.7,
           maxNewToken: maxNewText,
           seed: seed,
-          onProgress: (double p) => onProgress?.call(p * 0.20),
+          onProgress: (double p) =>
+              onProgress?.call(partStart + p * 0.20 * partSpan),
         );
       }
       // code 生成
@@ -142,7 +152,8 @@ class ChatTtsEngine {
         maxNewToken: maxNewCode,
         repetitionPenalty: repetitionPenalty,
         seed: seed,
-        onProgress: (double p) => onProgress?.call(0.20 + p * 0.75),
+        onProgress: (double p) =>
+            onProgress?.call(partStart + (0.20 + p * 0.75) * partSpan),
       );
       // 取生成部分
       final int totalLen = codeIds.length ~/ 4;
@@ -188,7 +199,8 @@ class ChatTtsEngine {
         384,
       );
       wavs.add(wav);
-      onProgress?.call(1.0);
+      // 片尾推进到本片末尾；partIndex 已自增，最后一片即整体 1.0。
+      onProgress?.call(partIndex / partCount);
     }
 
     if (wavs.isEmpty) return Float32List(0);
