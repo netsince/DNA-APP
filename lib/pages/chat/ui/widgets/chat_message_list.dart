@@ -260,8 +260,9 @@ class ChatMessageList extends StatelessWidget {
                   if (!isUser && ttsEnabled && message.text.trim().isNotEmpty) ...<Widget>[
                     _MessagePlayButton(
                       text: message.text,
-                      roleSeed: voiceSeedForTa?.call(message.speakerTaId),
                       globalSeed: ttsGlobalSeed,
+                      voiceSeedForTa: voiceSeedForTa,
+                      speakerTaId: message.speakerTaId,
                       quoteOnly: ttsQuoteOnly,
                     ),
                     const SizedBox(height: 6),
@@ -335,16 +336,18 @@ class ChatMessageList extends StatelessWidget {
 /// 点击 → 合成（显示百分比）→ 自动播放；合成结果经 TtsAudioCache 去重，
 /// 已合成过的内容再次点击会命中缓存直接重播。
 class _MessagePlayButton extends StatefulWidget {
-  const _MessagePlayButton({
+  _MessagePlayButton({
     required this.text,
-    this.roleSeed,
     this.globalSeed,
+    this.voiceSeedForTa,
+    this.speakerTaId,
     this.quoteOnly = true,
-  });
+  }) : super(key: Key('tts_play_$speakerTaId'));
 
   final String text;
-  final int? roleSeed;
   final int? globalSeed;
+  final VoiceSeedForTa? voiceSeedForTa;
+  final String? speakerTaId;
   final bool quoteOnly;
 
   @override
@@ -363,10 +366,14 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
     });
     // 让进度先渲染一帧（引擎同步推理在后台 isolate，不阻塞 UI）
     await Future<void>.delayed(const Duration(milliseconds: 60));
+    // 点击时重新读取最新角色 seed：角色的 voiceSeed 是异步加载的，
+    // build 时可能还是 null（退回 globalSeed），导致两次点击缓存 key 不同、
+    // 重复合成。这里直接取当前最新值，保证这一次合成用的 key 与后续一致。
+    final int? roleSeed = widget.voiceSeedForTa?.call(widget.speakerTaId);
     try {
       final Float32List wav = await TtsService.instance.synthesize(
         widget.text,
-        roleSeed: widget.roleSeed,
+        roleSeed: roleSeed,
         globalSeed: widget.globalSeed,
         quoteOnly: widget.quoteOnly,
         onProgress: (double p) {
@@ -374,7 +381,12 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
           setState(() => _status = '${(p * 100).round()}%');
         },
       );
-      if (!mounted) return;
+      // 即使本 Widget 已被卸载（列表重建）也照常播放，避免第一次合成的
+      // 结果被 `!mounted` 丢弃而需要再点一次才出声。
+      if (!mounted) {
+        await TtsPlayer.instance.play(wav);
+        return;
+      }
       setState(() => _status = '播放中…');
       await TtsPlayer.instance.play(wav);
       if (!mounted) return;

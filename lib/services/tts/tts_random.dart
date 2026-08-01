@@ -225,8 +225,6 @@ class TtsRandom {
   /// 浮点边界处可能不同，导致长序列自回归发散。
   int choice(List<double> probs) {
     final double r = nextDouble();
-    // ignore: avoid_print
-    if (probs.length == 626) print('DBG_CODE_R $r');
     final int n = probs.length;
     // cdf 累加
     final List<double> cdf = List<double>.filled(n, 0);
