@@ -22,6 +22,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   int _snackDurationMs = 1000;
   String _accentMode = 'auto';
   int? _customAccentColor;
+  int _chatMaskStrength = 75;
   final bool _androidOk = AppIconService.isSupported;
 
   static const Color _defaultAccent = Color(0xFF147B74);
@@ -37,6 +38,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     _snackDurationMs = s.snackDurationMs;
     _accentMode = s.accentMode;
     _customAccentColor = s.customAccentColor;
+    _chatMaskStrength = s.chatMaskStrength;
   }
 
   Color get _currentCustomColor =>
@@ -286,6 +288,46 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                 width: 64,
                 child: FitText(
                   '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          FitText('聊天背景遮罩强度',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          FitText(
+              '聊天界面背景图上的遮罩层不透明度。数值越大背景越暗、文字越清晰；0 为完全不遮罩，100 为遮罩最强。',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Slider(
+                  value: _chatMaskStrength.toDouble(),
+                  min: 0,
+                  max: 100,
+                  divisions: 100,
+                  label: '$_chatMaskStrength',
+                  onChanged: (v) => setState(() => _chatMaskStrength = v.round()),
+                  onChangeEnd: (v) =>
+                      widget.controller.saveChatMaskStrength(v.round()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 44,
+                child: FitText(
+                  '$_chatMaskStrength',
                   textAlign: TextAlign.right,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),

@@ -36,6 +36,7 @@ class SettingsService {
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showBottomNavKey = 'show_bottom_nav';
+  static const String _chatMaskStrengthKey = 'chat_mask_strength';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -86,6 +87,7 @@ class SettingsService {
       voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
+      chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
     );
   }
 
@@ -140,6 +142,7 @@ class SettingsService {
     await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
+    await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

@@ -293,6 +293,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存聊天界面背景遮罩强度（0~100）。
+  Future<void> saveChatMaskStrength(int chatMaskStrength) async {
+    final int clamped = chatMaskStrength.clamp(0, 100);
+    _settings = _settings.copyWith(chatMaskStrength: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「离线语音输入（STT）」开关。
   Future<void> saveVoiceInputEnabled(bool value) async {
     _settings = _settings.copyWith(voiceInputEnabled: value);

@@ -470,7 +470,9 @@ class _ChatPageState extends State<ChatPage>
           if (useImageBg)
             Positioned.fill(
               child: Container(
-                color: colorScheme.surface.withValues(alpha: 0.75),
+                color: colorScheme.surface.withValues(
+                  alpha: widget.controller.settings.chatMaskStrength / 100,
+                ),
               ),
             ),
           Column(

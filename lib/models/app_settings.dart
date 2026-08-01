@@ -34,6 +34,7 @@ class AppSettings {
     required this.ttsEnabled,
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
+    required this.chatMaskStrength,
   });
 
   factory AppSettings.empty() {
@@ -69,6 +70,7 @@ class AppSettings {
       ttsEnabled: false,
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
+      chatMaskStrength: 75,
     );
   }
 
@@ -141,6 +143,10 @@ class AppSettings {
   /// 无引号内容则读全文；关闭时始终读全文。两者都永远排除括号内容。
   final bool ttsQuoteOnly;
 
+  /// 聊天界面背景遮罩强度，范围 0~100。
+  /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
+  final int chatMaskStrength;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -174,6 +180,7 @@ class AppSettings {
       'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
+      'chatMaskStrength': chatMaskStrength,
     };
   }
 
@@ -217,6 +224,7 @@ class AppSettings {
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
+      chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
     );
   }
 
@@ -252,6 +260,7 @@ class AppSettings {
     bool? ttsEnabled,
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
+    int? chatMaskStrength,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -285,6 +294,7 @@ class AppSettings {
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
+      chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
     );
   }
 }
