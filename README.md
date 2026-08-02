@@ -114,7 +114,7 @@ flutter run
 
 ---
 
-## 📦 构建
+## 构建
 
 ```bash
 # Android APK
