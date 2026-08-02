@@ -21,9 +21,10 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: controller,
+      current: AppSection.settings,
       appBar: AppBar(title: const FitText('设置')),
-      drawer: AppDrawer(controller: controller, current: AppSection.settings),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;

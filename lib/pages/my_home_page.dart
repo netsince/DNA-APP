@@ -37,7 +37,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: widget.controller,
+      current: AppSection.myHome,
       appBar: AppBar(
         title: FitText(_showArchived ? 'TA归档' : '我家'),
         actions: <Widget>[
@@ -54,7 +56,6 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
         ],
       ),
-      drawer: AppDrawer(controller: widget.controller, current: AppSection.myHome),
       body: _TaListBody(
         controller: widget.controller,
         showArchived: _showArchived,

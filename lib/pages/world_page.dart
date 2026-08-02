@@ -35,7 +35,9 @@ class _WorldPageState extends State<WorldPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: widget.controller,
+      current: AppSection.world,
       appBar: AppBar(
         title: FitText(_showArchived ? '世界归档' : '世界'),
         actions: <Widget>[
@@ -52,7 +54,6 @@ class _WorldPageState extends State<WorldPage> {
             ),
         ],
       ),
-      drawer: AppDrawer(controller: widget.controller, current: AppSection.world),
       body: _WorldListBody(
         controller: widget.controller,
         showArchived: _showArchived,

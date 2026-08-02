@@ -28,7 +28,9 @@ class _IdentityPageState extends State<IdentityPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: widget.controller,
+      current: AppSection.identity,
       appBar: AppBar(
         title: const FitText('身份'),
         actions: <Widget>[
@@ -39,7 +41,6 @@ class _IdentityPageState extends State<IdentityPage> {
           ),
         ],
       ),
-      drawer: AppDrawer(controller: widget.controller, current: AppSection.identity),
       body: _IdentityListBody(
         controller: widget.controller,
         onCreateIdentity: _createIdentity,

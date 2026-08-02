@@ -41,7 +41,9 @@ class _GroupHomePageState extends State<GroupHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: widget.controller,
+      current: AppSection.groupChats,
       appBar: AppBar(
         title: FitText(_showArchived ? '群聊归档' : '群聊'),
         actions: <Widget>[
@@ -57,7 +59,6 @@ class _GroupHomePageState extends State<GroupHomePage> {
           ),
         ],
       ),
-      drawer: AppDrawer(controller: widget.controller, current: AppSection.groupChats),
       body: _GroupListBody(
         controller: widget.controller,
         showArchived: _showArchived,

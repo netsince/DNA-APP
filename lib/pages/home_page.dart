@@ -63,7 +63,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
+      controller: widget.controller,
+      current: AppSection.home,
       appBar: AppBar(
         title: FitText(_showArchived ? '归档' : '消息'),
         actions: <Widget>[
@@ -91,7 +93,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      drawer: AppDrawer(controller: widget.controller, current: AppSection.home),
       body: ConversationListBody(
         controller: widget.controller,
         showArchived: _showArchived,
