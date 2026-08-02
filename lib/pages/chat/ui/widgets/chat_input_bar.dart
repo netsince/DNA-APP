@@ -292,7 +292,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   Widget _buildParenButton(ColorScheme cs) {
     return IconButton(
       tooltip: '添加括号',
-      color: cs.primary,
+      color: cs.onSurfaceVariant,
       onPressed: _insertParens,
       icon: const Text(
         '（）',
@@ -563,7 +563,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: FilledButton.icon(
+                    child: FilledButton.tonalIcon(
                       onPressed: _sendFromReview,
                       icon: const Icon(Icons.send),
                       label: const FitText('发送'),
@@ -668,7 +668,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
-          color: listening ? cs.error : cs.primary,
+          color: listening ? cs.error : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.center,
@@ -677,7 +677,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         children: <Widget>[
           Icon(
             listening ? Icons.mic : Icons.mic_none,
-            color: listening ? cs.onError : cs.onPrimary,
+            color: listening ? cs.onError : cs.onSurfaceVariant,
             size: 28,
           ),
         ],
@@ -773,7 +773,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               // 当输入框没有内容时显示灵感按钮
               IconButton(
                 tooltip: '灵感',
-                color: cs.primary,
+                color: cs.onSurfaceVariant,
                 onPressed: widget.inspirationInProgress
                     ? null
                     : () => widget.onStartInspiration(),
@@ -789,7 +789,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               // 输入框有内容时显示发送按钮
               IconButton(
                 tooltip: widget.sending ? '发送中...' : '发送',
-                color: cs.primary,
+                color: cs.onSurfaceVariant,
                 onPressed: widget.sending ? null : widget.onSend,
                 icon: widget.sending
                     ? const SizedBox(
