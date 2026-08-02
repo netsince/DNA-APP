@@ -93,7 +93,7 @@ class _AboutPageState extends State<AboutPage> {
                             'assets/app_icon.png',
                             width: 96,
                             height: 96,
-                            errorBuilder: (_, __, ___) => Icon(
+                            errorBuilder: (_, _, _) => Icon(
                               Icons.auto_awesome,
                               size: 96,
                               color: cs.primary,
