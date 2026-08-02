@@ -61,6 +61,7 @@ class ExportedCharacter {
     required this.tags,
     required this.dialogueStyle,
     required this.images,
+    this.voiceSeed,
   });
 
   final String id;
@@ -72,6 +73,7 @@ class ExportedCharacter {
   final List<String> tags;
   final List<Map<String, String>> dialogueStyle;
   final Map<String, ExportedImageInfo> images;
+  final int? voiceSeed;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -83,6 +85,7 @@ class ExportedCharacter {
         'tags': tags,
         'dialogueStyle': dialogueStyle,
         'images': images.map((key, value) => MapEntry(key, value.toJson())),
+        if (voiceSeed != null) 'voiceSeed': voiceSeed,
       };
 
   static ExportedCharacter fromJson(Map<String, dynamic> json) {
@@ -121,6 +124,7 @@ class ExportedCharacter {
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       dialogueStyle: dialogueStyle,
       images: images,
+      voiceSeed: json['voiceSeed'] as int?,
     );
   }
 
@@ -140,6 +144,7 @@ class ExportedCharacter {
                 assistant: d['assistant'] ?? '',
               ))
           .toList(),
+      voiceSeed: voiceSeed,
       originalLink: protection?['originalLink'] as String?,
       protection: protection,
     );

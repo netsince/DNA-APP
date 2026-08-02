@@ -13,7 +13,7 @@ export 'ta_export_import_models.dart';
 
 /// 角色导出导入服务
 class TaExportImportService {
-  static const int _currentVersion = 1;
+  static const int _currentVersion = 2;
   static const String _exportTypeSingle = 'single';
 
   /// 导出角色为JSON字符串
@@ -95,6 +95,7 @@ class TaExportImportService {
             .map((d) => {'user': d.user, 'assistant': d.assistant})
             .toList(),
         images: exportedImages,
+        voiceSeed: character.voiceSeed,
       );
 
       final package = ExportPackage(
