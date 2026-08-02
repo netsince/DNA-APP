@@ -20,6 +20,8 @@ abstract final class AppInfo {
   static const String community = 'https://dnaisland.nb6.ltd';
   static const String sourceRepo = 'https://github.com/netsince/dna-app';
   static const String communityRepo = 'https://github.com/netsince/dnaisland';
+  static const String supportEmail = 'supportdna@netsince.com';
+  static const String supportEmail2 = 'support@netsince.com';
 }
 
 /// 关于页面：展示软件名称、版本、作者、官网、社区、许可证等信息。
@@ -192,6 +194,18 @@ class _AboutPageState extends State<AboutPage> {
                     title: '社区开源仓库',
                     subtitle: AppInfo.communityRepo,
                     onTap: () => _open(context, AppInfo.communityRepo),
+                  ),
+                  _LinkTile(
+                    icon: Icons.email_outlined,
+                    title: '支持邮箱',
+                    subtitle: AppInfo.supportEmail,
+                    onTap: () => _open(context, 'mailto:${AppInfo.supportEmail}'),
+                  ),
+                  _LinkTile(
+                    icon: Icons.email_outlined,
+                    title: '联系邮箱',
+                    subtitle: AppInfo.supportEmail2,
+                    onTap: () => _open(context, 'mailto:${AppInfo.supportEmail2}'),
                   ),
                   const SizedBox(height: 8),
 
