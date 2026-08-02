@@ -3,8 +3,8 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
-import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'app_icon_page.dart';
 
 class AppearanceSettingsPage extends StatefulWidget {
   const AppearanceSettingsPage({super.key, required this.controller});
@@ -44,12 +44,12 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   Color get _currentCustomColor =>
       _customAccentColor != null ? Color(_customAccentColor!) : _defaultAccent;
 
-  Future<void> _selectIcon(AppIconOption opt) async {
-    if (_iconKey == opt.key) return;
-    setState(() => _iconKey = opt.key);
-    await widget.controller.saveAppIcon(opt);
-    if (!mounted) return;
-    showSnack(context, '应用图标已切换，返回桌面即可看到效果。');
+  /// 当前选中的图标选项。
+  AppIconOption get _currentIcon {
+    for (final AppIconOption opt in AppIconService.availableOptions) {
+      if (opt.key == _iconKey) return opt;
+    }
+    return AppIconOption.defaultIcon;
   }
 
   Future<void> _saveSplash() =>
@@ -123,38 +123,70 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           if (!_androidOk)
-            FitText('应用图标切换仅支持 Android 平台。',
-                style: TextStyle(color: cs.error, fontSize: 12))
-          else
-            FitText('选择启动器上显示的图标。',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant)),
+            FitText('应用图标切换仅支持 Android 平台，当前平台不支持。',
+                style: TextStyle(color: cs.error, fontSize: 12)),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            children: AppIconService.availableOptions.map((AppIconOption opt) {
-              return ChoiceChip(
-                selected: _iconKey == opt.key,
-                onSelected: _androidOk ? (_) => _selectIcon(opt) : null,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
+          // 当前图标预览 + 进入换图标页面入口
+          Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            color: cs.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AppIconPage(controller: widget.controller),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
                   children: <Widget>[
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(opt.assetPath,
-                          width: 36,
-                          height: 36,
-                          errorBuilder: (_, _, _) => const Icon(Icons.android)),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(
+                        _currentIcon.assetPath,
+                        width: 64,
+                        height: 64,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 64,
+                          height: 64,
+                          color: cs.surfaceContainerHighest,
+                          alignment: Alignment.center,
+                          child: Icon(Icons.android, size: 32, color: cs.outline),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    FitText(opt.label),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          FitText(
+                            '当前图标：${_currentIcon.label}',
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 3),
+                          FitText(
+                            _androidOk ? '点击更换启动器图标' : '当前平台不支持切换',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
                   ],
                 ),
-              );
-            }).toList(),
+              ),
+            ),
           ),
           const SizedBox(height: 24),
           const Divider(),
