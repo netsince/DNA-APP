@@ -94,13 +94,21 @@ class ChatTtsEngine {
     final List<String> texts = _splitText(text);
 
     // 采样 speaker 向量。
-    // Python 端 spk_vec 经 Speaker._encode 做 float16 编码往返（有损）后，
-    // apply_speaker 再 _decode 回 float32 并归一化。这里复刻该 float16 往返，
-    // 使 spk_emb 位置输入与 Python 逐位一致。
+    // 与 Python 端 (chattts_onnx.synthesize) 保持一致，仅「固定 seed」路径才做
+    // Speaker._encode/_decode 的 float16 编码往返（有损）：seed 非空时 spk_emb
+    // 是 base16384 字符串，apply_speaker 里 _decode 回来，因此有往返。
+    // 而默认 seed 走 Speaker.sample_random()，直接返回原始 float32 张量，
+    // apply_speaker 里 .numpy() 直接用，不做 float16 往返。
+    // 若默认 seed 也强加往返，spk_emb 会与 Python 不一致，被 GPT 放大成 code
+    // 差异，导致合成开头出现噪音。
     final Float32List spkVec = _sampleSpeaker(seed);
     final Float32List spkDecoded = Float32List(kHidden);
-    for (int i = 0; i < kHidden; i++) {
-      spkDecoded[i] = _f16ToF32(_f32ToF16(spkVec[i]));
+    if (seed != null) {
+      for (int i = 0; i < kHidden; i++) {
+        spkDecoded[i] = _f16ToF32(_f32ToF16(spkVec[i]));
+      }
+    } else {
+      spkDecoded.setAll(0, spkVec);
     }
     final double spkNorm = linalgNorm(spkDecoded);
     final Float32List spkNormed = Float32List(kHidden);

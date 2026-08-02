@@ -81,7 +81,18 @@ mixin ChatPayloadBuilders on ChatStateMixin {
   String _buildPersonaWorldContext() {
     final TA? ta = _ta;
     final World? world = _world;
+    final UserIdentity? identity =
+        widget.controller.getIdentityById(_conversation.identityId);
     final StringBuffer buffer = StringBuffer();
+    // 用户身份人设优先放入（灵感/总结生成的是用户视角内容，需要用户人设锚定）。
+    if (identity != null) {
+      if (identity.persona.trim().isNotEmpty) {
+        buffer.writeln('User Persona: ${identity.persona.trim()}');
+      }
+      if (identity.intro.trim().isNotEmpty) {
+        buffer.writeln('User Intro: ${identity.intro.trim()}');
+      }
+    }
     if (ta != null) {
       if (ta.persona.trim().isNotEmpty) {
         buffer.writeln('Persona: ${ta.persona.trim()}');

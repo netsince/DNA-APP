@@ -217,23 +217,35 @@ class TtsRandom {
     }
   }
 
-  /// numpy `Generator.choice`（replace=True, p 指定）：
-  /// `cdf = p.cumsum(); cdf /= cdf[-1]; idx = cdf.searchsorted(r, side='right')`。
+  /// numpy `Generator.choice(a, p)`（replace=True, size=None）：
+  /// `p = p / p.sum(); cdf = p.cumsum(); cdf /= cdf[-1]; idx = cdf.searchsorted(r, side='right')`。
   ///
-  /// 必须先累加再做整体归一化（`cdf /= cdf[-1]`），且用 `searchsorted(side='right')`
-  /// 语义（返回第一个 `cdf[i] > r` 的索引）。与直接 `if (r < cum) return i` 在
-  /// 浮点边界处可能不同，导致长序列自回归发散。
+  /// numpy 会做两次整体归一化：先 `p /= p.sum()`，再 `cdf /= cdf[-1]`，且用
+  /// `searchsorted(side='right')` 语义（返回第一个 `cdf[i] > r` 的索引）。
+  /// 与直接 `if (r < cum) return i` 在浮点边界处可能不同，导致长序列自回归发散，
+  /// 因此必须逐位复刻这两次归一化与搜索语义。
   int choice(List<double> probs) {
     final double r = nextDouble();
     final int n = probs.length;
+    // 第一次归一化：p = p / p.sum()（numpy 无条件执行）
+    double pSum = 0;
+    for (int i = 0; i < n; i++) {
+      pSum += probs[i];
+    }
+    final List<double> p = List<double>.filled(n, 0);
+    if (pSum > 0) {
+      for (int i = 0; i < n; i++) {
+        p[i] = probs[i] / pSum;
+      }
+    }
     // cdf 累加
     final List<double> cdf = List<double>.filled(n, 0);
     double c = 0;
     for (int i = 0; i < n; i++) {
-      c += probs[i];
+      c += p[i];
       cdf[i] = c;
     }
-    // cdf /= cdf[-1]（numpy 无条件整体归一化）
+    // 第二次归一化：cdf /= cdf[-1]
     final double total = cdf[n - 1];
     if (total > 0) {
       for (int i = 0; i < n; i++) {

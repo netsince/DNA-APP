@@ -13,6 +13,7 @@ import '../utils/ui_feedback.dart';
 import '../models/conversation.dart';
 import '../models/app_settings.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../services/conversation_export_import_service.dart';
