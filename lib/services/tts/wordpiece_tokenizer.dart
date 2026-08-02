@@ -129,24 +129,24 @@ class WordPieceTokenizer {
   }
 
   // ---- 预分词：空白 + 标点 ----
-  bool _isWordChar(String ch) {
-    // 近似 Rust/BERT 的 Unicode \w：字母、数字、_ 。
-    // Dart \w 为 ASCII，故用 \p{L}/\p{N} 覆盖中文等。
-    return RegExp(r'[\p{L}\p{N}_]', unicode: true).hasMatch(ch);
-  }
+  /// 是否为标点（Unicode Punctuation，`\p{P}`）。BERT 预分词器逐字符切分每个标点，
+  /// 而非合并连续标点（否则 `——` 会被当成 1 个 token，与 Python 端 2 个 token 不一致，
+  /// 导致后续 token 位置整体偏移、GPT 输出分叉成噪音）。
+  bool _isPunct(String ch) => RegExp(r'\p{P}', unicode: true).hasMatch(ch);
 
   List<String> _splitPunctuation(String token) {
     final List<String> out = <String>[];
     final StringBuffer cur = StringBuffer();
-    bool? curIsWord;
     for (final String ch in token.split('')) {
-      final bool isWord = _isWordChar(ch);
-      if (curIsWord != null && curIsWord != isWord) {
-        out.add(cur.toString());
-        cur.clear();
+      if (_isPunct(ch)) {
+        if (cur.isNotEmpty) {
+          out.add(cur.toString());
+          cur.clear();
+        }
+        out.add(ch); // 每个标点单独成一个 token
+      } else {
+        cur.write(ch);
       }
-      cur.write(ch);
-      curIsWord = isWord;
     }
     if (cur.isNotEmpty) out.add(cur.toString());
     return out;
