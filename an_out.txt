@@ -1,1 +1,0 @@
-C:\Users\Aixiaoji\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-none\python.exe: can't open file 'D:\\duetnurturingally\\dna-client\\_analyze.py': [Errno 2] No such file or directory
