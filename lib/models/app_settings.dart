@@ -35,6 +35,7 @@ class AppSettings {
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
     this.showParenButton = true,
+    this.enterToSend = true,
     required this.chatMaskStrength,
   });
 
@@ -72,6 +73,7 @@ class AppSettings {
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
       showParenButton: true,
+      enterToSend: true,
       chatMaskStrength: 75,
     );
   }
@@ -148,6 +150,9 @@ class AppSettings {
   /// 聊天输入框旁是否显示「添加括号」按钮（点击在末尾追加（）并把光标置于中间）。
   final bool showParenButton;
 
+  /// 回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
+  final bool enterToSend;
+
   /// 聊天界面背景遮罩强度，范围 0~100。
   /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
   final int chatMaskStrength;
@@ -186,6 +191,7 @@ class AppSettings {
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
       'showParenButton': showParenButton,
+      'enterToSend': enterToSend,
       'chatMaskStrength': chatMaskStrength,
     };
   }
@@ -231,6 +237,7 @@ class AppSettings {
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
       showParenButton: (json['showParenButton'] as bool?) ?? true,
+      enterToSend: (json['enterToSend'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
     );
   }
@@ -268,6 +275,7 @@ class AppSettings {
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
     bool? showParenButton,
+    bool? enterToSend,
     int? chatMaskStrength,
   }) {
     return AppSettings(
@@ -303,6 +311,7 @@ class AppSettings {
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
       showParenButton: showParenButton ?? this.showParenButton,
+      enterToSend: enterToSend ?? this.enterToSend,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
     );
   }

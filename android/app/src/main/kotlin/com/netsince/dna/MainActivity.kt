@@ -9,7 +9,16 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val CHANNEL = "com.netsince.dna/app_icon"
-        private val ALIASES = listOf("MainActivityDefault", "MainActivityAlt")
+        private val ALIASES = listOf(
+            "MainActivityDefault",
+            "MainActivityAlt",
+            "MainActivityGongzouchao",
+            "MainActivityRenr",
+            "MainActivityYurugongzou",
+            "MainActivityZouchao",
+            "MainActivityZouhuan",
+            "MainActivityZoushen",
+        )
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

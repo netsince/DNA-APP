@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../services/speech_to_text_service.dart';
 import '../../../../state/app_controller.dart';
@@ -195,6 +196,81 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     _prevText = value;
     _prevSelection = curSel;
+  }
+
+  /// 回车键行为。true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
+  bool get _enterToSend => widget.controller.settings.enterToSend;
+
+  /// 处理回车键：根据 [enterToSend] 决定发送还是换行。
+  ///
+  /// `enter` 表示是否按下了 Shift（即 Enter 是否带 Shift 修饰）。
+  void _handleEnter({required bool shift}) {
+    final bool send = _enterToSend ? !shift : shift;
+    if (send) {
+      widget.onSend();
+    } else {
+      _insertNewline();
+    }
+  }
+
+  /// 在光标处插入换行（回车换行模式用）。
+  void _insertNewline() {
+    final TextEditingController controller = widget.inputController;
+    final TextSelection sel = controller.selection;
+    if (!sel.isValid) return;
+    final String text = controller.text;
+    final int start = sel.start;
+    final int end = sel.end;
+    final String newText = text.replaceRange(start, end, '\n');
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + 1),
+    );
+    // 同步自动补全追踪，避免后续输入被误判。
+    _prevText = newText;
+    _prevSelection = controller.selection;
+  }
+
+  /// 文本输入框：通过 Shortcuts/Actions 处理回车与换行的键盘策略。
+  Widget _buildTextField() {
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        // 回车 / 小键盘回车（区分是否带 Shift）
+        const SingleActivator(LogicalKeyboardKey.enter):
+            const _EnterIntent(shift: false),
+        const SingleActivator(LogicalKeyboardKey.numpadEnter):
+            const _EnterIntent(shift: false),
+        const SingleActivator(LogicalKeyboardKey.enter, shift: true):
+            const _EnterIntent(shift: true),
+        const SingleActivator(LogicalKeyboardKey.numpadEnter, shift: true):
+            const _EnterIntent(shift: true),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _EnterIntent: CallbackAction<_EnterIntent>(
+            onInvoke: (Intent intent) {
+              final _EnterIntent e = intent as _EnterIntent;
+              _handleEnter(shift: e.shift);
+              // 返回非 null 表示已消费该事件，避免 TextField 再默认处理回车。
+              return true;
+            },
+          ),
+        },
+        child: TextField(
+          controller: widget.inputController,
+          focusNode: widget.inputFocusNode,
+          minLines: 1,
+          maxLines: 4,
+          onChanged: _onChanged,
+          decoration: const InputDecoration(
+            hintText: '输入消息...',
+          ),
+          onTap: widget.onTap,
+          textInputAction:
+              _enterToSend ? TextInputAction.send : TextInputAction.newline,
+        ),
+      ),
+    );
   }
 
   /// 在输入框末尾追加一对全角括号（），并把光标置于括号中间。
@@ -680,18 +756,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Row(
           children: <Widget>[
             Expanded(
-              child: TextField(
-                controller: widget.inputController,
-                focusNode: widget.inputFocusNode,
-                minLines: 1,
-                maxLines: 4,
-                onChanged: _onChanged,
-                decoration: const InputDecoration(
-                  hintText: '输入消息...',
-                ),
-                onSubmitted: (_) => widget.onSend(),
-                onTap: widget.onTap,
-              ),
+              child: _buildTextField(),
             ),
             // 添加括号按钮：始终显示（不管有没有内容），设置里可关闭。
             if (widget.controller.settings.showParenButton) ...<Widget>[
@@ -740,4 +805,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ),
     );
   }
+}
+
+/// 回车键（可选带 Shift）意图：用于在输入框里区分「发送」与「换行」。
+class _EnterIntent extends Intent {
+  const _EnterIntent({required this.shift});
+
+  /// 是否按下了 Shift。
+  final bool shift;
 }

@@ -143,6 +143,41 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
             },
           ),
           const Divider(),
+          // --- Enter key behavior ---
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FitText(
+              '回车键行为',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 4),
+          RadioGroup<String>(
+            groupValue: widget.controller.settings.enterToSend ? 'send' : 'newline',
+            onChanged: (String? v) {
+              if (v == null) return;
+              setState(() {});
+              widget.controller.saveEnterToSend(v == 'send');
+            },
+            child: const Column(
+              children: <Widget>[
+                RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  value: 'send',
+                  title: FitText('回车发送，Shift + 回车换行'),
+                ),
+                RadioListTile<String>(
+                  contentPadding: EdgeInsets.zero,
+                  value: 'newline',
+                  title: FitText('回车换行，Shift + 回车发送'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
           // --- Summary ---
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

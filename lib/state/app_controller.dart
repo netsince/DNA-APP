@@ -103,9 +103,8 @@ class AppController extends ChangeNotifier {
     // 启动后恢复用户选择的应用图标（仅 Android；失败不影响启动）
     if (AppIconService.isSupported) {
       try {
-        final AppIconOption current = _settings.appIcon == AppIconOption.alternate.key
-            ? AppIconOption.alternate
-            : AppIconOption.defaultIcon;
+        final AppIconOption current =
+            AppIconService.optionForKey(_settings.appIcon);
         await AppIconService.setIcon(current);
       } catch (_) {
         // 忽略：系统未准备好或切换失败都不应阻塞应用启动
@@ -334,6 +333,13 @@ class AppController extends ChangeNotifier {
   /// 保存「聊天输入框旁显示括号按钮」开关。
   Future<void> saveShowParenButton(bool value) async {
     _settings = _settings.copyWith(showParenButton: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
+  Future<void> saveEnterToSend(bool value) async {
+    _settings = _settings.copyWith(enterToSend: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }

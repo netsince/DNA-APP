@@ -110,6 +110,7 @@ flutter:
   assets:
     - assets/app_icon.png
     - assets/app_icon_alt.png
+    - assets/icons/
     - assets/tts/tts_speaker.json
     # 本项目许可证全文（关于页「许可证」标签页读取展示）
     - LICENSE-nSPPL

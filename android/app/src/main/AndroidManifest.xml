@@ -62,6 +62,85 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- 新版可选图标：共奏潮 / 人R / 与汝共奏 / 奏潮 / 奏环 / 奏神 -->
+        <activity-alias
+            android:name=".MainActivityGongzouchao"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_gongzouchao"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityRenr"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_renr"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityYurugongzou"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_yurugongzou"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityZouchao"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_zouchao"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityZouhuan"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_zouhuan"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityZoushen"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_zoushen"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"

@@ -14,9 +14,6 @@ class AppIconService {
   static const MethodChannel _channel =
       MethodChannel('com.netsince.dna/app_icon');
 
-  static const String _defaultAlias = 'MainActivityDefault';
-  static const String _altAlias = 'MainActivityAlt';
-
   /// 当前平台是否支持运行时切换图标。
   static bool get isSupported => !kIsWeb && Platform.isAndroid;
 
@@ -24,6 +21,12 @@ class AppIconService {
   static const List<AppIconOption> availableOptions = <AppIconOption>[
     AppIconOption.defaultIcon,
     AppIconOption.alternate,
+    AppIconOption.renr,
+    AppIconOption.gongzouchao,
+    AppIconOption.yurugongzou,
+    AppIconOption.zouchao,
+    AppIconOption.zouhuan,
+    AppIconOption.zoushen,
   ];
 
   /// 切换到指定图标。非 Android 平台会抛出 [UnsupportedError]。
@@ -31,24 +34,40 @@ class AppIconService {
     if (!isSupported) {
       throw UnsupportedError('应用图标切换仅支持 Android 平台。');
     }
-    final String alias =
-        option == AppIconOption.defaultIcon ? _defaultAlias : _altAlias;
     await _channel.invokeMethod<void>(
       'setIcon',
-      <String, String>{'name': alias},
+      <String, String>{'name': option.alias},
     );
+  }
+
+  /// 根据 key 查找图标选项；未知 key 回退到默认图标。
+  static AppIconOption optionForKey(String key) {
+    for (final AppIconOption opt in availableOptions) {
+      if (opt.key == key) return opt;
+    }
+    return AppIconOption.defaultIcon;
   }
 }
 
 /// 应用图标选项。
 enum AppIconOption {
   /// 默认图标
-  defaultIcon('default', '默认', 'assets/app_icon.png'),
+  defaultIcon('default', '默认', 'assets/app_icon.png', 'MainActivityDefault'),
 
   /// 备用图标（用户提供的 PNG）
-  alternate('alternate', '看板', 'assets/app_icon_alt.png');
+  alternate('alternate', '看板', 'assets/app_icon_alt.png', 'MainActivityAlt'),
 
-  const AppIconOption(this.key, this.label, this.assetPath);
+  /// 新版可选图标
+  gongzouchao('gongzouchao', '共奏潮', 'assets/icons/icon_gongzouchao.png',
+      'MainActivityGongzouchao'),
+  renr('renr', '人R', 'assets/icons/icon_renr.png', 'MainActivityRenr'),
+  yurugongzou('yurugongzou', '与汝共奏:DNA', 'assets/icons/icon_yurugongzou.png',
+      'MainActivityYurugongzou'),
+  zouchao('zouchao', '奏潮', 'assets/icons/icon_zouchao.png', 'MainActivityZouchao'),
+  zouhuan('zouhuan', '奏环', 'assets/icons/icon_zouhuan.png', 'MainActivityZouhuan'),
+  zoushen('zoushen', '奏神', 'assets/icons/icon_zoushen.png', 'MainActivityZoushen');
+
+  const AppIconOption(this.key, this.label, this.assetPath, this.alias);
 
   /// 持久化存储用的键。
   final String key;
@@ -58,4 +77,7 @@ enum AppIconOption {
 
   /// 设置页预览用的资源路径。
   final String assetPath;
+
+  /// Android activity-alias 名。
+  final String alias;
 }
