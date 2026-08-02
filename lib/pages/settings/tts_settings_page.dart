@@ -47,13 +47,22 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     _seedCtrl = TextEditingController(
       text: widget.controller.settings.ttsGlobalSeed?.toString() ?? '',
     );
+    // 监听控制器：模型下载完成 / 开关状态变化时立即重新刷新就绪状态，
+    // 避免「下载完成后必须退出页面再进入，启用按钮才可点」的问题。
+    widget.controller.addListener(_onControllerChanged);
     _refresh();
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
     _seedCtrl.dispose();
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    _refresh();
   }
 
   Future<void> _refresh() async {

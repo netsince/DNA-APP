@@ -21,6 +21,25 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
   double? _progress;
   String _status = '';
 
+  @override
+  void initState() {
+    super.initState();
+    // 监听控制器：模型下载完成 / 切换模型 / 开关状态变化时立即刷新界面，
+    // 避免「下载完成后必须退出页面再进入，启用按钮才可点」的问题。
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   static String _formatBytes(int b) {
     if (b >= 1024 * 1024) return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
     if (b >= 1024) return '${(b / 1024).toStringAsFixed(0)} KB';
