@@ -132,50 +132,64 @@ class _AuthorCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Card(
       margin: EdgeInsets.zero,
+      elevation: 0,
+      color: cs.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: cs.primaryContainer,
-                    child: FitText(
-                      author.name.characters.first,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onPrimaryContainer,
+              // 名称 + 分工
+              FitText(
+                author.name,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              if (author.role != null && author.role!.trim().isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.workspace_premium_outlined,
+                        size: 13, color: cs.primary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: FitText(
+                        author.role!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FitText(
-                      author.name,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _field(context, '分工', author.role, empty: '未标注'),
-              _field(context, '别名', author.aliases?.join(' · '), empty: '无'),
-              _field(
-                context,
-                '个人网站',
-                author.website,
-                empty: '无',
-                isLink: onTap != null,
-              ),
+                  ],
+                ),
+              ],
+              // 别名、个人网站（仅存在时显示）
+              if (author.aliases != null && author.aliases!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _metaRow(
+                  context,
+                  icon: Icons.alternate_email,
+                  text: author.aliases!.join(' · '),
+                ),
+              ],
+              if (author.website != null && author.website!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _metaRow(
+                  context,
+                  icon: Icons.language,
+                  text: author.website!,
+                  isLink: onTap != null,
+                ),
+              ],
             ],
           ),
         ),
@@ -183,36 +197,24 @@ class _AuthorCard extends StatelessWidget {
     );
   }
 
-  Widget _field(BuildContext context, String label, String? value,
-      {required String empty, bool isLink = false}) {
+  Widget _metaRow(BuildContext context,
+      {required IconData icon, required String text, bool isLink = false}) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            width: 76,
-            child: FitText(
-              label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: cs.onSurfaceVariant),
-            ),
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 15, color: isLink ? cs.primary : cs.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Expanded(
+          child: FitText(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isLink ? cs.primary : cs.onSurfaceVariant,
+                  fontWeight: isLink ? FontWeight.w500 : null,
+                ),
           ),
-          Expanded(
-            child: FitText(
-              (value == null || value.trim().isEmpty) ? empty : value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: isLink ? FontWeight.w600 : null,
-                    color: isLink ? cs.primary : null,
-                  ),
-            ),
-          ),
-          if (isLink) const Icon(Icons.open_in_new, size: 14),
-        ],
-      ),
+        ),
+        if (isLink) Icon(Icons.open_in_new, size: 13, color: cs.primary),
+      ],
     );
   }
 }

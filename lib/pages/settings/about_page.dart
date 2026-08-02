@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/widgets/fit_text.dart';
 import 'authors_page.dart';
-import 'license_page.dart';
+import 'license_page.dart' as dna_license;
 import 'open_source_page.dart';
 
 /// 应用信息：名称、版本、作者、官网等。
@@ -214,7 +214,7 @@ class _AboutPageState extends State<AboutPage> {
                     children: <Widget>[
                       FilledButton.tonalIcon(
                         onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (_) => const LicensePage()),
+                          MaterialPageRoute<void>(builder: (_) => const dna_license.LicensePage()),
                         ),
                         icon: const Icon(Icons.description_outlined),
                         label: const FitText('本项目许可证全文'),
