@@ -34,6 +34,7 @@ class AppSettings {
     required this.ttsEnabled,
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
+    this.showParenButton = true,
     required this.chatMaskStrength,
   });
 
@@ -70,6 +71,7 @@ class AppSettings {
       ttsEnabled: false,
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
+      showParenButton: true,
       chatMaskStrength: 75,
     );
   }
@@ -143,6 +145,9 @@ class AppSettings {
   /// 无引号内容则读全文；关闭时始终读全文。两者都永远排除括号内容。
   final bool ttsQuoteOnly;
 
+  /// 聊天输入框旁是否显示「添加括号」按钮（点击在末尾追加（）并把光标置于中间）。
+  final bool showParenButton;
+
   /// 聊天界面背景遮罩强度，范围 0~100。
   /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
   final int chatMaskStrength;
@@ -180,6 +185,7 @@ class AppSettings {
       'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
+      'showParenButton': showParenButton,
       'chatMaskStrength': chatMaskStrength,
     };
   }
@@ -224,6 +230,7 @@ class AppSettings {
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
+      showParenButton: (json['showParenButton'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
     );
   }
@@ -260,6 +267,7 @@ class AppSettings {
     bool? ttsEnabled,
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
+    bool? showParenButton,
     int? chatMaskStrength,
   }) {
     return AppSettings(
@@ -294,6 +302,7 @@ class AppSettings {
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
+      showParenButton: showParenButton ?? this.showParenButton,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
     );
   }

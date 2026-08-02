@@ -331,6 +331,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「聊天输入框旁显示括号按钮」开关。
+  Future<void> saveShowParenButton(bool value) async {
+    _settings = _settings.copyWith(showParenButton: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);

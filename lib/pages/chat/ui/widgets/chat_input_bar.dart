@@ -197,6 +197,34 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _prevSelection = curSel;
   }
 
+  /// 在输入框末尾追加一对全角括号（），并把光标置于括号中间。
+  void _insertParens() {
+    final TextEditingController controller = widget.inputController;
+    final String text = controller.text;
+    final String newText = '$text（）';
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: text.length + 1),
+    );
+    // 同步自动补全的追踪状态，避免后续手动输入被误判为「插入左括号」而再次补全。
+    _prevText = newText;
+    _prevSelection = controller.selection;
+    widget.inputFocusNode.requestFocus();
+  }
+
+  /// 添加括号按钮：始终显示（不受输入内容影响），由设置控制是否展示。
+  Widget _buildParenButton(ColorScheme cs) {
+    return IconButton(
+      tooltip: '添加括号',
+      color: cs.primary,
+      onPressed: _insertParens,
+      icon: const Text(
+        '（）',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   /// 点击麦克风：进入语音输入模式（隐藏普通输入框，显示语音条）。
   void _enterVoiceMode() {
     if (!_voiceReady) {
@@ -665,6 +693,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 onTap: widget.onTap,
               ),
             ),
+            // 添加括号按钮：始终显示（不管有没有内容），设置里可关闭。
+            if (widget.controller.settings.showParenButton) ...<Widget>[
+              _buildParenButton(cs),
+              const SizedBox(width: 4),
+            ],
             const SizedBox(width: 8),
             // 语音输入按钮：仅在「离线语音输入」开关开启时显示。
             if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[

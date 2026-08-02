@@ -132,6 +132,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
             },
           ),
           const Divider(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('输入框旁显示括号按钮'),
+            subtitle: const FitText('在聊天输入框旁显示「（）」按钮，点击在末尾追加括号并把光标置于中间。'),
+            value: widget.controller.settings.showParenButton,
+            onChanged: (v) {
+              setState(() {});
+              widget.controller.saveShowParenButton(v);
+            },
+          ),
+          const Divider(),
           // --- Summary ---
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

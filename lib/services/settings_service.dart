@@ -35,6 +35,7 @@ class SettingsService {
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _voiceInputEnabledKey = 'voice_input_enabled';
+  static const String _showParenButtonKey = 'show_paren_button';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
   static const String _autoBackupKey = 'auto_backup';
@@ -85,6 +86,7 @@ class SettingsService {
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
       ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
       voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
+      showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
       chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
@@ -140,6 +142,7 @@ class SettingsService {
       await prefs.remove(_ttsGlobalSeedKey);
     }
     await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
+    await prefs.setBool(_showParenButtonKey, settings.showParenButton);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
     await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
