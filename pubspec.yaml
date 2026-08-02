@@ -62,6 +62,7 @@ dependencies:
   ffi: ^2.0.1
   audioplayers: ^6.7.1
   crypto: ^3.0.7
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
@@ -110,6 +111,9 @@ flutter:
     - assets/app_icon.png
     - assets/app_icon_alt.png
     - assets/tts/tts_speaker.json
+    # 本项目许可证全文（关于页「许可证」标签页读取展示）
+    - LICENSE-nSPPL
+    - LICENSE-CC
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

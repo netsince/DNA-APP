@@ -66,7 +66,7 @@
 
 ## 社区
 
-有社区，但是单独的网站。[角色卡社区](https://dnaopensource.netsince.com/park)
+有社区，但是单独的网站。[角色卡社区](https://dnaoisland.nb6.ltd)
 
 我们希望社区是跟APP解耦的，虽然这样有些麻烦。
 
@@ -140,7 +140,7 @@ flutter build linux
 
 - [项目官网](https://dnaopensource.netsince.com)
 - [下载页面](https://dnaopensource.netsince.com/download)
-- [角色卡社区](https://dnaopensource.netsince.com/park)
+- [角色卡社区](https://dnaoisland.nb6.ltd)
 - [社区开源仓库 (DNAISLAND)](https://github.com/netsince/dnaisland)
 
 ---

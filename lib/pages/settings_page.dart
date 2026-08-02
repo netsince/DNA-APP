@@ -11,6 +11,7 @@ import 'settings/tts_settings_page.dart';
 import 'settings/tts_cache_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
+import 'settings/about_page.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -85,6 +86,12 @@ class SettingsPage extends StatelessWidget {
                     title: '高级',
                     subtitle: '命令系统',
                     onTap: () => _push(context, AdvancedSettingsPage(controller: controller)),
+                  ),
+                  _MenuItem(
+                    icon: Icons.info_outline,
+                    title: '关于',
+                    subtitle: '作者、官方网站与第三方开源组件',
+                    onTap: () => _push(context, const AboutPage()),
                   ),
                 ],
               ),
