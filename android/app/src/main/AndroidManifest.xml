@@ -37,7 +37,7 @@
         <!-- 应用图标切换：主 Activity 不直接挂桌面入口，由以下 activity-alias 承载，
              通过启用/禁用不同的 alias 来切换启动图标。
              此区域由 tool/icon_build.dart 自动维护，请勿手动编辑。 -->
-                        <!-- ICON_ALIASES_START -->
+                                <!-- ICON_ALIASES_START -->
         <activity-alias
             android:name=".MainActivityDefault"
             android:enabled="true"
@@ -143,6 +143,7 @@
             </intent-filter>
         </activity-alias>
         <!-- ICON_ALIASES_END -->
+
 
 
 

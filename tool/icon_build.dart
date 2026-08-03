@@ -30,7 +30,8 @@ class IconSpec {
 
 void main(List<String> args) {
   final root = Directory.current.path;
-  final config = jsonDecode(File('${root}/tool/icons_config.json').readAsStringSync())
+  final config = jsonDecode(
+          File('$root/tool/icons_config.json').readAsStringSync())
       as Map<String, dynamic>;
 
   final mipmapDir = config['androidMipmapDir'] as String;
@@ -53,7 +54,7 @@ void main(List<String> args) {
       })
       .toList();
 
-  print('共 ${rawIcons.length} 个图标，开始生成...');
+  stdout.writeln('共 ${rawIcons.length} 个图标，开始生成...');
 
   // 1) 生成 Android mipmap
   final androidSizes = <String, int>{
@@ -64,24 +65,24 @@ void main(List<String> args) {
     'mipmap-xxxhdpi': 192,
   };
   for (final spec in rawIcons) {
-    final srcImg = img.decodeImage(File('${root}/${spec.source}').readAsBytesSync())!;
+    final srcImg = img.decodeImage(File('$root/${spec.source}').readAsBytesSync())!;
     for (final entry in androidSizes.entries) {
       final size = entry.value;
       final resized = img.copyResize(srcImg, width: size, height: size,
           interpolation: img.Interpolation.average);
-      final dir = '${root}/$mipmapDir/${entry.key}';
+      final dir = '$root/$mipmapDir/${entry.key}';
       Directory(dir).createSync(recursive: true);
       final outPath = '$dir/${spec.androidIconName}.png';
       File(outPath).writeAsBytesSync(img.encodePng(resized));
     }
-    print('  [Android] ${spec.androidIconName} -> mipmap 完成');
+    stdout.writeln('  [Android] ${spec.androidIconName} -> mipmap 完成');
   }
 
   // 2) 生成 Windows 多尺寸 ico
   const winSizes = <int>[16, 24, 32, 48, 64, 128, 256];
-  Directory('${root}/$winResDir').createSync(recursive: true);
+  Directory('$root/$winResDir').createSync(recursive: true);
   for (final spec in rawIcons) {
-    final srcImg = img.decodeImage(File('${root}/${spec.source}').readAsBytesSync())!;
+    final srcImg = img.decodeImage(File('$root/${spec.source}').readAsBytesSync())!;
     final pngFrames = <Uint8List>[];
     for (final size in winSizes) {
       final resized = img.copyResize(srcImg, width: size, height: size,
@@ -90,21 +91,20 @@ void main(List<String> args) {
     }
     final icoBytes = _encodeIco(pngFrames, winSizes);
     final icoName = spec.winIcoName;
-    File('${root}/$winResDir/$icoName.ico')
-        .writeAsBytesSync(icoBytes);
-    print('  [Windows] $icoName.ico 完成');
+    File('$root/$winResDir/$icoName.ico').writeAsBytesSync(icoBytes);
+    stdout.writeln('  [Windows] $icoName.ico 完成');
   }
 
   // 3) 重写 Dart 枚举
-  _writeDartEnum('${root}/$dartEnumFile', rawIcons);
+  _writeDartEnum('$root/$dartEnumFile', rawIcons);
 
   // 4) 重写 AndroidManifest activity-alias 区
-  _writeAndroidManifest('${root}/$androidManifest', rawIcons, targetActivity);
+  _writeAndroidManifest('$root/$androidManifest', rawIcons, targetActivity);
 
   // 5) 重写 resource.h 与 Runner.rc
-  _writeWindowsResources('${root}/$winHeader', '${root}/$winRc', rawIcons);
+  _writeWindowsResources('$root/$winHeader', '$root/$winRc', rawIcons);
 
-  print('完成。');
+  stdout.writeln('完成。');
 }
 
 /// 构造多尺寸 ICO（PNG 帧）。
@@ -230,7 +230,7 @@ void _writeDartEnum(String path, List<IconSpec> specs) {
   b.writeln('}');
   b.writeln();
   File(path).writeAsStringSync(b.toString());
-  print('  [Dart] 已重写 $path');
+  stdout.writeln('  [Dart] 已重写 $path');
 }
 
 /// 重写 AndroidManifest.xml 中的 activity-alias 区（用 marker 包围）。
@@ -277,7 +277,7 @@ void _writeAndroidManifest(String path, List<IconSpec> specs, String targetActiv
     content = content.replaceRange(insertAt, insertAt, sb.toString());
   }
   File(path).writeAsStringSync(content);
-  print('  [AndroidManifest] 已更新 activity-alias 区');
+  stdout.writeln('  [AndroidManifest] 已更新 activity-alias 区');
 }
 
 /// 重写 resource.h 与 Runner.rc。
@@ -311,7 +311,7 @@ void _writeWindowsResources(String headerPath, String rcPath, List<IconSpec> spe
   hb.writeln('#endif');
   hb.writeln();
   File(headerPath).writeAsStringSync(hb.toString());
-  print('  [resource.h] 已重写');
+  stdout.writeln('  [resource.h] 已重写');
 
   // Runner.rc：只重写 ICON 声明区（用 marker 包围）。
   var rc = File(rcPath).readAsStringSync();
@@ -337,5 +337,5 @@ void _writeWindowsResources(String headerPath, String rcPath, List<IconSpec> spe
     rc = rc.replaceRange(lineEnd + 1, lineEnd + 1, '\n${rb.toString()}');
   }
   File(rcPath).writeAsStringSync(rc);
-  print('  [Runner.rc] 已更新 ICON 区');
+  stdout.writeln('  [Runner.rc] 已更新 ICON 区');
 }
