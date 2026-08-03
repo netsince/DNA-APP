@@ -82,7 +82,9 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                     initialValue: turn.user,
                     decoration: const InputDecoration(labelText: '我一句'),
                     onChanged: (String value) {
-                      _turns[index] = turn.copyWith(user: value);
+                      setState(() {
+                        _turns[index] = _turns[index].copyWith(user: value);
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
@@ -90,7 +92,9 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                     initialValue: turn.assistant,
                     decoration: const InputDecoration(labelText: '你一句'),
                     onChanged: (String value) {
-                      _turns[index] = turn.copyWith(assistant: value);
+                      setState(() {
+                        _turns[index] = _turns[index].copyWith(assistant: value);
+                      });
                     },
                   ),
                   if (_turns.length > 1) ...<Widget>[
