@@ -35,7 +35,9 @@
               />
         </activity>
         <!-- 应用图标切换：主 Activity 不直接挂桌面入口，由以下 activity-alias 承载，
-             通过启用/禁用不同的 alias 来切换启动图标。 -->
+             通过启用/禁用不同的 alias 来切换启动图标。
+             此区域由 tool/icon_build.dart 自动维护，请勿手动编辑。 -->
+                        <!-- ICON_ALIASES_START -->
         <activity-alias
             android:name=".MainActivityDefault"
             android:enabled="true"
@@ -62,12 +64,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
-        <!-- 新版可选图标：共奏潮 / 人R / 与汝共奏 / 奏潮 / 奏环 / 奏神 -->
         <activity-alias
-            android:name=".MainActivityGongzouchao"
+            android:name=".MainActivityRenr"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_gongzouchao"
+            android:icon="@mipmap/ic_launcher_renr"
             android:label="@string/app_name"
             android:targetActivity=".MainActivity"
             android:taskAffinity="">
@@ -77,10 +78,10 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".MainActivityRenr"
+            android:name=".MainActivityGongzouchao"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_renr"
+            android:icon="@mipmap/ic_launcher_gongzouchao"
             android:label="@string/app_name"
             android:targetActivity=".MainActivity"
             android:taskAffinity="">
@@ -141,6 +142,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- ICON_ALIASES_END -->
+
+
+
+
+
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"

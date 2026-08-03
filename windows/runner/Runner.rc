@@ -52,7 +52,22 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
+// 此区域由 tool/icon_build.dart 自动维护，请勿手动编辑。
+                        // ICON_DECLS_START
+IDI_APP_ICON   ICON   "resources\\app_icon.ico"
+IDI_APP_ICON_ALT   ICON   "resources\\app_icon_alt.ico"
+IDI_APP_ICON_RENR   ICON   "resources\\ic_launcher_renr.ico"
+IDI_APP_ICON_GONGZOUCHAO   ICON   "resources\\ic_launcher_gongzouchao.ico"
+IDI_APP_ICON_YURUGONGZOU   ICON   "resources\\ic_launcher_yurugongzou.ico"
+IDI_APP_ICON_ZOUCHAO   ICON   "resources\\ic_launcher_zouchao.ico"
+IDI_APP_ICON_ZOUHUAN   ICON   "resources\\ic_launcher_zouhuan.ico"
+IDI_APP_ICON_ZOUSHEN   ICON   "resources\\ic_launcher_zoushen.ico"
+    // ICON_DECLS_END
+
+
+
+
+
 
 
 /////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,92 @@
+{
+  "sourceDir": "assets",
+  "androidManifest": "android/app/src/main/AndroidManifest.xml",
+  "androidMipmapDir": "android/app/src/main/res",
+  "windowsResourceDir": "windows/runner/resources",
+  "windowsResourceHeader": "windows/runner/resource.h",
+  "windowsResourceScript": "windows/runner/Runner.rc",
+  "dartEnumFile": "lib/services/app_icon_service.dart",
+  "androidTargetActivity": ".MainActivity",
+  "icons": [
+    {
+      "key": "default",
+      "enumName": "defaultIcon",
+      "label": "默认",
+      "alias": "MainActivityDefault",
+      "source": "assets/app_icon.png",
+      "resourceId": "IDI_APP_ICON",
+      "androidIconName": "ic_launcher",
+      "winIcoName": "app_icon"
+    },
+    {
+      "key": "alternate",
+      "enumName": "alternate",
+      "label": "看板",
+      "alias": "MainActivityAlt",
+      "source": "assets/app_icon_alt.png",
+      "resourceId": "IDI_APP_ICON_ALT",
+      "androidIconName": "ic_launcher_alt",
+      "winIcoName": "app_icon_alt"
+    },
+    {
+      "key": "renr",
+      "enumName": "renr",
+      "label": "人R",
+      "alias": "MainActivityRenr",
+      "source": "assets/icons/icon_renr.png",
+      "resourceId": "IDI_APP_ICON_RENR",
+      "androidIconName": "ic_launcher_renr",
+      "winIcoName": "ic_launcher_renr"
+    },
+    {
+      "key": "gongzouchao",
+      "enumName": "gongzouchao",
+      "label": "共奏潮",
+      "alias": "MainActivityGongzouchao",
+      "source": "assets/icons/icon_gongzouchao.png",
+      "resourceId": "IDI_APP_ICON_GONGZOUCHAO",
+      "androidIconName": "ic_launcher_gongzouchao",
+      "winIcoName": "ic_launcher_gongzouchao"
+    },
+    {
+      "key": "yurugongzou",
+      "enumName": "yurugongzou",
+      "label": "与汝共奏:DNA",
+      "alias": "MainActivityYurugongzou",
+      "source": "assets/icons/icon_yurugongzou.png",
+      "resourceId": "IDI_APP_ICON_YURUGONGZOU",
+      "androidIconName": "ic_launcher_yurugongzou",
+      "winIcoName": "ic_launcher_yurugongzou"
+    },
+    {
+      "key": "zouchao",
+      "enumName": "zouchao",
+      "label": "奏潮",
+      "alias": "MainActivityZouchao",
+      "source": "assets/icons/icon_zouchao.png",
+      "resourceId": "IDI_APP_ICON_ZOUCHAO",
+      "androidIconName": "ic_launcher_zouchao",
+      "winIcoName": "ic_launcher_zouchao"
+    },
+    {
+      "key": "zouhuan",
+      "enumName": "zouhuan",
+      "label": "奏环",
+      "alias": "MainActivityZouhuan",
+      "source": "assets/icons/icon_zouhuan.png",
+      "resourceId": "IDI_APP_ICON_ZOUHUAN",
+      "androidIconName": "ic_launcher_zouhuan",
+      "winIcoName": "ic_launcher_zouhuan"
+    },
+    {
+      "key": "zoushen",
+      "enumName": "zoushen",
+      "label": "奏神",
+      "alias": "MainActivityZoushen",
+      "source": "assets/icons/icon_zoushen.png",
+      "resourceId": "IDI_APP_ICON_ZOUSHEN",
+      "androidIconName": "ic_launcher_zoushen",
+      "winIcoName": "ic_launcher_zoushen"
+    }
+  ]
+}

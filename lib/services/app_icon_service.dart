@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 /// 仅 Android 支持运行时切换启动图标（通过 activity-alias 启用/禁用实现）。
 /// 其他平台（iOS / 桌面 / Web）操作系统不允许运行时更换图标，[isSupported] 为 false，
 /// 调用 [setIcon] 会抛出 [UnsupportedError]。
+///
+/// 本文件由 tool/icon_build.dart 自动生成，请勿手动编辑。
 class AppIconService {
   AppIconService._();
 
@@ -51,18 +53,11 @@ class AppIconService {
 
 /// 应用图标选项。
 enum AppIconOption {
-  /// 默认图标
   defaultIcon('default', '默认', 'assets/app_icon.png', 'MainActivityDefault'),
-
-  /// 备用图标（用户提供的 PNG）
   alternate('alternate', '看板', 'assets/app_icon_alt.png', 'MainActivityAlt'),
-
-  /// 新版可选图标
-  gongzouchao('gongzouchao', '共奏潮', 'assets/icons/icon_gongzouchao.png',
-      'MainActivityGongzouchao'),
   renr('renr', '人R', 'assets/icons/icon_renr.png', 'MainActivityRenr'),
-  yurugongzou('yurugongzou', '与汝共奏:DNA', 'assets/icons/icon_yurugongzou.png',
-      'MainActivityYurugongzou'),
+  gongzouchao('gongzouchao', '共奏潮', 'assets/icons/icon_gongzouchao.png', 'MainActivityGongzouchao'),
+  yurugongzou('yurugongzou', '与汝共奏:DNA', 'assets/icons/icon_yurugongzou.png', 'MainActivityYurugongzou'),
   zouchao('zouchao', '奏潮', 'assets/icons/icon_zouchao.png', 'MainActivityZouchao'),
   zouhuan('zouhuan', '奏环', 'assets/icons/icon_zouhuan.png', 'MainActivityZouhuan'),
   zoushen('zoushen', '奏神', 'assets/icons/icon_zoushen.png', 'MainActivityZoushen');
@@ -81,3 +76,4 @@ enum AppIconOption {
   /// Android activity-alias 名。
   final String alias;
 }
+
