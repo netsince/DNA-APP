@@ -84,7 +84,7 @@ class ChatSystemPrompt {
     }
     // Lorebook：注入当前对话激活的世界知识词条。
     if (activeEntries != null && activeEntries.isNotEmpty) {
-      final String lore = WorldLorebook.format(activeEntries);
+      final String lore = WorldLorebook.format(world: world, entries: activeEntries);
       if (lore.isNotEmpty) {
         system.writeln(lore);
       }

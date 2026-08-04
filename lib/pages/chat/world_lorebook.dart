@@ -30,16 +30,54 @@ class WorldLorebook {
   }
 
   /// 把命中的词条格式化为注入提示词的文本。无有效描述时返回空串。
-  static String format(List<WorldEntry> entries) {
+  /// 额外透出人物的性别/年龄/状态（如已故）以及与其它词条的关系。
+  static String format({required World world, required List<WorldEntry> entries}) {
     final List<WorldEntry> withContent = entries
         .where((WorldEntry e) => e.description.trim().isNotEmpty)
         .toList();
     if (withContent.isEmpty) {
       return '';
     }
+    // 词条 id -> 名字，用于把关系里的 targetId 解析成可读名字。
+    final Map<String, String> nameById = <String, String>{
+      for (final WorldEntry e in world.entries)
+        if (e.name.trim().isNotEmpty) e.id: e.name.trim(),
+    };
     final StringBuffer sb = StringBuffer('当前激活的世界知识（与当前对话场景相关，供参考，请勿复述）：');
     for (final WorldEntry e in withContent) {
-      sb.write('\n- ${e.name}：${e.description.trim()}');
+      // 人物属性透出（性别 / 年龄 / 状态）。
+      final List<String> attrs = <String>[];
+      if (e.type == WorldEntryType.person) {
+        switch (e.gender) {
+          case WorldPersonGender.male:
+            attrs.add('男');
+          case WorldPersonGender.female:
+            attrs.add('女');
+          case WorldPersonGender.other:
+            attrs.add('其他');
+          case null:
+            break;
+        }
+        if (e.age != null && e.age.trim().isNotEmpty) {
+          attrs.add('${e.age.trim()}岁');
+        }
+        if (e.status == WorldPersonStatus.dead) {
+          attrs.add('已故');
+        }
+      }
+      final String attrStr = attrs.isEmpty ? '' : '（${attrs.join('，')}）';
+      // 关系透出：解析 targetId 为词条名。
+      String relationText = '';
+      final WorldEntryRelation? relation = e.relation;
+      if (relation != null && relation.content.trim().isNotEmpty) {
+        final String targetName = relation.targetId.isNotEmpty
+            ? (nameById[relation.targetId] ?? '')
+            : '';
+        relationText = targetName.isNotEmpty
+            ? '。与$targetName的关系：${relation.content.trim()}'
+            : '。关系：${relation.content.trim()}';
+      }
+      sb.write('\n- ${e.name}$attrStr：${e.description.trim()}$relationText');
     }
     return sb.toString();
   }
