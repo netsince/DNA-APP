@@ -50,7 +50,11 @@ mixin ChatActionsSend on ChatStateMixin {
     return widget.controller.getTaById(taId)?.name;
   }
 
+  /// 记录词条 id -> 剩余 sticky 轮数（词条被激活后持续保留的轮数）。
+  final Map<String, int> _stickyLoreEntries = <String, int>{};
+
   /// 收集当前对话文本中命中的世界词条（Lorebook 动态激活）。
+  /// 启用 sticky 时，已被激活的词条会在若干轮内持续保留，避免世界设定反复横跳。
   List<WorldEntry> _activeLoreEntries(List<ConversationMessage> messages) {
     final World? world = _world;
     if (world == null || world.entries.isEmpty) {
@@ -68,7 +72,48 @@ mixin ChatActionsSend on ChatStateMixin {
       sb.write(t);
       sb.write(' ');
     }
-    return WorldLorebook.match(world, sb.toString());
+    final List<WorldEntry> freshHits = WorldLorebook.match(world, sb.toString());
+    final int stickyRounds = widget.controller.settings.loreStickyRounds;
+    if (stickyRounds <= 0) {
+      _stickyLoreEntries.clear();
+      return freshHits;
+    }
+    final Map<String, WorldEntry> byId = <String, WorldEntry>{
+      for (final WorldEntry e in world.entries) e.id: e,
+    };
+    // 本轮新命中的词条重置其 sticky 轮数。
+    for (final WorldEntry e in freshHits) {
+      _stickyLoreEntries[e.id] = stickyRounds;
+    }
+    final List<WorldEntry> combined = <WorldEntry>[];
+    final Set<String> seen = <String>{};
+    for (final WorldEntry e in freshHits) {
+      combined.add(e);
+      seen.add(e.id);
+    }
+    // 仍在 sticky 期内的其它词条也一并注入（设定持续生效，不反复横跳）。
+    for (final String id in _stickyLoreEntries.keys.toList()) {
+      final int rounds = _stickyLoreEntries[id] ?? 0;
+      if (rounds > 0 && !seen.contains(id) && byId.containsKey(id)) {
+        combined.add(byId[id]!);
+        seen.add(id);
+        if (combined.length >= 8) {
+          break;
+        }
+      }
+    }
+    // 衰减：本轮结束所有词条剩余轮数 -1，归零移除。
+    final Map<String, int> decayed = <String, int>{};
+    _stickyLoreEntries.forEach((String id, int rounds) {
+      final int next = rounds - 1;
+      if (next > 0) {
+        decayed[id] = next;
+      }
+    });
+    _stickyLoreEntries
+      ..clear()
+      ..addAll(decayed);
+    return combined;
   }
 
   Future<void> _send() async {

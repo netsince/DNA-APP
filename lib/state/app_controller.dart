@@ -342,6 +342,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存世界词条 sticky 轮数（0 = 禁用）。
+  Future<void> saveLoreStickyRounds(int rounds) async {
+    final int clamped = rounds.clamp(0, 30);
+    _settings = _settings.copyWith(loreStickyRounds: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
   Future<void> saveSampling({
     required double temperature,

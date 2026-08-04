@@ -47,6 +47,7 @@ class SettingsService {
   static const String _presencePenaltyKey = 'presence_penalty';
   static const String _authorNoteKey = 'author_note';
   static const String _authorNoteIntervalKey = 'author_note_interval';
+  static const String _loreStickyRoundsKey = 'lore_sticky_rounds';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -106,6 +107,9 @@ class SettingsService {
       temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
       frequencyPenalty: (prefs.getDouble(_frequencyPenaltyKey)) ?? 0.0,
       presencePenalty: (prefs.getDouble(_presencePenaltyKey)) ?? 0.0,
+      authorNote: prefs.getString(_authorNoteKey),
+      authorNoteInterval: prefs.getInt(_authorNoteIntervalKey) ?? 0,
+      loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
     );
   }
 
@@ -175,6 +179,7 @@ class SettingsService {
       await prefs.remove(_authorNoteKey);
     }
     await prefs.setInt(_authorNoteIntervalKey, settings.authorNoteInterval);
+    await prefs.setInt(_loreStickyRoundsKey, settings.loreStickyRounds);
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

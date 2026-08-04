@@ -45,6 +45,7 @@ class AppSettings {
     this.presencePenalty = 0.0,
     this.authorNote,
     this.authorNoteInterval = 0,
+    this.loreStickyRounds = 3,
   });
 
   factory AppSettings.empty() {
@@ -91,6 +92,7 @@ class AppSettings {
       presencePenalty: 0.0,
       authorNote: null,
       authorNoteInterval: 0,
+      loreStickyRounds: 3,
     );
   }
 
@@ -245,6 +247,7 @@ class AppSettings {
       'presencePenalty': presencePenalty,
       'authorNote': authorNote,
       'authorNoteInterval': authorNoteInterval,
+      'loreStickyRounds': loreStickyRounds,
     };
   }
 
@@ -388,6 +391,7 @@ class AppSettings {
       presencePenalty: presencePenalty ?? this.presencePenalty,
       authorNote: authorNote ?? this.authorNote,
       authorNoteInterval: authorNoteInterval ?? this.authorNoteInterval,
+      loreStickyRounds: loreStickyRounds ?? this.loreStickyRounds,
     );
   }
 }

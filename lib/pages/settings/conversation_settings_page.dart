@@ -22,6 +22,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   bool _allowDeleteMessage = false;
   late final TextEditingController _ctxCtrl;
   late final TextEditingController _tokenCtrl;
+  late final TextEditingController _stickyCtrl;
   late double _temperature;
   late double _frequencyPenalty;
   late double _presencePenalty;
@@ -41,6 +42,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _strategy = s.promptStrategy;
     _ctxCtrl = TextEditingController(text: s.maxContextMessages.toString());
     _tokenCtrl = TextEditingController(text: s.maxContextTokens.toString());
+    _stickyCtrl = TextEditingController(text: s.loreStickyRounds.toString());
     _temperature = s.temperature;
     _frequencyPenalty = s.frequencyPenalty;
     _presencePenalty = s.presencePenalty;
@@ -49,7 +51,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -77,6 +79,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final int v = (int.tryParse(_tokenCtrl.text.trim()) ?? 8000).clamp(0, 100000);
     _tokenCtrl.text = v.toString();
     await widget.controller.saveMaxContextTokens(v);
+  }
+
+  Future<void> _saveSticky() async {
+    final int v = (int.tryParse(_stickyCtrl.text.trim()) ?? 3).clamp(0, 30);
+    _stickyCtrl.text = v.toString();
+    await widget.controller.saveLoreStickyRounds(v);
   }
 
   Future<void> _saveAuthorNote() => widget.controller.saveAuthorNote(_authorNoteCtrl.text);
@@ -324,6 +332,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               isDense: true,
             ),
             onChanged: (_) => _saveTokens(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _stickyCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '世界词条 sticky 轮数',
+              hintText: '默认 3，范围 0-30，0 表示禁用',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveSticky(),
           ),
           const Divider(),
           // --- Sampling ---
