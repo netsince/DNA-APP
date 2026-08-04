@@ -39,6 +39,10 @@ class SettingsService {
   static const String _enterToSendKey = 'enter_to_send';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
+  static const String _maxContextMessagesKey = 'max_context_messages';
+  static const String _temperatureKey = 'temperature';
+  static const String _frequencyPenaltyKey = 'frequency_penalty';
+  static const String _presencePenaltyKey = 'presence_penalty';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -149,6 +153,10 @@ class SettingsService {
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
     await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
+    await prefs.setInt(_maxContextMessagesKey, settings.maxContextMessages);
+    await prefs.setDouble(_temperatureKey, settings.temperature);
+    await prefs.setDouble(_frequencyPenaltyKey, settings.frequencyPenalty);
+    await prefs.setDouble(_presencePenaltyKey, settings.presencePenalty);
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

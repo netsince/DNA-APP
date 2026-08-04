@@ -37,6 +37,10 @@ class AppSettings {
     this.showParenButton = true,
     this.enterToSend = true,
     required this.chatMaskStrength,
+    this.maxContextMessages = 120,
+    this.temperature = 0.7,
+    this.frequencyPenalty = 0.0,
+    this.presencePenalty = 0.0,
   });
 
   factory AppSettings.empty() {
@@ -75,6 +79,10 @@ class AppSettings {
       showParenButton: true,
       enterToSend: true,
       chatMaskStrength: 75,
+      maxContextMessages: 120,
+      temperature: 0.7,
+      frequencyPenalty: 0.0,
+      presencePenalty: 0.0,
     );
   }
 
@@ -157,6 +165,19 @@ class AppSettings {
   /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
   final int chatMaskStrength;
 
+  /// 单次请求最多携带的历史消息条数（含用户与AI），0 表示不限制。
+  /// 用于防止长对话超出模型上下文窗口导致模型退化（复读、答非所问）。
+  final int maxContextMessages;
+
+  /// 采样温度。值越高越随机，越低越确定。默认 0.7。
+  final double temperature;
+
+  /// 频率惩罚（frequency_penalty）。越大越抑制重复出现过的词语，缓解复读。0~2。
+  final double frequencyPenalty;
+
+  /// 存在惩罚（presence_penalty）。越大越鼓励谈论新话题，缓解复读。0~2。
+  final double presencePenalty;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -193,6 +214,10 @@ class AppSettings {
       'showParenButton': showParenButton,
       'enterToSend': enterToSend,
       'chatMaskStrength': chatMaskStrength,
+      'maxContextMessages': maxContextMessages,
+      'temperature': temperature,
+      'frequencyPenalty': frequencyPenalty,
+      'presencePenalty': presencePenalty,
     };
   }
 
@@ -239,6 +264,10 @@ class AppSettings {
       showParenButton: (json['showParenButton'] as bool?) ?? true,
       enterToSend: (json['enterToSend'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
+      maxContextMessages: (json['maxContextMessages'] as int?) ?? 120,
+      temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
+      frequencyPenalty: (json['frequencyPenalty'] as num?)?.toDouble() ?? 0.0,
+      presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -277,6 +306,10 @@ class AppSettings {
     bool? showParenButton,
     bool? enterToSend,
     int? chatMaskStrength,
+    int? maxContextMessages,
+    double? temperature,
+    double? frequencyPenalty,
+    double? presencePenalty,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,

@@ -135,6 +135,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       apiKey: widget.controller.settings.apiKey,
       model: widget.controller.settings.selectedModel,
       messages: payload,
+      temperature: widget.controller.settings.temperature,
+      frequencyPenalty: widget.controller.settings.frequencyPenalty,
+      presencePenalty: widget.controller.settings.presencePenalty,
     );
     if (!mounted) {
       return;
@@ -227,6 +230,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       apiKey: widget.controller.settings.apiKey,
       model: widget.controller.settings.selectedModel,
       messages: payload,
+      temperature: widget.controller.settings.temperature,
+      frequencyPenalty: widget.controller.settings.frequencyPenalty,
+      presencePenalty: widget.controller.settings.presencePenalty,
     );
 
     if (!mounted || _pendingSummary?.taskId != taskId || _cancelledSummaryTaskId == taskId) {

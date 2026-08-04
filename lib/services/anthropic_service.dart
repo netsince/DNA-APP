@@ -145,6 +145,9 @@ class AnthropicProvider implements LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   }) async {
     try {
       final (:String? system, :List<Map<String, String>> convo) =
@@ -152,6 +155,7 @@ class AnthropicProvider implements LlmProvider {
       final Map<String, dynamic> body = <String, dynamic>{
         'model': model,
         'max_tokens': _maxTokens,
+        'temperature': temperature,
         'messages': convo,
       };
       if (system != null) {
@@ -189,12 +193,16 @@ class AnthropicProvider implements LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   }) async* {
     final (:String? system, :List<Map<String, String>> convo) =
         _splitSystem(messages);
     final Map<String, dynamic> body = <String, dynamic>{
       'model': model,
       'max_tokens': _maxTokens,
+      'temperature': temperature,
       'stream': true,
       'messages': convo,
     };

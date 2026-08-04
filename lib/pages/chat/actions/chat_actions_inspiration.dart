@@ -59,6 +59,9 @@ mixin ChatActionsInspiration on ChatStateMixin {
             apiKey: apiKey,
             model: model,
             messages: payload,
+            temperature: widget.controller.settings.temperature,
+            frequencyPenalty: widget.controller.settings.frequencyPenalty,
+            presencePenalty: widget.controller.settings.presencePenalty,
           );
           if (result.success && result.content != null) {
             final String cleaned = stripThoughtTags(result.content!).trim();
@@ -80,6 +83,9 @@ mixin ChatActionsInspiration on ChatStateMixin {
           apiKey: apiKey,
           model: model,
           messages: payload,
+          temperature: widget.controller.settings.temperature,
+          frequencyPenalty: widget.controller.settings.frequencyPenalty,
+          presencePenalty: widget.controller.settings.presencePenalty,
         );
         if (!result.success || result.content == null) {
           return null;

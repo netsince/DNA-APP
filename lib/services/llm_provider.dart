@@ -39,6 +39,9 @@ abstract class LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   });
 
   /// 流式补全，逐块吐出可见文本。
@@ -47,6 +50,9 @@ abstract class LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   });
 }
 

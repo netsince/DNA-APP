@@ -135,6 +135,9 @@ class OpenAiService implements LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   }) async {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -215,7 +218,9 @@ class OpenAiService implements LlmProvider {
       ..body = jsonEncode(<String, dynamic>{
         'model': normalizedModel,
         'messages': messages,
-        'temperature': 0.7,
+        'temperature': temperature,
+        'frequency_penalty': frequencyPenalty,
+        'presence_penalty': presencePenalty,
         'stream': true,
       });
 

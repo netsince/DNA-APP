@@ -302,6 +302,29 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
+  Future<void> saveMaxContextMessages(int maxContextMessages) async {
+    final int clamped = maxContextMessages.clamp(0, 1000);
+    _settings = _settings.copyWith(maxContextMessages: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
+  Future<void> saveSampling({
+    required double temperature,
+    required double frequencyPenalty,
+    required double presencePenalty,
+  }) async {
+    _settings = _settings.copyWith(
+      temperature: temperature.clamp(0.0, 2.0),
+      frequencyPenalty: frequencyPenalty.clamp(0.0, 2.0),
+      presencePenalty: presencePenalty.clamp(0.0, 2.0),
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「离线语音输入（STT）」开关。
   Future<void> saveVoiceInputEnabled(bool value) async {
     _settings = _settings.copyWith(voiceInputEnabled: value);

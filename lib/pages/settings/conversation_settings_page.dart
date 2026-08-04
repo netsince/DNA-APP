@@ -19,6 +19,10 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   bool _retrySeq = false;
   bool _inspireSummary = false;
   bool _allowDeleteMessage = false;
+  late final TextEditingController _ctxCtrl;
+  late double _temperature;
+  late double _frequencyPenalty;
+  late double _presencePenalty;
 
   @override
   void initState() {
@@ -30,10 +34,14 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _inspireSummary = s.inspirationIncludeSummary;
     _allowDeleteMessage = s.allowDeleteMessage;
     _strategy = s.promptStrategy;
+    _ctxCtrl = TextEditingController(text: s.maxContextMessages.toString());
+    _temperature = s.temperature;
+    _frequencyPenalty = s.frequencyPenalty;
+    _presencePenalty = s.presencePenalty;
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _ctxCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -44,6 +52,50 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   Future<void> _saveRetry() => widget.controller.saveRetryStrategy(retrySequential: _retrySeq);
   Future<void> _saveInspire() => widget.controller.saveInspirationSettings(includeSummary: _inspireSummary);
   Future<void> _saveStrategy() => widget.controller.savePromptStrategy(_strategy);
+
+  Future<void> _saveContext() async {
+    final int v = (int.tryParse(_ctxCtrl.text.trim()) ?? 120).clamp(0, 1000);
+    _ctxCtrl.text = v.toString();
+    await widget.controller.saveMaxContextMessages(v);
+  }
+
+  Future<void> _saveSampling() => widget.controller.saveSampling(
+        temperature: _temperature,
+        frequencyPenalty: _frequencyPenalty,
+        presencePenalty: _presencePenalty,
+      );
+
+  Widget _buildSamplingSlider(
+    String label,
+    double value,
+    double max,
+    ValueChanged<double> onChanged,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: FitText(
+                label,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+            FitText(
+              value.toStringAsFixed(2),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        Slider(value: value.clamp(0.0, max), max: max, onChanged: onChanged),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +256,46 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
             subtitle: const FitText('开启后重说会顺序发送三次请求。关闭则并发请求三次。'),
             value: _retrySeq,
             onChanged: (v) { setState(() => _retrySeq = v); _saveRetry(); },
+          ),
+          const Divider(),
+          // --- Context retention ---
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FitText('上下文保留条数',
+                style: ts.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _ctxCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '单次请求最多携带的历史消息条数',
+              hintText: '默认 120，范围 0-1000，0 表示不限',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveContext(),
+          ),
+          const Divider(),
+          // --- Sampling ---
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FitText('采样参数（抑制复读）',
+                style: ts.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 4),
+          _buildSamplingSlider('温度', _temperature, 2.0,
+              (v) => setState(() => _temperature = v)),
+          _buildSamplingSlider('频率惩罚', _frequencyPenalty, 2.0,
+              (v) => setState(() => _frequencyPenalty = v)),
+          _buildSamplingSlider('存在惩罚', _presencePenalty, 2.0,
+              (v) => setState(() => _presencePenalty = v)),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _saveSampling,
+              child: const FitText('应用采样参数'),
+            ),
           ),
         ],
       ),

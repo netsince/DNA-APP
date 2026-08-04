@@ -311,6 +311,7 @@ mixin ChatActionsSend on ChatStateMixin {
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       endExclusive: index,
+      maxMessages: widget.controller.settings.maxContextMessages,
     );
     final ConversationSummary? summary =
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
@@ -349,6 +350,9 @@ mixin ChatActionsSend on ChatStateMixin {
           apiKey: apiKey,
           model: model,
           messages: payload,
+          temperature: widget.controller.settings.temperature,
+          frequencyPenalty: widget.controller.settings.frequencyPenalty,
+          presencePenalty: widget.controller.settings.presencePenalty,
         );
         if (!result.success || result.content == null) {
           return null;
@@ -376,6 +380,9 @@ mixin ChatActionsSend on ChatStateMixin {
           apiKey: apiKey,
           model: model,
           messages: payload,
+          temperature: widget.controller.settings.temperature,
+          frequencyPenalty: widget.controller.settings.frequencyPenalty,
+          presencePenalty: widget.controller.settings.presencePenalty,
         );
         if (result.success && result.content != null && result.content!.trim().isNotEmpty) {
           results.add(result.content!);

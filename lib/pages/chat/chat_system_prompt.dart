@@ -46,11 +46,12 @@ class ChatSystemPrompt {
     // 根据沉浸策略生成规则12（语言风格）
     final String languageRule = _buildLanguageRule(effectiveStrategy.immersion);
     system.writeln('12) $languageRule');
-    
+    system.writeln('13) 绝不复读：不要重复自己上一条或更早的任何一句话，也不要逐字复述对方的话；每次回复都要提供新的、有推进的内容。');
+
     // 根据沉浸策略添加额外规则（沉浸式专属）
     final String? extraRule = _buildExtraRule(effectiveStrategy);
     if (extraRule != null) {
-      system.writeln('13) $extraRule');
+      system.writeln('14) $extraRule');
     }
     
     if (identity != null) {

@@ -20,6 +20,9 @@ mixin ChatStreamHandlers on ChatStateMixin {
       apiKey: apiKey,
       model: model,
       messages: payload,
+      temperature: widget.controller.settings.temperature,
+      frequencyPenalty: widget.controller.settings.frequencyPenalty,
+      presencePenalty: widget.controller.settings.presencePenalty,
     )) {
       if (!mounted) {
         return false;

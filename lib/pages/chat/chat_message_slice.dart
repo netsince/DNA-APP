@@ -22,17 +22,22 @@ class ChatMessageSlice {
     Conversation conversation, {
     int? endExclusive,
     Set<String>? excludeIds,
+    int? maxMessages,
   }) {
     final int summaryEnd = summaryEndIndex(conversation);
     final int total = conversation.messages.length;
     final int end = endExclusive == null ? total : endExclusive.clamp(0, total);
     final bool includeSummary = summaryEnd >= 0 && end > summaryEnd;
     final int start = includeSummary ? summaryEnd + 1 : 0;
-    final List<ConversationMessage> slice = conversation.messages
+    List<ConversationMessage> slice = conversation.messages
         .sublist(start, end)
         .where((ConversationMessage m) => m.kind == 'message')
         .where((ConversationMessage m) => excludeIds == null || !excludeIds.contains(m.id))
         .toList();
+    // 上下文预算：仅保留最近 [maxMessages] 条消息，防止长对话超出模型窗口导致退化。
+    if (maxMessages != null && maxMessages > 0 && slice.length > maxMessages) {
+      slice = slice.sublist(slice.length - maxMessages);
+    }
     return MessageSlice(messages: slice, includeSummary: includeSummary);
   }
 }
