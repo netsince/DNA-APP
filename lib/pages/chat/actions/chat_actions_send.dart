@@ -50,6 +50,27 @@ mixin ChatActionsSend on ChatStateMixin {
     return widget.controller.getTaById(taId)?.name;
   }
 
+  /// 收集当前对话文本中命中的世界词条（Lorebook 动态激活）。
+  List<WorldEntry> _activeLoreEntries(List<ConversationMessage> messages) {
+    final World? world = _world;
+    if (world == null || world.entries.isEmpty) {
+      return <WorldEntry>[];
+    }
+    final StringBuffer sb = StringBuffer();
+    for (final ConversationMessage m in messages) {
+      if (m.kind != 'message') {
+        continue;
+      }
+      final String t = stripThoughtTags(m.text).trim();
+      if (t.isEmpty) {
+        continue;
+      }
+      sb.write(t);
+      sb.write(' ');
+    }
+    return WorldLorebook.match(world, sb.toString());
+  }
+
   Future<void> _send() async {
     final String text = _inputController.text.trim();
     if (text.isEmpty || _sending) {
@@ -127,6 +148,7 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
+      activeEntries: _activeLoreEntries(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
@@ -195,6 +217,7 @@ mixin ChatActionsSend on ChatStateMixin {
       strategy: widget.controller.settings.promptStrategy,
       identity: widget.controller.getIdentityById(_conversation.identityId),
       groupMembers: _isGroup ? _memberTas : null,
+      activeEntries: _activeLoreEntries(slice.messages),
     );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
@@ -305,6 +328,7 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
+      activeEntries: _activeLoreEntries(slice.messages),
     );
     if (widget.controller.settings.retrySequential) {
       return _generateRetriesSequential(payload, model, apiKey, baseUrl);
@@ -413,6 +437,7 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
+      activeEntries: _activeLoreEntries(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,

@@ -28,6 +28,7 @@ import 'chat/chat_token_counter.dart';
 import 'chat/chat_message_slice.dart';
 import 'chat/chat_message_builder.dart';
 import 'chat/chat_system_prompt.dart';
+import 'chat/world_lorebook.dart';
 import 'chat/state/chat_state.dart';
 import 'chat/state/chat_controller.dart';
 import 'chat/ui/widgets/chat_app_bar.dart';

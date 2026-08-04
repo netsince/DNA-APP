@@ -3,6 +3,7 @@ import '../../models/prompt_strategy.dart';
 import '../../models/ta.dart';
 import '../../models/user_identity.dart';
 import '../../models/world.dart';
+import 'world_lorebook.dart';
 
 class ChatSystemPrompt {
   static String build({
@@ -12,6 +13,7 @@ class ChatSystemPrompt {
     PromptStrategy? strategy,
     UserIdentity? identity,
     List<TA>? groupMembers,
+    List<WorldEntry>? activeEntries,
   }) {
     final List<DialogueTurn> style = ta?.dialogueStyle ?? <DialogueTurn>[];
     final PromptStrategy effectiveStrategy = strategy ?? PromptStrategy.defaults();
@@ -77,6 +79,13 @@ class ChatSystemPrompt {
         system.writeln(
           '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
         );
+      }
+    }
+    // Lorebook：注入当前对话激活的世界知识词条。
+    if (activeEntries != null && activeEntries.isNotEmpty) {
+      final String lore = WorldLorebook.format(activeEntries);
+      if (lore.isNotEmpty) {
+        system.writeln(lore);
       }
     }
     if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {
