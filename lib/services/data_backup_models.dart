@@ -1,5 +1,6 @@
 import '../models/conversation.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 
 /// 备份清单
@@ -42,6 +43,7 @@ class ParsedBackup {
     required this.tas,
     required this.worlds,
     required this.conversations,
+    required this.identities,
     required this.imageBytes,
   });
 
@@ -49,6 +51,7 @@ class ParsedBackup {
   final List<TA> tas; // 其中的 images 为相对文件名
   final List<World> worlds;
   final List<Conversation> conversations;
+  final List<UserIdentity> identities;
   final Map<String, List<int>> imageBytes;
 }
 
@@ -59,6 +62,7 @@ class DataImportReport {
     required this.tasCount,
     required this.worldsCount,
     required this.conversationsCount,
+    required this.identitiesCount,
     this.backupPath,
     this.backupError,
   });
@@ -67,6 +71,7 @@ class DataImportReport {
   final int tasCount;
   final int worldsCount;
   final int conversationsCount;
+  final int identitiesCount;
   final String? backupPath;
   final String? backupError;
 }

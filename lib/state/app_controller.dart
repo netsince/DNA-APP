@@ -880,6 +880,7 @@ class AppController extends ChangeNotifier {
         ..._conversations,
         ..._groupConversations,
       ],
+      identities: _identities,
     );
   }
 
@@ -1269,6 +1270,7 @@ class AppController extends ChangeNotifier {
             worldsCount: _worlds.length,
             conversationsCount:
                 _conversations.length + _groupConversations.length,
+            identitiesCount: _identities.length,
             backupPath: backupPath,
             backupError: backupError,
           ),
@@ -1303,8 +1305,15 @@ class AppController extends ChangeNotifier {
           .where((Conversation c) => !existingConvIds.contains(c.id))
           .toList();
 
+      final Set<String> existingIdentityIds =
+          _identities.map((UserIdentity i) => i.id).toSet();
+      final List<UserIdentity> newIdentities = backup.identities
+          .where((UserIdentity i) => !existingIdentityIds.contains(i.id))
+          .toList();
+
       _tas = <TA>[..._tas, ...resolvedNewTas];
       _worlds = <World>[..._worlds, ...newWorlds];
+      _identities = <UserIdentity>[..._identities, ...newIdentities];
       _conversations = <Conversation>[
         ..._conversations,
         ...newConvs.where((Conversation c) => !c.isGroup),
@@ -1316,6 +1325,7 @@ class AppController extends ChangeNotifier {
 
       await _hiveService.saveTas(_tas);
       await _hiveService.saveWorlds(_worlds);
+      await _hiveService.saveIdentities(_identities);
       await _hiveService.saveConversations(<Conversation>[
         ..._conversations,
         ..._groupConversations,
@@ -1329,6 +1339,7 @@ class AppController extends ChangeNotifier {
           tasCount: newTas.length,
           worldsCount: newWorlds.length,
           conversationsCount: newConvs.length,
+          identitiesCount: newIdentities.length,
           backupPath: null,
           backupError: null,
         ),

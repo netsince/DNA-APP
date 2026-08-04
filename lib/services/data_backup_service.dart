@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 
 import '../models/conversation.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 import 'ta_export_import_service.dart';
 import 'data_backup_models.dart';
@@ -31,11 +32,12 @@ class DataBackupService {
     return null;
   }
 
-  /// 将全部数据（角色 / 世界 / 对话，不含设置）打包为 ZIP 字节
+  /// 将全部数据（角色 / 世界 / 对话 / 身份，不含设置）打包为 ZIP 字节
   static Future<ExportImportResult<Uint8List>> buildZip({
     required List<TA> tas,
     required List<World> worlds,
     required List<Conversation> conversations,
+    required List<UserIdentity> identities,
   }) async {
     try {
       final Archive archive = Archive();
@@ -85,6 +87,11 @@ class DataBackupService {
         archive,
         'conversations.json',
         conversations.map((Conversation c) => c.toJson()).toList(),
+      );
+      _addJsonFile(
+        archive,
+        'identities.json',
+        identities.map((UserIdentity i) => i.toJson()).toList(),
       );
 
       final List<int> encoded = ZipEncoder().encode(archive);
@@ -177,6 +184,10 @@ class DataBackupService {
           .whereType<Map<String, dynamic>>()
           .map(Conversation.fromJson)
           .toList();
+      final List<UserIdentity> identities = readJsonList('identities.json')
+          .whereType<Map<String, dynamic>>()
+          .map(UserIdentity.fromJson)
+          .toList();
 
       final Map<String, List<int>> imageBytes = <String, List<int>>{};
       for (final ArchiveFile file in archive.files) {
@@ -195,6 +206,7 @@ class DataBackupService {
           tas: tas,
           worlds: worlds,
           conversations: conversations,
+          identities: identities,
           imageBytes: imageBytes,
         ),
       );
