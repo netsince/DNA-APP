@@ -11,6 +11,7 @@ class AppSettings {
     required this.completedOobe,
     required this.autoSummaryPrompt,
     required this.summaryTurnInterval,
+    this.summaryWordThreshold = 6000,
     required this.retrySequential,
     required this.inspirationIncludeSummary,
     required this.promptStrategy,
@@ -54,6 +55,7 @@ class AppSettings {
       completedOobe: false,
       autoSummaryPrompt: true,
       summaryTurnInterval: 200,
+      summaryWordThreshold: 6000,
       retrySequential: false,
       inspirationIncludeSummary: false,
       promptStrategy: PromptStrategy.defaults(),
@@ -96,6 +98,10 @@ class AppSettings {
   final bool completedOobe;
   final bool autoSummaryPrompt;
   final int summaryTurnInterval;
+
+  /// 距上次摘要后新增内容的字符数阈值（0 表示禁用），用于按词数触发摘要，
+  /// 与 [summaryTurnInterval] 的消息数触发构成「双触发」。默认 6000。
+  final int summaryWordThreshold;
   final bool retrySequential;
   final bool inspirationIncludeSummary;
   final PromptStrategy promptStrategy;
@@ -194,6 +200,7 @@ class AppSettings {
       'completedOobe': completedOobe,
       'autoSummaryPrompt': autoSummaryPrompt,
       'summaryTurnInterval': summaryTurnInterval,
+      'summaryWordThreshold': summaryWordThreshold,
       'retrySequential': retrySequential,
       'inspirationIncludeSummary': inspirationIncludeSummary,
       'promptStrategy': promptStrategy.toJson(),
@@ -243,6 +250,7 @@ class AppSettings {
       completedOobe: (json['completedOobe'] as bool?) ?? false,
       autoSummaryPrompt: (json['autoSummaryPrompt'] as bool?) ?? true,
       summaryTurnInterval: (json['summaryTurnInterval'] as int?) ?? 200,
+      summaryWordThreshold: (json['summaryWordThreshold'] as int?) ?? 6000,
       retrySequential: (json['retrySequential'] as bool?) ?? false,
       inspirationIncludeSummary:
           (json['inspirationIncludeSummary'] as bool?) ?? false,
@@ -329,6 +337,7 @@ class AppSettings {
       completedOobe: completedOobe ?? this.completedOobe,
       autoSummaryPrompt: autoSummaryPrompt ?? this.autoSummaryPrompt,
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
+      summaryWordThreshold: summaryWordThreshold ?? this.summaryWordThreshold,
       retrySequential: retrySequential ?? this.retrySequential,
       inspirationIncludeSummary: inspirationIncludeSummary ?? this.inspirationIncludeSummary,
       promptStrategy: promptStrategy ?? this.promptStrategy,

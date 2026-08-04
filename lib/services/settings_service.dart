@@ -15,6 +15,7 @@ class SettingsService {
   static const String _oobeKey = 'completed_oobe';
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
   static const String _summaryTurnIntervalKey = 'summary_turn_interval';
+  static const String _summaryWordThresholdKey = 'summary_word_threshold';
   static const String _retrySequentialKey = 'retry_sequential';
   static const String _inspirationIncludeSummaryKey = 'inspiration_include_summary';
   static const String _promptStrategyKey = 'prompt_strategy';
@@ -70,6 +71,7 @@ class SettingsService {
       completedOobe: prefs.getBool(_oobeKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
       summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
+      summaryWordThreshold: prefs.getInt(_summaryWordThresholdKey) ?? 6000,
       retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
       inspirationIncludeSummary: prefs.getBool(_inspirationIncludeSummaryKey) ?? false,
       promptStrategy: promptStrategy,
@@ -115,6 +117,7 @@ class SettingsService {
     await prefs.setBool(_oobeKey, settings.completedOobe);
     await prefs.setBool(_autoSummaryPromptKey, settings.autoSummaryPrompt);
     await prefs.setInt(_summaryTurnIntervalKey, settings.summaryTurnInterval);
+    await prefs.setInt(_summaryWordThresholdKey, settings.summaryWordThreshold);
     await prefs.setBool(_retrySequentialKey, settings.retrySequential);
     await prefs.setBool(_inspirationIncludeSummaryKey, settings.inspirationIncludeSummary);
     await prefs.setString(_promptStrategyKey, jsonEncode(settings.promptStrategy.toJson()));

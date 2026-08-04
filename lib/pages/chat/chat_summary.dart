@@ -17,9 +17,28 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     if (_summaryInProgress || _hasSummaryPrompt()) {
       return;
     }
-    final int threshold = widget.controller.settings.summaryTurnInterval;
+    final int turnThreshold = widget.controller.settings.summaryTurnInterval;
+    final int wordThreshold = widget.controller.settings.summaryWordThreshold;
     final int totalTurns = _totalTurnCount();
-    if (threshold <= 0 || totalTurns == 0 || totalTurns % threshold != 0) {
+    // 触发一：按消息轮数（距上次触发满 turnThreshold 轮）。
+    final bool turnTriggered =
+        turnThreshold > 0 && totalTurns > 0 && totalTurns % turnThreshold == 0;
+    // 触发二：按词数（距上次摘要后新增内容字符数 >= wordThreshold）。
+    bool wordTriggered = false;
+    if (wordThreshold > 0) {
+      final int summaryEnd = ChatMessageSlice.summaryEndIndex(_conversation);
+      int totalChars = 0;
+      final List<ConversationMessage> msgs = _conversation.messages;
+      for (int i = summaryEnd + 1; i < msgs.length; i++) {
+        final ConversationMessage m = msgs[i];
+        if (m.kind != 'message') {
+          continue;
+        }
+        totalChars += m.text.length;
+      }
+      wordTriggered = totalChars >= wordThreshold;
+    }
+    if (!turnTriggered && !wordTriggered) {
       return;
     }
     final String? anchorId = _lastChatMessageId();

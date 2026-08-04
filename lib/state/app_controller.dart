@@ -318,6 +318,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存摘要「按词数触发」的字符数阈值（0 = 禁用）。
+  Future<void> saveSummaryWordThreshold(int summaryWordThreshold) async {
+    final int clamped = summaryWordThreshold.clamp(0, 1000000);
+    _settings = _settings.copyWith(summaryWordThreshold: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
   Future<void> saveSampling({
     required double temperature,

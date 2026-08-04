@@ -14,12 +14,14 @@ class ConversationSettingsPage extends StatefulWidget {
 
 class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   late final TextEditingController _summaryCtrl;
+  late final TextEditingController _wordCtrl;
   late PromptStrategy _strategy;
   bool _autoSummary = true;
   bool _retrySeq = false;
   bool _inspireSummary = false;
   bool _allowDeleteMessage = false;
   late final TextEditingController _ctxCtrl;
+  late final TextEditingController _tokenCtrl;
   late double _temperature;
   late double _frequencyPenalty;
   late double _presencePenalty;
@@ -30,6 +32,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final s = widget.controller.settings;
     _autoSummary = s.autoSummaryPrompt;
     _summaryCtrl = TextEditingController(text: s.summaryTurnInterval.toString());
+    _wordCtrl = TextEditingController(text: s.summaryWordThreshold.toString());
     _retrySeq = s.retrySequential;
     _inspireSummary = s.inspirationIncludeSummary;
     _allowDeleteMessage = s.allowDeleteMessage;
@@ -42,12 +45,18 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _ctxCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
     _summaryCtrl.text = turns.toString();
     await widget.controller.saveSummarySettings(autoSummaryPrompt: _autoSummary, summaryTurnInterval: turns);
+  }
+
+  Future<void> _saveWord() async {
+    final v = (int.tryParse(_wordCtrl.text.trim()) ?? 6000).clamp(0, 1000000);
+    _wordCtrl.text = v.toString();
+    await widget.controller.saveSummaryWordThreshold(v);
   }
 
   Future<void> _saveRetry() => widget.controller.saveRetryStrategy(retrySequential: _retrySeq);
@@ -254,6 +263,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               isDense: true,
             ),
             onChanged: (_) => _saveSummary(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _wordCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '按词数触发（距上次摘要新增字符数）',
+              hintText: '默认 6000，范围 0-1000000，0 表示禁用',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveWord(),
           ),
           const Divider(),
           // --- Retry ---
