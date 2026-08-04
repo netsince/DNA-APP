@@ -42,6 +42,14 @@ mixin ChatActionsSend on ChatStateMixin {
     return _ta;
   }
 
+  /// 群聊历史身份标注：根据消息的 speakerTaId 解析说话者名字。
+  String? _speakerNameFor(String? taId) {
+    if (taId == null || taId.isEmpty) {
+      return null;
+    }
+    return widget.controller.getTaById(taId)?.name;
+  }
+
   Future<void> _send() async {
     final String text = _inputController.text.trim();
     if (text.isEmpty || _sending) {
@@ -112,10 +120,13 @@ mixin ChatActionsSend on ChatStateMixin {
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
+        groupMembers: _isGroup ? _memberTas : null,
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
+      prefixSpeaker: _isGroup,
+      speakerNameResolver: _speakerNameFor,
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
@@ -183,6 +194,7 @@ mixin ChatActionsSend on ChatStateMixin {
       groupPrompt: _conversation.groupPrompt,
       strategy: widget.controller.settings.promptStrategy,
       identity: widget.controller.getIdentityById(_conversation.identityId),
+      groupMembers: _isGroup ? _memberTas : null,
     );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
@@ -203,7 +215,11 @@ mixin ChatActionsSend on ChatStateMixin {
     payload.addAll(
       slice.messages.map((ConversationMessage m) => <String, String>{
             'role': m.role,
-            'content': m.text,
+            'content': ChatMessageBuilder.resolveContentWithSpeaker(
+              message: m,
+              prefixSpeaker: _isGroup,
+              speakerNameResolver: _speakerNameFor,
+            ),
           }),
     );
     final bool streamed = await _streamAssistantResponse(
@@ -282,10 +298,13 @@ mixin ChatActionsSend on ChatStateMixin {
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
+        groupMembers: _isGroup ? _memberTas : null,
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
+      prefixSpeaker: _isGroup,
+      speakerNameResolver: _speakerNameFor,
     );
     if (widget.controller.settings.retrySequential) {
       return _generateRetriesSequential(payload, model, apiKey, baseUrl);
@@ -387,10 +406,13 @@ mixin ChatActionsSend on ChatStateMixin {
         groupPrompt: _conversation.groupPrompt,
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
+        groupMembers: _isGroup ? _memberTas : null,
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
+      prefixSpeaker: _isGroup,
+      speakerNameResolver: _speakerNameFor,
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,

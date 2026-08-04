@@ -11,6 +11,7 @@ class ChatSystemPrompt {
     String? groupPrompt,
     PromptStrategy? strategy,
     UserIdentity? identity,
+    List<TA>? groupMembers,
   }) {
     final List<DialogueTurn> style = ta?.dialogueStyle ?? <DialogueTurn>[];
     final PromptStrategy effectiveStrategy = strategy ?? PromptStrategy.defaults();
@@ -91,6 +92,10 @@ class ChatSystemPrompt {
           system.writeln('AI：${turn.assistant.trim()}');
         }
       }
+    }
+    // 群聊：锁定当前发言角色，防止顺延上一条（其他成员）的视角与人设。
+    if (groupMembers != null && groupMembers.length > 1 && ta != null) {
+      system.writeln('当前发言角色：${ta.name}。请严格以「${ta.name}」的身份与视角回应：语气、性格、称呼完全贴合「${ta.name}」，只代表「${ta.name}」说话，不要替其他成员发言，不要切换成其他成员的视角。直接输出「${ta.name}」的台词与简短动作，不要输出角色名或"xxx："前缀。');
     }
     return system.toString().trim();
   }
