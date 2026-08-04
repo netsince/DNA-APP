@@ -114,6 +114,8 @@ class ChatSystemPrompt {
     switch (strategy) {
       case LengthStrategy.strict:
         return '每次回复控制在2-3句话，总字数80-120字内。第一句回应当前对话，第二句推进互动（提问/动作/情绪）。';
+      case LengthStrategy.medium:
+        return '每次回复控制在4-6句话，总字数150-250字，可写成1-2个段落。第一句回应当前对话，后续推进互动（提问/动作/情绪），适当展开动作与情绪描写，但不要长篇叙事。';
       case LengthStrategy.unlimited:
         return '写1-4个段落，充分展开描写。可以详细描述角色的动作、情感和环境，保持故事的沉浸感和吸引力。';
     }

@@ -192,6 +192,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               )),
               const SizedBox(width: 8),
               Expanded(child: ChoiceChip(
+                label: const FitText('适中 150-250 字'),
+                selected: _strategy.length == LengthStrategy.medium,
+                onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.medium)); _saveStrategy(); },
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: ChoiceChip(
                 label: const FitText('无限制'),
                 selected: _strategy.length == LengthStrategy.unlimited,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.unlimited)); _saveStrategy(); },

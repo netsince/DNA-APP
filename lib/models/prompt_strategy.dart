@@ -10,6 +10,7 @@ enum ImmersionStrategy {
 
 enum LengthStrategy {
   strict,
+  medium,
   unlimited,
 }
 
