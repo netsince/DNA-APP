@@ -43,6 +43,8 @@ class AppSettings {
     this.temperature = 0.7,
     this.frequencyPenalty = 0.0,
     this.presencePenalty = 0.0,
+    this.authorNote,
+    this.authorNoteInterval = 0,
   });
 
   factory AppSettings.empty() {
@@ -87,6 +89,8 @@ class AppSettings {
       temperature: 0.7,
       frequencyPenalty: 0.0,
       presencePenalty: 0.0,
+      authorNote: null,
+      authorNoteInterval: 0,
     );
   }
 
@@ -190,6 +194,13 @@ class AppSettings {
   /// 存在惩罚（presence_penalty）。越大越鼓励谈论新话题，缓解复读。0~2。
   final double presencePenalty;
 
+  /// 作者注释（Author's Note）：一段希望模型始终记住/强调的内容。
+  /// 非空时按 [authorNoteInterval] 每隔若干条消息深度注入到对话中间。
+  final String? authorNote;
+
+  /// 作者注释注入间隔：每隔多少条历史消息注入一次，0 表示禁用深度注入。
+  final int authorNoteInterval;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -232,6 +243,8 @@ class AppSettings {
       'temperature': temperature,
       'frequencyPenalty': frequencyPenalty,
       'presencePenalty': presencePenalty,
+      'authorNote': authorNote,
+      'authorNoteInterval': authorNoteInterval,
     };
   }
 
@@ -284,6 +297,8 @@ class AppSettings {
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       frequencyPenalty: (json['frequencyPenalty'] as num?)?.toDouble() ?? 0.0,
       presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
+      authorNote: json['authorNote'] as String?,
+      authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
     );
   }
 
@@ -327,6 +342,8 @@ class AppSettings {
     double? temperature,
     double? frequencyPenalty,
     double? presencePenalty,
+    String? authorNote,
+    int? authorNoteInterval,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -369,6 +386,8 @@ class AppSettings {
       temperature: temperature ?? this.temperature,
       frequencyPenalty: frequencyPenalty ?? this.frequencyPenalty,
       presencePenalty: presencePenalty ?? this.presencePenalty,
+      authorNote: authorNote ?? this.authorNote,
+      authorNoteInterval: authorNoteInterval ?? this.authorNoteInterval,
     );
   }
 }

@@ -45,6 +45,8 @@ class SettingsService {
   static const String _temperatureKey = 'temperature';
   static const String _frequencyPenaltyKey = 'frequency_penalty';
   static const String _presencePenaltyKey = 'presence_penalty';
+  static const String _authorNoteKey = 'author_note';
+  static const String _authorNoteIntervalKey = 'author_note_interval';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -167,6 +169,12 @@ class SettingsService {
     await prefs.setDouble(_temperatureKey, settings.temperature);
     await prefs.setDouble(_frequencyPenaltyKey, settings.frequencyPenalty);
     await prefs.setDouble(_presencePenaltyKey, settings.presencePenalty);
+    if (settings.authorNote != null && settings.authorNote!.trim().isNotEmpty) {
+      await prefs.setString(_authorNoteKey, settings.authorNote!);
+    } else {
+      await prefs.remove(_authorNoteKey);
+    }
+    await prefs.setInt(_authorNoteIntervalKey, settings.authorNoteInterval);
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

@@ -326,6 +326,22 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存作者注释内容（空串视为清除）。
+  Future<void> saveAuthorNote(String? note) async {
+    final String? trimmed = (note == null || note.trim().isEmpty) ? null : note.trim();
+    _settings = _settings.copyWith(authorNote: trimmed);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存作者注释注入间隔（0 = 禁用深度注入）。
+  Future<void> saveAuthorNoteInterval(int interval) async {
+    final int clamped = interval.clamp(0, 200);
+    _settings = _settings.copyWith(authorNoteInterval: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
   Future<void> saveSampling({
     required double temperature,

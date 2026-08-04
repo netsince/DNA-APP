@@ -25,6 +25,8 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   late double _temperature;
   late double _frequencyPenalty;
   late double _presencePenalty;
+  late final TextEditingController _authorNoteCtrl;
+  late final TextEditingController _authorIntervalCtrl;
 
   @override
   void initState() {
@@ -42,10 +44,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _temperature = s.temperature;
     _frequencyPenalty = s.frequencyPenalty;
     _presencePenalty = s.presencePenalty;
+    _authorNoteCtrl = TextEditingController(text: s.authorNote ?? '');
+    _authorIntervalCtrl = TextEditingController(text: s.authorNoteInterval.toString());
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -73,6 +77,14 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final int v = (int.tryParse(_tokenCtrl.text.trim()) ?? 8000).clamp(0, 100000);
     _tokenCtrl.text = v.toString();
     await widget.controller.saveMaxContextTokens(v);
+  }
+
+  Future<void> _saveAuthorNote() => widget.controller.saveAuthorNote(_authorNoteCtrl.text);
+
+  Future<void> _saveAuthorInterval() async {
+    final int v = (int.tryParse(_authorIntervalCtrl.text.trim()) ?? 0).clamp(0, 200);
+    _authorIntervalCtrl.text = v.toString();
+    await widget.controller.saveAuthorNoteInterval(v);
   }
 
   Future<void> _saveSampling() => widget.controller.saveSampling(
@@ -334,6 +346,36 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               onPressed: _saveSampling,
               child: const FitText('应用采样参数'),
             ),
+          ),
+          const Divider(),
+          // --- Author's Note (deep injection) ---
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FitText('作者注释（深度注入）',
+                style: ts.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _authorNoteCtrl,
+            maxLines: 3,
+            minLines: 2,
+            decoration: const InputDecoration(
+              labelText: '希望模型始终记住/强调的内容',
+              hintText: '例：此刻身处雨夜森林，脚下是湿冷的泥土',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveAuthorNote(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _authorIntervalCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '注入间隔（每多少条历史消息注入一次）',
+              hintText: '0 表示禁用，默认 0',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveAuthorInterval(),
           ),
         ],
       ),

@@ -155,6 +155,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
+      authorNote: widget.controller.settings.authorNote,
+      authorNoteInterval: widget.controller.settings.authorNoteInterval,
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
@@ -343,6 +345,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
+      authorNote: widget.controller.settings.authorNote,
+      authorNoteInterval: widget.controller.settings.authorNoteInterval,
     );
     if (widget.controller.settings.retrySequential) {
       return _generateRetriesSequential(payload, model, apiKey, baseUrl);
@@ -462,6 +466,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
+      authorNote: widget.controller.settings.authorNote,
+      authorNoteInterval: widget.controller.settings.authorNoteInterval,
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
