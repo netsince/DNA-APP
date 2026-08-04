@@ -194,7 +194,9 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content': '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
+        'content': previous != null && previous.text.trim().isNotEmpty
+            ? '你是对话摘要助手。请以「已有摘要」为基底进行扩展更新：保留其中仍然有效的关键设定、关系、计划与事实，并追加「新增对话」带来的关键信息。不要推翻或重写旧摘要，不要编造。直接输出扩展更新后的完整摘要。'
+            : '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
       },
       if (personaContext.isNotEmpty)
         <String, String>{
