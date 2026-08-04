@@ -23,7 +23,7 @@ class ChatSystemPrompt {
     system.writeln('1) 括号"（…）"为旁白，只用于动作、表情、内心或环境描写，且尽量简短。');
     
     // 根据字数策略生成规则2
-    final String lengthRule = _buildLengthRule(effectiveStrategy.length);
+    final String lengthRule = _buildLengthRule(effectiveStrategy);
     system.writeln('2) $lengthRule');
     
     // 根据沉浸策略生成规则3（换行/格式规则）
@@ -110,14 +110,27 @@ class ChatSystemPrompt {
     return system.toString().trim();
   }
   
-  static String _buildLengthRule(LengthStrategy strategy) {
-    switch (strategy) {
+  static String _buildLengthRule(PromptStrategy strategy) {
+    switch (strategy.length) {
       case LengthStrategy.strict:
         return '每次回复控制在2-3句话，总字数80-120字内。第一句回应当前对话，第二句推进互动（提问/动作/情绪）。';
       case LengthStrategy.medium:
         return '每次回复控制在4-6句话，总字数150-250字，可写成1-2个段落。第一句回应当前对话，后续推进互动（提问/动作/情绪），适当展开动作与情绪描写，但不要长篇叙事。';
       case LengthStrategy.unlimited:
         return '写1-4个段落，充分展开描写。可以详细描述角色的动作、情感和环境，保持故事的沉浸感和吸引力。';
+      case LengthStrategy.custom:
+        final int? min = strategy.customMinChars;
+        final int? max = strategy.customMaxChars;
+        if (min != null && max != null && min > 0 && max >= min) {
+          return '每次回复控制在$min-$max字内。第一句回应当前对话，后续推进互动（提问/动作/情绪），可适当展开描写，但总字数不要超过$max字。';
+        }
+        if (max != null && max > 0) {
+          return '每次回复不要超过$max字。第一句回应当前对话，后续推进互动，可适当展开描写。';
+        }
+        if (min != null && min > 0) {
+          return '每次回复至少$min字以上，第一句回应当前对话，后续推进互动，充分展开描写。';
+        }
+        return '控制回复在指定的字数范围内，第一句回应当前对话，后续推进互动。';
     }
   }
   

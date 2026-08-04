@@ -28,6 +28,8 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   late double _presencePenalty;
   late final TextEditingController _authorNoteCtrl;
   late final TextEditingController _authorIntervalCtrl;
+  late final TextEditingController _customMinCtrl;
+  late final TextEditingController _customMaxCtrl;
 
   @override
   void initState() {
@@ -48,10 +50,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _presencePenalty = s.presencePenalty;
     _authorNoteCtrl = TextEditingController(text: s.authorNote ?? '');
     _authorIntervalCtrl = TextEditingController(text: s.authorNoteInterval.toString());
+    _customMinCtrl = TextEditingController(text: s.promptStrategy.customMinChars?.toString() ?? '');
+    _customMaxCtrl = TextEditingController(text: s.promptStrategy.customMaxChars?.toString() ?? '');
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); _customMinCtrl.dispose(); _customMaxCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -68,6 +72,15 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   Future<void> _saveRetry() => widget.controller.saveRetryStrategy(retrySequential: _retrySeq);
   Future<void> _saveInspire() => widget.controller.saveInspirationSettings(includeSummary: _inspireSummary);
   Future<void> _saveStrategy() => widget.controller.savePromptStrategy(_strategy);
+
+  Future<void> _saveCustomRange() async {
+    final int? min = int.tryParse(_customMinCtrl.text.trim());
+    final int? max = int.tryParse(_customMaxCtrl.text.trim());
+    setState(() {
+      _strategy = _strategy.copyWith(customMinChars: min, customMaxChars: max);
+    });
+    await _saveStrategy();
+  }
 
   Future<void> _saveContext() async {
     final int v = (int.tryParse(_ctxCtrl.text.trim()) ?? 120).clamp(0, 1000);
@@ -202,8 +215,34 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
                 selected: _strategy.length == LengthStrategy.unlimited,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.unlimited)); _saveStrategy(); },
               )),
+              const SizedBox(width: 8),
+              Expanded(child: ChoiceChip(
+                label: const FitText('自定义'),
+                selected: _strategy.length == LengthStrategy.custom,
+                onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.custom)); _saveStrategy(); },
+              )),
             ],
           ),
+          if (_strategy.length == LengthStrategy.custom) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Expanded(child: TextField(
+                  controller: _customMinCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '最少字数', isDense: true),
+                  onChanged: (_) => _saveCustomRange(),
+                )),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: FitText('~')),
+                Expanded(child: TextField(
+                  controller: _customMaxCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '最多字数', isDense: true),
+                  onChanged: (_) => _saveCustomRange(),
+                )),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           const Divider(),
           // --- Inspiration ---
