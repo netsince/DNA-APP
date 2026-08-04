@@ -35,6 +35,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _allowDeleteMessage = s.allowDeleteMessage;
     _strategy = s.promptStrategy;
     _ctxCtrl = TextEditingController(text: s.maxContextMessages.toString());
+    _tokenCtrl = TextEditingController(text: s.maxContextTokens.toString());
     _temperature = s.temperature;
     _frequencyPenalty = s.frequencyPenalty;
     _presencePenalty = s.presencePenalty;
@@ -57,6 +58,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final int v = (int.tryParse(_ctxCtrl.text.trim()) ?? 120).clamp(0, 1000);
     _ctxCtrl.text = v.toString();
     await widget.controller.saveMaxContextMessages(v);
+  }
+
+  Future<void> _saveTokens() async {
+    final int v = (int.tryParse(_tokenCtrl.text.trim()) ?? 8000).clamp(0, 100000);
+    _tokenCtrl.text = v.toString();
+    await widget.controller.saveMaxContextTokens(v);
   }
 
   Future<void> _saveSampling() => widget.controller.saveSampling(
@@ -274,6 +281,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               isDense: true,
             ),
             onChanged: (_) => _saveContext(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _tokenCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '历史消息 token 预算（精确逐条裁剪）',
+              hintText: '默认 8000，范围 0-100000，0 表示不限',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveTokens(),
           ),
           const Divider(),
           // --- Sampling ---

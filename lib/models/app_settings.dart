@@ -38,6 +38,7 @@ class AppSettings {
     this.enterToSend = true,
     required this.chatMaskStrength,
     this.maxContextMessages = 120,
+    this.maxContextTokens = 8000,
     this.temperature = 0.7,
     this.frequencyPenalty = 0.0,
     this.presencePenalty = 0.0,
@@ -80,6 +81,7 @@ class AppSettings {
       enterToSend: true,
       chatMaskStrength: 75,
       maxContextMessages: 120,
+      maxContextTokens: 8000,
       temperature: 0.7,
       frequencyPenalty: 0.0,
       presencePenalty: 0.0,
@@ -169,6 +171,10 @@ class AppSettings {
   /// 用于防止长对话超出模型上下文窗口导致模型退化（复读、答非所问）。
   final int maxContextMessages;
 
+  /// 单次请求历史消息的 token 预算（精确逐条裁剪），0 表示不限制。
+  /// 用当前模型的 tokenizer 估算，从最新往最老逐条累积，超出即裁掉更早消息。
+  final int maxContextTokens;
+
   /// 采样温度。值越高越随机，越低越确定。默认 0.7。
   final double temperature;
 
@@ -215,6 +221,7 @@ class AppSettings {
       'enterToSend': enterToSend,
       'chatMaskStrength': chatMaskStrength,
       'maxContextMessages': maxContextMessages,
+      'maxContextTokens': maxContextTokens,
       'temperature': temperature,
       'frequencyPenalty': frequencyPenalty,
       'presencePenalty': presencePenalty,
@@ -265,6 +272,7 @@ class AppSettings {
       enterToSend: (json['enterToSend'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
       maxContextMessages: (json['maxContextMessages'] as int?) ?? 120,
+      maxContextTokens: (json['maxContextTokens'] as int?) ?? 8000,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       frequencyPenalty: (json['frequencyPenalty'] as num?)?.toDouble() ?? 0.0,
       presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
@@ -307,6 +315,7 @@ class AppSettings {
     bool? enterToSend,
     int? chatMaskStrength,
     int? maxContextMessages,
+    int? maxContextTokens,
     double? temperature,
     double? frequencyPenalty,
     double? presencePenalty,
@@ -346,6 +355,11 @@ class AppSettings {
       showParenButton: showParenButton ?? this.showParenButton,
       enterToSend: enterToSend ?? this.enterToSend,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
+      maxContextMessages: maxContextMessages ?? this.maxContextMessages,
+      maxContextTokens: maxContextTokens ?? this.maxContextTokens,
+      temperature: temperature ?? this.temperature,
+      frequencyPenalty: frequencyPenalty ?? this.frequencyPenalty,
+      presencePenalty: presencePenalty ?? this.presencePenalty,
     );
   }
 }

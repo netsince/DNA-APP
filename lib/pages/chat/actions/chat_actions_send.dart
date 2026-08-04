@@ -131,7 +131,13 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(_conversation);
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
+    );
     final ConversationSummary? summary =
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
@@ -208,6 +214,10 @@ mixin ChatActionsSend on ChatStateMixin {
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       excludeIds: <String>{assistantId},
+      maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
     );
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = ChatSystemPrompt.build(
@@ -312,6 +322,9 @@ mixin ChatActionsSend on ChatStateMixin {
       _conversation,
       endExclusive: index,
       maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
     );
     final ConversationSummary? summary =
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
@@ -427,6 +440,10 @@ mixin ChatActionsSend on ChatStateMixin {
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       excludeIds: <String>{assistantId},
+      maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
     );
     final ConversationSummary? summary =
         slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;

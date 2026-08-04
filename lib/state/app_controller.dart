@@ -310,6 +310,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存单次请求历史消息的 token 预算（0 = 不限制）。
+  Future<void> saveMaxContextTokens(int maxContextTokens) async {
+    final int clamped = maxContextTokens.clamp(0, 100000);
+    _settings = _settings.copyWith(maxContextTokens: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
   Future<void> saveSampling({
     required double temperature,
