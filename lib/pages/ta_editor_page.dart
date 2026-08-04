@@ -37,6 +37,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
   late final TextEditingController _openingController;
   late final TextEditingController _tagsController;
   late final TextEditingController _seedController;
+  late final TextEditingController _authorNoteController;
+  late final TextEditingController _authorIntervalController;
 
   late String _gender;
   late String _taId;
@@ -55,6 +57,9 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _tagsController = TextEditingController(text: (ta?.tags ?? <String>[]).join(', '));
     _seedController =
         TextEditingController(text: ta?.voiceSeed?.toString() ?? '');
+    _authorNoteController = TextEditingController(text: ta?.authorNote ?? '');
+    _authorIntervalController =
+        TextEditingController(text: ta?.authorNoteInterval.toString() ?? '0');
     _gender = ta?.gender ?? '无性';
     _images = Map<String, String>.from(ta?.images ?? <String, String>{});
     _dialogueStyle = List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
@@ -68,6 +73,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _openingController.dispose();
     _tagsController.dispose();
     _seedController.dispose();
+    _authorNoteController.dispose();
+    _authorIntervalController.dispose();
     super.dispose();
   }
 
@@ -146,6 +153,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
       images: _images,
       dialogueStyle: _dialogueStyle,
       voiceSeed: _parseSeed(),
+      authorNote: _authorNoteController.text.trim().isEmpty
+          ? null
+          : _authorNoteController.text.trim(),
+      authorNoteInterval: int.tryParse(_authorIntervalController.text.trim()) ?? 0,
     );
   }
 
@@ -289,6 +300,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
         archived: importedTA.archived,
         originalLink: importedTA.originalLink,
         voiceSeed: importedTA.voiceSeed,
+        authorNote: importedTA.authorNote,
+        authorNoteInterval: importedTA.authorNoteInterval,
       );
       if (!mounted) return;
       showSnack(context, 'ID 与已有角色冲突，已自动创建为新角色');
@@ -363,6 +376,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
       _openingController.text = finalTA.opening;
       _tagsController.text = finalTA.tags.join(', ');
       _seedController.text = finalTA.voiceSeed?.toString() ?? '';
+      _authorNoteController.text = finalTA.authorNote ?? '';
+      _authorIntervalController.text = finalTA.authorNoteInterval.toString();
       _images = Map<String, String>.from(finalTA.images);
       _dialogueStyle = List<DialogueTurn>.from(finalTA.dialogueStyle);
     });
@@ -543,6 +558,32 @@ class _TaEditorPageState extends State<TaEditorPage> {
                   const SizedBox(height: 4),
                   FitText(
                     '该角色固定音色，未设置时使用全局语音合成 seed。',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  AdaptiveTextField(
+                    controller: _authorNoteController,
+                    decoration: const InputDecoration(
+                      labelText: '作者注释（可选）',
+                      hintText: '该角色始终希望强调的内容，按间隔深度注入对话。留空则用全局设置。',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _authorIntervalController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '注入间隔（每多少条历史消息注入一次）',
+                      hintText: '0 表示禁用',
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '作者注释会随角色卡导出/导入。留空时不覆盖全局作者注释。',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall

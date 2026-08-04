@@ -15,6 +15,8 @@ class TA {
     this.originalLink,
     this.protection,
     this.voiceSeed,
+    this.authorNote,
+    this.authorNoteInterval = 0,
   });
 
   final String id;
@@ -35,6 +37,12 @@ class TA {
   /// 客户端只存不编，导出时原样透传，UI 不展示，避免溯源信息失真。
   final Map<String, dynamic>? protection;
 
+  /// 该角色绑定的作者注释（Author's Note）。选填：留空时回退到全局作者注释。
+  final String? authorNote;
+
+  /// 该角色作者注释的注入间隔（每多少条历史消息注入一次），0 表示禁用。
+  final int authorNoteInterval;
+
   TA copyWith({
     String? id,
     String? name,
@@ -49,6 +57,8 @@ class TA {
     String? originalLink,
     Map<String, dynamic>? protection,
     int? voiceSeed,
+    String? authorNote,
+    int? authorNoteInterval,
   }) {
     return TA(
       id: id ?? this.id,
@@ -82,6 +92,8 @@ class TA {
       'originalLink': originalLink,
       'protection': protection,
       'voiceSeed': voiceSeed,
+      'authorNote': authorNote,
+      'authorNoteInterval': authorNoteInterval,
     };
   }
 
@@ -106,6 +118,8 @@ class TA {
       originalLink: json['originalLink'] as String?,
       protection: json['protection'] as Map<String, dynamic>?,
       voiceSeed: json['voiceSeed'] as int?,
+      authorNote: json['authorNote'] as String?,
+      authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
     );
   }
 }

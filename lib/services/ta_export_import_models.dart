@@ -62,6 +62,8 @@ class ExportedCharacter {
     required this.dialogueStyle,
     required this.images,
     this.voiceSeed,
+    this.authorNote,
+    this.authorNoteInterval = 0,
   });
 
   final String id;
@@ -75,6 +77,10 @@ class ExportedCharacter {
   final Map<String, ExportedImageInfo> images;
   final int? voiceSeed;
 
+  /// 角色卡绑定的作者注释（选填）及其注入间隔。
+  final String? authorNote;
+  final int authorNoteInterval;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -86,6 +92,8 @@ class ExportedCharacter {
         'dialogueStyle': dialogueStyle,
         'images': images.map((key, value) => MapEntry(key, value.toJson())),
         if (voiceSeed != null) 'voiceSeed': voiceSeed,
+        if (authorNote != null) 'authorNote': authorNote,
+        'authorNoteInterval': authorNoteInterval,
       };
 
   static ExportedCharacter fromJson(Map<String, dynamic> json) {
@@ -125,6 +133,8 @@ class ExportedCharacter {
       dialogueStyle: dialogueStyle,
       images: images,
       voiceSeed: json['voiceSeed'] as int?,
+      authorNote: json['authorNote'] as String?,
+      authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
     );
   }
 
@@ -145,6 +155,8 @@ class ExportedCharacter {
               ))
           .toList(),
       voiceSeed: voiceSeed,
+      authorNote: authorNote,
+      authorNoteInterval: authorNoteInterval,
       originalLink: protection?['originalLink'] as String?,
       protection: protection,
     );

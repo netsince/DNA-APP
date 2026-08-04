@@ -96,6 +96,8 @@ class TaExportImportService {
             .toList(),
         images: exportedImages,
         voiceSeed: character.voiceSeed,
+        authorNote: character.authorNote,
+        authorNoteInterval: character.authorNoteInterval,
       );
 
       final package = ExportPackage(

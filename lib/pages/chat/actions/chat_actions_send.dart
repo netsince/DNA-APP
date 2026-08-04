@@ -50,6 +50,21 @@ mixin ChatActionsSend on ChatStateMixin {
     return widget.controller.getTaById(taId)?.name;
   }
 
+  /// 当前对话使用的作者注释：优先角色卡（TA）绑定的，未设置则回退全局设置。
+  String? _effectiveAuthorNote(TA? ta) {
+    if (ta != null && ta.authorNote != null && ta.authorNote!.trim().isNotEmpty) {
+      return ta.authorNote;
+    }
+    return widget.controller.settings.authorNote;
+  }
+
+  int _effectiveAuthorNoteInterval(TA? ta) {
+    if (ta != null && ta.authorNote != null && ta.authorNote!.trim().isNotEmpty) {
+      return ta.authorNoteInterval;
+    }
+    return widget.controller.settings.authorNoteInterval;
+  }
+
   /// 记录词条 id -> 剩余 sticky 轮数（词条被激活后持续保留的轮数）。
   final Map<String, int> _stickyLoreEntries = <String, int>{};
 
@@ -200,8 +215,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
-      authorNote: widget.controller.settings.authorNote,
-      authorNoteInterval: widget.controller.settings.authorNoteInterval,
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
@@ -390,8 +405,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
-      authorNote: widget.controller.settings.authorNote,
-      authorNoteInterval: widget.controller.settings.authorNoteInterval,
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );
     if (widget.controller.settings.retrySequential) {
       return _generateRetriesSequential(payload, model, apiKey, baseUrl);
@@ -511,8 +526,8 @@ mixin ChatActionsSend on ChatStateMixin {
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
       activeEntries: _activeLoreEntries(slice.messages),
-      authorNote: widget.controller.settings.authorNote,
-      authorNoteInterval: widget.controller.settings.authorNoteInterval,
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
