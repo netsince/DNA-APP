@@ -1,0 +1,67 @@
+00:00 +0: loading D:/duetnurturingally/dna-client/test/data_backup_service_test.dart
+00:00 +0: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP buildZip + parseZip 往返一致
+00:00 +1: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP ZIP 内不含 settings.json（不打包设置）
+00:00 +2: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP TA 图片随包导出并在解析后落盘还原
+00:00 +3: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 解析损坏/缺失 manifest 的 ZIP 失败
+00:00 +4: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 多个 TA 引用同名图片不互相覆盖
+00:00 +5: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP buildConversationsZip + parseConversationsZip 往返一致
+00:00 +6: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 全量包可被 parseConversationsZip 兼容解析
+00:00 +7: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 缺少 conversations.json 时 parseConversationsZip 失败
+00:01 +8: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 toJson / fromJson 往返一致
+00:01 +9: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 data 为 null 时安全往返
+00:01 +10: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toJson / fromJson 往返一致
+00:01 +11: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 缺失字段使用默认值而非抛异常
+00:01 +12: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 还原基础字段与对话风格
+00:01 +13: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 透传 protection 溯源包
+00:01 +14: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） toJson / fromJson 完整保留 protection 与图片槽溯源
+00:01 +15: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） 无 protection 时 toJson 不含溯源字段
+00:01 +16: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 toJson / fromJson 往返一致
+00:01 +17: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 缺失 type 时默认 full
+00:01 +18: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataImportReport 持有导入统计 字段正确暴露
+00:01 +19: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 本应用导出格式可被正确导入
+00:01 +20: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v2 角色卡可被识别并导入
+00:01 +21: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v1 扁平角色卡可被导入
+00:01 +22: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 不支持的格式返回失败
+00:01 +23: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 非 JSON 内容返回失败
+00:01 +24: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 版本过高返回失败
+00:01 +25: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 DataBackupService 暴露 DataBackupManifest / ParsedBackup / DataImportReport
+00:01 +26: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 TaExportImportService 暴露 ExportPackage / ExportedCharacter / ImportResult
+00:14 +27: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试
+00:14 +27 -1: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试 [E]
+  PathNotFoundException: Cannot open file, path = 'd:/duetnurturingally/dna-client/modelwksps/models/../_code_emb.bin' (OS Error: 系统找不到指定的文件。, errno = 2)
+  dart:io                               _File.readAsBytesSync
+  test\gpt_fwd_isolate_test.dart 10:45  main.<fn>
+  
+00:17 +27 -1: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入
+00:17 +27 -2: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入 [E]
+  PathNotFoundException: Cannot open file, path = 'd:/duetnurturingally/dna-client/modelwksps/models/../_code_emb.bin' (OS Error: 系统找不到指定的文件。, errno = 2)
+  dart:io                        _File.readAsBytesSync
+  test\gpt_run2_test.dart 12:45  main.<fn>
+  
+00:18 +27 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 空查询返回空
+00:18 +28 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按角色名命中
+00:18 +29 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按标签命中
+00:18 +30 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按世界简介命中
+00:18 +31 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按会话备注命中为 conversation 类型
+00:18 +32 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按消息正文命中为 message 类型且带片段
+00:18 +33 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 单会话消息命中最多取 5 条
+00:18 +34 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 大小写不敏感
+00:19 +35 -2: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+合成长度=9728 samples (0.4053333333333333s) RMS=0.025545463279507494
+00:33 +36 -2: D:/duetnurturingally/dna-client/test/tts_istft_test.dart: istft 与 numpy 参考一致
+00:33 +36 -3: D:/duetnurturingally/dna-client/test/tts_istft_test.dart: istft 与 numpy 参考一致 [E]
+  Expected: <2560>
+    Actual: <5120>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\tts_istft_test.dart 28:5                       main.<fn>
+  
+00:35 +36 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: (setUpAll)
+00:35 +36 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: 特殊 token id 正确
+00:35 +37 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: 中文单字编码
+00:35 +38 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decorate code prompt + encode
+00:35 +39 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decorate text prompt
+00:35 +40 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decode 往返
+00:35 +41 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: (tearDownAll)
+00:46 +41 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
