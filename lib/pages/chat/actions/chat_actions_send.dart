@@ -439,6 +439,12 @@ mixin ChatActionsSend on ChatStateMixin {
           temperature: widget.controller.settings.temperature,
           frequencyPenalty: widget.controller.settings.frequencyPenalty,
           presencePenalty: widget.controller.settings.presencePenalty,
+          topP: widget.controller.settings.topP,
+          topK: widget.controller.settings.topK,
+          minP: widget.controller.settings.minP,
+          repetitionPenalty: widget.controller.settings.repetitionPenalty,
+          repetitionPenaltySlope:
+              widget.controller.settings.repetitionPenaltySlope,
         );
         if (!result.success || result.content == null) {
           return null;
@@ -469,6 +475,12 @@ mixin ChatActionsSend on ChatStateMixin {
           temperature: widget.controller.settings.temperature,
           frequencyPenalty: widget.controller.settings.frequencyPenalty,
           presencePenalty: widget.controller.settings.presencePenalty,
+          topP: widget.controller.settings.topP,
+          topK: widget.controller.settings.topK,
+          minP: widget.controller.settings.minP,
+          repetitionPenalty: widget.controller.settings.repetitionPenalty,
+          repetitionPenaltySlope:
+              widget.controller.settings.repetitionPenaltySlope,
         );
         if (result.success && result.content != null && result.content!.trim().isNotEmpty) {
           results.add(result.content!);

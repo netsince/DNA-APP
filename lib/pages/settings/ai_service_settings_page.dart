@@ -4,6 +4,7 @@ import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/dialogs.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'sampler_settings_page.dart';
 
 class AiServiceSettingsPage extends StatefulWidget {
   const AiServiceSettingsPage({super.key, required this.controller});
@@ -238,6 +239,22 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                 );
               }).toList(),
             ),
+          const SizedBox(height: 24),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.tune),
+            title: const FitText('高级功能'),
+            subtitle: const FitText('采样参数（Top-P / Top-K / Min-P / 重复惩罚等）'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SamplerSettingsPage(controller: widget.controller),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

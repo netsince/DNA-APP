@@ -138,6 +138,11 @@ class OpenAiService implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -160,7 +165,16 @@ class OpenAiService implements LlmProvider {
             body: jsonEncode(<String, dynamic>{
               'model': normalizedModel,
               'messages': messages,
-              'temperature': 0.7,
+              'temperature': temperature,
+              'frequency_penalty': frequencyPenalty,
+              'presence_penalty': presencePenalty,
+              ..._samplingBody(
+                topP: topP,
+                topK: topK,
+                minP: minP,
+                repetitionPenalty: repetitionPenalty,
+                repetitionPenaltySlope: repetitionPenaltySlope,
+              ),
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -204,6 +218,11 @@ class OpenAiService implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async* {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -225,6 +244,13 @@ class OpenAiService implements LlmProvider {
         'frequency_penalty': frequencyPenalty,
         'presence_penalty': presencePenalty,
         'stream': true,
+        ..._samplingBody(
+          topP: topP,
+          topK: topK,
+          minP: minP,
+          repetitionPenalty: repetitionPenalty,
+          repetitionPenaltySlope: repetitionPenaltySlope,
+        ),
       });
 
     try {
@@ -274,6 +300,37 @@ class OpenAiService implements LlmProvider {
     } catch (error) {
       yield '[ERROR] 请求失败：$error';
     }
+  }
+
+  /// 组装仅在「非默认值」时才会携带的高级采样参数。
+  ///
+  /// 默认值（top_p=1、top_k=0、min_p=0、rep=1、slope=0）表示「关闭/中性」，
+  /// 此时不发送对应字段，保证对不支持这些参数的标准端点保持原有行为；
+  /// 仅当用户在「高级功能」中手动改过时才带上，交由后端按需接受。
+  Map<String, dynamic> _samplingBody({
+    required double topP,
+    required double topK,
+    required double minP,
+    required double repetitionPenalty,
+    required double repetitionPenaltySlope,
+  }) {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    if (topP != 1.0) {
+      out['top_p'] = topP;
+    }
+    if (topK > 0) {
+      out['top_k'] = topK;
+    }
+    if (minP > 0) {
+      out['min_p'] = minP;
+    }
+    if (repetitionPenalty != 1.0) {
+      out['repetition_penalty'] = repetitionPenalty;
+    }
+    if (repetitionPenaltySlope != 0.0) {
+      out['repetition_penalty_slope'] = repetitionPenaltySlope;
+    }
+    return out;
   }
 
   String modelsEndpoint(String baseUrl) {

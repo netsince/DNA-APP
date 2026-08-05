@@ -145,6 +145,11 @@ class ZhipuProvider implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -166,6 +171,7 @@ class ZhipuProvider implements LlmProvider {
               'temperature': temperature,
               'frequency_penalty': frequencyPenalty,
               'presence_penalty': presencePenalty,
+              ..._samplingBody(topP: topP, topK: topK),
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -209,6 +215,11 @@ class ZhipuProvider implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async* {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -226,6 +237,7 @@ class ZhipuProvider implements LlmProvider {
         'frequency_penalty': frequencyPenalty,
         'presence_penalty': presencePenalty,
         'stream': true,
+        ..._samplingBody(topP: topP, topK: topK),
       });
 
     try {
@@ -275,6 +287,21 @@ class ZhipuProvider implements LlmProvider {
     } catch (error) {
       yield '[ERROR] 请求失败：$error';
     }
+  }
+
+  /// 组装智谱支持的高级采样参数（仅 top_p / top_k，非默认值时携带）。
+  Map<String, dynamic> _samplingBody({
+    required double topP,
+    required double topK,
+  }) {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    if (topP != 1.0) {
+      out['top_p'] = topP;
+    }
+    if (topK > 0) {
+      out['top_k'] = topK;
+    }
+    return out;
   }
 
   String _extractError(String responseBody, int statusCode) {

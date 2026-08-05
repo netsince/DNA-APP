@@ -44,6 +44,11 @@ class AppSettings {
     this.temperature = 0.7,
     this.frequencyPenalty = 0.0,
     this.presencePenalty = 0.0,
+    this.topP = 1.0,
+    this.topK = 0.0,
+    this.minP = 0.0,
+    this.repetitionPenalty = 1.0,
+    this.repetitionPenaltySlope = 0.0,
     this.authorNote,
     this.authorNoteInterval = 0,
     this.loreStickyRounds = 3,
@@ -94,6 +99,11 @@ class AppSettings {
       temperature: 0.7,
       frequencyPenalty: 0.0,
       presencePenalty: 0.0,
+      topP: 1.0,
+      topK: 0.0,
+      minP: 0.0,
+      repetitionPenalty: 1.0,
+      repetitionPenaltySlope: 0.0,
       authorNote: null,
       authorNoteInterval: 0,
       loreStickyRounds: 3,
@@ -203,6 +213,21 @@ class AppSettings {
   /// 存在惩罚（presence_penalty）。越大越鼓励谈论新话题，缓解复读。0~2。
   final double presencePenalty;
 
+  /// 核采样（top_p）：只从累积概率达到该阈值的词中采样。1.0 表示关闭。
+  final double topP;
+
+  /// Top-K 采样：只从概率最高的前 K 个词中采样。0 表示关闭。
+  final double topK;
+
+  /// 最小概率（min_p）：过滤掉概率低于「最高概率 × min_p」的词。0 表示关闭。
+  final double minP;
+
+  /// 重复惩罚（repetition_penalty）：对重复出现过的词施加惩罚。1.0 表示关闭。
+  final double repetitionPenalty;
+
+  /// 重复惩罚斜率（repetition_penalty_slope）：对最近重复词的额外加权。0 表示关闭。
+  final double repetitionPenaltySlope;
+
   /// 作者注释（Author's Note）：一段希望模型始终记住/强调的内容。
   /// 非空时按 [authorNoteInterval] 每隔若干条消息深度注入到对话中间。
   final String? authorNote;
@@ -264,6 +289,11 @@ class AppSettings {
       'temperature': temperature,
       'frequencyPenalty': frequencyPenalty,
       'presencePenalty': presencePenalty,
+      'topP': topP,
+      'topK': topK,
+      'minP': minP,
+      'repetitionPenalty': repetitionPenalty,
+      'repetitionPenaltySlope': repetitionPenaltySlope,
       'authorNote': authorNote,
       'authorNoteInterval': authorNoteInterval,
       'loreStickyRounds': loreStickyRounds,
@@ -324,6 +354,12 @@ class AppSettings {
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       frequencyPenalty: (json['frequencyPenalty'] as num?)?.toDouble() ?? 0.0,
       presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
+      topP: (json['topP'] as num?)?.toDouble() ?? 1.0,
+      topK: (json['topK'] as num?)?.toDouble() ?? 0.0,
+      minP: (json['minP'] as num?)?.toDouble() ?? 0.0,
+      repetitionPenalty: (json['repetitionPenalty'] as num?)?.toDouble() ?? 1.0,
+      repetitionPenaltySlope:
+          (json['repetitionPenaltySlope'] as num?)?.toDouble() ?? 0.0,
       authorNote: json['authorNote'] as String?,
       authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
       loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
@@ -378,6 +414,11 @@ class AppSettings {
     double? temperature,
     double? frequencyPenalty,
     double? presencePenalty,
+    double? topP,
+    double? topK,
+    double? minP,
+    double? repetitionPenalty,
+    double? repetitionPenaltySlope,
     String? authorNote,
     int? authorNoteInterval,
     int? loreStickyRounds,
@@ -426,6 +467,12 @@ class AppSettings {
       temperature: temperature ?? this.temperature,
       frequencyPenalty: frequencyPenalty ?? this.frequencyPenalty,
       presencePenalty: presencePenalty ?? this.presencePenalty,
+      topP: topP ?? this.topP,
+      topK: topK ?? this.topK,
+      minP: minP ?? this.minP,
+      repetitionPenalty: repetitionPenalty ?? this.repetitionPenalty,
+      repetitionPenaltySlope:
+          repetitionPenaltySlope ?? this.repetitionPenaltySlope,
       authorNote: authorNote ?? this.authorNote,
       authorNoteInterval: authorNoteInterval ?? this.authorNoteInterval,
       loreStickyRounds: loreStickyRounds ?? this.loreStickyRounds,

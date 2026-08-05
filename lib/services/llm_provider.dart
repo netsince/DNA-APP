@@ -42,6 +42,11 @@ abstract class LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   });
 
   /// 流式补全，逐块吐出可见文本。
@@ -53,6 +58,11 @@ abstract class LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   });
 }
 

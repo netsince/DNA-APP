@@ -389,6 +389,38 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「高级采样参数」（Top-P / Top-K / Min-P / 重复惩罚 / 惩罚斜率）。
+  Future<void> saveAdvancedSampling({
+    required double topP,
+    required double topK,
+    required double minP,
+    required double repetitionPenalty,
+    required double repetitionPenaltySlope,
+  }) async {
+    _settings = _settings.copyWith(
+      topP: topP.clamp(0.0, 1.0),
+      topK: topK.clamp(0.0, 200.0),
+      minP: minP.clamp(0.0, 1.0),
+      repetitionPenalty: repetitionPenalty.clamp(1.0, 2.0),
+      repetitionPenaltySlope: repetitionPenaltySlope.clamp(0.0, 1.0),
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 恢复「高级采样参数」到默认值。
+  Future<void> resetAdvancedSampling() async {
+    _settings = _settings.copyWith(
+      topP: 1.0,
+      topK: 0.0,
+      minP: 0.0,
+      repetitionPenalty: 1.0,
+      repetitionPenaltySlope: 0.0,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「离线语音输入（STT）」开关。
   Future<void> saveVoiceInputEnabled(bool value) async {
     _settings = _settings.copyWith(voiceInputEnabled: value);

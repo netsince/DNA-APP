@@ -54,6 +54,21 @@ class AnthropicProvider implements LlmProvider {
     return s;
   }
 
+  /// 组装 Anthropic 支持的高级采样参数（仅 top_p / top_k，非默认值时携带）。
+  Map<String, dynamic> _samplingBody({
+    required double topP,
+    required double topK,
+  }) {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    if (topP != 1.0) {
+      out['top_p'] = topP;
+    }
+    if (topK > 0) {
+      out['top_k'] = topK;
+    }
+    return out;
+  }
+
   String _messagesEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/messages';
 
   String _modelsEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/models';
@@ -148,6 +163,11 @@ class AnthropicProvider implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async {
     try {
       final (:String? system, :List<Map<String, String>> convo) =
@@ -157,6 +177,7 @@ class AnthropicProvider implements LlmProvider {
         'max_tokens': _maxTokens,
         'temperature': temperature,
         'messages': convo,
+        ..._samplingBody(topP: topP, topK: topK),
       };
       if (system != null) {
         body['system'] = system;
@@ -196,6 +217,11 @@ class AnthropicProvider implements LlmProvider {
     double temperature = 0.7,
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
+    double topP = 1.0,
+    double topK = 0.0,
+    double minP = 0.0,
+    double repetitionPenalty = 1.0,
+    double repetitionPenaltySlope = 0.0,
   }) async* {
     final (:String? system, :List<Map<String, String>> convo) =
         _splitSystem(messages);
@@ -205,6 +231,7 @@ class AnthropicProvider implements LlmProvider {
       'temperature': temperature,
       'stream': true,
       'messages': convo,
+      ..._samplingBody(topP: topP, topK: topK),
     };
     if (system != null) {
       body['system'] = system;
