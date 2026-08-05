@@ -110,7 +110,7 @@ class WorldExportImportService {
       if (keyList.isEmpty && (content == null || content.isEmpty)) {
         continue;
       }
-      final String id = (e.key as String).isNotEmpty ? e.key : newId();
+      final String id = e.key.isNotEmpty ? e.key : newId();
       entries.add(WorldEntry(
         id: id,
         name: keyList.isEmpty ? '' : keyList.first,
