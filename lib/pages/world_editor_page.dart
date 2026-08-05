@@ -29,6 +29,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   late final TextEditingController _entryDescriptionController;
   late final TextEditingController _entryAgeController;
   late final TextEditingController _entryRelationController;
+  late final TextEditingController _entryKeysController;
+  late final TextEditingController _entryRegexController;
+  late final TextEditingController _entryCooldownController;
+  late final TextEditingController _entryDelayController;
 
   late String _worldId;
   late List<WorldEntry> _entries;
@@ -36,6 +40,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   WorldPersonGender _entryGender = WorldPersonGender.other;
   WorldPersonStatus _entryStatus = WorldPersonStatus.normal;
   String? _relationTargetId;
+  bool _entryCaseSensitive = false;
+  bool _entryWholeWords = false;
+  bool _entryRecursive = false;
+  String _entryDecorator = 'none';
 
   @override
   void initState() {
@@ -54,6 +62,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _entryDescriptionController = TextEditingController();
     _entryAgeController = TextEditingController();
     _entryRelationController = TextEditingController();
+    _entryKeysController = TextEditingController();
+    _entryRegexController = TextEditingController();
+    _entryCooldownController = TextEditingController();
+    _entryDelayController = TextEditingController();
   }
 
   @override
@@ -67,6 +79,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _entryDescriptionController.dispose();
     _entryAgeController.dispose();
     _entryRelationController.dispose();
+    _entryKeysController.dispose();
+    _entryRegexController.dispose();
+    _entryCooldownController.dispose();
+    _entryDelayController.dispose();
     super.dispose();
   }
 
@@ -178,6 +194,16 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       age: _entryType == WorldEntryType.person ? _entryAgeController.text.trim() : null,
       status: _entryType == WorldEntryType.person ? _entryStatus : null,
       relation: relation,
+      keys: _parseEntryKeys(_entryKeysController.text),
+      keyRegex: _entryRegexController.text.trim().isEmpty
+          ? null
+          : _entryRegexController.text.trim(),
+      caseSensitive: _entryCaseSensitive,
+      matchWholeWords: _entryWholeWords,
+      recursive: _entryRecursive,
+      cooldownRounds: (int.tryParse(_entryCooldownController.text.trim()) ?? 0).clamp(0, 100),
+      delayRounds: (int.tryParse(_entryDelayController.text.trim()) ?? 0).clamp(0, 100),
+      decorator: _entryDecorator == 'none' ? null : _entryDecorator,
     );
 
     setState(() {
@@ -186,11 +212,27 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       _entryDescriptionController.clear();
       _entryAgeController.clear();
       _entryRelationController.clear();
+      _entryKeysController.clear();
+      _entryRegexController.clear();
+      _entryCooldownController.clear();
+      _entryDelayController.clear();
       _relationTargetId = null;
       _entryType = WorldEntryType.noun;
       _entryGender = WorldPersonGender.other;
       _entryStatus = WorldPersonStatus.normal;
+      _entryCaseSensitive = false;
+      _entryWholeWords = false;
+      _entryRecursive = false;
+      _entryDecorator = 'none';
     });
+  }
+
+  List<String> _parseEntryKeys(String raw) {
+    return raw
+        .split(RegExp(r'[,，]'))
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toList();
   }
 
   void _removeEntry(WorldEntry entry) {
@@ -468,6 +510,89 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     },
                     decoration: const InputDecoration(labelText: '类型'),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _entryKeysController,
+                    decoration: const InputDecoration(
+                      labelText: '附加触发关键词（逗号分隔）',
+                      hintText: '除名称外，命中这些词也会激活本词条',
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _entryRegexController,
+                    decoration: const InputDecoration(
+                      labelText: '正则触发键（可选）',
+                      hintText: '例如：\\b雨夜\\b，命中即触发',
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      FilterChip(
+                        label: const FitText('大小写敏感'),
+                        selected: _entryCaseSensitive,
+                        onSelected: (v) => setState(() => _entryCaseSensitive = v),
+                      ),
+                      FilterChip(
+                        label: const FitText('全词匹配'),
+                        selected: _entryWholeWords,
+                        onSelected: (v) => setState(() => _entryWholeWords = v),
+                      ),
+                      FilterChip(
+                        label: const FitText('递归扫描'),
+                        selected: _entryRecursive,
+                        onSelected: (v) => setState(() => _entryRecursive = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          controller: _entryCooldownController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '冷却轮数',
+                            hintText: '激活后多少轮不重复触发',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _entryDelayController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '延迟轮数',
+                            hintText: '关键词出现后延迟几轮再激活',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _entryDecorator,
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(value: 'none', child: FitText('正常')),
+                      DropdownMenuItem<String>(
+                          value: 'activate', child: FitText('强制激活（跳过冷却）')),
+                      DropdownMenuItem<String>(
+                          value: 'dont_activate', child: FitText('禁止激活')),
+                    ],
+                    onChanged: (String? value) {
+                      setState(() => _entryDecorator = value ?? 'none');
+                    },
+                    decoration: const InputDecoration(labelText: '装饰符', isDense: true),
+                  ),
                   if (_entryType == WorldEntryType.person) ...<Widget>[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<WorldPersonGender>(
@@ -583,6 +708,24 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                                       if (entry.type == WorldEntryType.person &&
                                           entry.status != null)
                                         Chip(label: FitText(_statusLabel(entry.status!))),
+                                      if (entry.keys.isNotEmpty)
+                                        Chip(label: FitText('${entry.keys.length} 附加键')),
+                                      if ((entry.keyRegex ?? '').isNotEmpty)
+                                        const Chip(label: FitText('正则')),
+                                      if (entry.caseSensitive)
+                                        const Chip(label: FitText('大小写')),
+                                      if (entry.matchWholeWords)
+                                        const Chip(label: FitText('全词')),
+                                      if (entry.recursive)
+                                        const Chip(label: FitText('递归')),
+                                      if (entry.cooldownRounds > 0)
+                                        Chip(label: FitText('冷却 ${entry.cooldownRounds}')),
+                                      if (entry.delayRounds > 0)
+                                        Chip(label: FitText('延迟 ${entry.delayRounds}')),
+                                      if (entry.decorator == 'activate')
+                                        const Chip(label: FitText('强制激活')),
+                                      if (entry.decorator == 'dont_activate')
+                                        const Chip(label: FitText('禁止激活')),
                                     ],
                                   ),
                                   if (entry.relation != null)
