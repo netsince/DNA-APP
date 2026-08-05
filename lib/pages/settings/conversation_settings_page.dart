@@ -284,6 +284,17 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
           const Divider(),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: const FitText('打开从此处分叉'),
+            subtitle: const FitText('开启后，在聊天页右键对方的气泡会出现「从此处分叉」选项，可把该处之后的内容另起新会话继续。'),
+            value: widget.controller.settings.enableForking,
+            onChanged: (v) {
+              setState(() {});
+              widget.controller.saveEnableForking(v);
+            },
+          ),
+          const Divider(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: const FitText('输入框旁显示括号按钮'),
             subtitle: const FitText('在聊天输入框旁显示「（）」按钮，点击在末尾追加括号并把光标置于中间。'),
             value: widget.controller.settings.showParenButton,

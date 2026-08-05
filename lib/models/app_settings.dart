@@ -24,6 +24,7 @@ class AppSettings {
     required this.showSplashAnimation,
     required this.showBottomNav,
     this.showTokenDashboard = false,
+    this.enableForking = false,
     required this.appIcon,
     required this.snackDurationMs,
     required this.sherpaModelSource,
@@ -80,6 +81,7 @@ class AppSettings {
       showSplashAnimation: true,
       showBottomNav: false,
       showTokenDashboard: false,
+      enableForking: false,
       appIcon: 'default',
       snackDurationMs: 1000,
       sherpaModelSource: 'auto',
@@ -153,6 +155,11 @@ class AppSettings {
   /// 是否在聊天界面显示上下文 Token 实时仪表盘（当前上下文占用 vs 预算）。
   /// 默认关闭，可在「外观与体验」中开启。
   final bool showTokenDashboard;
+
+  /// 是否启用「从此处分叉」功能。开启后，在聊天页右键对方的气泡会显示
+  /// 「从此处分叉」入口，可将该处之后的内容另起一个新会话继续。
+  /// 默认关闭，可在「对话与策略」中开启。
+  final bool enableForking;
 
   final String appIcon;
   final int snackDurationMs;
@@ -275,6 +282,7 @@ class AppSettings {
       'showSplashAnimation': showSplashAnimation,
       'showBottomNav': showBottomNav,
       'showTokenDashboard': showTokenDashboard,
+      'enableForking': enableForking,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
       'sherpaModelSource': sherpaModelSource,
@@ -340,6 +348,7 @@ class AppSettings {
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
+      enableForking: (json['enableForking'] as bool?) ?? false,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
       sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
@@ -402,6 +411,7 @@ class AppSettings {
     bool? showSplashAnimation,
     bool? showBottomNav,
     bool? showTokenDashboard,
+    bool? enableForking,
     String? appIcon,
     int? snackDurationMs,
     String? sherpaModelSource,
@@ -456,6 +466,7 @@ class AppSettings {
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
+      enableForking: enableForking ?? this.enableForking,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
       sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,

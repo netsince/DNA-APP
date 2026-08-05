@@ -242,6 +242,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「从此处分叉」开关。
+  Future<void> saveEnableForking(bool value) async {
+    _settings = _settings.copyWith(enableForking: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
   Future<void> saveAutoBackup(bool value) async {
     _settings = _settings.copyWith(autoBackup: value);

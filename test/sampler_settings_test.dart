@@ -65,4 +65,23 @@ void main() {
       expect(back.showTokenDashboard, isFalse);
     });
   });
+
+  group('AppSettings 从此处分叉开关', () {
+    test('默认关闭', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.enableForking, isFalse);
+    });
+
+    test('enableForking 序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(enableForking: true);
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.enableForking, isTrue);
+    });
+
+    test('enableForking 缺失字段回退默认（false）', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.enableForking, isFalse);
+    });
+  });
 }
