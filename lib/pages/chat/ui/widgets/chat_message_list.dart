@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../models/conversation.dart';
 import '../../../../services/tts/tts_player.dart';
 import '../../../../services/tts/tts_service.dart';
+import '../../../../utils/light_markdown.dart';
 import '../../chat_models.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -502,7 +503,6 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
 TextSpan _buildHighlightedText(BuildContext context, String text, String query, Color highlightColor) {
   final TextStyle base = DefaultTextStyle.of(context).style;
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
-  final TextStyle grayStyle = base.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
 
   // Check if a character is an opening bracket (English or Chinese)
   bool isOpeningBracket(String char) {
@@ -519,7 +519,6 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
     final List<InlineSpan> spans = <InlineSpan>[];
     int i = 0;
     while (i < input.length) {
-      // Find the next opening bracket
       int openIndex = -1;
       for (int j = i; j < input.length; j++) {
         if (isOpeningBracket(input[j])) {
@@ -533,12 +532,10 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
         break;
       }
 
-      // Add text before opening bracket
       if (openIndex > i) {
         spans.add(TextSpan(text: input.substring(i, openIndex), style: normalStyle));
       }
 
-      // Find matching closing bracket
       int closeIndex = openIndex + 1;
       int depth = 1;
       while (closeIndex < input.length && depth > 0) {
@@ -551,11 +548,9 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
       }
 
       if (depth == 0) {
-        // Found matching closing bracket, add the bracket content with gray style
         spans.add(TextSpan(text: input.substring(openIndex, closeIndex), style: parenStyle));
         i = closeIndex;
       } else {
-        // No matching closing bracket, add the rest as normal
         spans.add(TextSpan(text: input.substring(openIndex), style: normalStyle));
         break;
       }
@@ -563,30 +558,54 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
     return spans;
   }
 
-  if (query.isEmpty) {
-    return TextSpan(children: buildParenthesisSpans(text, base, grayStyle));
+  // 对一段纯文本应用「括号灰色」+「搜索高亮」，返回内联片段。
+  List<InlineSpan> buildPlainSpans(String input, TextStyle style) {
+    final TextStyle grayStyle = style.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
+    if (query.isEmpty) {
+      return buildParenthesisSpans(input, style, grayStyle);
+    }
+    final String lowerText = input.toLowerCase();
+    final String lowerQuery = query.toLowerCase();
+    int start = 0;
+    final List<InlineSpan> spans = <InlineSpan>[];
+    while (true) {
+      final int index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.addAll(buildParenthesisSpans(input.substring(start), style, grayStyle));
+        break;
+      }
+      if (index > start) {
+        spans.addAll(buildParenthesisSpans(input.substring(start, index), style, grayStyle));
+      }
+      spans.add(
+        TextSpan(
+          text: input.substring(index, index + query.length),
+          style: style.copyWith(backgroundColor: highlightColor),
+        ),
+      );
+      start = index + query.length;
+    }
+    return spans;
   }
 
-  final String lowerText = text.toLowerCase();
-  final String lowerQuery = query.toLowerCase();
-  int start = 0;
-  final List<InlineSpan> spans = <InlineSpan>[];
-  while (true) {
-    final int index = lowerText.indexOf(lowerQuery, start);
-    if (index == -1) {
-      spans.addAll(buildParenthesisSpans(text.substring(start), base, grayStyle));
-      break;
+  final TextStyle codeStyle = base.copyWith(
+    fontFamily: 'monospace',
+    backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+    fontSize: (base.fontSize ?? 14) * 0.92,
+  );
+
+  // 依据轻量 Markdown 标记生成带样式的片段，并在此基础上叠加括号/搜索高亮。
+  final List<InlineSpan> children = <InlineSpan>[];
+  for (final LightMarkdownRun run in parseLightMarkdown(text)) {
+    TextStyle style = base;
+    if (run.code) {
+      style = codeStyle;
+    } else {
+      if (run.bold) style = style.copyWith(fontWeight: FontWeight.w700);
+      if (run.italic) style = style.copyWith(fontStyle: FontStyle.italic);
+      if (run.strike) style = style.copyWith(decoration: TextDecoration.lineThrough);
     }
-    if (index > start) {
-      spans.addAll(buildParenthesisSpans(text.substring(start, index), base, grayStyle));
-    }
-    spans.add(
-      TextSpan(
-        text: text.substring(index, index + query.length),
-        style: base.copyWith(backgroundColor: highlightColor),
-      ),
-    );
-    start = index + query.length;
+    children.addAll(buildPlainSpans(run.text, style));
   }
-  return TextSpan(children: spans, style: base);
+  return TextSpan(children: children, style: base);
 }
