@@ -203,6 +203,9 @@ class AppSettings {
   /// 作者注释注入间隔：每隔多少条历史消息注入一次，0 表示禁用深度注入。
   final int authorNoteInterval;
 
+  /// 世界词条 sticky 轮数：词条被激活后持续保留的轮数，0 表示禁用。
+  final int loreStickyRounds;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -314,6 +317,7 @@ class AppSettings {
     bool? completedOobe,
     bool? autoSummaryPrompt,
     int? summaryTurnInterval,
+    int? summaryWordThreshold,
     bool? retrySequential,
     bool? inspirationIncludeSummary,
     PromptStrategy? promptStrategy,
@@ -347,6 +351,7 @@ class AppSettings {
     double? presencePenalty,
     String? authorNote,
     int? authorNoteInterval,
+    int? loreStickyRounds,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,

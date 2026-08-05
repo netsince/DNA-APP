@@ -62,7 +62,7 @@ class DataImportReport {
     required this.tasCount,
     required this.worldsCount,
     required this.conversationsCount,
-    required this.identitiesCount,
+    this.identitiesCount = 0,
     this.backupPath,
     this.backupError,
   });

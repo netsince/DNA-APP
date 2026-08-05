@@ -37,7 +37,7 @@ class DataBackupService {
     required List<TA> tas,
     required List<World> worlds,
     required List<Conversation> conversations,
-    required List<UserIdentity> identities,
+    List<UserIdentity> identities = const <UserIdentity>[],
   }) async {
     try {
       final Archive archive = Archive();

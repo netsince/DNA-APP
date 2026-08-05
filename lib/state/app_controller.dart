@@ -956,6 +956,7 @@ class AppController extends ChangeNotifier {
             worldsCount: 0,
             conversationsCount:
                 _conversations.length + _groupConversations.length,
+            identitiesCount: 0,
             backupPath: backupPath,
             backupError: backupError,
           ),
@@ -991,8 +992,9 @@ class AppController extends ChangeNotifier {
           replaced: false,
           tasCount: 0,
           worldsCount: 0,
-          conversationsCount: newConvs.length,
-          backupPath: null,
+            conversationsCount: newConvs.length,
+            identitiesCount: 0,
+            backupPath: null,
           backupError: null,
         ),
       );
@@ -1152,6 +1154,7 @@ class AppController extends ChangeNotifier {
             worldsCount: 0,
             conversationsCount:
                 _conversations.length + _groupConversations.length,
+            identitiesCount: 0,
             backupPath: backupPath,
             backupError: backupError,
           ),
@@ -1185,8 +1188,9 @@ class AppController extends ChangeNotifier {
           replaced: false,
           tasCount: 0,
           worldsCount: 0,
-          conversationsCount: newConvs.length,
-          backupPath: null,
+            conversationsCount: newConvs.length,
+            identitiesCount: 0,
+            backupPath: null,
           backupError: null,
         ),
       );

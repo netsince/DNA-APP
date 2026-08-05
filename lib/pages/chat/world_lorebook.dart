@@ -31,7 +31,7 @@ class WorldLorebook {
 
   /// 把命中的词条格式化为注入提示词的文本。无有效描述时返回空串。
   /// 额外透出人物的性别/年龄/状态（如已故）以及与其它词条的关系。
-  static String format({required World world, required List<WorldEntry> entries}) {
+  static String format({required World? world, required List<WorldEntry> entries}) {
     final List<WorldEntry> withContent = entries
         .where((WorldEntry e) => e.description.trim().isNotEmpty)
         .toList();
@@ -40,7 +40,7 @@ class WorldLorebook {
     }
     // 词条 id -> 名字，用于把关系里的 targetId 解析成可读名字。
     final Map<String, String> nameById = <String, String>{
-      for (final WorldEntry e in world.entries)
+      for (final WorldEntry e in (world?.entries ?? <WorldEntry>[]))
         if (e.name.trim().isNotEmpty) e.id: e.name.trim(),
     };
     final StringBuffer sb = StringBuffer('当前激活的世界知识（与当前对话场景相关，供参考，请勿复述）：');
@@ -58,8 +58,9 @@ class WorldLorebook {
           case null:
             break;
         }
-        if (e.age != null && e.age.trim().isNotEmpty) {
-          attrs.add('${e.age.trim()}岁');
+        final String ageText = e.age ?? '';
+        if (ageText.trim().isNotEmpty) {
+          attrs.add('${ageText.trim()}岁');
         }
         if (e.status == WorldPersonStatus.dead) {
           attrs.add('已故');

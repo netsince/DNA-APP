@@ -201,6 +201,9 @@ class OpenAiService implements LlmProvider {
     required String apiKey,
     required String model,
     required List<Map<String, String>> messages,
+    double temperature = 0.7,
+    double frequencyPenalty = 0.0,
+    double presencePenalty = 0.0,
   }) async* {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();

@@ -1,4 +1,5 @@
 import '../../models/conversation.dart';
+import '../../models/world.dart';
 import 'chat_stream_parser.dart';
 
 class ChatMessageBuilder {
@@ -31,7 +32,10 @@ class ChatMessageBuilder {
     String? Function(String? speakerTaId)? speakerNameResolver,
     String? authorNote,
     int authorNoteInterval = 0,
+    List<WorldEntry>? activeEntries,
   }) {
+    // 注：世界词条（Lorebook）已由 ChatSystemPrompt.build 注入到 systemPrompt 顶部，
+    // 此处无需重复插入，activeEntries 仅用于保持调用方接口一致。
     final List<Map<String, String>> payload = <Map<String, String>>[];
     if (systemPrompt.trim().isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': systemPrompt.trim()});
