@@ -68,8 +68,11 @@ mixin ChatActionsSend on ChatStateMixin {
   /// Lorebook 跨轮状态：记录词条 sticky / 冷却 / 延迟的剩余轮数。
   final LorebookState _loreState = LorebookState();
 
+  /// 记录上一次溢出告警的时间，避免连续发送时反复弹提示。
+  int _lastLoreOverflowNotifyAt = 0;
+
   /// 收集当前对话文本中命中的世界词条（Lorebook 动态激活）。
-  /// 支持高级匹配（正则/全词/大小写/递归）、冷却/延迟，以及 sticky 持续保留。
+  /// 支持高级匹配（正则/全词/大小写/递归）、冷却/延迟、sticky 持续保留，以及预算裁剪。
   List<WorldEntry> _activeLoreEntries(List<ConversationMessage> messages) {
     final World? world = _world;
     if (world == null || world.entries.isEmpty) {
@@ -87,12 +90,36 @@ mixin ChatActionsSend on ChatStateMixin {
       sb.write(t);
       sb.write(' ');
     }
-    return WorldLorebook.match(
+    final settings = widget.controller.settings;
+    final LoreMatchResult result = WorldLorebook.match(
       world,
       sb.toString(),
       state: _loreState,
-      stickyRounds: widget.controller.settings.loreStickyRounds,
+      stickyRounds: settings.loreStickyRounds,
+      maxEntries: settings.loreMaxEntries,
+      maxTokens: settings.loreBudgetTokens,
+      tokenCounter: (String desc) => desc.isEmpty
+          ? 0
+          : _tokenCounter.countTokens(
+              model: settings.selectedModel,
+              messageId: 'lore-budget',
+              text: desc,
+            ),
     );
+    // 预算溢出告警：最多每 10 秒提示一次，避免刷屏。
+    if (result.overflow) {
+      final int now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastLoreOverflowNotifyAt > 10000) {
+        _lastLoreOverflowNotifyAt = now;
+        if (mounted) {
+          showSnack(
+            context,
+            '世界知识超出预算，已自动裁剪部分词条（可在设置中调整条数/token 上限）',
+          );
+        }
+      }
+    }
+    return result.entries;
   }
 
   Future<void> _send() async {

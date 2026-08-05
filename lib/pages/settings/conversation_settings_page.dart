@@ -23,6 +23,8 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   late final TextEditingController _ctxCtrl;
   late final TextEditingController _tokenCtrl;
   late final TextEditingController _stickyCtrl;
+  late final TextEditingController _loreMaxEntriesCtrl;
+  late final TextEditingController _loreBudgetTokensCtrl;
   late double _temperature;
   late double _frequencyPenalty;
   late double _presencePenalty;
@@ -45,6 +47,8 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _ctxCtrl = TextEditingController(text: s.maxContextMessages.toString());
     _tokenCtrl = TextEditingController(text: s.maxContextTokens.toString());
     _stickyCtrl = TextEditingController(text: s.loreStickyRounds.toString());
+    _loreMaxEntriesCtrl = TextEditingController(text: s.loreMaxEntries.toString());
+    _loreBudgetTokensCtrl = TextEditingController(text: s.loreBudgetTokens.toString());
     _temperature = s.temperature;
     _frequencyPenalty = s.frequencyPenalty;
     _presencePenalty = s.presencePenalty;
@@ -55,7 +59,7 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); _customMinCtrl.dispose(); _customMaxCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _loreMaxEntriesCtrl.dispose(); _loreBudgetTokensCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); _customMinCtrl.dispose(); _customMaxCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -98,6 +102,18 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final int v = (int.tryParse(_stickyCtrl.text.trim()) ?? 3).clamp(0, 30);
     _stickyCtrl.text = v.toString();
     await widget.controller.saveLoreStickyRounds(v);
+  }
+
+  Future<void> _saveLoreMaxEntries() async {
+    final int v = (int.tryParse(_loreMaxEntriesCtrl.text.trim()) ?? 8).clamp(0, 50);
+    _loreMaxEntriesCtrl.text = v.toString();
+    await widget.controller.saveLoreMaxEntries(v);
+  }
+
+  Future<void> _saveLoreBudgetTokens() async {
+    final int v = (int.tryParse(_loreBudgetTokensCtrl.text.trim()) ?? 0).clamp(0, 100000);
+    _loreBudgetTokensCtrl.text = v.toString();
+    await widget.controller.saveLoreBudgetTokens(v);
   }
 
   Future<void> _saveAuthorNote() => widget.controller.saveAuthorNote(_authorNoteCtrl.text);
@@ -388,6 +404,28 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               isDense: true,
             ),
             onChanged: (_) => _saveSticky(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _loreMaxEntriesCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '世界知识注入条数上限',
+              hintText: '默认 8，范围 0-50，0 表示不限',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveLoreMaxEntries(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _loreBudgetTokensCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '世界知识注入 token 预算',
+              hintText: '默认 0（不限），超出自动裁剪并告警',
+              isDense: true,
+            ),
+            onChanged: (_) => _saveLoreBudgetTokens(),
           ),
           const Divider(),
           // --- Sampling ---

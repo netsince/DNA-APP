@@ -16,16 +16,22 @@ class WorldLorebook {
   /// - [WorldEntry.decorator] 装饰符：'activate' 强制激活、'dont_activate' 禁止激活。
   ///
   /// [state] 携带跨轮的 sticky / 冷却 / 延迟状态；[stickyRounds] 为激活后持续保留轮数。
-  /// 返回按世界内顺序排列的命中列表（去重）。
-  static List<WorldEntry> match(
+  ///
+  /// 预算控制：[maxEntries] 为注入条数上限（0 不限）、[maxTokens] 为注入 token 预算
+  /// （0 不限，用 [tokenCounter] 估算）；按词条 [WorldEntry.order] 排序后裁剪，
+  /// 被裁剪时 [LoreMatchResult.overflow] 置 true，便于上层告警。
+  static LoreMatchResult match(
     World? world,
     String text, {
     LorebookState? state,
     int stickyRounds = 3,
+    int maxEntries = 0,
+    int maxTokens = 0,
+    int Function(String text)? tokenCounter,
   }) {
     final LorebookState s = state ?? LorebookState();
     if (world == null || world.entries.isEmpty || text.trim().isEmpty) {
-      return <WorldEntry>[];
+      return const LoreMatchResult(entries: <WorldEntry>[], overflow: false);
     }
 
     final Map<String, WorldEntry> byId = <String, WorldEntry>{
@@ -106,7 +112,33 @@ class WorldLorebook {
     _tickDown(s.cooldown);
     _tickDown(s.delay);
 
-    return combined;
+    // 7. 预算控制：按 order 排序，再按条数上限与 token 预算裁剪。
+    final List<WorldEntry> sorted = List<WorldEntry>.from(combined)
+      ..sort((WorldEntry a, WorldEntry b) => a.order.compareTo(b.order));
+    final List<WorldEntry> kept = <WorldEntry>[];
+    final Set<String> keptIds = <String>{};
+    int usedTokens = 0;
+    bool overflow = false;
+    for (final WorldEntry e in sorted) {
+      if (keptIds.contains(e.id)) {
+        continue;
+      }
+      if (maxEntries > 0 && kept.length >= maxEntries) {
+        overflow = true;
+        continue;
+      }
+      if (maxTokens > 0) {
+        final int t = (tokenCounter?.call(e.description) ?? 0);
+        if (usedTokens + t > maxTokens) {
+          overflow = true;
+          continue;
+        }
+        usedTokens += t;
+      }
+      kept.add(e);
+      keptIds.add(e.id);
+    }
+    return LoreMatchResult(entries: kept, overflow: overflow);
   }
 
   /// 递归扫描关键词命中的词条 id 集合。
@@ -257,4 +289,14 @@ class LorebookState {
   final Map<String, int> sticky = <String, int>{};
   final Map<String, int> cooldown = <String, int>{};
   final Map<String, int> delay = <String, int>{};
+}
+
+/// Lorebook 匹配结果：命中并注入的词条列表 + 是否因预算触发溢出裁剪。
+class LoreMatchResult {
+  const LoreMatchResult({required this.entries, required this.overflow});
+
+  final List<WorldEntry> entries;
+
+  /// 是否因条数/token 预算被裁剪（注入内容不完整）。
+  final bool overflow;
 }

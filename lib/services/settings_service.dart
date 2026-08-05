@@ -48,6 +48,8 @@ class SettingsService {
   static const String _authorNoteKey = 'author_note';
   static const String _authorNoteIntervalKey = 'author_note_interval';
   static const String _loreStickyRoundsKey = 'lore_sticky_rounds';
+  static const String _loreMaxEntriesKey = 'lore_max_entries';
+  static const String _loreBudgetTokensKey = 'lore_budget_tokens';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -110,6 +112,8 @@ class SettingsService {
       authorNote: prefs.getString(_authorNoteKey),
       authorNoteInterval: prefs.getInt(_authorNoteIntervalKey) ?? 0,
       loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
+      loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
+      loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
     );
   }
 
@@ -180,6 +184,8 @@ class SettingsService {
     }
     await prefs.setInt(_authorNoteIntervalKey, settings.authorNoteInterval);
     await prefs.setInt(_loreStickyRoundsKey, settings.loreStickyRounds);
+    await prefs.setInt(_loreMaxEntriesKey, settings.loreMaxEntries);
+    await prefs.setInt(_loreBudgetTokensKey, settings.loreBudgetTokens);
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

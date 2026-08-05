@@ -46,6 +46,8 @@ class AppSettings {
     this.authorNote,
     this.authorNoteInterval = 0,
     this.loreStickyRounds = 3,
+    this.loreMaxEntries = 8,
+    this.loreBudgetTokens = 0,
   });
 
   factory AppSettings.empty() {
@@ -93,6 +95,8 @@ class AppSettings {
       authorNote: null,
       authorNoteInterval: 0,
       loreStickyRounds: 3,
+      loreMaxEntries: 8,
+      loreBudgetTokens: 0,
     );
   }
 
@@ -206,6 +210,12 @@ class AppSettings {
   /// 世界词条 sticky 轮数：词条被激活后持续保留的轮数，0 表示禁用。
   final int loreStickyRounds;
 
+  /// 世界词条注入条数上限：一次请求最多注入多少条命中词条，0 表示不限。
+  final int loreMaxEntries;
+
+  /// 世界词条注入 token 预算：命中词条描述累计 token 超过即裁剪，0 表示不限。
+  final int loreBudgetTokens;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -251,6 +261,8 @@ class AppSettings {
       'authorNote': authorNote,
       'authorNoteInterval': authorNoteInterval,
       'loreStickyRounds': loreStickyRounds,
+      'loreMaxEntries': loreMaxEntries,
+      'loreBudgetTokens': loreBudgetTokens,
     };
   }
 
@@ -305,6 +317,8 @@ class AppSettings {
       presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
       authorNote: json['authorNote'] as String?,
       authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
+      loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
+      loreBudgetTokens: (json['loreBudgetTokens'] as int?) ?? 0,
     );
   }
 
@@ -352,6 +366,8 @@ class AppSettings {
     String? authorNote,
     int? authorNoteInterval,
     int? loreStickyRounds,
+    int? loreMaxEntries,
+    int? loreBudgetTokens,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -397,6 +413,8 @@ class AppSettings {
       authorNote: authorNote ?? this.authorNote,
       authorNoteInterval: authorNoteInterval ?? this.authorNoteInterval,
       loreStickyRounds: loreStickyRounds ?? this.loreStickyRounds,
+      loreMaxEntries: loreMaxEntries ?? this.loreMaxEntries,
+      loreBudgetTokens: loreBudgetTokens ?? this.loreBudgetTokens,
     );
   }
 }

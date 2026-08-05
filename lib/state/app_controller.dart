@@ -350,6 +350,22 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存世界词条注入条数上限（0 = 不限）。
+  Future<void> saveLoreMaxEntries(int maxEntries) async {
+    final int clamped = maxEntries.clamp(0, 50);
+    _settings = _settings.copyWith(loreMaxEntries: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存世界词条注入 token 预算（0 = 不限）。
+  Future<void> saveLoreBudgetTokens(int budgetTokens) async {
+    final int clamped = budgetTokens.clamp(0, 100000);
+    _settings = _settings.copyWith(loreBudgetTokens: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
   Future<void> saveSampling({
     required double temperature,
