@@ -129,11 +129,15 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     final UserIdentity? identity =
         widget.controller.getIdentityById(_conversation.identityId);
-    final String resolved = QuickReplyResolver.resolve(
-      qr.message,
-      charName: _ta?.name ?? '',
-      userName: identity?.name ?? '',
-    );
+    // 开启命令宏时展开占位符；关闭时保持原样发送。
+    String resolved = qr.message;
+    if (widget.controller.settings.enableCommandMacros) {
+      resolved = expandCommandMacros(
+        resolved,
+        charName: _ta?.name ?? '',
+        userName: identity?.name ?? '',
+      );
+    }
     _inputController.text = resolved;
     _inputController.selection =
         TextSelection.collapsed(offset: resolved.length);
@@ -141,8 +145,27 @@ mixin ChatActionsSend on ChatStateMixin {
   }
 
   Future<void> _send() async {
-    final String text = _inputController.text.trim();
+    String text = _inputController.text.trim();
     if (text.isEmpty || _sending) {
+      return;
+    }
+    // 发送前按「命令宏 + 正则替换」处理用户输入。
+    final UserIdentity? identity =
+        widget.controller.getIdentityById(_conversation.identityId);
+    if (widget.controller.settings.enableCommandMacros) {
+      text = expandCommandMacros(
+        text,
+        charName: _ta?.name ?? '',
+        userName: identity?.name ?? '',
+      );
+    }
+    if (widget.controller.settings.enableRegexReplacement) {
+      text = applyRegexRules(
+        text,
+        widget.controller.settings.regexRules,
+      ).trim();
+    }
+    if (text.isEmpty) {
       return;
     }
     final TA? ta = _ta;

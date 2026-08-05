@@ -13,6 +13,7 @@ import '../models/quick_reply.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/world.dart';
+import '../utils/message_processor.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
 import '../services/zhipu_service.dart';
@@ -245,6 +246,27 @@ class AppController extends ChangeNotifier {
   /// 保存「从此处分叉」开关。
   Future<void> saveEnableForking(bool value) async {
     _settings = _settings.copyWith(enableForking: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存「命令宏」开关。
+  Future<void> saveEnableCommandMacros(bool value) async {
+    _settings = _settings.copyWith(enableCommandMacros: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存「正则替换」开关。
+  Future<void> saveEnableRegexReplacement(bool value) async {
+    _settings = _settings.copyWith(enableRegexReplacement: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存正则替换规则列表。
+  Future<void> saveRegexRules(List<RegexRule> rules) async {
+    _settings = _settings.copyWith(regexRules: rules);
     await _settingsService.save(_settings);
     notifyListeners();
   }

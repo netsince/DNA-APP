@@ -4,6 +4,7 @@ import '../../models/prompt_strategy.dart';
 import '../../state/app_controller.dart';
 import 'quick_replies_page.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'regex_rules_page.dart';
 
 class ConversationSettingsPage extends StatefulWidget {
   const ConversationSettingsPage({super.key, required this.controller});
@@ -290,6 +291,41 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
             onChanged: (v) {
               setState(() {});
               widget.controller.saveEnableForking(v);
+            },
+          ),
+          const Divider(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('命令宏'),
+            subtitle: const FitText('启用 {{char}}/{{user}}/{{roll}}/{{random}} 等动态占位符。默认启用。'),
+            value: widget.controller.settings.enableCommandMacros,
+            onChanged: (v) {
+              setState(() {});
+              widget.controller.saveEnableCommandMacros(v);
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('正则替换'),
+            subtitle: const FitText('按规则对消息进行正则替换。默认启用。'),
+            value: widget.controller.settings.enableRegexReplacement,
+            onChanged: (v) {
+              setState(() {});
+              widget.controller.saveEnableRegexReplacement(v);
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.find_replace),
+            title: const FitText('正则替换规则'),
+            subtitle: FitText('管理正则替换规则（${widget.controller.settings.regexRules.length} 条）'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RegexRulesPage(controller: widget.controller),
+                ),
+              );
             },
           ),
           const Divider(),

@@ -1,3 +1,4 @@
+import '../utils/message_processor.dart';
 import 'prompt_strategy.dart';
 import 'quick_reply.dart';
 import 'voice_models.dart';
@@ -25,6 +26,9 @@ class AppSettings {
     required this.showBottomNav,
     this.showTokenDashboard = false,
     this.enableForking = false,
+    this.enableCommandMacros = true,
+    this.enableRegexReplacement = true,
+    this.regexRules = const <RegexRule>[],
     required this.appIcon,
     required this.snackDurationMs,
     required this.sherpaModelSource,
@@ -82,6 +86,9 @@ class AppSettings {
       showBottomNav: false,
       showTokenDashboard: false,
       enableForking: false,
+      enableCommandMacros: true,
+      enableRegexReplacement: true,
+      regexRules: <RegexRule>[],
       appIcon: 'default',
       snackDurationMs: 1000,
       sherpaModelSource: 'auto',
@@ -160,6 +167,15 @@ class AppSettings {
   /// 「从此处分叉」入口，可将该处之后的内容另起一个新会话继续。
   /// 默认关闭，可在「对话与策略」中开启。
   final bool enableForking;
+
+  /// 是否启用命令宏（{{char}}/{{user}}/{{roll}}/{{random}} 等）。默认启用，可禁用。
+  final bool enableCommandMacros;
+
+  /// 是否启用正则替换。默认启用，可禁用。
+  final bool enableRegexReplacement;
+
+  /// 正则替换规则列表。
+  final List<RegexRule> regexRules;
 
   final String appIcon;
   final int snackDurationMs;
@@ -283,6 +299,9 @@ class AppSettings {
       'showBottomNav': showBottomNav,
       'showTokenDashboard': showTokenDashboard,
       'enableForking': enableForking,
+      'enableCommandMacros': enableCommandMacros,
+      'enableRegexReplacement': enableRegexReplacement,
+      'regexRules': regexRules.map((RegexRule r) => r.toJson()).toList(),
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
       'sherpaModelSource': sherpaModelSource,
@@ -349,6 +368,13 @@ class AppSettings {
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       enableForking: (json['enableForking'] as bool?) ?? false,
+      enableCommandMacros: (json['enableCommandMacros'] as bool?) ?? true,
+      enableRegexReplacement: (json['enableRegexReplacement'] as bool?) ?? true,
+      regexRules: (json['regexRules'] as List<dynamic>?)
+              ?.map((dynamic e) =>
+                  RegexRule.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          <RegexRule>[],
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
       sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
@@ -412,6 +438,9 @@ class AppSettings {
     bool? showBottomNav,
     bool? showTokenDashboard,
     bool? enableForking,
+    bool? enableCommandMacros,
+    bool? enableRegexReplacement,
+    List<RegexRule>? regexRules,
     String? appIcon,
     int? snackDurationMs,
     String? sherpaModelSource,
@@ -467,6 +496,10 @@ class AppSettings {
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       enableForking: enableForking ?? this.enableForking,
+      enableCommandMacros: enableCommandMacros ?? this.enableCommandMacros,
+      enableRegexReplacement:
+          enableRegexReplacement ?? this.enableRegexReplacement,
+      regexRules: regexRules ?? this.regexRules,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
       sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,
