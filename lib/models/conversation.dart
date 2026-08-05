@@ -14,6 +14,7 @@ class Conversation {
     required this.memberTaIds,
     required this.activeTaId,
     this.identityId,
+    this.pinned = false,
   });
 
   final String id;
@@ -33,6 +34,9 @@ class Conversation {
   /// 用户选择的本聊天中使用的身份 ID（可选）。
   final String? identityId;
 
+  /// 是否置顶：置顶的会话在列表中排在前面。
+  final bool pinned;
+
   Conversation copyWith({
     String? taId,
     String? worldId,
@@ -47,6 +51,7 @@ class Conversation {
     List<String>? memberTaIds,
     String? activeTaId,
     String? identityId,
+    bool? pinned,
   }) {
     return Conversation(
       id: id,
@@ -63,6 +68,7 @@ class Conversation {
       memberTaIds: memberTaIds ?? this.memberTaIds,
       activeTaId: activeTaId ?? this.activeTaId,
       identityId: identityId ?? this.identityId,
+      pinned: pinned ?? this.pinned,
     );
   }
 
@@ -82,6 +88,7 @@ class Conversation {
       'memberTaIds': memberTaIds,
       'activeTaId': activeTaId,
       'identityId': identityId,
+      'pinned': pinned,
     };
   }
 
@@ -127,6 +134,7 @@ class Conversation {
       memberTaIds: memberTaIds,
       activeTaId: activeTaId,
       identityId: json['identityId'] as String?,
+      pinned: (json['pinned'] as bool?) ?? false,
     );
   }
 }

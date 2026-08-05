@@ -829,6 +829,26 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 置顶/取消置顶某个会话。
+  Future<void> setConversationPinned({
+    required String id,
+    required bool pinned,
+  }) async {
+    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final Conversation current = _conversations[index];
+    if (current.pinned == pinned) {
+      return;
+    }
+    final List<Conversation> updated = <Conversation>[..._conversations];
+    updated[index] = current.copyWith(pinned: pinned);
+    _conversations = updated;
+    await _hiveService.upsertConversation(updated[index]);
+    notifyListeners();
+  }
+
   Future<void> setGroupConversationArchived({
     required String id,
     required bool archived,

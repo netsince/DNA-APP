@@ -34,6 +34,13 @@ class ConversationListBody extends StatelessWidget {
         final List<Conversation> visible = conversations
             .where((Conversation c) => c.archived == showArchived)
             .toList();
+        // 置顶会话排在前面，其余保持原有相对顺序。
+        visible.sort((Conversation a, Conversation b) {
+          if (a.pinned != b.pinned) {
+            return a.pinned ? -1 : 1;
+          }
+          return 0;
+        });
 
         if (visible.isEmpty) {
           return Center(
@@ -159,6 +166,11 @@ class _ConversationItem extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            if (conversation.pinned) ...<Widget>[
+              Icon(Icons.push_pin,
+                  size: 18, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+            ],
             ReorderableDragStartListener(
               index: conversation.archived ? -1 : 0,
               child: const Icon(Icons.drag_handle),
@@ -176,6 +188,11 @@ class _ConversationItem extends StatelessWidget {
                         conversation: conversation,
                       ),
                     ),
+                  );
+                } else if (value == 'pin') {
+                  await controller.setConversationPinned(
+                    id: conversation.id,
+                    pinned: !conversation.pinned,
                   );
                 } else if (value == 'archive') {
                   await controller.setConversationArchived(
@@ -237,6 +254,15 @@ class _ConversationItem extends StatelessWidget {
                   ];
                 }
                 return <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'pin',
+                    child: ListTile(
+                      leading: Icon(conversation.pinned
+                          ? Icons.push_pin_outlined
+                          : Icons.push_pin),
+                      title: FitText(conversation.pinned ? '取消置顶' : '置顶'),
+                    ),
+                  ),
                   const PopupMenuItem<String>(
                     value: 'edit',
                     child: ListTile(
