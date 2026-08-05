@@ -154,6 +154,14 @@ mixin ChatUiHelpers on ChatStateMixin {
               title: FitText('回溯到此处'),
             ),
           ),
+        if (isAssistant && widget.controller.settings.enableForking)
+          const PopupMenuItem<String>(
+            value: 'fork',
+            child: ListTile(
+              leading: Icon(Icons.call_split),
+              title: FitText('从此处分叉'),
+            ),
+          ),
         if (hasThought)
           PopupMenuItem<String>(
             value: isThoughtVisible ? 'hide_thought' : 'show_thought',
@@ -204,6 +212,10 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
     if (action == 'rollback') {
       await _rollbackTo(index);
+      return;
+    }
+    if (action == 'fork') {
+      await _forkFromHere(index);
       return;
     }
     if (action == 'copy') {
@@ -551,6 +563,63 @@ mixin ChatUiHelpers on ChatStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
+  }
+
+  /// 「从此处分叉」：以当前会话为基底，保留到该气泡为止的内容，
+  /// 另起一个新的会话窗口继续。新会话备注前追加「分叉的.」前缀。
+  Future<void> _forkFromHere(int index) async {
+    if (index < 0 || index >= _conversation.messages.length) {
+      return;
+    }
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => Theme(
+        data: _accentTheme,
+        child: AlertDialog(
+          title: const FitText('从此处分叉'),
+          content: const FitText('将以该气泡为分叉点，保留此处之前的内容，另起一个新会话继续。确定吗？'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const FitText('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const FitText('分叉'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final Conversation? fork = buildForkConversation(
+      _conversation,
+      index,
+      existingIds:
+          widget.controller.conversations.map((Conversation c) => c.id).toSet(),
+    );
+    if (fork == null || !mounted) {
+      return;
+    }
+
+    await widget.controller.upsertConversation(fork);
+    if (!mounted) {
+      return;
+    }
+    showSnack(context, '已创建分叉会话。');
+    // 退出当前界面，重新打开分叉后的对话窗口。
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (BuildContext routeContext) => ChatPage(
+          controller: widget.controller,
+          conversationId: fork.id,
+          isGroup: fork.isGroup,
+        ),
+      ),
+    );
   }
 
   void _scrollAfterMenu() {
