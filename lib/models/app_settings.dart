@@ -1,4 +1,5 @@
 import 'prompt_strategy.dart';
+import 'quick_reply.dart';
 import 'voice_models.dart';
 
 class AppSettings {
@@ -48,6 +49,7 @@ class AppSettings {
     this.loreStickyRounds = 3,
     this.loreMaxEntries = 8,
     this.loreBudgetTokens = 0,
+    this.quickReplies = const <QuickReply>[],
   });
 
   factory AppSettings.empty() {
@@ -97,6 +99,7 @@ class AppSettings {
       loreStickyRounds: 3,
       loreMaxEntries: 8,
       loreBudgetTokens: 0,
+      quickReplies: const <QuickReply>[],
     );
   }
 
@@ -216,6 +219,9 @@ class AppSettings {
   /// 世界词条注入 token 预算：命中词条描述累计 token 超过即裁剪，0 表示不限。
   final int loreBudgetTokens;
 
+  /// 快速回复列表：聊天输入栏上方的一键发送按钮。支持宏与分组。
+  final List<QuickReply> quickReplies;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -263,6 +269,9 @@ class AppSettings {
       'loreStickyRounds': loreStickyRounds,
       'loreMaxEntries': loreMaxEntries,
       'loreBudgetTokens': loreBudgetTokens,
+      'quickReplies': quickReplies
+          .map((QuickReply r) => r.toJson())
+          .toList(),
     };
   }
 
@@ -319,6 +328,12 @@ class AppSettings {
       authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
       loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
       loreBudgetTokens: (json['loreBudgetTokens'] as int?) ?? 0,
+      quickReplies: (json['quickReplies'] as List?)
+              ?.whereType<Map>()
+              .map((Map r) =>
+                  QuickReply.fromJson(r.cast<String, dynamic>()))
+              .toList() ??
+          const <QuickReply>[],
     );
   }
 
@@ -368,6 +383,7 @@ class AppSettings {
     int? loreStickyRounds,
     int? loreMaxEntries,
     int? loreBudgetTokens,
+    List<QuickReply>? quickReplies,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -415,6 +431,7 @@ class AppSettings {
       loreStickyRounds: loreStickyRounds ?? this.loreStickyRounds,
       loreMaxEntries: loreMaxEntries ?? this.loreMaxEntries,
       loreBudgetTokens: loreBudgetTokens ?? this.loreBudgetTokens,
+      quickReplies: quickReplies ?? this.quickReplies,
     );
   }
 }

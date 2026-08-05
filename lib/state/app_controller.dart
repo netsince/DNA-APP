@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_settings.dart';
 import '../models/conversation.dart';
 import '../models/prompt_strategy.dart';
+import '../models/quick_reply.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/world.dart';
@@ -362,6 +363,13 @@ class AppController extends ChangeNotifier {
   Future<void> saveLoreBudgetTokens(int budgetTokens) async {
     final int clamped = budgetTokens.clamp(0, 100000);
     _settings = _settings.copyWith(loreBudgetTokens: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存快速回复列表。
+  Future<void> saveQuickReplies(List<QuickReply> quickReplies) async {
+    _settings = _settings.copyWith(quickReplies: quickReplies);
     await _settingsService.save(_settings);
     notifyListeners();
   }

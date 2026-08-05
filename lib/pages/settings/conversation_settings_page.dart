@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/prompt_strategy.dart';
 import '../../state/app_controller.dart';
+import 'quick_replies_page.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class ConversationSettingsPage extends StatefulWidget {
@@ -426,6 +427,23 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
               isDense: true,
             ),
             onChanged: (_) => _saveLoreBudgetTokens(),
+          ),
+          const Divider(),
+          // --- Quick Replies ---
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.bolt),
+            title: const FitText('快速回复'),
+            subtitle: const FitText('管理聊天输入栏上方的一键发送按钮'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      QuickRepliesPage(controller: widget.controller),
+                ),
+              );
+            },
           ),
           const Divider(),
           // --- Sampling ---

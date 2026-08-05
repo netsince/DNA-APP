@@ -122,6 +122,24 @@ mixin ChatActionsSend on ChatStateMixin {
     return result.entries;
   }
 
+  /// 处理快速回复：把宏替换成实际值后填充输入框并发送。
+  void _handleQuickReply(QuickReply qr) {
+    if (_sending) {
+      return;
+    }
+    final UserIdentity? identity =
+        widget.controller.getIdentityById(_conversation.identityId);
+    final String resolved = QuickReplyResolver.resolve(
+      qr.message,
+      charName: _ta?.name ?? '',
+      userName: identity?.name ?? '',
+    );
+    _inputController.text = resolved;
+    _inputController.selection =
+        TextSelection.collapsed(offset: resolved.length);
+    _send();
+  }
+
   Future<void> _send() async {
     final String text = _inputController.text.trim();
     if (text.isEmpty || _sending) {

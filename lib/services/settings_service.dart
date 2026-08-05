@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/prompt_strategy.dart';
+import '../models/quick_reply.dart';
 import '../models/voice_models.dart';
 
 class SettingsService {
@@ -50,6 +51,7 @@ class SettingsService {
   static const String _loreStickyRoundsKey = 'lore_sticky_rounds';
   static const String _loreMaxEntriesKey = 'lore_max_entries';
   static const String _loreBudgetTokensKey = 'lore_budget_tokens';
+  static const String _quickRepliesKey = 'quick_replies';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
@@ -114,7 +116,23 @@ class SettingsService {
       loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
       loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
       loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
+      quickReplies: _decodeQuickReplies(prefs.getString(_quickRepliesKey)),
     );
+  }
+
+  static List<QuickReply> _decodeQuickReplies(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return const <QuickReply>[];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .whereType<Map>()
+          .map((Map e) => QuickReply.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    } catch (_) {
+      return const <QuickReply>[];
+    }
   }
 
   Future<void> save(AppSettings settings) async {
@@ -186,6 +204,11 @@ class SettingsService {
     await prefs.setInt(_loreStickyRoundsKey, settings.loreStickyRounds);
     await prefs.setInt(_loreMaxEntriesKey, settings.loreMaxEntries);
     await prefs.setInt(_loreBudgetTokensKey, settings.loreBudgetTokens);
+    await prefs.setString(
+        _quickRepliesKey,
+        jsonEncode(settings.quickReplies
+            .map((QuickReply r) => r.toJson())
+            .toList()));
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

@@ -12,6 +12,7 @@ import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
 import '../models/conversation.dart';
 import '../models/app_settings.dart';
+import '../models/quick_reply.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/service_results.dart';
@@ -536,6 +537,8 @@ class _ChatPageState extends State<ChatPage>
                   inspirationInProgress: _inspirationInProgress,
                   onSend: _send,
                   onStartInspiration: _startInspiration,
+                  quickReplies: widget.controller.settings.quickReplies,
+                  onQuickReply: _handleQuickReply,
                 ),
               ),
             ],

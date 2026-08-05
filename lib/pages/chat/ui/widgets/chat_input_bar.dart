@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../models/quick_reply.dart';
 import '../../../../services/speech_to_text_service.dart';
 import '../../../../state/app_controller.dart';
 import '../../../../utils/ui_feedback.dart';
@@ -18,6 +19,8 @@ class ChatInputBar extends StatefulWidget {
     required this.inspirationInProgress,
     required this.onSend,
     required this.onStartInspiration,
+    this.quickReplies = const <QuickReply>[],
+    this.onQuickReply,
     this.onTap,
   });
 
@@ -28,6 +31,12 @@ class ChatInputBar extends StatefulWidget {
   final bool inspirationInProgress;
   final VoidCallback onSend;
   final Future<void> Function() onStartInspiration;
+
+  /// 快速回复按钮列表（显示在输入栏上方）。
+  final List<QuickReply> quickReplies;
+
+  /// 点击某个快速回复按钮（尚未做宏替换，由上层处理并发送）。
+  final ValueChanged<QuickReply>? onQuickReply;
   final VoidCallback? onTap;
 
   @override
@@ -743,6 +752,36 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
   }
 
+  /// 快速回复按钮行：横向滚动的 chips，点击立即发送对应内容。
+  Widget _buildQuickReplies() {
+    if (widget.quickReplies.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: <Widget>[
+          for (final QuickReply qr in widget.quickReplies) ...<Widget>[
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ActionChip(
+                label: FitText(qr.label.isEmpty ? '回复' : qr.label),
+                backgroundColor: cs.surfaceContainerHighest,
+                side: BorderSide(color: cs.outlineVariant),
+                onPressed: widget.onQuickReply == null
+                    ? null
+                    : () => widget.onQuickReply!(qr),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_voiceMode) {
@@ -753,7 +792,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _buildQuickReplies(),
+            const SizedBox(height: 6),
+            Row(
           children: <Widget>[
             Expanded(
               child: _buildTextField(),
@@ -802,6 +846,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
             ],
           ],
         ),
+        ],
+      ),
       ),
     );
   }
