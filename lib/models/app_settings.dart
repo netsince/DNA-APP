@@ -23,6 +23,7 @@ class AppSettings {
     required this.autoBackup,
     required this.showSplashAnimation,
     required this.showBottomNav,
+    this.showTokenDashboard = false,
     required this.appIcon,
     required this.snackDurationMs,
     required this.sherpaModelSource,
@@ -78,6 +79,7 @@ class AppSettings {
       autoBackup: true,
       showSplashAnimation: true,
       showBottomNav: false,
+      showTokenDashboard: false,
       appIcon: 'default',
       snackDurationMs: 1000,
       sherpaModelSource: 'auto',
@@ -147,6 +149,10 @@ class AppSettings {
 
   /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
   final bool showBottomNav;
+
+  /// 是否在聊天界面显示上下文 Token 实时仪表盘（当前上下文占用 vs 预算）。
+  /// 默认关闭，可在「外观与体验」中开启。
+  final bool showTokenDashboard;
 
   final String appIcon;
   final int snackDurationMs;
@@ -268,6 +274,7 @@ class AppSettings {
       'autoBackup': autoBackup,
       'showSplashAnimation': showSplashAnimation,
       'showBottomNav': showBottomNav,
+      'showTokenDashboard': showTokenDashboard,
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
       'sherpaModelSource': sherpaModelSource,
@@ -332,6 +339,7 @@ class AppSettings {
       autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
+      showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
       sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
@@ -393,6 +401,7 @@ class AppSettings {
     bool? autoBackup,
     bool? showSplashAnimation,
     bool? showBottomNav,
+    bool? showTokenDashboard,
     String? appIcon,
     int? snackDurationMs,
     String? sherpaModelSource,
@@ -446,6 +455,7 @@ class AppSettings {
       autoBackup: autoBackup ?? this.autoBackup,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       showBottomNav: showBottomNav ?? this.showBottomNav,
+      showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
       sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,

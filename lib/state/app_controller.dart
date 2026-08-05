@@ -235,6 +235,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「上下文 Token 实时仪表盘」开关。
+  Future<void> saveShowTokenDashboard(bool value) async {
+    _settings = _settings.copyWith(showTokenDashboard: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
   Future<void> saveAutoBackup(bool value) async {
     _settings = _settings.copyWith(autoBackup: value);

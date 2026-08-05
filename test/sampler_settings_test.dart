@@ -46,4 +46,23 @@ void main() {
       expect(s.temperature, 0.7);
     });
   });
+
+  group('AppSettings 界面开关', () {
+    test('上下文 Token 仪表盘默认关闭', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.showTokenDashboard, isFalse);
+    });
+
+    test('showTokenDashboard 序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(showTokenDashboard: true);
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.showTokenDashboard, isTrue);
+    });
+
+    test('showTokenDashboard 缺失字段回退默认（false）', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.showTokenDashboard, isFalse);
+    });
+  });
 }

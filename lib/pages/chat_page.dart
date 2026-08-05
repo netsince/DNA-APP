@@ -170,6 +170,24 @@ class _ChatPageState extends State<ChatPage>
     _chatController.scrollToBottom();
   }
 
+  /// 统计当前上下文（所有消息型气泡）占用的 token 总数。
+  /// 仅当仪表盘开启时调用；[ChatTokenCounter] 自带缓存，文本不变时不重复编码。
+  int _countContextTokens() {
+    final String model = widget.controller.settings.selectedModel;
+    int total = 0;
+    for (final ConversationMessage m in _conversation.messages) {
+      if (m.kind != 'message') {
+        continue;
+      }
+      total += _tokenCounter.countTokens(
+        model: model,
+        messageId: m.id,
+        text: m.text,
+      );
+    }
+    return total;
+  }
+
   TA? _lastAssistantSpeaker() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
@@ -527,6 +545,12 @@ class _ChatPageState extends State<ChatPage>
                   color: colorScheme.surfaceContainerHigh,
                   borderColor: colorScheme.outlineVariant,
                 ),
+              if (widget.controller.settings.showTokenDashboard)
+                _TokenDashboard(
+                  usedTokens: _countContextTokens(),
+                  budgetTokens: widget.controller.settings.maxContextTokens,
+                  accent: schemeColor,
+                ),
               Theme(
                 data: _accentTheme,
                 child: ChatInputBar(
@@ -596,6 +620,70 @@ class _TokenCountCallback {
       model: getModel(),
       messageId: messageId,
       text: text,
+    );
+  }
+}
+
+// 上下文 Token 实时仪表盘：显示当前上下文占用与预算。
+class _TokenDashboard extends StatelessWidget {
+  const _TokenDashboard({
+    required this.usedTokens,
+    required this.budgetTokens,
+    required this.accent,
+  });
+
+  final int usedTokens;
+  final int budgetTokens;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final double? ratio = budgetTokens > 0 ? usedTokens / budgetTokens : null;
+    final bool over = ratio != null && ratio > 1.0;
+    final Color barColor = over ? cs.error : accent;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                over ? Icons.warning_amber_rounded : Icons.data_usage,
+                size: 14,
+                color: over ? cs.error : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: FitText(
+                  budgetTokens > 0
+                      ? '上下文 $usedTokens / $budgetTokens Tokens'
+                      : '上下文 $usedTokens Tokens（未设预算）',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          if (ratio != null) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: ratio.clamp(0.0, 1.0),
+                minHeight: 4,
+                color: barColor,
+                backgroundColor: cs.surfaceContainerHighest,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

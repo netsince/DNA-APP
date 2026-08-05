@@ -17,6 +17,7 @@ class AppearanceSettingsPage extends StatefulWidget {
 class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   bool _showSplash = true;
   bool _showBottomNav = false;
+  bool _showTokenDashboard = false;
   String _iconKey = 'default';
   String _themeMode = 'system';
   int _snackDurationMs = 1000;
@@ -33,6 +34,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     final s = widget.controller.settings;
     _showSplash = s.showSplashAnimation;
     _showBottomNav = s.showBottomNav;
+    _showTokenDashboard = s.showTokenDashboard;
     _iconKey = s.appIcon;
     _themeMode = s.themeMode;
     _snackDurationMs = s.snackDurationMs;
@@ -57,6 +59,9 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
   Future<void> _saveBottomNav(bool v) =>
       widget.controller.saveShowBottomNav(v);
+
+  Future<void> _saveTokenDashboard(bool v) =>
+      widget.controller.saveShowTokenDashboard(v);
 
   Future<void> _selectTheme(String mode) async {
     if (_themeMode == mode) return;
@@ -285,6 +290,17 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             onChanged: (v) {
               setState(() => _showBottomNav = v);
               _saveBottomNav(v);
+            },
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('上下文 Token 实时仪表盘'),
+            subtitle: const FitText('开启后，在聊天界面输入栏上方显示当前上下文 Token 占用与预算。默认关闭。'),
+            value: _showTokenDashboard,
+            onChanged: (v) {
+              setState(() => _showTokenDashboard = v);
+              _saveTokenDashboard(v);
             },
           ),
           const SizedBox(height: 24),
