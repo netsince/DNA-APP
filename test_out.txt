@@ -1,55 +1,161 @@
-00:00 +0: loading D:/duetnurturingally/dna-client/test/data_backup_service_test.dart
-00:00 +0: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP buildZip + parseZip 往返一致
-00:00 +1: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP ZIP 内不含 settings.json（不打包设置）
-00:00 +2: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP TA 图片随包导出并在解析后落盘还原
-00:00 +3: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 解析损坏/缺失 manifest 的 ZIP 失败
-00:00 +4: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 多个 TA 引用同名图片不互相覆盖
-00:00 +5: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP buildConversationsZip + parseConversationsZip 往返一致
-00:00 +6: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 全量包可被 parseConversationsZip 兼容解析
-00:00 +7: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 缺少 conversations.json 时 parseConversationsZip 失败
-00:01 +8: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 toJson / fromJson 往返一致
-00:01 +9: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 data 为 null 时安全往返
-00:01 +10: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toJson / fromJson 往返一致
-00:01 +11: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 缺失字段使用默认值而非抛异常
-00:01 +12: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 还原基础字段与对话风格
-00:01 +13: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 透传 protection 溯源包
-00:01 +14: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） toJson / fromJson 完整保留 protection 与图片槽溯源
-00:01 +15: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） 无 protection 时 toJson 不含溯源字段
-00:01 +16: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 toJson / fromJson 往返一致
-00:01 +17: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 缺失 type 时默认 full
-00:01 +18: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataImportReport 持有导入统计 字段正确暴露
-00:01 +19: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 本应用导出格式可被正确导入
-00:01 +20: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v2 角色卡可被识别并导入
-00:01 +21: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v1 扁平角色卡可被导入
-00:01 +22: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 不支持的格式返回失败
-00:01 +23: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 非 JSON 内容返回失败
-00:01 +24: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 版本过高返回失败
-00:01 +25: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 DataBackupService 暴露 DataBackupManifest / ParsedBackup / DataImportReport
-00:01 +26: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 TaExportImportService 暴露 ExportPackage / ExportedCharacter / ImportResult
-00:14 +27: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试
-00:14 +27 -1: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试 [E]
+Resolving dependencies...
+Downloading packages...
+  audioplayers 6.7.1 (6.8.1 available)
+  audioplayers_android 5.2.1 (5.3.0 available)
+  audioplayers_darwin 6.4.0 (6.5.0 available)
+  audioplayers_linux 4.2.1 (4.3.0 available)
+  audioplayers_platform_interface 7.1.1 (7.2.0 available)
+  audioplayers_web 5.2.1 (5.3.0 available)
+  audioplayers_windows 4.3.1 (4.4.1 available)
+  characters 1.4.0 (1.4.1 available)
+  cli_util 0.4.2 (0.5.2 available)
+  code_assets 1.0.0 (1.2.1 available)
+  cross_file 0.3.5+2 (0.3.5+4 available)
+  file_picker 8.3.7 (11.0.3 available)
+  flutter_image_compress 2.4.0 (2.5.1 available)
+  flutter_image_compress_common 1.0.6 (1.1.1 available)
+  flutter_image_compress_macos 1.0.3 (1.1.0 available)
+  flutter_image_compress_ohos 0.0.3 (0.0.3+1 available)
+  flutter_image_compress_platform_interface 1.0.5 (1.1.0 available)
+  flutter_image_compress_web 0.1.5 (0.1.5+1 available)
+  flutter_plugin_android_lifecycle 2.0.34 (2.0.35 available)
+  hooks 1.0.3 (2.1.0 available)
+  image 4.8.0 (4.9.1 available)
+  image_cropper 8.1.0 (12.2.1 available)
+  image_cropper_for_web 6.1.0 (7.0.0 available)
+  image_cropper_platform_interface 7.2.0 (8.0.0 available)
+  image_picker 1.2.2 (1.2.3 available)
+  image_picker_android 0.8.13+17 (0.8.13+19 available)
+  intl 0.18.1 (0.20.3 available)
+  jni 1.0.0 (1.0.3 available)
+  jni_flutter 1.0.1 (1.0.2 available)
+  json_annotation 4.11.0 (4.12.0 available)
+  local_auth 2.3.0 (3.0.2 available)
+  local_auth_android 1.0.56 (2.0.9 available)
+  local_auth_darwin 1.6.1 (2.0.3 available)
+  local_auth_ios 1.1.7 (discontinued replaced by local_auth_darwin)
+  local_auth_windows 1.0.11 (2.0.1 available)
+  matcher 0.12.17 (0.12.20 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.19.0 available)
+  native_toolchain_c 0.17.6 (0.19.3 available)
+  objective_c 9.3.0 (9.5.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  package_info_plus 9.0.1 (10.2.1 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  palette_generator 0.3.3+7 (discontinued)
+  path_provider 2.1.5 (2.1.6 available)
+  path_provider_linux 2.2.1 (2.2.2 available)
+  path_provider_platform_interface 2.1.2 (2.1.3 available)
+  posix 6.5.0 (6.5.2 available)
+  record 5.2.1 (7.1.1 available)
+  record_android 1.5.2 (2.1.2 available)
+! record_linux 1.3.1 (overridden) (2.1.1 available)
+  record_platform_interface 1.6.0 (2.1.0 available)
+  record_use 0.6.0 (1.0.0 available)
+  record_web 1.3.0 (2.1.2 available)
+  record_windows 1.0.7 (2.2.3 available)
+  share_plus 10.1.4 (13.3.0 available)
+  share_plus_platform_interface 5.0.2 (7.2.0 available)
+  shared_preferences_android 2.4.23 (2.4.27 available)
+  synchronized 3.4.0 (3.4.1+1 available)
+  test_api 0.7.7 (0.7.13 available)
+  url_launcher_android 6.3.29 (6.3.32 available)
+  url_launcher_web 2.4.2 (2.4.3 available)
+  uuid 4.5.3 (4.6.0 available)
+  vector_math 2.2.0 (2.4.2 available)
+  win32 5.15.0 (6.4.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+2 packages are discontinued.
+64 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading D:/duetnurturingally/dna-client/test/conversation_pin_test.dart
+00:00 +0: D:/duetnurturingally/dna-client/test/conversation_pin_test.dart: Conversation 置顶 pinned 默认 false
+00:00 +1: D:/duetnurturingally/dna-client/test/conversation_pin_test.dart: Conversation 置顶 copyWith 可设置置顶
+00:00 +2: D:/duetnurturingally/dna-client/test/conversation_pin_test.dart: Conversation 置顶 toJson / fromJson 往返一致
+00:00 +3: D:/duetnurturingally/dna-client/test/conversation_pin_test.dart: Conversation 置顶 缺失 pinned 字段回退默认 false
+00:01 +4: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP buildZip + parseZip 往返一致
+00:01 +5: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP ZIP 内不含 settings.json（不打包设置）
+00:01 +6: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP TA 图片随包导出并在解析后落盘还原
+00:01 +7: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 解析损坏/缺失 manifest 的 ZIP 失败
+00:01 +8: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 全量 ZIP 多个 TA 引用同名图片不互相覆盖
+00:01 +9: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP buildConversationsZip + parseConversationsZip 往返一致
+00:01 +10: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 全量包可被 parseConversationsZip 兼容解析
+00:01 +11: D:/duetnurturingally/dna-client/test/data_backup_service_test.dart: DataBackupService 仅对话 ZIP 缺少 conversations.json 时 parseConversationsZip 失败
+00:03 +12: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 toJson / fromJson 往返一致
+00:03 +13: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedImageInfo 序列化 data 为 null 时安全往返
+00:03 +14: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toJson / fromJson 往返一致
+00:04 +15: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 缺失字段使用默认值而非抛异常
+00:04 +16: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 还原基础字段与对话风格
+00:04 +17: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportedCharacter 序列化 toTA 透传 protection 溯源包
+00:04 +18: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） toJson / fromJson 完整保留 protection 与图片槽溯源
+00:04 +19: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: ExportPackage 溯源字段透传（不编不改） 无 protection 时 toJson 不含溯源字段
+00:04 +20: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 toJson / fromJson 往返一致
+00:04 +21: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataBackupManifest 序列化 缺失 type 时默认 full
+00:04 +22: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: DataImportReport 持有导入统计 字段正确暴露
+00:04 +23: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 本应用导出格式可被正确导入
+00:04 +24: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v2 角色卡可被识别并导入
+00:04 +25: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 酒馆 v1 扁平角色卡可被导入
+00:04 +26: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 不支持的格式返回失败
+00:04 +27: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 非 JSON 内容返回失败
+00:04 +28: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: TaExportImportService.importCharacter（纯解析，无平台依赖） 版本过高返回失败
+00:04 +29: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 DataBackupService 暴露 DataBackupManifest / ParsedBackup / DataImportReport
+00:04 +30: D:/duetnurturingally/dna-client/test/export_import_models_test.dart: 重构兼容性：模型类可从原 service 文件再导出访问 TaExportImportService 暴露 ExportPackage / ExportedCharacter / ImportResult
+00:04 +31: D:/duetnurturingally/dna-client/test/fork_utils_test.dart: buildForkConversation 保留到分叉点为止的消息
+00:04 +32: D:/duetnurturingally/dna-client/test/fork_utils_test.dart: buildForkConversation 备注前追加「分叉的.」前缀
+00:04 +33: D:/duetnurturingally/dna-client/test/fork_utils_test.dart: buildForkConversation 仅保留分叉点之前已生成的摘要
+00:04 +34: D:/duetnurturingally/dna-client/test/fork_utils_test.dart: buildForkConversation 索引越界返回 null
+00:04 +35: D:/duetnurturingally/dna-client/test/fork_utils_test.dart: buildForkConversation 生成的新 ID 避开已存在 ID
+00:05 +36: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试
+00:05 +36 -1: D:/duetnurturingally/dna-client/test/gpt_fwd_isolate_test.dart: gpt_forward 首步隔离测试 [E]
   PathNotFoundException: Cannot open file, path = 'd:/duetnurturingally/dna-client/modelwksps/models/../_code_emb.bin' (OS Error: 系统找不到指定的文件。, errno = 2)
   dart:io                               _File.readAsBytesSync
   test\gpt_fwd_isolate_test.dart 10:45  main.<fn>
   
-00:17 +27 -1: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入
-00:17 +27 -2: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入 [E]
+00:06 +36 -1: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入
+00:06 +36 -2: D:/duetnurturingally/dna-client/test/gpt_run2_test.dart: gpt run 标准创建输入 [E]
   PathNotFoundException: Cannot open file, path = 'd:/duetnurturingally/dna-client/modelwksps/models/../_code_emb.bin' (OS Error: 系统找不到指定的文件。, errno = 2)
   dart:io                        _File.readAsBytesSync
   test\gpt_run2_test.dart 12:45  main.<fn>
   
-00:18 +27 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 空查询返回空
-00:18 +28 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按角色名命中
-00:18 +29 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按标签命中
-00:18 +30 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按世界简介命中
-00:18 +31 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按会话备注命中为 conversation 类型
-00:18 +32 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按消息正文命中为 message 类型且带片段
-00:18 +33 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 单会话消息命中最多取 5 条
-00:18 +34 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 大小写不敏感
-00:19 +35 -2: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
-合成长度=9728 samples (0.4053333333333333s) RMS=0.025545463279507494
-00:33 +36 -2: D:/duetnurturingally/dna-client/test/tts_istft_test.dart: istft 与 numpy 参考一致
-00:33 +36 -3: D:/duetnurturingally/dna-client/test/tts_istft_test.dart: istft 与 numpy 参考一致 [E]
+00:07 +36 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 纯文本保持原样
+00:07 +37 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 加粗标记
+00:07 +38 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 斜体标记
+00:07 +39 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 行内代码标记
+00:07 +40 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 删除线标记
+00:07 +41 -2: D:/duetnurturingally/dna-client/test/light_markdown_test.dart: parseLightMarkdown 未闭合标记不崩溃，内容仍保留
+00:08 +42 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros 基础宏
+00:08 +43 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros newline 与日期时间
+00:08 +44 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros random 宏
+00:08 +45 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros pick 宏等价于 random
+00:08 +46 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros roll 骰子宏结果为范围内数字
+00:08 +47 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: expandCommandMacros 未识别宏原样保留
+00:08 +48 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: applyRegexRules 按规则替换
+00:08 +49 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: applyRegexRules 非法正则被跳过不抛异常
+00:08 +50 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: applyRegexRules 空规则列表原样返回
+00:08 +51 -2: D:/duetnurturingally/dna-client/test/message_processor_test.dart: RegexRule 序列化 toJson / fromJson 往返一致
+00:09 +52 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 高级采样参数 默认值为中性/关闭
+00:09 +53 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 高级采样参数 toJson / fromJson 往返一致
+00:09 +54 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 高级采样参数 fromJson 缺失字段回退默认值
+00:09 +55 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 高级采样参数 copyWith 不修改其余字段
+00:09 +56 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 界面开关 上下文 Token 仪表盘默认关闭
+00:09 +57 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 界面开关 showTokenDashboard 序列化往返一致
+00:09 +58 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 界面开关 showTokenDashboard 缺失字段回退默认（false）
+00:09 +59 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 从此处分叉开关 默认关闭
+00:09 +60 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 从此处分叉开关 enableForking 序列化往返一致
+00:09 +61 -2: D:/duetnurturingally/dna-client/test/sampler_settings_test.dart: AppSettings 从此处分叉开关 enableForking 缺失字段回退默认（false）
+00:10 +62 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 空查询返回空
+00:10 +63 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按角色名命中
+00:10 +64 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按标签命中
+00:10 +65 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按世界简介命中
+00:10 +66 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按会话备注命中为 conversation 类型
+00:10 +67 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 按消息正文命中为 message 类型且带片段
+00:10 +68 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 单会话消息命中最多取 5 条
+00:10 +69 -2: D:/duetnurturingally/dna-client/test/search_service_test.dart: searchGlobal 大小写不敏感
+00:11 +70 -2: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:13 +70 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:13 +70 -3: D:/duetnurturingally/dna-client/test/tts_istft_test.dart: istft 与 numpy 参考一致 [E]
   Expected: <2560>
     Actual: <5120>
   
@@ -57,11 +163,24 @@
   package:flutter_test/src/widget_tester.dart 473:18  expect
   test\tts_istft_test.dart 28:5                       main.<fn>
   
-00:35 +36 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: (setUpAll)
-00:35 +36 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: 特殊 token id 正确
-00:35 +37 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: 中文单字编码
-00:35 +38 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decorate code prompt + encode
-00:35 +39 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decorate text prompt
-00:35 +40 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: decode 往返
-00:35 +41 -3: D:/duetnurturingally/dna-client/test/tts_tokenizer_test.dart: (tearDownAll)
-00:46 +41 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
+00:14 +70 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:14 +71 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:14 +72 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:14 +73 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:14 +74 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+00:14 +75 -3: D:/duetnurturingally/dna-client/test/tts_engine_test.dart: 端到端合成（GPT→DVAE→Vocos→istft）
+合成长度=9728 samples (0.4053333333333333s) RMS=0.025545463279507494
+00:20 +76 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
+00:21 +77 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
+00:21 +78 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
+00:21 +79 -3: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup
+10:20 +79 -4: D:/duetnurturingally/dna-client/test/widget_test.dart: shows OOBE when app starts without setup [E]
+  TimeoutException after 0:10:00.000000: Test timed out after 10 minutes.
+  dart:isolate  _RawReceivePort._handleMessage
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+10:20 +79 -4: Some tests failed.

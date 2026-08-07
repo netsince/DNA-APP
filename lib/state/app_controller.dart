@@ -36,10 +36,11 @@ class AppController extends ChangeNotifier {
     required SettingsService settingsService,
     required OpenAiService openAiService,
     required TaService taService,
+    HiveService? hiveService,
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
         _taService = taService,
-        _hiveService = HiveService(),
+        _hiveService = hiveService ?? HiveService(),
         _providerRegistry = LlmProviderRegistry(<LlmProvider>[
           openAiService,
           AnthropicProvider(),
