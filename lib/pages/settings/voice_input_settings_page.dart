@@ -76,9 +76,15 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          FitText('离线语音识别',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
+          Row(
+            children: <Widget>[
+              FitText('离线语音识别',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(width: 8),
+              const BetaTag(),
+            ],
+          ),
           const SizedBox(height: 4),
           FitText('下载模型后，点聊天输入框的麦克风即可语音输入。',
               style: theme.textTheme.bodySmall

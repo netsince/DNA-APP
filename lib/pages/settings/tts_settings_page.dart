@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/tts/tts_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
 
@@ -175,9 +176,15 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          FitText('端侧语音合成',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
+          Row(
+            children: <Widget>[
+              FitText('端侧语音合成',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(width: 8),
+              const BetaTag(),
+            ],
+          ),
           const SizedBox(height: 4),
           FitText(
             '开启后，角色回复左上角会出现播放按钮，点击即可合成并播放语音。'
