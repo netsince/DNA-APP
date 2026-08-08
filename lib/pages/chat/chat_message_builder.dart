@@ -1,5 +1,4 @@
 import '../../models/conversation.dart';
-import '../../models/world.dart';
 import 'chat_stream_parser.dart';
 
 class ChatMessageBuilder {
@@ -32,10 +31,9 @@ class ChatMessageBuilder {
     String? Function(String? speakerTaId)? speakerNameResolver,
     String? authorNote,
     int authorNoteInterval = 0,
-    List<WorldEntry>? activeEntries,
   }) {
-    // 注：世界词条（Lorebook）已由 ChatSystemPrompt.build 注入到 systemPrompt 顶部，
-    // 此处无需重复插入，activeEntries 仅用于保持调用方接口一致。
+    // 注：世界词条（Lorebook）由 ChatSystemPrompt.build 注入 systemPrompt，
+    // 本方法不再接收 activeEntries，避免出现「计算了却没用」的不一致。
     final List<Map<String, String>> payload = <Map<String, String>>[];
     if (systemPrompt.trim().isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': systemPrompt.trim()});
@@ -63,26 +61,40 @@ class ChatMessageBuilder {
     }
     // 深度注入（作者注释 Author's Note）：每隔 authorNoteInterval 条历史消息，
     // 在对话中间插入一段提示，而不只是放在 system 开头。
-    if (authorNote != null &&
-        authorNote.trim().isNotEmpty &&
-        authorNoteInterval > 0 &&
-        history.isNotEmpty) {
-      final String note = authorNote.trim();
-      final List<Map<String, String>> withNotes = <Map<String, String>>[];
-      for (int i = 0; i < history.length; i++) {
-        withNotes.add(history[i]);
-        final int fromEnd = history.length - 1 - i;
-        if (fromEnd > 0 && fromEnd % authorNoteInterval == 0) {
-          withNotes.add(<String, String>{'role': 'system', 'content': note});
-        }
-      }
-      payload.addAll(withNotes);
-    } else {
-      payload.addAll(history);
-    }
+    payload.addAll(injectAuthorNotes(
+      history: history,
+      authorNote: authorNote,
+      authorNoteInterval: authorNoteInterval,
+    ));
     if (extraUserText != null && extraUserText.trim().isNotEmpty) {
       payload.add(<String, String>{'role': 'user', 'content': extraUserText.trim()});
     }
     return payload;
+  }
+
+  /// 把 Author's Note 按间隔深度注入历史消息中。间隔 0 或注释为空时原样返回。
+  /// 供 [buildMessagesFrom] 与手工组装 payload 的入口（如"继续"）复用，保证各
+  /// 发送入口的上下文组装方式一致。
+  static List<Map<String, String>> injectAuthorNotes({
+    required List<Map<String, String>> history,
+    String? authorNote,
+    int authorNoteInterval = 0,
+  }) {
+    if (authorNote == null ||
+        authorNote.trim().isEmpty ||
+        authorNoteInterval <= 0 ||
+        history.isEmpty) {
+      return history;
+    }
+    final String note = authorNote.trim();
+    final List<Map<String, String>> withNotes = <Map<String, String>>[];
+    for (int i = 0; i < history.length; i++) {
+      withNotes.add(history[i]);
+      final int fromEnd = history.length - 1 - i;
+      if (fromEnd > 0 && fromEnd % authorNoteInterval == 0) {
+        withNotes.add(<String, String>{'role': 'system', 'content': note});
+      }
+    }
+    return withNotes;
   }
 }

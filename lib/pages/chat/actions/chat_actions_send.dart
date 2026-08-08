@@ -223,15 +223,16 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
+    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       maxMessages: widget.controller.settings.maxContextMessages,
       maxTokens: widget.controller.settings.maxContextTokens,
       tokenCounter: _tokenCounter,
       tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
     );
-    final ConversationSummary? summary =
-        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
+    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
@@ -240,13 +241,13 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
+        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
-      activeEntries: _activeLoreEntries(slice.messages),
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );
@@ -305,6 +306,7 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
+    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       excludeIds: <String>{assistantId},
@@ -312,6 +314,7 @@ mixin ChatActionsSend on ChatStateMixin {
       maxTokens: widget.controller.settings.maxContextTokens,
       tokenCounter: _tokenCounter,
       tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
     );
     final List<Map<String, String>> payload = <Map<String, String>>[];
     final String sys = ChatSystemPrompt.build(
@@ -326,29 +329,33 @@ mixin ChatActionsSend on ChatStateMixin {
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
     }
-    if (slice.includeSummary) {
-      final ConversationSummary? summary = ChatMessageSlice.latestSummary(_conversation);
-      if (summary != null && summary.text.trim().isNotEmpty) {
-        payload.add(<String, String>{
-          'role': 'system',
-          'content': '对话摘要：\n${summary.text.trim()}',
-        });
-      }
+    if (slice.includeSummary &&
+        latestSummary != null &&
+        latestSummary.text.trim().isNotEmpty) {
+      payload.add(<String, String>{
+        'role': 'system',
+        'content': '对话摘要：\n${latestSummary.text.trim()}',
+      });
     }
     payload.add(<String, String>{
       'role': 'system',
       'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
     });
-    payload.addAll(
-      slice.messages.map((ConversationMessage m) => <String, String>{
-            'role': m.role,
-            'content': ChatMessageBuilder.resolveContentWithSpeaker(
-              message: m,
-              prefixSpeaker: _isGroup,
-              speakerNameResolver: _speakerNameFor,
-            ),
-          }),
-    );
+    // 与其他发送入口保持一致：Author's Note 按间隔深度注入历史消息。
+    payload.addAll(ChatMessageBuilder.injectAuthorNotes(
+      history: slice.messages
+          .map((ConversationMessage m) => <String, String>{
+                'role': m.role,
+                'content': ChatMessageBuilder.resolveContentWithSpeaker(
+                  message: m,
+                  prefixSpeaker: _isGroup,
+                  speakerNameResolver: _speakerNameFor,
+                ),
+              })
+          .toList(),
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+    ));
     final bool streamed = await _streamAssistantResponse(
       model: model,
       apiKey: apiKey,
@@ -412,6 +419,7 @@ mixin ChatActionsSend on ChatStateMixin {
     final String model = widget.controller.settings.selectedModel;
     final String apiKey = widget.controller.settings.apiKey;
     final String baseUrl = widget.controller.settings.baseUrl;
+    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       endExclusive: index,
@@ -419,9 +427,9 @@ mixin ChatActionsSend on ChatStateMixin {
       maxTokens: widget.controller.settings.maxContextTokens,
       tokenCounter: _tokenCounter,
       tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
     );
-    final ConversationSummary? summary =
-        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
+    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
@@ -430,13 +438,13 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
+        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
-      activeEntries: _activeLoreEntries(slice.messages),
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );
@@ -545,6 +553,7 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
+    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
       excludeIds: <String>{assistantId},
@@ -552,9 +561,9 @@ mixin ChatActionsSend on ChatStateMixin {
       maxTokens: widget.controller.settings.maxContextTokens,
       tokenCounter: _tokenCounter,
       tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
     );
-    final ConversationSummary? summary =
-        slice.includeSummary ? ChatMessageSlice.latestSummary(_conversation) : null;
+    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
     final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
@@ -563,13 +572,13 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
+        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
       prefixSpeaker: _isGroup,
       speakerNameResolver: _speakerNameFor,
-      activeEntries: _activeLoreEntries(slice.messages),
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
     );

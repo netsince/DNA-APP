@@ -88,28 +88,30 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     // 用户身份人设优先放入（灵感/总结生成的是用户视角内容，需要用户人设锚定）。
     if (identity != null) {
       if (identity.persona.trim().isNotEmpty) {
-        buffer.writeln('User Persona: ${identity.persona.trim()}');
+        buffer.writeln('用户人设：${identity.persona.trim()}');
       }
       if (identity.intro.trim().isNotEmpty) {
-        buffer.writeln('User Intro: ${identity.intro.trim()}');
+        buffer.writeln('用户介绍：${identity.intro.trim()}');
       }
     }
     if (ta != null) {
       if (ta.persona.trim().isNotEmpty) {
-        buffer.writeln('Persona: ${ta.persona.trim()}');
+        buffer.writeln('人设：${ta.persona.trim()}');
       }
       if (ta.intro.trim().isNotEmpty) {
-        buffer.writeln('Intro: ${ta.intro.trim()}');
+        buffer.writeln('介绍：${ta.intro.trim()}');
       }
     }
     if (world != null) {
       if (world.summary.trim().isNotEmpty) {
-        buffer.writeln('World Background: ${world.summary.trim()}');
+        buffer.writeln('世界背景：${world.summary.trim()}');
       } else if (world.description.trim().isNotEmpty) {
-        buffer.writeln('World Background: ${world.description.trim()}');
+        buffer.writeln('世界背景：${world.description.trim()}');
       }
       if (world.forbiddenWords.isNotEmpty) {
-        buffer.writeln('Forbidden words: ${world.forbiddenWords.join(', ')}');
+        buffer.writeln(
+          '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
+        );
       }
     }
     return buffer.toString().trim();

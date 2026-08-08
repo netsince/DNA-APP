@@ -27,6 +27,7 @@ class ChatMessageSlice {
     int? maxTokens,
     ChatTokenCounter? tokenCounter,
     String? tokenModel,
+    String? summaryText,
   }) {
     final int summaryEnd = summaryEndIndex(conversation);
     final int total = conversation.messages.length;
@@ -45,7 +46,16 @@ class ChatMessageSlice {
     // 精确 token 预算：用当前模型 tokenizer，从最新往最老逐条累积 token，
     // 超出 [maxTokens] 即裁掉更早的消息。0 表示不限制。
     if (maxTokens != null && maxTokens > 0 && tokenCounter != null) {
+      // 摘要文本同样占用上下文预算：先扣除，再对历史消息裁剪，
+      // 避免长摘要持续挤占预算，导致上下文几乎只剩摘要。
       int budget = 0;
+      if (includeSummary && summaryText != null && summaryText.trim().isNotEmpty) {
+        budget += tokenCounter.countTokens(
+          model: tokenModel ?? '',
+          messageId: '__summary__',
+          text: summaryText,
+        );
+      }
       int keepFrom = slice.length; // 保留 [keepFrom, len)
       for (int i = slice.length - 1; i >= 0; i--) {
         final int t = tokenCounter.countTokens(
