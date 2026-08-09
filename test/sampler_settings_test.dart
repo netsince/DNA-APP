@@ -84,6 +84,39 @@ void main() {
     });
   });
 
+  group('AppSettings 消息气泡快捷按钮', () {
+    test('4 个快捷按钮默认开启', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.showMessageAvatar, isTrue);
+      expect(s.showMessageRetry, isTrue);
+      expect(s.showMessageCopy, isTrue);
+      expect(s.showMessageContinue, isTrue);
+    });
+
+    test('快捷按钮开关序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(
+        showMessageAvatar: false,
+        showMessageRetry: false,
+        showMessageCopy: false,
+        showMessageContinue: false,
+      );
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.showMessageAvatar, isFalse);
+      expect(back.showMessageRetry, isFalse);
+      expect(back.showMessageCopy, isFalse);
+      expect(back.showMessageContinue, isFalse);
+    });
+
+    test('快捷按钮开关缺失字段回退默认（true）', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.showMessageAvatar, isTrue);
+      expect(back.showMessageRetry, isTrue);
+      expect(back.showMessageCopy, isTrue);
+      expect(back.showMessageContinue, isTrue);
+    });
+  });
+
   group('AppSettings 界面开关', () {
     test('上下文 Token 仪表盘默认关闭', () {
       final AppSettings s = AppSettings.empty();

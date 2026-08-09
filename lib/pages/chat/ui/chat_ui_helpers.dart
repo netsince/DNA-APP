@@ -12,6 +12,22 @@ mixin ChatUiHelpers on ChatStateMixin {
   @override
   Set<String> get _visibleThoughtMessageIds;
 
+  /// 最后一条 AI 消息的索引（无则 -1）。
+  int _lastAssistantIndex() {
+    return _conversation.messages.lastIndexWhere(
+      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+    );
+  }
+
+  /// 快捷「重说」：重试最后一条 AI 消息。
+  Future<void> _retryLastAssistant() async {
+    final int index = _lastAssistantIndex();
+    if (index == -1) {
+      return;
+    }
+    await _retryAssistantAt(index);
+  }
+
   Future<void> _showMessageMenu({
     required Offset position,
     required ConversationMessage message,

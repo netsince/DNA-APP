@@ -38,6 +38,10 @@ class SettingsService {
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showParenButtonKey = 'show_paren_button';
+  static const String _showMessageAvatarKey = 'show_message_avatar';
+  static const String _showMessageRetryKey = 'show_message_retry';
+  static const String _showMessageCopyKey = 'show_message_copy';
+  static const String _showMessageContinueKey = 'show_message_continue';
   static const String _enterToSendKey = 'enter_to_send';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
@@ -104,6 +108,10 @@ class SettingsService {
       ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
       voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
+      showMessageAvatar: prefs.getBool(_showMessageAvatarKey) ?? true,
+      showMessageRetry: prefs.getBool(_showMessageRetryKey) ?? true,
+      showMessageCopy: prefs.getBool(_showMessageCopyKey) ?? true,
+      showMessageContinue: prefs.getBool(_showMessageContinueKey) ?? true,
       enterToSend: prefs.getBool(_enterToSendKey) ?? true,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
@@ -190,6 +198,10 @@ class SettingsService {
     }
     await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showParenButtonKey, settings.showParenButton);
+    await prefs.setBool(_showMessageAvatarKey, settings.showMessageAvatar);
+    await prefs.setBool(_showMessageRetryKey, settings.showMessageRetry);
+    await prefs.setBool(_showMessageCopyKey, settings.showMessageCopy);
+    await prefs.setBool(_showMessageContinueKey, settings.showMessageContinue);
     await prefs.setBool(_enterToSendKey, settings.enterToSend);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);

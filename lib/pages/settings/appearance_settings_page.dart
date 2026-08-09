@@ -26,6 +26,10 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   int _chatMaskStrength = 75;
   int _chatBubbleOpacity = 100;
   bool _halfScreenChat = false;
+  bool _showMessageAvatar = true;
+  bool _showMessageRetry = true;
+  bool _showMessageCopy = true;
+  bool _showMessageContinue = true;
   final bool _androidOk = AppIconService.isSupported;
 
   static const Color _defaultAccent = Color(0xFF147B74);
@@ -45,6 +49,10 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     _chatMaskStrength = s.chatMaskStrength;
     _chatBubbleOpacity = s.chatBubbleOpacity;
     _halfScreenChat = s.halfScreenChat;
+    _showMessageAvatar = s.showMessageAvatar;
+    _showMessageRetry = s.showMessageRetry;
+    _showMessageCopy = s.showMessageCopy;
+    _showMessageContinue = s.showMessageContinue;
   }
 
   Color get _currentCustomColor =>
@@ -66,6 +74,14 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
   Future<void> _saveTokenDashboard(bool v) =>
       widget.controller.saveShowTokenDashboard(v);
+
+  Future<void> _saveQuickButtons() =>
+      widget.controller.saveMessageQuickButtons(
+        showAvatar: _showMessageAvatar,
+        showRetry: _showMessageRetry,
+        showCopy: _showMessageCopy,
+        showContinue: _showMessageContinue,
+      );
 
   Future<void> _selectTheme(String mode) async {
     if (_themeMode == mode) return;
@@ -438,6 +454,64 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             onChanged: (bool v) async {
               setState(() => _halfScreenChat = v);
               await widget.controller.saveHalfScreenChat(v);
+            },
+          ),
+          const SizedBox(height: 16),
+          FitText('消息气泡快捷按钮',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          FitText(
+              '控制 AI 消息气泡左上的头像、右上的「重说 / 复制 / 继续说」快捷按钮是否显示；关闭后可通过长按 / 右键菜单使用对应功能。',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const FitText('头像'),
+            subtitle: const FitText('气泡左上角显示角色头像，群聊中便于区分发言者', style: TextStyle(fontSize: 12)),
+            value: _showMessageAvatar,
+            onChanged: (bool v) {
+              setState(() => _showMessageAvatar = v);
+              _saveQuickButtons();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const FitText('重说'),
+            subtitle: const FitText('气泡右上角显示「重说」，仅最近一条 AI 消息可用', style: TextStyle(fontSize: 12)),
+            value: _showMessageRetry,
+            onChanged: (bool v) {
+              setState(() => _showMessageRetry = v);
+              _saveQuickButtons();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const FitText('复制'),
+            subtitle: const FitText('气泡右上角显示「复制」，一键复制消息内容', style: TextStyle(fontSize: 12)),
+            value: _showMessageCopy,
+            onChanged: (bool v) {
+              setState(() => _showMessageCopy = v);
+              _saveQuickButtons();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const FitText('继续说'),
+            subtitle: const FitText('气泡右上角显示「继续说」，仅最近一条 AI 消息可用', style: TextStyle(fontSize: 12)),
+            value: _showMessageContinue,
+            onChanged: (bool v) {
+              setState(() => _showMessageContinue = v);
+              _saveQuickButtons();
             },
           ),
           const Padding(

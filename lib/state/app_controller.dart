@@ -372,6 +372,23 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存消息气泡快捷按钮显示开关（头像/重说/复制/继续说）。
+  Future<void> saveMessageQuickButtons({
+    required bool showAvatar,
+    required bool showRetry,
+    required bool showCopy,
+    required bool showContinue,
+  }) async {
+    _settings = _settings.copyWith(
+      showMessageAvatar: showAvatar,
+      showMessageRetry: showRetry,
+      showMessageCopy: showCopy,
+      showMessageContinue: showContinue,
+    );
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
   Future<void> saveMaxContextMessages(int maxContextMessages) async {
     final int clamped = maxContextMessages.clamp(0, 1000);

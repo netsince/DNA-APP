@@ -349,6 +349,12 @@ class _ChatPageState extends State<ChatPage>
     return _getCachedImage(path);
   }
 
+  /// 根据 speakerTaId 解析消息气泡头像（群聊/单聊通用，无头像返回 null）。
+  ImageProvider? _avatarForSpeakerTa(String? taId) {
+    final TA? ta = widget.controller.getTaById(taId ?? '');
+    return ta == null ? null : _avatarForTa(ta);
+  }
+
   Widget _buildSpeakerBar(Color primaryContainer, Color surfaceContainerHighest, TextTheme textTheme) {
     if (!_isGroup) {
       return const SizedBox.shrink();
@@ -553,6 +559,23 @@ class _ChatPageState extends State<ChatPage>
                     voiceSeedForTa: (String? id) =>
                         widget.controller.getTaById(id ?? '')?.voiceSeed,
                     ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
+                    showMessageAvatar: widget.controller.settings.showMessageAvatar,
+                    showMessageRetry: widget.controller.settings.showMessageRetry,
+                    showMessageCopy: widget.controller.settings.showMessageCopy,
+                    showMessageContinue: widget.controller.settings.showMessageContinue,
+                    avatarForMessage: _avatarForSpeakerTa,
+                    onRetryMessage: _retryLastAssistant,
+                    onCopyMessage: (String text) {
+                      Clipboard.setData(ClipboardData(text: text));
+                      if (mounted) {
+                        showSnack(
+                          context,
+                          '已复制到剪贴板',
+                          behavior: SnackBarBehavior.floating,
+                        );
+                      }
+                    },
+                    onContinueMessage: _continueFromContext,
                             ),
                           ),
                         ],
@@ -581,6 +604,23 @@ class _ChatPageState extends State<ChatPage>
                         voiceSeedForTa: (String? id) =>
                             widget.controller.getTaById(id ?? '')?.voiceSeed,
                         ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
+                        showMessageAvatar: widget.controller.settings.showMessageAvatar,
+                        showMessageRetry: widget.controller.settings.showMessageRetry,
+                        showMessageCopy: widget.controller.settings.showMessageCopy,
+                        showMessageContinue: widget.controller.settings.showMessageContinue,
+                        avatarForMessage: _avatarForSpeakerTa,
+                        onRetryMessage: _retryLastAssistant,
+                        onCopyMessage: (String text) {
+                          Clipboard.setData(ClipboardData(text: text));
+                          if (mounted) {
+                            showSnack(
+                              context,
+                              '已复制到剪贴板',
+                              behavior: SnackBarBehavior.floating,
+                            );
+                          }
+                        },
+                        onContinueMessage: _continueFromContext,
                       ),
               ),
               if (_sending)

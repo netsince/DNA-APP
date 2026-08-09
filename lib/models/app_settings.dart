@@ -43,6 +43,10 @@ class AppSettings {
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
     this.showParenButton = true,
+    this.showMessageAvatar = true,
+    this.showMessageRetry = true,
+    this.showMessageCopy = true,
+    this.showMessageContinue = true,
     this.enterToSend = true,
     required this.chatMaskStrength,
     this.chatBubbleOpacity = 100,
@@ -107,6 +111,10 @@ class AppSettings {
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
       showParenButton: true,
+      showMessageAvatar: true,
+      showMessageRetry: true,
+      showMessageCopy: true,
+      showMessageContinue: true,
       enterToSend: true,
       chatMaskStrength: 75,
       chatBubbleOpacity: 100,
@@ -226,6 +234,18 @@ class AppSettings {
   /// 聊天输入框旁是否显示「添加括号」按钮（点击在末尾追加（）并把光标置于中间）。
   final bool showParenButton;
 
+  /// 对方气泡左上角是否显示角色头像（配合 TTS 朗读按钮，群聊中用于区分发言者）。
+  final bool showMessageAvatar;
+
+  /// 对方气泡上是否显示「重说」快捷按钮（仅最近一条 AI 消息显示）。
+  final bool showMessageRetry;
+
+  /// 对方气泡上是否显示「复制」快捷按钮。
+  final bool showMessageCopy;
+
+  /// 对方气泡上是否显示「继续说」快捷按钮（仅最近一条 AI 消息显示）。
+  final bool showMessageContinue;
+
   /// 回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
   final bool enterToSend;
 
@@ -341,6 +361,10 @@ class AppSettings {
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
       'showParenButton': showParenButton,
+      'showMessageAvatar': showMessageAvatar,
+      'showMessageRetry': showMessageRetry,
+      'showMessageCopy': showMessageCopy,
+      'showMessageContinue': showMessageContinue,
       'enterToSend': enterToSend,
       'chatMaskStrength': chatMaskStrength,
       'chatBubbleOpacity': chatBubbleOpacity,
@@ -419,6 +443,10 @@ class AppSettings {
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
       showParenButton: (json['showParenButton'] as bool?) ?? true,
+      showMessageAvatar: (json['showMessageAvatar'] as bool?) ?? true,
+      showMessageRetry: (json['showMessageRetry'] as bool?) ?? true,
+      showMessageCopy: (json['showMessageCopy'] as bool?) ?? true,
+      showMessageContinue: (json['showMessageContinue'] as bool?) ?? true,
       enterToSend: (json['enterToSend'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
       chatBubbleOpacity: (json['chatBubbleOpacity'] as int?) ?? 100,
@@ -490,6 +518,10 @@ class AppSettings {
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
     bool? showParenButton,
+    bool? showMessageAvatar,
+    bool? showMessageRetry,
+    bool? showMessageCopy,
+    bool? showMessageContinue,
     bool? enterToSend,
     int? chatMaskStrength,
     int? chatBubbleOpacity,
@@ -553,6 +585,10 @@ class AppSettings {
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
       showParenButton: showParenButton ?? this.showParenButton,
+      showMessageAvatar: showMessageAvatar ?? this.showMessageAvatar,
+      showMessageRetry: showMessageRetry ?? this.showMessageRetry,
+      showMessageCopy: showMessageCopy ?? this.showMessageCopy,
+      showMessageContinue: showMessageContinue ?? this.showMessageContinue,
       enterToSend: enterToSend ?? this.enterToSend,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
       chatBubbleOpacity: chatBubbleOpacity ?? this.chatBubbleOpacity,

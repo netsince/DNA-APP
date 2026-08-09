@@ -28,6 +28,9 @@ typedef TaNameForId = String? Function(String? taId);
 /// 解析角色固定语音 seed：返回对应 TA 的 voiceSeed（无则 null）。
 typedef VoiceSeedForTa = int? Function(String? taId);
 
+/// 解析角色头像：返回对应 TA 的头像（无则 null）。
+typedef AvatarForTa = ImageProvider? Function(String? taId);
+
 class ChatMessageList extends StatelessWidget {
   const ChatMessageList({
     super.key,
@@ -52,6 +55,14 @@ class ChatMessageList extends StatelessWidget {
     this.ttsGlobalSeed,
     this.voiceSeedForTa,
     this.ttsQuoteOnly = true,
+    this.showMessageAvatar = true,
+    this.showMessageRetry = true,
+    this.showMessageCopy = true,
+    this.showMessageContinue = true,
+    this.avatarForMessage,
+    this.onRetryMessage,
+    this.onCopyMessage,
+    this.onContinueMessage,
   });
 
   final Conversation conversation;
@@ -83,6 +94,30 @@ class ChatMessageList extends StatelessWidget {
 
   /// 合成时是否「引号内容优先」（AppSettings.ttsQuoteOnly）。
   final bool ttsQuoteOnly;
+
+  /// 是否显示对方消息头像（AppSettings.showMessageAvatar）。
+  final bool showMessageAvatar;
+
+  /// 是否显示对方消息「重说」快捷按钮（AppSettings.showMessageRetry）。
+  final bool showMessageRetry;
+
+  /// 是否显示对方消息「复制」快捷按钮（AppSettings.showMessageCopy）。
+  final bool showMessageCopy;
+
+  /// 是否显示对方消息「继续说」快捷按钮（AppSettings.showMessageContinue）。
+  final bool showMessageContinue;
+
+  /// 解析消息作者头像：根据 speakerTaId 返回头像（无则 null）。
+  final AvatarForTa? avatarForMessage;
+
+  /// 点击「重说」回调（仅最近一条 AI 消息可用）。
+  final VoidCallback? onRetryMessage;
+
+  /// 点击「复制」回调。
+  final void Function(String text)? onCopyMessage;
+
+  /// 点击「继续说」回调（仅最近一条 AI 消息可用）。
+  final VoidCallback? onContinueMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +254,12 @@ class ChatMessageList extends StatelessWidget {
         }
 
         final bool isUser = message.role == 'user';
+        // 是否为最近一条 AI 消息：用于控制「重说/继续说」快捷按钮的显示。
+        final bool isLastAssistant = !isUser &&
+            message.kind == 'message' &&
+            index == conversation.messages.lastIndexWhere(
+              (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+            );
         final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
         final Color bubbleColor = isUser ? userBubble : assistantBubble;
         final int charCount = message.text.runes.length;
@@ -319,23 +360,131 @@ class ChatMessageList extends StatelessWidget {
                   ),
                 ),
               ),
-              // 仅对方（左侧）气泡显示悬浮朗读球，半溢出左上角。
-              if (!isUser && ttsEnabled && message.text.trim().isNotEmpty)
+              // 仅对方（左侧）气泡显示悬浮操作区，半溢出左上角：
+              // 头像（可选）+ 朗读球；右上角为「重说/复制/继续说」快捷按钮（可选）。
+              if (!isUser && message.kind == 'message' && message.text.trim().isNotEmpty) ...<Widget>[
                 Positioned(
                   top: -8,
                   left: -8,
-                  child: _MessagePlayButton(
-                    text: message.text,
-                    globalSeed: ttsGlobalSeed,
-                    voiceSeedForTa: voiceSeedForTa,
-                    speakerTaId: message.speakerTaId,
-                    quoteOnly: ttsQuoteOnly,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (showMessageAvatar && avatarForMessage != null) ...<Widget>[
+                        _MessageAvatarButton(
+                          avatar: avatarForMessage!(message.speakerTaId),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      if (ttsEnabled)
+                        _MessagePlayButton(
+                          text: message.text,
+                          globalSeed: ttsGlobalSeed,
+                          voiceSeedForTa: voiceSeedForTa,
+                          speakerTaId: message.speakerTaId,
+                          quoteOnly: ttsQuoteOnly,
+                        ),
+                    ],
                   ),
                 ),
+                if ((showMessageRetry && isLastAssistant) ||
+                    (showMessageCopy) ||
+                    (showMessageContinue && isLastAssistant)) ...<Widget>[
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (showMessageCopy)
+                          _MessageActionButton(
+                            tooltip: '复制',
+                            icon: Icons.copy_rounded,
+                            onTap: onCopyMessage == null
+                                ? null
+                                : () => onCopyMessage!(message.text),
+                          ),
+                        if (showMessageRetry && isLastAssistant)
+                          _MessageActionButton(
+                            tooltip: '重说',
+                            icon: Icons.refresh_rounded,
+                            onTap: isLastAssistant ? onRetryMessage : null,
+                          ),
+                        if (showMessageContinue && isLastAssistant)
+                          _MessageActionButton(
+                            tooltip: '继续说',
+                            icon: Icons.play_arrow_rounded,
+                            onTap: isLastAssistant ? onContinueMessage : null,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// 对方气泡左上角的角色头像圆钮，样式与 TTS 朗读球一致（26x26 圆形）。
+class _MessageAvatarButton extends StatelessWidget {
+  const _MessageAvatarButton({required this.avatar});
+
+  final ImageProvider? avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.primaryContainer.withValues(alpha: 0.92),
+      shape: const CircleBorder(),
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 26,
+        height: 26,
+        child: avatar == null
+            ? Icon(Icons.person, size: 16, color: cs.onPrimaryContainer)
+            : Image(image: avatar!, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+
+/// 对方气泡右上角的轻量操作按钮（重说/复制/继续说）。
+class _MessageActionButton extends StatelessWidget {
+  const _MessageActionButton({
+    required this.tooltip,
+    required this.icon,
+    this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final Widget child = Material(
+      color: cs.secondaryContainer.withValues(alpha: 0.85),
+      shape: const CircleBorder(),
+      elevation: 1,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: Icon(icon, size: 15, color: cs.onSecondaryContainer),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: onTap == null ? child : Tooltip(message: tooltip, child: child),
     );
   }
 }
