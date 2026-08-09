@@ -5,6 +5,9 @@ import 'openai_service.dart';
 /// DeepSeek 提供了与 OpenAI 兼容的 Chat Completions 接口，因此直接复用
 /// [OpenAiService] 的请求 / 流式解析逻辑（已支持 reasoning_content 推理内容），
 /// 仅覆盖 baseUrl 与端点路径（DeepSeek 端点不带 /v1 前缀）。
+///
+/// 该厂商的 Base URL 固定为官方地址，用户只需填写 API Key，
+/// 故 [fixedBaseUrl] 返回 true，设置页隐藏 Base URL 输入框。
 class DeepSeekService extends OpenAiService {
   DeepSeekService({super.client});
 
@@ -21,7 +24,7 @@ class DeepSeekService extends OpenAiService {
   bool get requiresApiKey => true;
 
   @override
-  bool get fixedBaseUrl => false;
+  bool get fixedBaseUrl => true;
 
   @override
   String modelsEndpoint(String baseUrl) {
