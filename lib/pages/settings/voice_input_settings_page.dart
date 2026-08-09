@@ -4,6 +4,7 @@ import '../../models/voice_models.dart';
 import '../../services/sherpa_model_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 语音输入设置：选择模型、选择下载源、下载/删除离线模型。
