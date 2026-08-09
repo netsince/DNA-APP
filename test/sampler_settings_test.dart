@@ -65,6 +65,23 @@ void main() {
           AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
       expect(back.chatBubbleOpacity, 100);
     });
+
+    test('半屏聊天默认关闭', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.halfScreenChat, isFalse);
+    });
+
+    test('halfScreenChat 序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(halfScreenChat: true);
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.halfScreenChat, isTrue);
+    });
+
+    test('halfScreenChat 缺失字段回退默认（false）', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.halfScreenChat, isFalse);
+    });
   });
 
   group('AppSettings 界面开关', () {

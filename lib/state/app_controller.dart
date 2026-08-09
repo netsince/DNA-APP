@@ -364,6 +364,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存半屏聊天开关：开启后聊天记录只显示在页面下半部分，
+  /// 上半部分留空以便查看背景。
+  Future<void> saveHalfScreenChat(bool halfScreenChat) async {
+    _settings = _settings.copyWith(halfScreenChat: halfScreenChat);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
   Future<void> saveMaxContextMessages(int maxContextMessages) async {
     final int clamped = maxContextMessages.clamp(0, 1000);

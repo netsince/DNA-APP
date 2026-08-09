@@ -443,6 +443,8 @@ class _ChatPageState extends State<ChatPage>
         schemeColor.withValues(alpha: 0.18 * bubbleOpacity);
     final Color assistantBubble = colorScheme.surfaceContainerHighest
         .withValues(alpha: bubbleOpacity);
+    // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。
+    final bool halfScreenChat = widget.controller.settings.halfScreenChat;
     final bool useLandscape = screenSize.width >= screenSize.height;
     final String? bgPath = useLandscape ? ta?.images['landscape'] : ta?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' &&
@@ -506,8 +508,30 @@ class _ChatPageState extends State<ChatPage>
             children: <Widget>[
               _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
               Expanded(
-                child: ChatMessageList(
-                  conversation: _conversation,
+                child: halfScreenChat
+                    ? Column(
+                        children: <Widget>[
+                          // 上半部分留空，方便查看背景
+                          const Expanded(child: SizedBox.expand()),
+                          // 渐变过渡：从透明渐变到表面色，避免上半留空与
+                          // 聊天记录之间突兀截断。
+                          Container(
+                            height: 96,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: <Color>[
+                                  Colors.transparent,
+                                  colorScheme.surface.withValues(alpha: 0.92),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // 下半部分：聊天记录
+                          Expanded(
+                            child: ChatMessageList(
+                              conversation: _conversation,
                     scrollController: _scrollController,
                     messageKeys: _messageKeys,
                     userBubble: userBubble,
@@ -529,7 +553,35 @@ class _ChatPageState extends State<ChatPage>
                     voiceSeedForTa: (String? id) =>
                         widget.controller.getTaById(id ?? '')?.voiceSeed,
                     ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
-                ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ChatMessageList(
+                        conversation: _conversation,
+                        scrollController: _scrollController,
+                        messageKeys: _messageKeys,
+                        userBubble: userBubble,
+                        assistantBubble: assistantBubble,
+                        showTokenCounts: _showTokenCounts,
+                        searchQuery: searchQuery,
+                        thoughtsByMessageId: _thoughtsByMessageId,
+                        tokenCountForMessage: _tokenCountCallback.call,
+                        summaryById: _summaryById,
+                        onStartSummary: _startSummaryFromPrompt,
+                        onDismissSummary: _dismissSummaryPrompt,
+                        onShowMessageMenu: _showMessageMenu,
+                        summaryInProgress: _summaryInProgress,
+                        showSpeakerLabels: _isGroup,
+                        taNameForId: (String? id) =>
+                            widget.controller.getTaById(id ?? '')?.name,
+                        visibleThoughtMessageIds: _visibleThoughtMessageIds,
+                        ttsEnabled: widget.controller.settings.ttsEnabled,
+                        ttsGlobalSeed: widget.controller.settings.ttsGlobalSeed,
+                        voiceSeedForTa: (String? id) =>
+                            widget.controller.getTaById(id ?? '')?.voiceSeed,
+                        ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
+                      ),
               ),
               if (_sending)
                 Padding(

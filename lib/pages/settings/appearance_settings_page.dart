@@ -25,6 +25,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   int? _customAccentColor;
   int _chatMaskStrength = 75;
   int _chatBubbleOpacity = 100;
+  bool _halfScreenChat = false;
   final bool _androidOk = AppIconService.isSupported;
 
   static const Color _defaultAccent = Color(0xFF147B74);
@@ -43,6 +44,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     _customAccentColor = s.customAccentColor;
     _chatMaskStrength = s.chatMaskStrength;
     _chatBubbleOpacity = s.chatBubbleOpacity;
+    _halfScreenChat = s.halfScreenChat;
   }
 
   Color get _currentCustomColor =>
@@ -423,6 +425,20 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('半屏聊天'),
+            subtitle: const FitText(
+              '聊天记录只显示在页面下半部分，上半部分留空方便查看背景，交界处带渐变过渡',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _halfScreenChat,
+            onChanged: (bool v) async {
+              setState(() => _halfScreenChat = v);
+              await widget.controller.saveHalfScreenChat(v);
+            },
           ),
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
