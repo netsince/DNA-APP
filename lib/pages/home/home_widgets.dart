@@ -194,6 +194,16 @@ class _ConversationItem extends StatelessWidget {
                     id: conversation.id,
                     pinned: !conversation.pinned,
                   );
+                } else if (value == 'duplicate') {
+                  try {
+                    await controller.duplicateConversation(conversation.id);
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: FitText('复制会话失败。')),
+                      );
+                    }
+                  }
                 } else if (value == 'archive') {
                   await controller.setConversationArchived(
                     id: conversation.id,
@@ -261,6 +271,13 @@ class _ConversationItem extends StatelessWidget {
                           ? Icons.push_pin_outlined
                           : Icons.push_pin),
                       title: FitText(conversation.pinned ? '取消置顶' : '置顶'),
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'duplicate',
+                    child: ListTile(
+                      leading: Icon(Icons.copy_outlined),
+                      title: FitText('复制会话'),
                     ),
                   ),
                   const PopupMenuItem<String>(

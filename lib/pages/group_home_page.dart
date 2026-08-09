@@ -91,6 +91,13 @@ class _GroupListBody extends StatelessWidget {
         final List<Conversation> visible = controller.groupConversations
             .where((Conversation c) => c.archived == showArchived)
             .toList();
+        // 置顶群聊排在前面，其余保持原有相对顺序。
+        visible.sort((Conversation a, Conversation b) {
+          if (a.pinned != b.pinned) {
+            return a.pinned ? -1 : 1;
+          }
+          return 0;
+        });
 
         if (visible.isEmpty) {
           return Center(
@@ -156,10 +163,18 @@ class _GroupItem extends StatelessWidget {
         leading: GroupAvatar(tas: members, size: 44),
         title: FitText(title),
         subtitle: FitText(subtitle),
-        trailing: PopupMenuButton<String>(
-          tooltip: '更多操作',
-          onSelected: (String value) async {
-            if (value == 'edit') {
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (group.pinned) ...<Widget>[
+              Icon(Icons.push_pin,
+                  size: 18, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+            ],
+            PopupMenuButton<String>(
+              tooltip: '更多操作',
+              onSelected: (String value) async {
+                if (value == 'edit') {
               if (!context.mounted) return;
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -169,6 +184,21 @@ class _GroupItem extends StatelessWidget {
                   ),
                 ),
               );
+            } else if (value == 'pin') {
+              await controller.setGroupConversationPinned(
+                id: group.id,
+                pinned: !group.pinned,
+              );
+            } else if (value == 'duplicate') {
+              try {
+                await controller.duplicateConversation(group.id);
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: FitText('复制群聊失败。')),
+                  );
+                }
+              }
             } else if (value == 'archive') {
               await controller.setGroupConversationArchived(
                 id: group.id,
@@ -232,6 +262,22 @@ class _GroupItem extends StatelessWidget {
               ];
             }
             return <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                value: 'pin',
+                child: ListTile(
+                  leading: Icon(group.pinned
+                      ? Icons.push_pin_outlined
+                      : Icons.push_pin),
+                  title: FitText(group.pinned ? '取消置顶' : '置顶'),
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'duplicate',
+                child: ListTile(
+                  leading: Icon(Icons.copy_outlined),
+                  title: FitText('复制群聊'),
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'edit',
                 child: ListTile(
@@ -249,18 +295,20 @@ class _GroupItem extends StatelessWidget {
             ];
           },
         ),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => ChatPage(
-                controller: controller,
-                conversationId: group.id,
-                isGroup: true,
-              ),
-            ),
-          );
-        },
+        ],
       ),
-    );
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) => ChatPage(
+              controller: controller,
+              conversationId: group.id,
+              isGroup: true,
+            ),
+          ),
+        );
+      },
+    ),
+  );
   }
 }

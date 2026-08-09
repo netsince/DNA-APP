@@ -890,6 +890,115 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 复制一个会话：生成全新的会话 ID 与消息 ID，其余配置（TA、世界、身份、
+  /// 群成员、消息、摘要）与源会话一致。副本不置顶、不归档，插入源会话之后。
+  /// 返回副本的 ID。
+  Future<String> duplicateConversation(String id) async {
+    Conversation? source;
+    try {
+      source = _conversations.firstWhere((Conversation c) => c.id == id);
+    } catch (_) {
+      source = null;
+    }
+    if (source == null) {
+      try {
+        source = _groupConversations.firstWhere((Conversation c) => c.id == id);
+      } catch (_) {
+        source = null;
+      }
+    }
+    if (source == null) {
+      throw StateError('会话不存在：$id');
+    }
+
+    final String newConvId = _uniqueConversationId();
+    final Conversation copy = Conversation(
+      id: newConvId,
+      taId: source.taId,
+      worldId: source.worldId,
+      note: source.note.trim().isEmpty
+          ? '副本'
+          : '${source.note}（副本）',
+      messages: source.messages
+          .map((ConversationMessage m) => ConversationMessage(
+                id: newId(),
+                role: m.role,
+                text: m.text,
+                timestamp: m.timestamp,
+                kind: m.kind,
+                summaryId: m.summaryId,
+                anchorMessageId: m.anchorMessageId,
+                speakerTaId: m.speakerTaId,
+              ))
+          .toList(),
+      backgroundMode: source.backgroundMode,
+      summaries: source.summaries
+          .map((ConversationSummary s) => ConversationSummary(
+                id: newId(),
+                text: s.text,
+                createdAt: s.createdAt,
+                endMessageId: s.endMessageId,
+              ))
+          .toList(),
+      archived: false,
+      isGroup: source.isGroup,
+      groupName: source.groupName,
+      groupPrompt: source.groupPrompt,
+      memberTaIds: source.memberTaIds,
+      activeTaId: source.activeTaId,
+      identityId: source.identityId,
+      pinned: false,
+    );
+
+    if (copy.isGroup) {
+      final int at = _groupConversations
+          .indexWhere((Conversation c) => c.id == id);
+      final List<Conversation> updated = <Conversation>[..._groupConversations];
+      updated.insert(at == -1 ? updated.length : at + 1, copy);
+      _groupConversations = updated;
+    } else {
+      final int at = _conversations.indexWhere((Conversation c) => c.id == id);
+      final List<Conversation> updated = <Conversation>[..._conversations];
+      updated.insert(at == -1 ? updated.length : at + 1, copy);
+      _conversations = updated;
+    }
+    await _hiveService.upsertConversation(copy);
+    notifyListeners();
+    return newConvId;
+  }
+
+  String _uniqueConversationId() {
+    final Set<String> existing = _conversations
+        .map((Conversation c) => c.id)
+        .toSet()
+      ..addAll(_groupConversations.map((Conversation c) => c.id));
+    String id = newId();
+    while (existing.contains(id)) {
+      id = newId();
+    }
+    return id;
+  }
+
+  /// 置顶/取消置顶某个群聊会话。
+  Future<void> setGroupConversationPinned({
+    required String id,
+    required bool pinned,
+  }) async {
+    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
+    if (index == -1) {
+      return;
+    }
+    final Conversation current = _groupConversations[index];
+    if (current.pinned == pinned) {
+      return;
+    }
+    final List<Conversation> updated = <Conversation>[..._groupConversations];
+    updated[index] = current.copyWith(pinned: pinned);
+    _groupConversations = updated;
+    await _hiveService.upsertConversation(updated[index]);
+    notifyListeners();
+  }
+
   Future<void> setGroupConversationArchived({
     required String id,
     required bool archived,
