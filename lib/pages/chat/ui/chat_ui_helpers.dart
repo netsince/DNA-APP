@@ -545,6 +545,11 @@ mixin ChatUiHelpers on ChatStateMixin {
     if (confirmed != true) {
       return;
     }
+    // 被回溯丢弃的区间：回溯点（含）之后的所有消息。
+    // 必须在更新 _conversation 之前取，否则此后消息已被截断。
+    final List<ConversationMessage> dropped = index + 1 < _conversation.messages.length
+        ? _conversation.messages.sublist(index + 1)
+        : const <ConversationMessage>[];
     final List<ConversationMessage> trimmed = _conversation.messages.take(index + 1).toList();
     final Set<String> remainingIds = trimmed.map((ConversationMessage m) => m.id).toSet();
     final List<ConversationSummary> summaries = _conversation.summaries
@@ -559,6 +564,16 @@ mixin ChatUiHelpers on ChatStateMixin {
       return;
     }
     setState(() {});
+    // 回溯成功后，把被丢弃区间中最早的「我的视角」消息重新填入输入框，
+    // 方便从被打断的地方继续。
+    final List<ConversationMessage> earliestUsers = dropped
+        .where((ConversationMessage m) => m.role == 'user' && m.text.trim().isNotEmpty)
+        .toList();
+    if (earliestUsers.isNotEmpty) {
+      final String text = earliestUsers.first.text;
+      _inputController.text = text;
+      _inputController.selection = TextSelection.collapsed(offset: text.length);
+    }
     // 回溯成功后滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
