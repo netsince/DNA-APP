@@ -241,6 +241,75 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
             ),
           const SizedBox(height: 24),
           const Divider(),
+          if (widget.controller.llmProvider.id == 'deepseek') ...[
+            ExpansionTile(
+              shape: const Border(),
+              leading: const Icon(Icons.psychology),
+              title: const FitText('思考模式'),
+              subtitle: const FitText('开启后模型会先进行深度思考再作答'),
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: <Widget>[
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const FitText('启用思考模式'),
+                  subtitle: const FitText(
+                    '关闭后请求将携带 thinking.disabled，模型直接作答',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: widget.controller.settings.deepseekThinkingEnabled,
+                  onChanged: (bool v) async {
+                    await widget.controller.saveDeepseekThinking(
+                      enabled: v,
+                      effort: widget.controller.settings.deepseekThinkingEffort,
+                    );
+                    if (mounted) setState(() {});
+                  },
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FitText('思考强度', style: Theme.of(context).textTheme.bodyMedium),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    for (final String effort in const <String>['low', 'high', 'max'])
+                      ChoiceChip(
+                        label: FitText(switch (effort) {
+                          'low' => '低',
+                          'high' => '高',
+                          _ => '最高',
+                        }),
+                        selected:
+                            widget.controller.settings.deepseekThinkingEffort == effort,
+                        onSelected: (_) async {
+                          await widget.controller.saveDeepseekThinking(
+                            enabled: widget.controller.settings.deepseekThinkingEnabled,
+                            effort: effort,
+                          );
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: FitText(
+                    '提示：开启思考模式时，temperature、top-p、presence/frequency penalty '
+                    '等采样参数将被 DeepSeek 忽略，改用 reasoning_effort 控制探索程度。',
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+          ],
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.tune),

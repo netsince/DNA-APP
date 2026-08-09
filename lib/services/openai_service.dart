@@ -143,6 +143,8 @@ class OpenAiService implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -174,6 +176,10 @@ class OpenAiService implements LlmProvider {
                 minP: minP,
                 repetitionPenalty: repetitionPenalty,
                 repetitionPenaltySlope: repetitionPenaltySlope,
+              ),
+              ..._thinkingBody(
+                thinkingType: thinkingType,
+                reasoningEffort: reasoningEffort,
               ),
             }),
           )
@@ -223,6 +229,8 @@ class OpenAiService implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async* {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -250,6 +258,10 @@ class OpenAiService implements LlmProvider {
           minP: minP,
           repetitionPenalty: repetitionPenalty,
           repetitionPenaltySlope: repetitionPenaltySlope,
+        ),
+        ..._thinkingBody(
+          thinkingType: thinkingType,
+          reasoningEffort: reasoningEffort,
         ),
       });
 
@@ -300,6 +312,25 @@ class OpenAiService implements LlmProvider {
     } catch (error) {
       yield '[ERROR] 请求失败：$error';
     }
+  }
+
+  /// 组装 DeepSeek 思考模式（thinking mode）相关请求体字段。
+  ///
+  /// 仅在显式传入非空参数时才携带，其他服务商（参数为 null）不受影响。
+  /// - [thinkingType]：'enabled' / 'disabled'，对应 `thinking.type`；
+  /// - [reasoningEffort]：'low' / 'high' / 'max'，对应 `reasoning_effort`。
+  Map<String, dynamic> _thinkingBody({
+    required String? thinkingType,
+    required String? reasoningEffort,
+  }) {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    if (thinkingType != null) {
+      out['thinking'] = <String, dynamic>{'type': thinkingType};
+    }
+    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
+      out['reasoning_effort'] = reasoningEffort;
+    }
+    return out;
   }
 
   /// 组装仅在「非默认值」时才会携带的高级采样参数。

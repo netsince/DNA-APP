@@ -68,6 +68,8 @@ mixin ChatActionsInspiration on ChatStateMixin {
             repetitionPenalty: widget.controller.settings.repetitionPenalty,
             repetitionPenaltySlope:
                 widget.controller.settings.repetitionPenaltySlope,
+            thinkingType: widget.controller.deepseekThinkingType,
+            reasoningEffort: widget.controller.deepseekReasoningEffort,
           );
           if (result.success && result.content != null) {
             final String cleaned = stripThoughtTags(result.content!).trim();
@@ -98,6 +100,8 @@ mixin ChatActionsInspiration on ChatStateMixin {
           repetitionPenalty: widget.controller.settings.repetitionPenalty,
           repetitionPenaltySlope:
               widget.controller.settings.repetitionPenaltySlope,
+          thinkingType: widget.controller.deepseekThinkingType,
+          reasoningEffort: widget.controller.deepseekReasoningEffort,
         );
         if (!result.success || result.content == null) {
           return null;

@@ -84,4 +84,29 @@ void main() {
       expect(back.enableForking, isFalse);
     });
   });
+
+  group('AppSettings DeepSeek 思考模式', () {
+    test('默认开启思考且强度为 high', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.deepseekThinkingEnabled, isTrue);
+      expect(s.deepseekThinkingEffort, 'high');
+    });
+
+    test('思考模式字段序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(
+        deepseekThinkingEnabled: false,
+        deepseekThinkingEffort: 'max',
+      );
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.deepseekThinkingEnabled, isFalse);
+      expect(back.deepseekThinkingEffort, 'max');
+    });
+
+    test('思考模式字段缺失回退默认值', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.deepseekThinkingEnabled, isTrue);
+      expect(back.deepseekThinkingEffort, 'high');
+    });
+  });
 }

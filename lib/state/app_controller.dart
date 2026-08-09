@@ -66,6 +66,22 @@ class AppController extends ChangeNotifier {
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
 
+  /// 当前是否启用 DeepSeek 思考模式（仅 DeepSeek 服务商返回非空）。
+  String? get deepseekThinkingType {
+    if (_settings.provider != 'deepseek') {
+      return null;
+    }
+    return _settings.deepseekThinkingEnabled ? 'enabled' : 'disabled';
+  }
+
+  /// 当前 DeepSeek 思考强度：'low' / 'high' / 'max'（仅 DeepSeek 服务商返回）。
+  String? get deepseekReasoningEffort {
+    if (_settings.provider != 'deepseek') {
+      return null;
+    }
+    return _settings.deepseekThinkingEffort;
+  }
+
   /// 底层设置存储（供自动备份等需要读写独立偏好项的场景使用）。
   SettingsService get settingsService => _settingsService;
 
@@ -407,6 +423,22 @@ class AppController extends ChangeNotifier {
   /// 保存快速回复列表。
   Future<void> saveQuickReplies(List<QuickReply> quickReplies) async {
     _settings = _settings.copyWith(quickReplies: quickReplies);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存 DeepSeek 思考模式配置（开关与强度）。
+  /// [effort] 取值 'low' / 'high' / 'max'，非法值回退 'high'。
+  Future<void> saveDeepseekThinking({
+    required bool enabled,
+    required String effort,
+  }) async {
+    _settings = _settings.copyWith(
+      deepseekThinkingEnabled: enabled,
+      deepseekThinkingEffort: const <String>{'low', 'high', 'max'}.contains(effort)
+          ? effort
+          : 'high',
+    );
     await _settingsService.save(_settings);
     notifyListeners();
   }

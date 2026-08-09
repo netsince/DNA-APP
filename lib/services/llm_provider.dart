@@ -47,6 +47,8 @@ abstract class LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   });
 
   /// 流式补全，逐块吐出可见文本。
@@ -63,6 +65,8 @@ abstract class LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   });
 }
 

@@ -150,6 +150,8 @@ class ZhipuProvider implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();
@@ -220,6 +222,8 @@ class ZhipuProvider implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async* {
     final String normalizedKey = apiKey.trim();
     final String normalizedModel = model.trim();

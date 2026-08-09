@@ -157,6 +157,8 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       temperature: widget.controller.settings.temperature,
       frequencyPenalty: widget.controller.settings.frequencyPenalty,
       presencePenalty: widget.controller.settings.presencePenalty,
+      thinkingType: widget.controller.deepseekThinkingType,
+      reasoningEffort: widget.controller.deepseekReasoningEffort,
     );
     if (!mounted) {
       return;
@@ -254,6 +256,8 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       temperature: widget.controller.settings.temperature,
       frequencyPenalty: widget.controller.settings.frequencyPenalty,
       presencePenalty: widget.controller.settings.presencePenalty,
+      thinkingType: widget.controller.deepseekThinkingType,
+      reasoningEffort: widget.controller.deepseekReasoningEffort,
     );
 
     if (!mounted || _pendingSummary?.taskId != taskId || _cancelledSummaryTaskId == taskId) {

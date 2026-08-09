@@ -168,6 +168,8 @@ class AnthropicProvider implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async {
     try {
       final (:String? system, :List<Map<String, String>> convo) =
@@ -222,6 +224,8 @@ class AnthropicProvider implements LlmProvider {
     double minP = 0.0,
     double repetitionPenalty = 1.0,
     double repetitionPenaltySlope = 0.0,
+    String? thinkingType,
+    String? reasoningEffort,
   }) async* {
     final (:String? system, :List<Map<String, String>> convo) =
         _splitSystem(messages);

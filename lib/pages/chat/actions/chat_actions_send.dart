@@ -476,6 +476,8 @@ mixin ChatActionsSend on ChatStateMixin {
           repetitionPenalty: widget.controller.settings.repetitionPenalty,
           repetitionPenaltySlope:
               widget.controller.settings.repetitionPenaltySlope,
+          thinkingType: widget.controller.deepseekThinkingType,
+          reasoningEffort: widget.controller.deepseekReasoningEffort,
         );
         if (!result.success || result.content == null) {
           return null;
@@ -512,6 +514,8 @@ mixin ChatActionsSend on ChatStateMixin {
           repetitionPenalty: widget.controller.settings.repetitionPenalty,
           repetitionPenaltySlope:
               widget.controller.settings.repetitionPenaltySlope,
+          thinkingType: widget.controller.deepseekThinkingType,
+          reasoningEffort: widget.controller.deepseekReasoningEffort,
         );
         if (result.success && result.content != null && result.content!.trim().isNotEmpty) {
           results.add(result.content!);

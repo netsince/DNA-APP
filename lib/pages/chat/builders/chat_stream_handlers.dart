@@ -28,6 +28,8 @@ mixin ChatStreamHandlers on ChatStateMixin {
       minP: widget.controller.settings.minP,
       repetitionPenalty: widget.controller.settings.repetitionPenalty,
       repetitionPenaltySlope: widget.controller.settings.repetitionPenaltySlope,
+      thinkingType: widget.controller.deepseekThinkingType,
+      reasoningEffort: widget.controller.deepseekReasoningEffort,
     )) {
       if (!mounted) {
         return false;

@@ -61,6 +61,8 @@ class AppSettings {
     this.loreMaxEntries = 8,
     this.loreBudgetTokens = 0,
     this.quickReplies = const <QuickReply>[],
+    this.deepseekThinkingEnabled = true,
+    this.deepseekThinkingEffort = 'high',
   });
 
   factory AppSettings.empty() {
@@ -121,6 +123,8 @@ class AppSettings {
       loreMaxEntries: 8,
       loreBudgetTokens: 0,
       quickReplies: const <QuickReply>[],
+      deepseekThinkingEnabled: true,
+      deepseekThinkingEffort: 'high',
     );
   }
 
@@ -276,6 +280,15 @@ class AppSettings {
   /// 快速回复列表：聊天输入栏上方的一键发送按钮。支持宏与分组。
   final List<QuickReply> quickReplies;
 
+  /// DeepSeek 思考模式开关（仅 DeepSeek 服务商生效）。
+  /// 开启时请求携带 `{"thinking": {"type": "enabled"}}`，关闭时携带 `disabled`。
+  /// 默认开启（与 DeepSeek 官方默认行为一致）。
+  final bool deepseekThinkingEnabled;
+
+  /// DeepSeek 思考强度：'low' / 'high' / 'max'（仅 DeepSeek 服务商生效）。
+  /// 通过请求的 `reasoning_effort` 字段传递，默认 'high'。
+  final String deepseekThinkingEffort;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -336,6 +349,8 @@ class AppSettings {
       'quickReplies': quickReplies
           .map((QuickReply r) => r.toJson())
           .toList(),
+      'deepseekThinkingEnabled': deepseekThinkingEnabled,
+      'deepseekThinkingEffort': deepseekThinkingEffort,
     };
   }
 
@@ -413,6 +428,10 @@ class AppSettings {
                   QuickReply.fromJson(r.cast<String, dynamic>()))
               .toList() ??
           const <QuickReply>[],
+      deepseekThinkingEnabled:
+          (json['deepseekThinkingEnabled'] as bool?) ?? true,
+      deepseekThinkingEffort:
+          (json['deepseekThinkingEffort'] as String?) ?? 'high',
     );
   }
 
@@ -473,6 +492,8 @@ class AppSettings {
     int? loreMaxEntries,
     int? loreBudgetTokens,
     List<QuickReply>? quickReplies,
+    bool? deepseekThinkingEnabled,
+    String? deepseekThinkingEffort,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -533,6 +554,10 @@ class AppSettings {
       loreMaxEntries: loreMaxEntries ?? this.loreMaxEntries,
       loreBudgetTokens: loreBudgetTokens ?? this.loreBudgetTokens,
       quickReplies: quickReplies ?? this.quickReplies,
+      deepseekThinkingEnabled:
+          deepseekThinkingEnabled ?? this.deepseekThinkingEnabled,
+      deepseekThinkingEffort:
+          deepseekThinkingEffort ?? this.deepseekThinkingEffort,
     );
   }
 }
