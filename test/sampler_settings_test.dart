@@ -47,6 +47,26 @@ void main() {
     });
   });
 
+  group('AppSettings 聊天界面', () {
+    test('对话框透明度默认完全不透明（100）', () {
+      final AppSettings s = AppSettings.empty();
+      expect(s.chatBubbleOpacity, 100);
+      expect(s.chatMaskStrength, 75);
+    });
+
+    test('chatBubbleOpacity 序列化往返一致', () {
+      final AppSettings s = AppSettings.empty().copyWith(chatBubbleOpacity: 40);
+      final AppSettings back = AppSettings.fromJson(s.toJson());
+      expect(back.chatBubbleOpacity, 40);
+    });
+
+    test('chatBubbleOpacity 缺失字段回退默认（100）', () {
+      final AppSettings back =
+          AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
+      expect(back.chatBubbleOpacity, 100);
+    });
+  });
+
   group('AppSettings 界面开关', () {
     test('上下文 Token 仪表盘默认关闭', () {
       final AppSettings s = AppSettings.empty();

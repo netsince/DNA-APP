@@ -436,8 +436,13 @@ class _ChatPageState extends State<ChatPage>
 
     final TA? ta = _ta;
     final Color schemeColor = _accent ?? colorScheme.primary;
-    final Color userBubble = schemeColor.withValues(alpha: 0.18);
-    final Color assistantBubble = colorScheme.surfaceContainerHighest;
+    // 对话框透明度：0~100，乘入用户/助手气泡的 alpha，实现气泡透出背景。
+    final double bubbleOpacity =
+        widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
+    final Color userBubble =
+        schemeColor.withValues(alpha: 0.18 * bubbleOpacity);
+    final Color assistantBubble = colorScheme.surfaceContainerHighest
+        .withValues(alpha: bubbleOpacity);
     final bool useLandscape = screenSize.width >= screenSize.height;
     final String? bgPath = useLandscape ? ta?.images['landscape'] : ta?.images['portrait'];
     final bool useImageBg = _conversation.backgroundMode == 'image' &&

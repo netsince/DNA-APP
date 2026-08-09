@@ -24,6 +24,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   String _accentMode = 'auto';
   int? _customAccentColor;
   int _chatMaskStrength = 75;
+  int _chatBubbleOpacity = 100;
   final bool _androidOk = AppIconService.isSupported;
 
   static const Color _defaultAccent = Color(0xFF147B74);
@@ -41,6 +42,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     _accentMode = s.accentMode;
     _customAccentColor = s.customAccentColor;
     _chatMaskStrength = s.chatMaskStrength;
+    _chatBubbleOpacity = s.chatBubbleOpacity;
   }
 
   Color get _currentCustomColor =>
@@ -376,6 +378,46 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                 width: 44,
                 child: FitText(
                   '$_chatMaskStrength',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          FitText('对话框透明度',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          FitText(
+              '聊天消息气泡（对话框）的不透明度。数值越小气泡越透明、背景图透出越多；100 为完全不透明。',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Slider(
+                  value: _chatBubbleOpacity.toDouble(),
+                  min: 0,
+                  max: 100,
+                  divisions: 100,
+                  label: '$_chatBubbleOpacity',
+                  onChanged: (v) => setState(() => _chatBubbleOpacity = v.round()),
+                  onChangeEnd: (v) =>
+                      widget.controller.saveChatBubbleOpacity(v.round()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 44,
+                child: FitText(
+                  '$_chatBubbleOpacity',
                   textAlign: TextAlign.right,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),

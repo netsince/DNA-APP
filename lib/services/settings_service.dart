@@ -41,6 +41,7 @@ class SettingsService {
   static const String _enterToSendKey = 'enter_to_send';
   static const String _showBottomNavKey = 'show_bottom_nav';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
+  static const String _chatBubbleOpacityKey = 'chat_bubble_opacity';
   static const String _maxContextMessagesKey = 'max_context_messages';
   static const String _maxContextTokensKey = 'max_context_tokens';
   static const String _temperatureKey = 'temperature';
@@ -106,6 +107,7 @@ class SettingsService {
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
       chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
+      chatBubbleOpacity: prefs.getInt(_chatBubbleOpacityKey) ?? 100,
       maxContextMessages: prefs.getInt(_maxContextMessagesKey) ?? 120,
       maxContextTokens: prefs.getInt(_maxContextTokensKey) ?? 8000,
       temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
@@ -190,6 +192,7 @@ class SettingsService {
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
     await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
+    await prefs.setInt(_chatBubbleOpacityKey, settings.chatBubbleOpacity);
     await prefs.setInt(_maxContextMessagesKey, settings.maxContextMessages);
     await prefs.setInt(_maxContextTokensKey, settings.maxContextTokens);
     await prefs.setDouble(_temperatureKey, settings.temperature);

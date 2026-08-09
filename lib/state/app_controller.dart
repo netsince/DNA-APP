@@ -356,6 +356,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存聊天消息气泡不透明度（0~100）。
+  Future<void> saveChatBubbleOpacity(int chatBubbleOpacity) async {
+    final int clamped = chatBubbleOpacity.clamp(0, 100);
+    _settings = _settings.copyWith(chatBubbleOpacity: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
   Future<void> saveMaxContextMessages(int maxContextMessages) async {
     final int clamped = maxContextMessages.clamp(0, 1000);

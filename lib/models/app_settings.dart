@@ -45,6 +45,7 @@ class AppSettings {
     this.showParenButton = true,
     this.enterToSend = true,
     required this.chatMaskStrength,
+    this.chatBubbleOpacity = 100,
     this.maxContextMessages = 120,
     this.maxContextTokens = 8000,
     this.temperature = 0.7,
@@ -107,6 +108,7 @@ class AppSettings {
       showParenButton: true,
       enterToSend: true,
       chatMaskStrength: 75,
+      chatBubbleOpacity: 100,
       maxContextMessages: 120,
       maxContextTokens: 8000,
       temperature: 0.7,
@@ -229,6 +231,10 @@ class AppSettings {
   /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
   final int chatMaskStrength;
 
+  /// 聊天消息气泡（对话框）不透明度，范围 0~100。
+  /// 100 完全不透明（默认）；数值越小气泡越透明、背景透出越多。
+  final int chatBubbleOpacity;
+
   /// 单次请求最多携带的历史消息条数（含用户与AI），0 表示不限制。
   /// 用于防止长对话超出模型上下文窗口导致模型退化（复读、答非所问）。
   final int maxContextMessages;
@@ -331,6 +337,7 @@ class AppSettings {
       'showParenButton': showParenButton,
       'enterToSend': enterToSend,
       'chatMaskStrength': chatMaskStrength,
+      'chatBubbleOpacity': chatBubbleOpacity,
       'maxContextMessages': maxContextMessages,
       'maxContextTokens': maxContextTokens,
       'temperature': temperature,
@@ -407,6 +414,7 @@ class AppSettings {
       showParenButton: (json['showParenButton'] as bool?) ?? true,
       enterToSend: (json['enterToSend'] as bool?) ?? true,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
+      chatBubbleOpacity: (json['chatBubbleOpacity'] as int?) ?? 100,
       maxContextMessages: (json['maxContextMessages'] as int?) ?? 120,
       maxContextTokens: (json['maxContextTokens'] as int?) ?? 8000,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
@@ -476,6 +484,7 @@ class AppSettings {
     bool? showParenButton,
     bool? enterToSend,
     int? chatMaskStrength,
+    int? chatBubbleOpacity,
     int? maxContextMessages,
     int? maxContextTokens,
     double? temperature,
@@ -537,6 +546,7 @@ class AppSettings {
       showParenButton: showParenButton ?? this.showParenButton,
       enterToSend: enterToSend ?? this.enterToSend,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
+      chatBubbleOpacity: chatBubbleOpacity ?? this.chatBubbleOpacity,
       maxContextMessages: maxContextMessages ?? this.maxContextMessages,
       maxContextTokens: maxContextTokens ?? this.maxContextTokens,
       temperature: temperature ?? this.temperature,
