@@ -31,9 +31,11 @@ class ChatMessageBuilder {
     String? Function(String? speakerTaId)? speakerNameResolver,
     String? authorNote,
     int authorNoteInterval = 0,
+    String? loreText,
   }) {
-    // 注：世界词条（Lorebook）由 ChatSystemPrompt.build 注入 systemPrompt，
-    // 本方法不再接收 activeEntries，避免出现「计算了却没用」的不一致。
+    // 缓存友好布局：静态 system prompt 在前，摘要随后，历史按追加顺序排列，
+    // 动态内容（Lorebook 词条、Author's Note）统一放在历史之后。
+    // 这样 system + 摘要 + 历史的组合前缀保持稳定，最大化 KV cache 命中。
     final List<Map<String, String>> payload = <Map<String, String>>[];
     if (systemPrompt.trim().isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': systemPrompt.trim()});
@@ -47,7 +49,6 @@ class ChatMessageBuilder {
         'content': '$summaryPrefix${summaryText.trim()}',
       });
     }
-    final List<Map<String, String>> history = <Map<String, String>>[];
     for (final ConversationMessage message in messages) {
       if (message.kind != 'message') {
         continue;
@@ -57,44 +58,31 @@ class ChatMessageBuilder {
         prefixSpeaker: prefixSpeaker,
         speakerNameResolver: speakerNameResolver,
       );
-      history.add(<String, String>{'role': message.role, 'content': content});
+      payload.add(<String, String>{'role': message.role, 'content': content});
     }
-    // 深度注入（作者注释 Author's Note）：每隔 authorNoteInterval 条历史消息，
-    // 在对话中间插入一段提示，而不只是放在 system 开头。
-    payload.addAll(injectAuthorNotes(
-      history: history,
-      authorNote: authorNote,
-      authorNoteInterval: authorNoteInterval,
-    ));
+    // 动态尾部：Lorebook 激活词条（按需注入，不污染前缀）。
+    if (loreText != null && loreText.trim().isNotEmpty) {
+      payload.add(<String, String>{'role': 'system', 'content': loreText.trim()});
+    }
+    // 动态尾部：作者注释 Author's Note。interval > 0 时以固定位置注入，
+    // 避免深度注入导致历史中部前缀不稳定。
+    if (authorNote != null &&
+        authorNote.trim().isNotEmpty &&
+        authorNoteInterval > 0) {
+      payload.add(<String, String>{'role': 'system', 'content': authorNote.trim()});
+    }
     if (extraUserText != null && extraUserText.trim().isNotEmpty) {
       payload.add(<String, String>{'role': 'user', 'content': extraUserText.trim()});
     }
     return payload;
   }
 
-  /// 把 Author's Note 按间隔深度注入历史消息中。间隔 0 或注释为空时原样返回。
-  /// 供 [buildMessagesFrom] 与手工组装 payload 的入口（如"继续"）复用，保证各
-  /// 发送入口的上下文组装方式一致。
-  static List<Map<String, String>> injectAuthorNotes({
-    required List<Map<String, String>> history,
-    String? authorNote,
-    int authorNoteInterval = 0,
-  }) {
-    if (authorNote == null ||
-        authorNote.trim().isEmpty ||
-        authorNoteInterval <= 0 ||
-        history.isEmpty) {
-      return history;
+  /// 生成 Lorebook 动态尾部的 system 消息（为空返回 null）。
+  /// 供 [buildMessagesFrom] 与手工组装 payload 的入口（如"继续"）复用。
+  static Map<String, String>? loreSystemMessage(String loreText) {
+    if (loreText.trim().isEmpty) {
+      return null;
     }
-    final String note = authorNote.trim();
-    final List<Map<String, String>> withNotes = <Map<String, String>>[];
-    for (int i = 0; i < history.length; i++) {
-      withNotes.add(history[i]);
-      final int fromEnd = history.length - 1 - i;
-      if (fromEnd > 0 && fromEnd % authorNoteInterval == 0) {
-        withNotes.add(<String, String>{'role': 'system', 'content': note});
-      }
-    }
-    return withNotes;
+    return <String, String>{'role': 'system', 'content': loreText.trim()};
   }
 }

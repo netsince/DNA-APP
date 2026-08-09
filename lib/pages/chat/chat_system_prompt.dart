@@ -3,9 +3,14 @@ import '../../models/prompt_strategy.dart';
 import '../../models/ta.dart';
 import '../../models/user_identity.dart';
 import '../../models/world.dart';
-import 'world_lorebook.dart';
 
 class ChatSystemPrompt {
+  /// 构建静态系统提示词（不含 Lorebook 等动态注入内容）。
+  ///
+  /// 为了最大化 DeepSeek KV cache 命中率，本方法只输出跨请求稳定的前缀
+  /// （人设 / 世界背景 / 风格 / 群设定），Lorebook 激活词条由
+  /// [ChatMessageBuilder] 作为独立 system 消息追加在历史之后，
+  /// 避免动态内容污染前缀。
   static String build({
     required TA? ta,
     required World? world,
@@ -13,7 +18,6 @@ class ChatSystemPrompt {
     PromptStrategy? strategy,
     UserIdentity? identity,
     List<TA>? groupMembers,
-    List<WorldEntry>? activeEntries,
   }) {
     final List<DialogueTurn> style = ta?.dialogueStyle ?? <DialogueTurn>[];
     final PromptStrategy effectiveStrategy = strategy ?? PromptStrategy.defaults();
@@ -80,13 +84,6 @@ class ChatSystemPrompt {
         system.writeln(
           '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
         );
-      }
-    }
-    // Lorebook：注入当前对话激活的世界知识词条。
-    if (activeEntries != null && activeEntries.isNotEmpty) {
-      final String lore = WorldLorebook.format(world: world, entries: activeEntries);
-      if (lore.isNotEmpty) {
-        system.writeln(lore);
       }
     }
     if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {

@@ -122,6 +122,16 @@ mixin ChatActionsSend on ChatStateMixin {
     return result.entries;
   }
 
+  /// 生成当前对话的 Lorebook 尾部 system 文本（空串表示无激活词条）。
+  /// 缓存友好：词条作为独立 system 消息追加在历史之后，不污染前缀。
+  String _loreTextFor(List<ConversationMessage> messages) {
+    final List<WorldEntry> entries = _activeLoreEntries(messages);
+    if (entries.isEmpty) {
+      return '';
+    }
+    return WorldLorebook.format(world: _world, entries: entries);
+  }
+
   /// 处理快速回复：把宏替换成实际值后填充输入框并发送。
   void _handleQuickReply(QuickReply qr) {
     if (_sending) {
@@ -241,7 +251,6 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
-        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -250,6 +259,7 @@ mixin ChatActionsSend on ChatStateMixin {
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+      loreText: _loreTextFor(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
@@ -324,7 +334,6 @@ mixin ChatActionsSend on ChatStateMixin {
       strategy: widget.controller.settings.promptStrategy,
       identity: widget.controller.getIdentityById(_conversation.identityId),
       groupMembers: _isGroup ? _memberTas : null,
-      activeEntries: _activeLoreEntries(slice.messages),
     );
     if (sys.isNotEmpty) {
       payload.add(<String, String>{'role': 'system', 'content': sys});
@@ -337,25 +346,38 @@ mixin ChatActionsSend on ChatStateMixin {
         'content': '对话摘要：\n${latestSummary.text.trim()}',
       });
     }
+    // 历史（追加式，保持前缀稳定）。
+    for (final ConversationMessage m in slice.messages) {
+      if (m.kind != 'message') {
+        continue;
+      }
+      payload.add(<String, String>{
+        'role': m.role,
+        'content': ChatMessageBuilder.resolveContentWithSpeaker(
+          message: m,
+          prefixSpeaker: _isGroup,
+          speakerNameResolver: _speakerNameFor,
+        ),
+      });
+    }
+    // 动态尾部：Lorebook 激活词条。
+    final Map<String, String>? lore = ChatMessageBuilder.loreSystemMessage(
+      _loreTextFor(slice.messages),
+    );
+    if (lore != null) {
+      payload.add(lore);
+    }
+    // 动态尾部：作者注释 Author's Note（固定位置，不深度注入）。
+    final String? authorNote = _effectiveAuthorNote(ta);
+    if (authorNote != null &&
+        authorNote.trim().isNotEmpty &&
+        _effectiveAuthorNoteInterval(ta) > 0) {
+      payload.add(<String, String>{'role': 'system', 'content': authorNote.trim()});
+    }
     payload.add(<String, String>{
       'role': 'system',
       'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
     });
-    // 与其他发送入口保持一致：Author's Note 按间隔深度注入历史消息。
-    payload.addAll(ChatMessageBuilder.injectAuthorNotes(
-      history: slice.messages
-          .map((ConversationMessage m) => <String, String>{
-                'role': m.role,
-                'content': ChatMessageBuilder.resolveContentWithSpeaker(
-                  message: m,
-                  prefixSpeaker: _isGroup,
-                  speakerNameResolver: _speakerNameFor,
-                ),
-              })
-          .toList(),
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-    ));
     final bool streamed = await _streamAssistantResponse(
       model: model,
       apiKey: apiKey,
@@ -438,7 +460,6 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
-        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -447,6 +468,7 @@ mixin ChatActionsSend on ChatStateMixin {
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+      loreText: _loreTextFor(slice.messages),
     );
     if (widget.controller.settings.retrySequential) {
       return _generateRetriesSequential(payload, model, apiKey, baseUrl);
@@ -576,7 +598,6 @@ mixin ChatActionsSend on ChatStateMixin {
         strategy: widget.controller.settings.promptStrategy,
         identity: widget.controller.getIdentityById(_conversation.identityId),
         groupMembers: _isGroup ? _memberTas : null,
-        activeEntries: _activeLoreEntries(slice.messages),
       ),
       messages: slice.messages,
       summaryText: summary?.text,
@@ -585,6 +606,7 @@ mixin ChatActionsSend on ChatStateMixin {
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+      loreText: _loreTextFor(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
       model: model,
