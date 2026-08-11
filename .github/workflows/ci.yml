@@ -35,6 +35,8 @@ jobs:
         include:
           - platform: android
             runner: ubuntu-latest
+          - platform: web
+            runner: ubuntu-latest
           - platform: linux
             runner: ubuntu-latest
           - platform: windows
@@ -71,3 +73,7 @@ jobs:
       - name: Build macOS
         if: matrix.platform == 'macos'
         run: flutter build macos --release
+
+      - name: Build Web
+        if: matrix.platform == 'web'
+        run: flutter build web --release

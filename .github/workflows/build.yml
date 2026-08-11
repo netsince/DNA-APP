@@ -30,6 +30,9 @@ jobs:
           - platform: android
             runner: ubuntu-latest
             artifact: android
+          - platform: web
+            runner: ubuntu-latest
+            artifact: web
           - platform: linux
             runner: ubuntu-latest
             artifact: linux
@@ -78,6 +81,10 @@ jobs:
         if: matrix.platform == 'macos'
         run: flutter build macos --release
 
+      - name: Build Web
+        if: matrix.platform == 'web'
+        run: flutter build web --release
+
       - name: Package & Upload Artifact (Android)
         if: matrix.platform == 'android'
         uses: actions/upload-artifact@v4
@@ -105,3 +112,10 @@ jobs:
         with:
           name: macos
           path: build/macos/Build/Products/Release/*.app
+
+      - name: Package & Upload Artifact (Web)
+        if: matrix.platform == 'web'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web/**

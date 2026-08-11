@@ -49,6 +49,8 @@ jobs:
           #   (windows-11-arm, public preview, free for public repos)
           - { platform: windows, runner: windows-11-arm, type: release, arch: arm64, winarch: arm64 }
           - { platform: windows, runner: windows-11-arm, type: debug,   arch: arm64, winarch: arm64 }
+          # Web
+          - { platform: web, runner: ubuntu-latest, type: release }
           # macOS Intel (x64) — must run on an Intel runner (macos-15-intel),
           #   since `flutter build macos` only builds the host architecture
           - { platform: macos,   runner: macos-15-intel, type: release, arch: x64 }
@@ -117,6 +119,11 @@ jobs:
         if: matrix.platform == 'macos'
         run: flutter build macos --${{ matrix.type }}
 
+      # ---- Web ----
+      - name: Build Web (${{ matrix.type }})
+        if: matrix.platform == 'web'
+        run: flutter build web --${{ matrix.type }}
+
       # ---- Package & Upload ----
       - name: Upload Android
         if: matrix.platform == 'android'
@@ -165,6 +172,18 @@ jobs:
           overwrite_files: true
           fail_on_unmatched_files: false
           files: dna-macos-${{ matrix.arch }}-${{ matrix.type }}.zip
+
+      - name: Package Web
+        if: matrix.platform == 'web'
+        run: zip -r dna-web-${{ matrix.type }}.zip build/web
+      - name: Upload Web
+        if: matrix.platform == 'web'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-web-${{ matrix.type }}.zip
 
   ios:
     name: Build iOS (requires signing secrets)
