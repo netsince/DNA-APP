@@ -14,6 +14,7 @@ import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../utils/message_processor.dart';
+import '../utils/platform_capabilities.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
 import '../services/zhipu_service.dart';
@@ -24,6 +25,7 @@ import '../services/settings_service.dart';
 import '../services/app_icon_service.dart';
 import '../services/ta_service.dart';
 import '../services/hive_service.dart';
+import '../services/image_storage.dart';
 import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
@@ -39,7 +41,6 @@ class AppController extends ChangeNotifier {
     HiveService? hiveService,
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
-        _taService = taService,
         _hiveService = hiveService ?? HiveService(),
         _providerRegistry = LlmProviderRegistry(<LlmProvider>[
           openAiService,
@@ -50,7 +51,6 @@ class AppController extends ChangeNotifier {
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
-  final TaService _taService;
   final HiveService _hiveService;
 
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
@@ -117,6 +117,23 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 平台能力门控：Web 上强制关闭不支持的功能设置（置灰，不触发原生调用）。
+    if (!PlatformCapabilities.voiceInputSupported) {
+      _settings = _settings.copyWith(voiceInputEnabled: false);
+    }
+    if (!PlatformCapabilities.ttsSupported) {
+      _settings = _settings.copyWith(ttsEnabled: false);
+    }
+    if (!PlatformCapabilities.biometricAuthSupported) {
+      _settings = _settings.copyWith(
+        requireAuthForApp: false,
+        requireAuthForArchive: false,
+      );
+    }
+    if (kIsWeb) {
+      // Web 无文件系统，自动备份（写下载目录）不可用，强制关闭。
+      _settings = _settings.copyWith(autoBackup: false);
+    }
     // 同步底部提示（SnackBar）的显示时长到全局
     setSnackDuration(Duration(milliseconds: _settings.snackDurationMs));
     // 启动后恢复用户选择的应用图标（仅 Android；失败不影响启动）
@@ -598,13 +615,39 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 将 ZIP 字节写入 `<文档目录>/dna_backups/<baseName>_<时间戳>.zip`。
+  /// Web 无文件系统，直接返回 null。
+  Future<String?> _writeZipBackup(Uint8List bytes, String baseName) async {
+    if (kIsWeb) {
+      return null;
+    }
+    try {
+      final Directory docDir = await getApplicationDocumentsDirectory();
+      final Directory backupsDir =
+          Directory(path.join(docDir.path, 'dna_backups'));
+      if (!await backupsDir.exists()) {
+        await backupsDir.create(recursive: true);
+      }
+      final File backupFile = File(
+        path.join(backupsDir.path, '${baseName}_${_timestamp()}.zip'),
+      );
+      await backupFile.writeAsBytes(bytes);
+      return backupFile.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 将 JSON 字符串写入 `<文档目录>/dna_backups/<subDir>/<fileNameBase>_<时间戳>.json`。
-  /// 失败时返回 null（不阻断删除流程）。
+  /// 失败时返回 null（不阻断删除流程）。Web 无文件系统，直接返回 null。
   Future<String?> _writeBackupJson(
     String json,
     String subDir,
     String fileNameBase,
   ) async {
+    if (kIsWeb) {
+      return null;
+    }
     try {
       final Directory docDir = await getApplicationDocumentsDirectory();
       final Directory dir =
@@ -646,16 +689,11 @@ class AppController extends ChangeNotifier {
       );
     }
 
-    // 清理该角色的图片文件
+    // 清理该角色的图片文件（跨平台：IO 删文件 / Web 删 IndexedDB 记录）
     try {
-      final Directory docDir = await getApplicationDocumentsDirectory();
-      final Directory taDir = Directory(path.join(docDir.path, 'tas'));
-      if (await taDir.exists()) {
-        await for (final FileSystemEntity entity in taDir.list()) {
-          if (entity is File &&
-              path.basename(entity.path).startsWith('${ta.id}_')) {
-            await entity.delete();
-          }
+      for (final String ref in ta.images.values) {
+        if (ref.isNotEmpty) {
+          await ImageStorage.instance.delete(ref);
         }
       }
     } catch (_) {
@@ -749,15 +787,18 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String> storeTaImage({
+  /// 保存 TA 槽位图片字节到平台存储，返回引用（IO: 绝对路径 / Web: 逻辑文件名）。
+  Future<String> storeTaImageBytes({
     required String taId,
     required String slot,
-    required String sourcePath,
+    required Uint8List bytes,
+    String? ext,
   }) async {
-    return _taService.storeImage(
-      sourcePath: sourcePath,
+    return ImageStorage.instance.saveBytes(
       taId: taId,
       slot: slot,
+      bytes: bytes,
+      ext: ext,
     );
   }
 
@@ -1207,19 +1248,12 @@ class AppController extends ChangeNotifier {
         final ExportImportResult<Uint8List> current =
             await exportConversations();
         if (current.success && current.data != null) {
-          try {
-            final Directory docDir = await getApplicationDocumentsDirectory();
-            final Directory backupsDir =
-                Directory(path.join(docDir.path, 'dna_backups'));
-            if (!await backupsDir.exists()) {
-              await backupsDir.create(recursive: true);
-            }
-            final File backupFile = File(path.join(
-                backupsDir.path, 'DNA_conversations_${_timestamp()}.zip'));
-            await backupFile.writeAsBytes(current.data!);
-            backupPath = backupFile.path;
-          } catch (e) {
-            backupError = '$e';
+          backupPath = await _writeZipBackup(
+            current.data!,
+            'DNA_conversations',
+          );
+          if (backupPath == null && !kIsWeb) {
+            backupError = '自动备份写入失败';
           }
         } else {
           backupError = current.message ?? '未知错误';
@@ -1407,19 +1441,12 @@ class AppController extends ChangeNotifier {
       if (replaceAll) {
         final ExportImportResult<Uint8List> current = await exportConversations();
         if (current.success && current.data != null) {
-          try {
-            final Directory docDir = await getApplicationDocumentsDirectory();
-            final Directory backupsDir =
-                Directory(path.join(docDir.path, 'dna_backups'));
-            if (!await backupsDir.exists()) {
-              await backupsDir.create(recursive: true);
-            }
-            final File backupFile = File(path.join(
-                backupsDir.path, 'DNA_conversations_${_timestamp()}.zip'));
-            await backupFile.writeAsBytes(current.data!);
-            backupPath = backupFile.path;
-          } catch (e) {
-            backupError = '$e';
+          backupPath = await _writeZipBackup(
+            current.data!,
+            'DNA_conversations',
+          );
+          if (backupPath == null && !kIsWeb) {
+            backupError = '自动备份写入失败';
           }
         } else {
           backupError = current.message ?? '未知错误';
@@ -1503,8 +1530,6 @@ class AppController extends ChangeNotifier {
     }
     final ParsedBackup backup = parsed.data!;
 
-    final Directory docDir = await getApplicationDocumentsDirectory();
-    final Directory taDir = Directory(path.join(docDir.path, 'tas'));
     String? backupPath;
     String? backupError;
 
@@ -1513,29 +1538,21 @@ class AppController extends ChangeNotifier {
         // 先自动备份替换前的数据
         final ExportImportResult<Uint8List> current = await exportAllData();
         if (current.success && current.data != null) {
-          final Directory backupsDir =
-              Directory(path.join(docDir.path, 'dna_backups'));
-          if (!await backupsDir.exists()) {
-            await backupsDir.create(recursive: true);
+          backupPath = await _writeZipBackup(current.data!, 'DNA_backup');
+          if (backupPath == null && !kIsWeb) {
+            backupError = '自动备份写入失败';
           }
-          final File backupFile =
-              File(path.join(backupsDir.path, 'DNA_backup_${_timestamp()}.zip'));
-          await backupFile.writeAsBytes(current.data!);
-          backupPath = backupFile.path;
         } else {
           backupError = current.message ?? '未知错误';
         }
 
-        // 清空旧图片后写入新数据
-        if (await taDir.exists()) {
-          await taDir.delete(recursive: true);
-        }
-        await taDir.create(recursive: true);
+        // 清空旧图片后写入新数据（跨平台：IO 删 tas 目录 / Web 清 IndexedDB）
+        await ImageStorage.instance.clearAll();
 
-        final List<TA> resolvedTas = DataBackupService.resolveTasImages(
+        final List<TA> resolvedTas = await DataBackupService.resolveTasImages(
           backup.tas,
           backup.imageBytes,
-          taDir.path,
+          '',
         );
 
         _tas = resolvedTas;
@@ -1569,17 +1586,13 @@ class AppController extends ChangeNotifier {
       }
 
       // 仅追加：跳过已存在的 id
-      if (!await taDir.exists()) {
-        await taDir.create(recursive: true);
-      }
-
       final Set<String> existingTaIds = _tas.map((TA t) => t.id).toSet();
       final List<TA> newTas =
           backup.tas.where((TA t) => !existingTaIds.contains(t.id)).toList();
-      final List<TA> resolvedNewTas = DataBackupService.resolveTasImages(
+      final List<TA> resolvedNewTas = await DataBackupService.resolveTasImages(
         newTas,
         backup.imageBytes,
-        taDir.path,
+        '',
       );
 
       final Set<String> existingWorldIds =
@@ -1651,11 +1664,8 @@ class AppController extends ChangeNotifier {
     await prefs.clear();
     await _hiveService.clearAll();
     try {
-      final Directory doc = await getApplicationDocumentsDirectory();
-      final Directory taDir = Directory(path.join(doc.path, 'tas'));
-      if (await taDir.exists()) {
-        await taDir.delete(recursive: true);
-      }
+      // 跨平台清理 TA 图片（IO 删 tas 目录 / Web 清 IndexedDB）
+      await ImageStorage.instance.clearAll();
     } catch (_) {
     }
     _settings = AppSettings.empty();

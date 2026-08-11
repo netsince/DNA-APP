@@ -224,12 +224,16 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const FitText('每日自动备份'),
-            subtitle: const FitText('数据存于软件外部，卸载后依然保留。'),
+            subtitle: kIsWeb
+                ? const FitText('当前平台不支持（Web 无文件系统）')
+                : const FitText('数据存于软件外部，卸载后依然保留。'),
             value: _autoBackup,
-            onChanged: (v) {
-              setState(() => _autoBackup = v);
-              _saveAutoBackup(v);
-            },
+            onChanged: kIsWeb
+                ? null
+                : (v) {
+                    setState(() => _autoBackup = v);
+                    _saveAutoBackup(v);
+                  },
           ),
           const SizedBox(height: 24),
           const Divider(),

@@ -1,13 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../utils/id_utils.dart';
+import 'image_storage.dart';
 import 'ta_export_import_models.dart';
 export 'ta_export_import_models.dart';
 
@@ -25,18 +25,18 @@ class TaExportImportService {
     try {
       final Map<String, ExportedImageInfo> exportedImages = {};
 
-      // 处理图片
+      // 处理图片（读取统一走 ImageStorage，跨平台一致）
       for (final entry in character.images.entries) {
         final slot = entry.key;
-        final path = entry.value;
+        final ref = entry.value;
 
-        if (path.isEmpty) {
+        if (ref.isEmpty) {
           exportedImages[slot] = const ExportedImageInfo(data: null);
           continue;
         }
 
-        final file = File(path);
-        if (!await file.exists()) {
+        final Uint8List? rawBytes = await ImageStorage.instance.readBytes(ref);
+        if (rawBytes == null) {
           exportedImages[slot] = const ExportedImageInfo(data: null);
           continue;
         }
@@ -46,28 +46,47 @@ class TaExportImportService {
         int height;
 
         if (compressImages) {
-          // 压缩图片
-          final compressed = await FlutterImageCompress.compressWithFile(
-            path,
-            minWidth: maxImageDimension,
-            minHeight: maxImageDimension,
-            quality: 85,
-          );
-          imageBytes = compressed ?? await file.readAsBytes();
+          if (kIsWeb) {
+            // Web 无 flutter_image_compress：用纯 Dart image 库缩放
+            final img.Image? decoded = img.decodeImage(rawBytes);
+            if (decoded != null) {
+              final img.Image resized = img.copyResize(
+                decoded,
+                width: maxImageDimension,
+                height: maxImageDimension,
+                interpolation: img.Interpolation.linear,
+              );
+              imageBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+              width = resized.width;
+              height = resized.height;
+            } else {
+              imageBytes = rawBytes;
+              width = 0;
+              height = 0;
+            }
+          } else {
+            // IO 平台：原生压缩
+            imageBytes = await FlutterImageCompress.compressWithList(
+              rawBytes,
+              minWidth: maxImageDimension,
+              minHeight: maxImageDimension,
+              quality: 85,
+            );
 
-          // 获取压缩后的尺寸
-          final decoded = img.decodeImage(imageBytes);
-          width = decoded?.width ?? 0;
-          height = decoded?.height ?? 0;
+            // 获取压缩后的尺寸
+            final decoded = img.decodeImage(imageBytes);
+            width = decoded?.width ?? 0;
+            height = decoded?.height ?? 0;
+          }
         } else {
-          imageBytes = await file.readAsBytes();
+          imageBytes = rawBytes;
           final decoded = img.decodeImage(imageBytes);
           width = decoded?.width ?? 0;
           height = decoded?.height ?? 0;
         }
 
         final base64String = base64Encode(imageBytes);
-        final mimeType = _getMimeType(path);
+        final mimeType = _getMimeType(ref);
         exportedImages[slot] = ExportedImageInfo(
           data: 'data:$mimeType;base64,$base64String',
           width: width,
@@ -310,11 +329,12 @@ class TaExportImportService {
     }
   }
 
-  /// 从Base64数据保存图片到指定路径
-  static Future<ExportImportResult<String>> saveBase64Image(
-    String base64Data,
-    String targetPath,
-  ) async {
+  /// 将 data URI 图片保存到平台存储（IO 落盘 / Web 存 IndexedDB），返回引用。
+  static Future<ExportImportResult<String>> saveImageToStorage(
+    String base64Data, {
+    required String taId,
+    required String slot,
+  }) async {
     try {
       // 解析 data URI
       String pureBase64 = base64Data;
@@ -322,10 +342,15 @@ class TaExportImportService {
         pureBase64 = base64Data.split(',')[1];
       }
 
-      final bytes = base64Decode(pureBase64);
-      final file = File(targetPath);
-      await file.writeAsBytes(bytes);
-      return ExportImportResult(success: true, data: targetPath);
+      final Uint8List bytes = base64Decode(pureBase64);
+      final String ext = _getExtensionFromMimeType(base64Data);
+      final String ref = await ImageStorage.instance.saveBytes(
+        taId: taId,
+        slot: slot,
+        bytes: bytes,
+        ext: ext,
+      );
+      return ExportImportResult(success: true, data: ref);
     } catch (e) {
       return ExportImportResult(success: false, message: '保存图片失败: $e');
     }
@@ -348,7 +373,7 @@ class TaExportImportService {
     }
   }
 
-  /// 将导出包中的内嵌图片落盘到 ta 目录，返回补全 images 的 TA。
+  /// 将导出包中的内嵌图片保存到平台存储，返回补全 images 的 TA。
   ///
   /// [packageJson] 为本应用导出包（ExportPackage）结构。无内嵌图片时直接返回原 TA。
   static Future<ExportImportResult<TA>> restoreTaImages(
@@ -358,25 +383,19 @@ class TaExportImportService {
     try {
       final ExportPackage package = ExportPackage.fromJson(packageJson);
 
-      final Directory docDir = await getApplicationDocumentsDirectory();
-      final Directory taDir = Directory(path.join(docDir.path, 'tas'));
-      if (!await taDir.exists()) {
-        await taDir.create(recursive: true);
-      }
-
       final Map<String, String> newImages = <String, String>{};
       for (final MapEntry<String, ExportedImageInfo> entry
           in package.character.images.entries) {
         final String slot = entry.key;
         final ExportedImageInfo imageInfo = entry.value;
         if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
-          final String ext = _getExtensionFromMimeType(imageInfo.data!);
-          final String fileName = '${ta.id}_$slot$ext';
-          final String targetPath = path.join(taDir.path, fileName);
-          final ExportImportResult<String> save =
-              await saveBase64Image(imageInfo.data!, targetPath);
+          final ExportImportResult<String> save = await saveImageToStorage(
+            imageInfo.data!,
+            taId: ta.id,
+            slot: slot,
+          );
           if (save.success) {
-            newImages[slot] = targetPath;
+            newImages[slot] = save.data!;
           }
         }
       }

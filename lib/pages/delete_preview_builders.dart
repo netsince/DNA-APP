@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
+import '../services/image_storage.dart';
 import '../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -21,15 +20,17 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
   final TextTheme tt = Theme.of(context).textTheme;
 
   Widget imageOrPlaceholder(String? p) {
-    if (p == null || p.isEmpty) {
+    final ImageProvider? provider =
+        ImageStorage.instance.providerForRef(p);
+    if (provider == null) {
       return Container(
         color: cs.surfaceContainerHighest,
         alignment: Alignment.center,
         child: Icon(Icons.broken_image_outlined, color: cs.onSurfaceVariant),
       );
     }
-    return Image.file(
-      File(p),
+    return Image(
+      image: provider,
       fit: BoxFit.cover,
       errorBuilder: (BuildContext c, Object e, StackTrace? s) => Container(
         color: cs.surfaceContainerHighest,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/voice_models.dart';
 import '../../services/sherpa_model_service.dart';
 import '../../state/app_controller.dart';
+import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -68,6 +69,15 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Web 端不支持离线语音输入：整页置灰不可用。
+    if (!PlatformCapabilities.voiceInputSupported) {
+      return Scaffold(
+        appBar: AppBar(title: const FitText('语音输入')),
+        body: const Center(
+          child: FitText('当前平台不支持离线语音输入'),
+        ),
+      );
+    }
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
     final s = widget.controller.settings;

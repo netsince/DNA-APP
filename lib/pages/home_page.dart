@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../state/app_controller.dart';
+import '../utils/platform_capabilities.dart';
 import '../utils/ui_feedback.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
@@ -26,8 +27,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _toggleArchived() async {
     final bool willShowArchived = !_showArchived;
 
-    // 如果要显示归档且需要验证
-    if (willShowArchived && widget.controller.settings.requireAuthForArchive) {
+    // 如果要显示归档且需要验证（Web 端不支持生物识别，跳过验证）
+    if (willShowArchived &&
+        PlatformCapabilities.biometricAuthSupported &&
+        widget.controller.settings.requireAuthForArchive) {
       if (!_archiveAuthPassed) {
         final bool authenticated = await AuthService.authenticateForArchive();
         if (!authenticated) {

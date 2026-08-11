@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
+import '../utils/platform_capabilities.dart';
 import '../widgets/app_drawer.dart';
 import 'settings/advanced_settings_page.dart';
 import 'settings/ai_service_settings_page.dart';
@@ -50,6 +51,7 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.lock_outline,
                     title: '安全与隐私',
                     subtitle: '生物识别验证保护',
+                    enabled: PlatformCapabilities.biometricAuthSupported,
                     onTap: () => _push(context, SecuritySettingsPage(controller: controller)),
                   ),
                   _MenuItem(
@@ -62,18 +64,21 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.mic_outlined,
                     title: '语音输入',
                     subtitle: '离线语音转文字（需下载模型）',
+                    enabled: PlatformCapabilities.voiceInputSupported,
                     onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
                   ),
                   _MenuItem(
                     icon: Icons.record_voice_over_outlined,
                     title: '语音合成',
                     subtitle: '角色语音播放（端侧 TTS）',
+                    enabled: PlatformCapabilities.ttsSupported,
                     onTap: () => _push(context, TtsSettingsPage(controller: controller)),
                   ),
                   _MenuItem(
                     icon: Icons.cleaning_services_outlined,
                     title: '语音缓存',
                     subtitle: '查看并清理已合成音频缓存',
+                    enabled: PlatformCapabilities.ttsSupported,
                     onTap: () => _push(context, const TtsCachePage()),
                   ),
                   _MenuItem(
@@ -114,6 +119,7 @@ class _MenuItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -121,14 +127,18 @@ class _MenuItem extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
+  /// 是否可点击。为 false 时置灰显示、不可进入。
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      enabled: enabled,
       leading: Icon(icon),
       title: FitText(title),
       subtitle: FitText(subtitle),
       trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
     );
   }
 }

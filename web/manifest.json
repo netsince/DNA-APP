@@ -1,0 +1,35 @@
+{
+    "name": "DNA · 与汝共奏",
+    "short_name": "DNA",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#1A1A1A",
+    "theme_color": "#1A1A1A",
+    "description": "Duet Nurturing Ally（DNA）—— 与角色共奏对话的本地 AI 伴侣应用",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

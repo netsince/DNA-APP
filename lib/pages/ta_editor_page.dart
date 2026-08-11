@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
+import '../utils/platform_capabilities.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'ta_editor/image_slot.dart';
 import 'package:dna/services/ta_export_import_service.dart';
@@ -85,8 +86,9 @@ class _TaEditorPageState extends State<TaEditorPage> {
       return;
     }
 
+    // 裁剪仅 IO 平台可用（image_cropper 无 Web 实现）；Web 上直接用原图。
     CroppedFile? cropped;
-    if (!Platform.isWindows) {
+    if (!kIsWeb && !Platform.isWindows) {
       try {
         cropped = await ImageCropper().cropImage(
           sourcePath: picked.path,
@@ -106,17 +108,14 @@ class _TaEditorPageState extends State<TaEditorPage> {
       }
     }
 
-    if (cropped == null) {
-      if (!mounted) {
-        return;
-      }
-      showSnack(context, '裁剪失败，请重试。');
-    }
-
-    final String storedPath = await widget.controller.storeTaImage(
+    final XFile source = cropped == null ? picked : XFile(cropped.path);
+    final Uint8List bytes = await source.readAsBytes();
+    final String ext = path.extension(source.name);
+    final String storedPath = await widget.controller.storeTaImageBytes(
       taId: _taId,
       slot: slot,
-      sourcePath: cropped?.path ?? picked.path,
+      bytes: bytes,
+      ext: ext.isEmpty ? null : ext,
     );
 
     if (!mounted) {
@@ -315,13 +314,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Future<void> _importWithImages(TA ta, Map<String, String> existingImages) async {
     showSnack(context, '正在导入图片...');
 
-    // 获取TA存储目录
-    final docDir = await getApplicationDocumentsDirectory();
-    final taDir = Directory(path.join(docDir.path, 'tas'));
-    if (!await taDir.exists()) {
-      await taDir.create(recursive: true);
-    }
-
     final Map<String, String> newImages = {};
 
     // 从导出包中恢复图片（仅本应用格式内嵌图片；酒馆角色卡无此结构，跳过）
@@ -334,27 +326,24 @@ class _TaEditorPageState extends State<TaEditorPage> {
           final package = ExportPackage.fromJson(decoded);
 
           for (final entry in package.character.images.entries) {
-        final slot = entry.key;
-        final imageInfo = entry.value;
+            final slot = entry.key;
+            final imageInfo = entry.value;
 
-        if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
-          final ext = _getExtensionFromMimeType(imageInfo.data!);
-          final fileName = '${ta.id}_$slot$ext';
-          final targetPath = path.join(taDir.path, fileName);
-
-          final saveResult = await TaExportImportService.saveBase64Image(
-            imageInfo.data!,
-            targetPath,
-          );
-
-          if (saveResult.success) {
-            newImages[slot] = targetPath;
+            if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
+              final saveResult =
+                  await TaExportImportService.saveImageToStorage(
+                imageInfo.data!,
+                taId: ta.id,
+                slot: slot,
+              );
+              if (saveResult.success) {
+                newImages[slot] = saveResult.data!;
+              }
+            } else if (existingImages.containsKey(slot)) {
+              newImages[slot] = existingImages[slot]!;
+            }
           }
-        } else if (existingImages.containsKey(slot)) {
-          newImages[slot] = existingImages[slot]!;
         }
-      }
-      }
       } catch (_) {
         // 非本应用格式（如酒馆角色卡）无内嵌图片，忽略
       }
@@ -383,13 +372,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
     });
 
     showSnack(context, '导入成功');
-  }
-
-  String _getExtensionFromMimeType(String dataUri) {
-    if (dataUri.contains('image/png')) return '.png';
-    if (dataUri.contains('image/webp')) return '.webp';
-    if (dataUri.contains('image/gif')) return '.gif';
-    return '.jpg';
   }
 
   // ========== 构建UI ==========
@@ -454,19 +436,19 @@ class _TaEditorPageState extends State<TaEditorPage> {
                   const SizedBox(height: 12),
                   ImageSlot(
                     title: '1:1 形象',
-                    path: _images['square'],
+                    ref: _images['square'],
                     onTap: () => _pickImage('square', const CropAspectRatio(ratioX: 1, ratioY: 1)),
                   ),
                   const SizedBox(height: 12),
                   ImageSlot(
                     title: '16:9 形象',
-                    path: _images['landscape'],
+                    ref: _images['landscape'],
                     onTap: () => _pickImage('landscape', const CropAspectRatio(ratioX: 16, ratioY: 9)),
                   ),
                   const SizedBox(height: 12),
                   ImageSlot(
                     title: '9:16 形象',
-                    path: _images['portrait'],
+                    ref: _images['portrait'],
                     onTap: () => _pickImage('portrait', const CropAspectRatio(ratioX: 9, ratioY: 16)),
                   ),
                 ],
@@ -554,6 +536,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     controller: _seedController,
                     label: '语音合成 Seed（可选）',
                     hint: '留空则用全局 seed',
+                    enabled: PlatformCapabilities.ttsSupported,
                   ),
                   const SizedBox(height: 4),
                   FitText(

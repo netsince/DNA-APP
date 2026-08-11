@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../../models/quick_reply.dart';
 import '../../../../services/speech_to_text_service.dart';
 import '../../../../state/app_controller.dart';
+import '../../../../utils/platform_capabilities.dart';
 import '../../../../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -114,7 +115,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _prevText = widget.inputController.text;
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
-    _partialSub = SpeechToTextService.instance.partial.listen(_onPartial);
+    // Web 端不支持离线语音输入：不初始化语音服务，避免触发原生调用。
+    if (PlatformCapabilities.voiceInputSupported) {
+      _partialSub = SpeechToTextService.instance.partial.listen(_onPartial);
+    }
   }
 
   @override
@@ -522,13 +526,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// 普通文本模式下的麦克风按钮：点击进入语音输入模式。
+  /// Web 端不支持离线语音输入，置灰禁用。
   Widget _buildMic() {
     return IconButton(
-      tooltip: _voiceReady ? '语音输入' : '语音输入（需先下载模型）',
-      onPressed: _voiceReady
-          ? _enterVoiceMode
-          : () =>
-              showSnack(context, '请先在「设置 → 语音输入」中下载语音模型'),
+      tooltip: PlatformCapabilities.voiceInputSupported
+          ? (_voiceReady ? '语音输入' : '语音输入（需先下载模型）')
+          : '语音输入（当前平台不可用）',
+      onPressed: PlatformCapabilities.voiceInputSupported
+          ? (_voiceReady
+              ? _enterVoiceMode
+              : () =>
+                  showSnack(context, '请先在「设置 → 语音输入」中下载语音模型'))
+          : null,
       icon: Icon(_voiceReady ? Icons.mic : Icons.mic_none_outlined),
     );
   }
@@ -808,8 +817,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
               const SizedBox(width: 4),
             ],
             const SizedBox(width: 8),
-            // 语音输入按钮：仅在「离线语音输入」开关开启时显示。
-            if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
+            // 语音输入按钮：开关开启时显示；Web 端不支持时始终显示（置灰）。
+            if (!_hasInput &&
+                (widget.controller.settings.voiceInputEnabled ||
+                    !PlatformCapabilities.voiceInputSupported)) ...<Widget>[
               _buildMic(),
               const SizedBox(width: 8),
             ],

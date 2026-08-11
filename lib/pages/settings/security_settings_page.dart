@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../state/app_controller.dart';
+import '../../utils/platform_capabilities.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
@@ -29,6 +30,11 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   }
 
   Future<void> _checkAuth() async {
+    // Web 端不支持生物识别：直接标记不可用，不触发原生调用。
+    if (!PlatformCapabilities.biometricAuthSupported) {
+      if (mounted) setState(() => _authAvailable = false);
+      return;
+    }
     final a = await AuthService.canCheckBiometrics();
     if (mounted) setState(() => _authAvailable = a);
   }

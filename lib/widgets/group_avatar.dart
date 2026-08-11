@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
+import '../services/image_storage.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class GroupAvatar extends StatelessWidget {
@@ -40,20 +39,21 @@ class GroupAvatar extends StatelessWidget {
               final double half = constraints.maxWidth / 2;
               
               Widget buildCell(TA ta) {
-                final String? path = ta.images['square'];
-                if (path != null && path.isNotEmpty) {
-                  final File file = File(path);
-                  if (file.existsSync()) {
-                    return Image.file(
-                      file,
-                      fit: BoxFit.cover,
-                      width: half,
-                      height: half,
-                      // 使用 cacheWidth 和 cacheHeight 限制图片解码大小
-                      cacheWidth: half.toInt() * 2,
-                      cacheHeight: half.toInt() * 2,
-                    );
-                  }
+                final ImageProvider? provider =
+                    ImageStorage.instance.providerFor(ta, 'square');
+                if (provider != null) {
+                  // 使用 ResizeImage 限制图片解码大小（Image widget 本身无 cache 参数）
+                  final ImageProvider resized = ResizeImage.resizeIfNeeded(
+                    half.toInt() * 2,
+                    half.toInt() * 2,
+                    provider,
+                  );
+                  return Image(
+                    image: resized,
+                    fit: BoxFit.cover,
+                    width: half,
+                    height: half,
+                  );
                 }
                 final String label = ta.name.isNotEmpty ? ta.name[0] : '?';
                 return Container(

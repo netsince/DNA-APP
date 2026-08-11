@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -9,6 +8,7 @@ import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/world.dart';
+import 'image_storage.dart';
 import 'ta_export_import_service.dart';
 import 'data_backup_models.dart';
 export 'data_backup_models.dart';
@@ -53,27 +53,32 @@ class DataBackupService {
         ).toJson(),
       );
 
-      // 角色：把图片的绝对路径替换为相对文件名，并把图片字节写入 ZIP
+      // 角色：把图片引用替换为相对文件名，并把图片字节写入 ZIP（读取走 ImageStorage，跨平台一致）
       final List<Map<String, dynamic>> tasJson = <Map<String, dynamic>>[];
       for (final TA ta in tas) {
         final Map<String, dynamic> map = ta.toJson();
         final Map<String, String> portableImages = <String, String>{};
-        ta.images.forEach((String slot, String imagePath) {
+        for (final MapEntry<String, String> entry in ta.images.entries) {
+          final String slot = entry.key;
+          final String imagePath = entry.value;
           if (imagePath.isNotEmpty) {
-            final File file = File(imagePath);
-            if (file.existsSync()) {
+            final Uint8List? bytes =
+                await ImageStorage.instance.readBytes(imagePath);
+            if (bytes != null) {
               // 用 TA id + slot + 原文件名拼接，避免不同 TA 引用同名图片时互相覆盖
-              final String name = '${ta.id}_${slot}_${path.basename(imagePath)}';
+              final String name =
+                  '${ta.id}_${slot}_${path.basename(imagePath)}';
               portableImages[slot] = name;
-              final List<int> bytes = file.readAsBytesSync();
-              archive.addFile(ArchiveFile('$_imageDir/$name', bytes.length, bytes));
+              archive.addFile(
+                ArchiveFile('$_imageDir/$name', bytes.length, bytes),
+              );
             } else {
               portableImages[slot] = '';
             }
           } else {
             portableImages[slot] = '';
           }
-        });
+        }
         map['images'] = portableImages;
         tasJson.add(map);
       }
@@ -245,29 +250,41 @@ class DataBackupService {
     }
   }
 
-  /// 将相对文件名解析为磁盘路径，并把图片写入 tas 目录
-  static List<TA> resolveTasImages(
+  /// 将 ZIP 中的图片字节写入平台存储，返回补全 images 的 TA 列表。
+  ///
+  /// [taDirPath] 为历史参数（IO 平台旧实现用），已由 [ImageStorage] 统一管理目录，
+  /// 传空串即可。
+  static Future<List<TA>> resolveTasImages(
     List<TA> tas,
     Map<String, List<int>> imageBytes,
     String taDirPath,
-  ) {
-    return tas.map((TA ta) {
+  ) async {
+    final List<TA> result = <TA>[];
+    for (final TA ta in tas) {
       final Map<String, String> resolved = <String, String>{};
-      ta.images.forEach((String slot, String rel) {
+      for (final MapEntry<String, String> entry in ta.images.entries) {
+        final String slot = entry.key;
+        final String rel = entry.value;
         if (rel.isEmpty) {
           resolved[slot] = '';
-          return;
+          continue;
         }
         final List<int>? bytes = imageBytes[rel];
         if (bytes == null) {
           resolved[slot] = '';
-          return;
+          continue;
         }
-        final String outPath = path.join(taDirPath, rel);
-        File(outPath).writeAsBytesSync(bytes);
-        resolved[slot] = outPath;
-      });
-      return ta.copyWith(images: resolved);
-    }).toList();
+        final String ext = path.extension(rel);
+        final String ref = await ImageStorage.instance.saveBytes(
+          taId: ta.id,
+          slot: slot,
+          bytes: Uint8List.fromList(bytes),
+          ext: ext.isEmpty ? null : ext,
+        );
+        resolved[slot] = ref;
+      }
+      result.add(ta.copyWith(images: resolved));
+    }
+    return result;
   }
 }

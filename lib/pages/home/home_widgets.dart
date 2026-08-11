@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../models/conversation.dart';
 import '../../models/ta.dart';
 import '../../models/world.dart';
+import '../../services/image_storage.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/group_avatar.dart';
 import '../chat_page.dart';
@@ -124,27 +123,18 @@ class _ConversationItem extends StatelessWidget {
           .toList();
       leading = GroupAvatar(tas: members, size: 44);
     } else if (ta != null) {
-      final String? square = ta.images['square'];
-      if (square != null && square.isNotEmpty) {
-        final File file = File(square);
-        if (file.existsSync()) {
-          leading = ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              file,
-              width: 44,
-              height: 44,
-              fit: BoxFit.cover,
-              cacheWidth: 88,
-              cacheHeight: 88,
-            ),
-          );
-        } else {
-          leading = CircleAvatar(
-            radius: 22,
-            child: FitText(ta.name.isNotEmpty ? ta.name[0] : '?'),
-          );
-        }
+      final ImageProvider? provider =
+          ImageStorage.instance.providerFor(ta, 'square');
+      if (provider != null) {
+        leading = ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image(
+            image: ResizeImage.resizeIfNeeded(88, 88, provider),
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+          ),
+        );
       } else {
         leading = CircleAvatar(
           radius: 22,

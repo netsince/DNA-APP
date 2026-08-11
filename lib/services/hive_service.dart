@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
@@ -13,7 +15,12 @@ class HiveService {
   static const String _settingsBox = 'settings';
 
   Future<void> init() async {
-    await Hive.initFlutter();
+    if (kIsWeb) {
+      // Web 无文件系统：Hive 直接使用 IndexedDB，路径参数在 Web 上被忽略。
+      Hive.init('dna');
+    } else {
+      await Hive.initFlutter();
+    }
   }
 
   Future<List<TA>> getTas() async {

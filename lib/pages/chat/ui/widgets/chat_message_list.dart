@@ -6,6 +6,7 @@ import '../../../../models/conversation.dart';
 import '../../../../services/tts/tts_player.dart';
 import '../../../../services/tts/tts_service.dart';
 import '../../../../utils/light_markdown.dart';
+import '../../../../utils/platform_capabilities.dart';
 import '../../chat_models.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -375,7 +376,7 @@ class ChatMessageList extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                       ],
-                      if (ttsEnabled)
+                      if (ttsEnabled || !PlatformCapabilities.ttsSupported)
                         _MessagePlayButton(
                           text: message.text,
                           globalSeed: ttsGlobalSeed,
@@ -602,20 +603,24 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final Color fg = cs.onPrimaryContainer;
+    // Web 端不支持端侧语音合成：整颗按钮置灰、不可点。
+    final bool ttsDisabled = !PlatformCapabilities.ttsSupported;
+    final Color fg = ttsDisabled ? cs.outline : cs.onPrimaryContainer;
     // 单个切换按钮：空闲→播放；播放中→暂停（点击停止）；合成中→百分比（禁用）。
-    final String message = _busy
-        ? '合成中'
-        : (_playing ? '停止朗读' : '朗读');
-    final VoidCallback? onTap = _busy
+    final String message = ttsDisabled
+        ? '语音合成（当前平台不可用）'
+        : (_busy ? '合成中' : (_playing ? '停止朗读' : '朗读'));
+    final VoidCallback? onTap = ttsDisabled
         ? null
-        : (_playing ? _stop : _play);
+        : (_busy ? null : (_playing ? _stop : _play));
     return Tooltip(
       message: message,
       child: Material(
-        color: cs.primaryContainer.withValues(alpha: 0.92),
+        color: ttsDisabled
+            ? cs.surfaceContainerHighest
+            : cs.primaryContainer.withValues(alpha: 0.92),
         shape: const CircleBorder(),
-        elevation: 2,
+        elevation: ttsDisabled ? 0 : 2,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,

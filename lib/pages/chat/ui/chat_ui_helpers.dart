@@ -247,7 +247,14 @@ mixin ChatUiHelpers on ChatStateMixin {
       return;
     }
     if (action == 'share') {
-      await Share.share(message.text);
+      // Web 端走 navigator.share，部分浏览器不支持或用户取消，需容错。
+      try {
+        await Share.share(message.text);
+      } catch (_) {
+        if (mounted) {
+          showSnack(context, '分享失败，当前环境可能不支持系统分享');
+        }
+      }
       return;
     }
     if (action == 'delete_message') {

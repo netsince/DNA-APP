@@ -31,7 +31,7 @@ class SeedInputField extends StatefulWidget {
   /// 文本变化回调（供外部持久化 seed）。
   final ValueChanged<String>? onChanged;
 
-  /// 是否允许编辑。为 false 时输入框锁定、随机按钮禁用（测试仍可用）。
+  /// 是否允许编辑。为 false 时输入框锁定、随机按钮与测试按钮均禁用。
   final bool enabled;
 
   /// 允许的最大 seed 值（含）。超出会被钳制到该值。
@@ -160,7 +160,7 @@ class _SeedInputFieldState extends State<SeedInputField> {
         SizedBox(
           height: 44,
           child: OutlinedButton(
-            onPressed: _busy ? null : _test,
+            onPressed: widget.enabled && !_busy ? _test : null,
             style: OutlinedButton.styleFrom(
               foregroundColor: _busy ? cs.primary : null,
             ),

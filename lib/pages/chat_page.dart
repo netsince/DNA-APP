@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +19,7 @@ import '../models/user_identity.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../services/conversation_export_import_service.dart';
+import '../services/image_storage.dart';
 import '../services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../widgets/conversation_export_import_dialogs.dart';
@@ -137,14 +137,16 @@ class _ChatPageState extends State<ChatPage>
       ta?.images['portrait'],
       ta?.images['landscape'],
     ];
-    String? path;
+    String? ref;
     for (final String? candidate in candidates) {
-      if (candidate != null && candidate.isNotEmpty && File(candidate).existsSync()) {
-        path = candidate;
+      if (candidate != null &&
+          candidate.isNotEmpty &&
+          await ImageStorage.instance.readBytes(candidate) != null) {
+        ref = candidate;
         break;
       }
     }
-    if (path == null) {
+    if (ref == null) {
       if (mounted) {
         setState(() => _accent = null);
       }
@@ -154,7 +156,7 @@ class _ChatPageState extends State<ChatPage>
     try {
       // 提取图片主色调（用 dart:ui 按 64x64 解码，避免在后台 isolate 里
       // 走 ImageProvider 触发 PaintingBinding 未初始化的问题）
-      final Color? dominantColor = await _extractDominantColor(path);
+      final Color? dominantColor = await _extractDominantColor(ref);
 
       if (!mounted || dominantColor == null) {
         return;
@@ -676,13 +678,12 @@ class _ChatPageState extends State<ChatPage>
 // 提取图片主色调。使用 dart:ui 的 instantiateImageCodec 按 64x64 解码并交给
 // PaletteGenerator.fromImage 计算，避免像 fromImageProvider 那样依赖
 // PaintingBinding（在后台 isolate 里会报「Binding has not yet been initialized」）。
-Future<Color?> _extractDominantColor(String path) async {
+Future<Color?> _extractDominantColor(String ref) async {
   try {
-    final File file = File(path);
-    if (!file.existsSync()) {
+    final Uint8List? bytes = await ImageStorage.instance.readBytes(ref);
+    if (bytes == null) {
       return null;
     }
-    final Uint8List bytes = await file.readAsBytes();
     // 解码时直接缩放到 64x64，既快又不阻塞 UI（单帧、小尺寸）。
     final ui.Codec codec = await ui.instantiateImageCodec(
       bytes,

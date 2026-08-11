@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/tts/tts_service.dart';
 import '../../state/app_controller.dart';
+import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -167,6 +168,15 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Web 端不支持端侧语音合成：整页置灰不可用。
+    if (!PlatformCapabilities.ttsSupported) {
+      return Scaffold(
+        appBar: AppBar(title: const FitText('语音合成')),
+        body: const Center(
+          child: FitText('当前平台不支持端侧语音合成'),
+        ),
+      );
+    }
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
     final bool enabled = widget.controller.settings.ttsEnabled;

@@ -211,14 +211,15 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
     );
   }
 
-  // 缓存图片 provider
+  // 缓存图片 provider（跨平台：IO 走文件，Web 走 IndexedDB）
   ImageProvider? _getCachedImage(String path) {
     if (!_imageCache.containsKey(path)) {
-      final File file = File(path);
-      if (!file.existsSync()) {
+      final ImageProvider? provider =
+          ImageStorage.instance.providerForRef(path);
+      if (provider == null) {
         return null;
       }
-      _imageCache[path] = FileImage(file);
+      _imageCache[path] = provider;
     }
     return _imageCache[path];
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart'; // ignore: unnecessary_import
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
@@ -13,6 +14,7 @@ import 'services/ta_service.dart';
 import 'services/settings_service.dart';
 import 'services/auto_backup_service.dart';
 import 'state/app_controller.dart';
+import 'utils/platform_capabilities.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 Future<void> main() async {
@@ -28,7 +30,10 @@ Future<void> main() async {
       await controller.initialize();
 
       // 每日自动备份：首次进入应用时在后台静默执行（失败不影响启动）。
-      unawaited(AutoBackupService.maybeBackup(controller));
+      // Web 无文件系统，跳过。
+      if (!kIsWeb) {
+        unawaited(AutoBackupService.maybeBackup(controller));
+      }
 
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
@@ -186,7 +191,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _showHome = widget.controller.settings.completedOobe;
-    _requireAuth = widget.controller.settings.requireAuthForApp;
+    // Web 端不支持生物识别，强制关闭启动认证（否则无法进入应用）。
+    _requireAuth = PlatformCapabilities.biometricAuthSupported &&
+        widget.controller.settings.requireAuthForApp;
     _showSplash = widget.controller.settings.showSplashAnimation;
     widget.controller.addListener(_onControllerChanged);
   }
@@ -228,7 +235,8 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   void _onControllerChanged() {
     final bool newShowHome = widget.controller.settings.completedOobe;
-    final bool newRequireAuth = widget.controller.settings.requireAuthForApp;
+    final bool newRequireAuth = PlatformCapabilities.biometricAuthSupported &&
+        widget.controller.settings.requireAuthForApp;
     if ((newShowHome != _showHome || newRequireAuth != _requireAuth) && mounted) {
       setState(() {
         _showHome = newShowHome;

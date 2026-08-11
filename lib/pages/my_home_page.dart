@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
+import '../services/image_storage.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
@@ -151,8 +150,9 @@ class _TaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? square = ta.images['square'];
-    final bool hasImage = square != null && square.isNotEmpty;
+    final ImageProvider? squareProvider =
+        ImageStorage.instance.providerFor(ta, 'square');
+    final bool hasImage = squareProvider != null;
 
     return Card(
       child: InkWell(
@@ -174,14 +174,16 @@ class _TaItem extends StatelessWidget {
               hasImage
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(square),
+                      child: Image(
+                        // 限制图片解码大小，避免内存问题
+                        image: ResizeImage.resizeIfNeeded(
+                          128,
+                          128,
+                          squareProvider,
+                        ),
                         width: 64,
                         height: 64,
                         fit: BoxFit.cover,
-                        // 限制图片解码大小，避免内存问题
-                        cacheWidth: 128,
-                        cacheHeight: 128,
                       ),
                     )
                   : const CircleAvatar(

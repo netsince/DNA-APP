@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/services/tts/tts_service.dart';
+import 'package:dna/utils/platform_capabilities.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 第三方开源组件条目。
@@ -262,6 +263,11 @@ class _OpenSourcePageState extends State<OpenSourcePage> {
   }
 
   Future<void> _checkChatTts() async {
+    // Web 端不支持端侧 TTS，直接标记未安装（置灰），不触发原生检测。
+    if (!PlatformCapabilities.ttsSupported) {
+      if (mounted) setState(() => _chatTtsReady = false);
+      return;
+    }
     final bool ready = await TtsService.instance.isModelsReady();
     if (!mounted) return;
     setState(() => _chatTtsReady = ready);
