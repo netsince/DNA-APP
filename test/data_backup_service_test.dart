@@ -9,6 +9,22 @@ import 'package:dna/models/world.dart';
 import 'package:dna/services/data_backup_service.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+/// 将应用文档目录指向临时目录，使 ImageStorage(IO) 在测试中可落盘。
+class _FakePathProvider extends PathProviderPlatform
+    with MockPlatformInterfaceMixin {
+  _FakePathProvider(this._basePath);
+
+  final String _basePath;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => _basePath;
+
+  @override
+  Future<String?> getTemporaryPath() async => _basePath;
+}
 
 const List<int> _sampleImageBytes = <int>[1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -137,14 +153,16 @@ void main() {
         expect(relName, endsWith('.png'));
         expect(backup.imageBytes.containsKey(relName), isTrue);
 
-        final Directory outDir = Directory('${tempDir.path}/out')..createSync();
-        final List<TA> resolved = DataBackupService.resolveTasImages(
+        // 让 ImageStorage(IO) 把图片写入临时目录下的 tas/
+        PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+        final List<TA> resolved = await DataBackupService.resolveTasImages(
           backup.tas,
           backup.imageBytes,
-          outDir.path,
+          '',
         );
         final String resolvedPath = resolved.first.images['avatar']!;
-        expect(resolvedPath, startsWith(outDir.path));
+        expect(resolvedPath, startsWith(tempDir.path));
+        expect(resolvedPath, contains('tas'));
         expect(File(resolvedPath).readAsBytesSync(), _sampleImageBytes);
       } finally {
         await tempDir.delete(recursive: true);
@@ -188,11 +206,12 @@ void main() {
         expect(backup.imageBytes[relA], bytesA);
         expect(backup.imageBytes[relB], bytesB);
 
-        final Directory outDir = Directory('${tempDir.path}/out')..createSync();
-        final List<TA> resolved = DataBackupService.resolveTasImages(
+        // 让 ImageStorage(IO) 把图片写入临时目录下的 tas/
+        PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+        final List<TA> resolved = await DataBackupService.resolveTasImages(
           backup.tas,
           backup.imageBytes,
-          outDir.path,
+          '',
         );
         expect(File(resolved[0].images['avatar']!).readAsBytesSync(), bytesA);
         expect(File(resolved[1].images['avatar']!).readAsBytesSync(), bytesB);
