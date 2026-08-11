@@ -51,7 +51,6 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.lock_outline,
                     title: '安全与隐私',
                     subtitle: '生物识别验证保护',
-                    enabled: PlatformCapabilities.biometricAuthSupported,
                     onTap: () => _push(context, SecuritySettingsPage(controller: controller)),
                   ),
                   _MenuItem(

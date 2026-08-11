@@ -817,10 +817,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
               const SizedBox(width: 4),
             ],
             const SizedBox(width: 8),
-            // 语音输入按钮：开关开启时显示；Web 端不支持时始终显示（置灰）。
-            if (!_hasInput &&
-                (widget.controller.settings.voiceInputEnabled ||
-                    !PlatformCapabilities.voiceInputSupported)) ...<Widget>[
+            // 语音输入按钮：仅在开关开启时显示。
+            // Web 端该设置已被强制关闭，按钮自然隐藏。
+            if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
               _buildMic(),
               const SizedBox(width: 8),
             ],

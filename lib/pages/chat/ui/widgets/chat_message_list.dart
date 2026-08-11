@@ -261,7 +261,6 @@ class ChatMessageList extends StatelessWidget {
             index == conversation.messages.lastIndexWhere(
               (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
             );
-        final Alignment alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
         final Color bubbleColor = isUser ? userBubble : assistantBubble;
         final int charCount = message.text.runes.length;
         final int tokenCount = showTokenCounts ? tokenCountForMessage(message.id, message.text) : 0;
@@ -270,157 +269,184 @@ class ChatMessageList extends StatelessWidget {
             ? taNameForId(message.speakerTaId)?.trim()
             : null;
 
-        return Align(
-          key: key,
-          alignment: alignment,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: <Widget>[
-              GestureDetector(
-                onLongPressStart: (LongPressStartDetails details) {
-                  onShowMessageMenu(
-                    position: details.globalPosition,
-                    message: message,
-                    index: index,
-                  );
-                },
-                onSecondaryTapDown: (TapDownDetails details) {
-                  onShowMessageMenu(
-                    position: details.globalPosition,
-                    message: message,
-                    index: index,
-                  );
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  decoration: BoxDecoration(
-                    color: bubbleColor,
-                    borderRadius: BorderRadius.circular(16),
+        final Widget bubble = GestureDetector(
+          onLongPressStart: (LongPressStartDetails details) {
+            onShowMessageMenu(
+              position: details.globalPosition,
+              message: message,
+              index: index,
+            );
+          },
+          onSecondaryTapDown: (TapDownDetails details) {
+            onShowMessageMenu(
+              position: details.globalPosition,
+              message: message,
+              index: index,
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            constraints: const BoxConstraints(maxWidth: 520),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
+                  FitText(
+                    speakerName,
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
-                        FitText(
-                          speakerName,
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      RichText(
-                        text: _buildHighlightedText(
-                          context,
-                          message.text,
-                          searchQuery,
-                          colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerLowest,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
-                                  const SizedBox(width: 4),
-                                  FitText(
-                                    '思考内容',
-                                    style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              FitText(thoughtText, style: textTheme.bodySmall),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
-                        const SizedBox(height: 6),
-                        FitText(
-                          '字数 $charCount / Token $tokenCount',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 4),
+                ],
+                RichText(
+                  text: _buildHighlightedText(
+                    context,
+                    message.text,
+                    searchQuery,
+                    colorScheme.tertiaryContainer.withValues(alpha: 0.55),
                   ),
                 ),
-              ),
-              // 仅对方（左侧）气泡显示悬浮操作区，半溢出左上角：
-              // 头像（可选）+ 朗读球；右上角为「重说/复制/继续说」快捷按钮（可选）。
-              if (!isUser && message.kind == 'message' && message.text.trim().isNotEmpty) ...<Widget>[
-                Positioned(
-                  top: -8,
-                  left: -8,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      if (showMessageAvatar && avatarForMessage != null) ...<Widget>[
-                        _MessageAvatarButton(
-                          avatar: avatarForMessage!(message.speakerTaId),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      if (ttsEnabled || !PlatformCapabilities.ttsSupported)
-                        _MessagePlayButton(
-                          text: message.text,
-                          globalSeed: ttsGlobalSeed,
-                          voiceSeedForTa: voiceSeedForTa,
-                          speakerTaId: message.speakerTaId,
-                          quoteOnly: ttsQuoteOnly,
-                        ),
-                    ],
-                  ),
-                ),
-                if ((showMessageRetry && isLastAssistant) ||
-                    (showMessageCopy) ||
-                    (showMessageContinue && isLastAssistant)) ...<Widget>[
-                  Positioned(
-                    top: -8,
-                    right: -8,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        if (showMessageCopy)
-                          _MessageActionButton(
-                            tooltip: '复制',
-                            icon: Icons.copy_rounded,
-                            onTap: onCopyMessage == null
-                                ? null
-                                : () => onCopyMessage!(message.text),
-                          ),
-                        if (showMessageRetry && isLastAssistant)
-                          _MessageActionButton(
-                            tooltip: '重说',
-                            icon: Icons.refresh_rounded,
-                            onTap: isLastAssistant ? onRetryMessage : null,
-                          ),
-                        if (showMessageContinue && isLastAssistant)
-                          _MessageActionButton(
-                            tooltip: '继续说',
-                            icon: Icons.play_arrow_rounded,
-                            onTap: isLastAssistant ? onContinueMessage : null,
-                          ),
+                        Row(
+                          children: <Widget>[
+                            Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
+                            const SizedBox(width: 4),
+                            FitText(
+                              '思考内容',
+                              style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        FitText(thoughtText, style: textTheme.bodySmall),
                       ],
                     ),
                   ),
                 ],
+                if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
+                  const SizedBox(height: 6),
+                  FitText(
+                    '字数 $charCount / Token $tokenCount',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
               ],
+            ),
+          ),
+        );
+
+        // 用户消息：右侧气泡，无操作按钮。
+        if (isUser) {
+          return Align(
+            key: key,
+            alignment: Alignment.centerRight,
+            child: bubble,
+          );
+        }
+
+        // 对方消息：操作按钮合并为一排放在气泡外（不遮挡文字），头像在气泡左侧。
+        final bool actionable =
+            message.kind == 'message' && message.text.trim().isNotEmpty;
+        final ImageProvider? avatarProvider =
+            (actionable && showMessageAvatar && avatarForMessage != null)
+                ? avatarForMessage!(message.speakerTaId)
+                : null;
+
+        // 操作按钮排：朗读（仅端侧 TTS 开启时）、复制、重说、继续说（最近一条）。
+        final List<Widget> actionButtons = <Widget>[];
+        if (actionable && ttsEnabled) {
+          actionButtons.add(
+            _MessagePlayButton(
+              text: message.text,
+              globalSeed: ttsGlobalSeed,
+              voiceSeedForTa: voiceSeedForTa,
+              speakerTaId: message.speakerTaId,
+              quoteOnly: ttsQuoteOnly,
+            ),
+          );
+        }
+        if (actionable && showMessageCopy) {
+          actionButtons.add(
+            _MessageActionButton(
+              tooltip: '复制',
+              icon: Icons.copy_rounded,
+              onTap: onCopyMessage == null
+                  ? null
+                  : () => onCopyMessage!(message.text),
+            ),
+          );
+        }
+        if (actionable && showMessageRetry && isLastAssistant) {
+          actionButtons.add(
+            _MessageActionButton(
+              tooltip: '重说',
+              icon: Icons.refresh_rounded,
+              onTap: onRetryMessage,
+            ),
+          );
+        }
+        if (actionable && showMessageContinue && isLastAssistant) {
+          actionButtons.add(
+            _MessageActionButton(
+              tooltip: '继续说',
+              icon: Icons.play_arrow_rounded,
+              onTap: onContinueMessage,
+            ),
+          );
+        }
+
+        return Align(
+          key: key,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              // 头像列：关闭头像开关时整体移除，气泡自动回挪。
+              if (avatarProvider != null) ...<Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _MessageAvatarButton(avatar: avatarProvider),
+                ),
+              ],
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (actionButtons.isNotEmpty) ...<Widget>[
+                      // 操作按钮排（气泡外上方）：超宽时 Wrap 自动换行完整显示。
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.start,
+                        children: actionButtons,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    bubble,
+                  ],
+                ),
+              ),
             ],
           ),
         );

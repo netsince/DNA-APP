@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
@@ -30,7 +31,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   bool _showMessageRetry = true;
   bool _showMessageCopy = true;
   bool _showMessageContinue = true;
-  final bool _androidOk = AppIconService.isSupported;
+  final bool _iconSupported = AppIconService.isSupported || kIsWeb;
 
   static const Color _defaultAccent = Color(0xFF147B74);
 
@@ -147,8 +148,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          if (!_androidOk)
-            FitText('应用图标切换仅支持 Android 平台，当前平台不支持。',
+          if (!_iconSupported)
+            FitText('当前平台不支持切换图标。',
                 style: TextStyle(color: cs.error, fontSize: 12)),
           const SizedBox(height: 12),
           // 当前图标预览 + 进入换图标页面入口
@@ -198,7 +199,9 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                           ),
                           const SizedBox(height: 3),
                           FitText(
-                            _androidOk ? '点击更换启动器图标' : '当前平台不支持切换',
+                            _iconSupported
+                                ? (kIsWeb ? '点击更换浏览器标签页图标' : '点击更换启动器图标')
+                                : '当前平台不支持切换',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall

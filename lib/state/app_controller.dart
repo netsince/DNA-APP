@@ -26,6 +26,7 @@ import '../services/app_icon_service.dart';
 import '../services/ta_service.dart';
 import '../services/hive_service.dart';
 import '../services/image_storage.dart';
+import '../services/web_utils.dart';
 import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
@@ -582,7 +583,8 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存并应用应用图标选择。非 Android 平台仅保存设置，不做切换。
+  /// 保存并应用应用图标选择。
+  /// Android：切换启动器图标；Web：切换浏览器标签页图标；其余平台仅保存设置。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);
     await _settingsService.save(_settings);
@@ -591,6 +593,12 @@ class AppController extends ChangeNotifier {
         await AppIconService.setIcon(option);
       } catch (e) {
         debugPrint('切换应用图标失败：$e');
+      }
+    } else if (kIsWeb) {
+      try {
+        await setBrowserFavicon(option.assetPath);
+      } catch (e) {
+        debugPrint('切换浏览器图标失败：$e');
       }
     }
     notifyListeners();

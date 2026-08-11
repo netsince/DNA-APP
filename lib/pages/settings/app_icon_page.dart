@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../services/app_icon_service.dart';
@@ -17,7 +18,9 @@ class AppIconPage extends StatefulWidget {
 
 class _AppIconPageState extends State<AppIconPage> {
   late String _iconKey;
-  final bool _androidOk = AppIconService.isSupported;
+
+  /// 本平台是否支持运行时切换图标：Android（启动器）或 Web（浏览器标签页）。
+  final bool _iconSupported = AppIconService.isSupported || kIsWeb;
 
   @override
   void initState() {
@@ -30,7 +33,10 @@ class _AppIconPageState extends State<AppIconPage> {
     setState(() => _iconKey = opt.key);
     await widget.controller.saveAppIcon(opt);
     if (!mounted) return;
-    showSnack(context, '应用图标已切换，返回桌面即可看到效果。');
+    showSnack(
+      context,
+      kIsWeb ? '浏览器标签页图标已切换。' : '应用图标已切换，返回桌面即可看到效果。',
+    );
   }
 
   @override
@@ -47,7 +53,7 @@ class _AppIconPageState extends State<AppIconPage> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 children: <Widget>[
-                  if (!_androidOk)
+                  if (!_iconSupported)
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -55,13 +61,15 @@ class _AppIconPageState extends State<AppIconPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: FitText(
-                        '应用图标切换仅支持 Android 平台，当前平台不支持，仅展示预览。',
+                        '当前平台不支持切换图标，仅展示预览。',
                         style: TextStyle(color: cs.onErrorContainer),
                       ),
                     )
                   else
                     FitText(
-                      '选择启动器上显示的图标，点击后立即应用。',
+                      kIsWeb
+                          ? '选择浏览器标签页上显示的图标，点击后立即应用。'
+                          : '选择启动器上显示的图标，点击后立即应用。',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -72,7 +80,7 @@ class _AppIconPageState extends State<AppIconPage> {
                     _IconCard(
                       option: opt,
                       selected: _iconKey == opt.key,
-                      enabled: _androidOk,
+                      enabled: _iconSupported,
                       onTap: () => _selectIcon(opt),
                     ),
                     const SizedBox(height: 16),
@@ -157,7 +165,7 @@ class _IconCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: FitText(
-                    '仅支持 Android',
+                    '当前平台不支持切换',
                     style: TextStyle(fontSize: 12, color: cs.outline),
                   ),
                 ),

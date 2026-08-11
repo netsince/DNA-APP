@@ -9,10 +9,13 @@ import 'pages/auth_page.dart';
 import 'pages/home_page.dart';
 import 'pages/oobe_page.dart';
 import 'pages/splash_page.dart';
-import 'services/openai_service.dart';
-import 'services/ta_service.dart';
-import 'services/settings_service.dart';
+import 'services/app_icon_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/openai_service.dart';
+import 'services/settings_service.dart';
+import 'services/ta_service.dart';
+import 'services/web_font_loader.dart';
+import 'services/web_utils.dart';
 import 'state/app_controller.dart';
 import 'utils/platform_capabilities.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -33,6 +36,12 @@ Future<void> main() async {
       // Web 无文件系统，跳过。
       if (!kIsWeb) {
         unawaited(AutoBackupService.maybeBackup(controller));
+      } else {
+        // Web：应用已保存的浏览器标签页图标，并异步加载中文字体。
+        unawaited(setBrowserFavicon(
+          AppIconService.optionForKey(controller.settings.appIcon).assetPath,
+        ));
+        unawaited(WebFontLoader.load());
       }
 
       FlutterError.onError = (FlutterErrorDetails details) {
@@ -186,6 +195,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _hasBeenPaused = false;
   DateTime? _pausedTime;
 
+  /// 本次页面加载（冷启动/刷新）已展示过网页版提示。
+  /// 刷新页面会重建整个 Dart 应用，static 状态随之重置，
+  /// 因此「网页彻底关闭再打开」时仍会再次提示。
+  static bool _webNoticeShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -196,6 +210,72 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         widget.controller.settings.requireAuthForApp;
     _showSplash = widget.controller.settings.showSplashAnimation;
     widget.controller.addListener(_onControllerChanged);
+    // 网页版每次打开页面（冷启动/刷新）只弹一次预览提示。
+    if (kIsWeb && !_webNoticeShown) {
+      _webNoticeShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showWebNotice();
+      });
+    }
+  }
+
+  void _showWebNotice() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(Icons.info_outline,
+                      color: Theme.of(sheetContext).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: FitText(
+                      '欢迎使用网页版（预览版）',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _WebNoticeItem(
+                icon: Icons.cloud_upload_outlined,
+                title: '请手动备份数据',
+                detail: '网页版数据保存在浏览器中，清理浏览器数据会导致数据丢失。建议在「设置 → 数据管理 → 导出全部数据」中定期手动备份。',
+              ),
+              const SizedBox(height: 12),
+              const _WebNoticeItem(
+                icon: Icons.block_outlined,
+                title: '部分功能已禁用',
+                detail: '语音输入、语音合成、生物识别锁定等功能在网页版中不可用（设置中已置灰）。',
+              ),
+              const SizedBox(height: 12),
+              const _WebNoticeItem(
+                icon: Icons.science_outlined,
+                title: '预览版',
+                detail: '当前为预览版本，功能与体验可能仍在调整，请以实际使用为准。',
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  child: const FitText('我知道了'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -290,6 +370,43 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                 HomePage(controller: widget.controller),
               ],
             ),
+    );
+  }
+}
+
+/// 网页版预览提示中的单条说明。
+class _WebNoticeItem extends StatelessWidget {
+  const _WebNoticeItem({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: 20, color: cs.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              FitText(title,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              FitText(detail,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
