@@ -178,67 +178,68 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
           const SizedBox(height: 16),
           FitText('推进策略', style: ts.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
-              Expanded(child: ChoiceChip(
+              ChoiceChip(
                 label: const FitText('强制推进'),
                 selected: _strategy.advance == AdvanceStrategy.forced,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(advance: AdvanceStrategy.forced)); _saveStrategy(); },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: ChoiceChip(
+              ),
+              ChoiceChip(
                 label: const FitText('自由发展'),
                 selected: _strategy.advance == AdvanceStrategy.free,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(advance: AdvanceStrategy.free)); _saveStrategy(); },
-              )),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           FitText('沉浸策略', style: ts.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
-              Expanded(child: ChoiceChip(
+              ChoiceChip(
                 label: const FitText('克制'),
                 selected: _strategy.immersion == ImmersionStrategy.restrained,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(immersion: ImmersionStrategy.restrained)); _saveStrategy(); },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: ChoiceChip(
+              ),
+              ChoiceChip(
                 label: const FitText('更强'),
                 selected: _strategy.immersion == ImmersionStrategy.strong,
                 onSelected: (s) { setState(() => _strategy = _strategy.copyWith(immersion: ImmersionStrategy.strong)); },
-              )),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           FitText('字数控制', style: ts.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
-              Expanded(child: ChoiceChip(
+              ChoiceChip(
                 label: const FitText('严格 80-120 字'),
                 selected: _strategy.length == LengthStrategy.strict,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.strict)); _saveStrategy(); },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: ChoiceChip(
+              ),
+              ChoiceChip(
                 label: const FitText('适中 150-250 字'),
                 selected: _strategy.length == LengthStrategy.medium,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.medium)); _saveStrategy(); },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: ChoiceChip(
+              ),
+              ChoiceChip(
                 label: const FitText('无限制'),
                 selected: _strategy.length == LengthStrategy.unlimited,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.unlimited)); _saveStrategy(); },
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: ChoiceChip(
+              ),
+              ChoiceChip(
                 label: const FitText('自定义'),
                 selected: _strategy.length == LengthStrategy.custom,
                 onSelected: (s) { if (s) setState(() => _strategy = _strategy.copyWith(length: LengthStrategy.custom)); _saveStrategy(); },
-              )),
+              ),
             ],
           ),
           if (_strategy.length == LengthStrategy.custom) ...[
