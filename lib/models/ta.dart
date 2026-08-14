@@ -37,7 +37,7 @@ class TA {
   /// 客户端只存不编，导出时原样透传，UI 不展示，避免溯源信息失真。
   final Map<String, dynamic>? protection;
 
-  /// 该角色绑定的作者注释（Author's Note）。选填：留空时回退到全局作者注释。
+  /// 该角色绑定的作者注释（Author's Note）。选填：留空则不注入。
   final String? authorNote;
 
   /// 该角色作者注释的注入间隔（每多少条历史消息注入一次），0 表示禁用。

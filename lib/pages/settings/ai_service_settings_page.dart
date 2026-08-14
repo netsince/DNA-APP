@@ -313,8 +313,8 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.tune),
-            title: const FitText('高级功能'),
-            subtitle: const FitText('采样参数（Top-P / Top-K / Min-P / 重复惩罚等）'),
+            title: const FitText('采样参数'),
+            subtitle: const FitText('温度 / 频率惩罚 / 存在惩罚 / Top-P / Top-K / Min-P / 重复惩罚等'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(

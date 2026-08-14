@@ -27,11 +27,6 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
   late final TextEditingController _stickyCtrl;
   late final TextEditingController _loreMaxEntriesCtrl;
   late final TextEditingController _loreBudgetTokensCtrl;
-  late double _temperature;
-  late double _frequencyPenalty;
-  late double _presencePenalty;
-  late final TextEditingController _authorNoteCtrl;
-  late final TextEditingController _authorIntervalCtrl;
   late final TextEditingController _customMinCtrl;
   late final TextEditingController _customMaxCtrl;
 
@@ -51,17 +46,12 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     _stickyCtrl = TextEditingController(text: s.loreStickyRounds.toString());
     _loreMaxEntriesCtrl = TextEditingController(text: s.loreMaxEntries.toString());
     _loreBudgetTokensCtrl = TextEditingController(text: s.loreBudgetTokens.toString());
-    _temperature = s.temperature;
-    _frequencyPenalty = s.frequencyPenalty;
-    _presencePenalty = s.presencePenalty;
-    _authorNoteCtrl = TextEditingController(text: s.authorNote ?? '');
-    _authorIntervalCtrl = TextEditingController(text: s.authorNoteInterval.toString());
     _customMinCtrl = TextEditingController(text: s.promptStrategy.customMinChars?.toString() ?? '');
     _customMaxCtrl = TextEditingController(text: s.promptStrategy.customMaxChars?.toString() ?? '');
   }
 
   @override
-  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _loreMaxEntriesCtrl.dispose(); _loreBudgetTokensCtrl.dispose(); _authorNoteCtrl.dispose(); _authorIntervalCtrl.dispose(); _customMinCtrl.dispose(); _customMaxCtrl.dispose(); super.dispose(); }
+  void dispose() { _summaryCtrl.dispose(); _wordCtrl.dispose(); _ctxCtrl.dispose(); _tokenCtrl.dispose(); _stickyCtrl.dispose(); _loreMaxEntriesCtrl.dispose(); _loreBudgetTokensCtrl.dispose(); _customMinCtrl.dispose(); _customMaxCtrl.dispose(); super.dispose(); }
 
   Future<void> _saveSummary() async {
     final turns = (int.tryParse(_summaryCtrl.text.trim()) ?? 200).clamp(10, 1000);
@@ -116,52 +106,6 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
     final int v = (int.tryParse(_loreBudgetTokensCtrl.text.trim()) ?? 0).clamp(0, 100000);
     _loreBudgetTokensCtrl.text = v.toString();
     await widget.controller.saveLoreBudgetTokens(v);
-  }
-
-  Future<void> _saveAuthorNote() => widget.controller.saveAuthorNote(_authorNoteCtrl.text);
-
-  Future<void> _saveAuthorInterval() async {
-    final int v = (int.tryParse(_authorIntervalCtrl.text.trim()) ?? 0).clamp(0, 200);
-    _authorIntervalCtrl.text = v.toString();
-    await widget.controller.saveAuthorNoteInterval(v);
-  }
-
-  Future<void> _saveSampling() => widget.controller.saveSampling(
-        temperature: _temperature,
-        frequencyPenalty: _frequencyPenalty,
-        presencePenalty: _presencePenalty,
-      );
-
-  Widget _buildSamplingSlider(
-    String label,
-    double value,
-    double max,
-    ValueChanged<double> onChanged,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: FitText(
-                label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-            FitText(
-              value.toStringAsFixed(2),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        Slider(value: value.clamp(0.0, max), max: max, onChanged: onChanged),
-      ],
-    );
   }
 
   @override
@@ -492,58 +436,6 @@ class _ConversationSettingsPageState extends State<ConversationSettingsPage> {
                 ),
               );
             },
-          ),
-          const Divider(),
-          // --- Sampling ---
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: FitText('采样参数（抑制复读）',
-                style: ts.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(height: 4),
-          _buildSamplingSlider('温度', _temperature, 2.0,
-              (v) => setState(() => _temperature = v)),
-          _buildSamplingSlider('频率惩罚', _frequencyPenalty, 2.0,
-              (v) => setState(() => _frequencyPenalty = v)),
-          _buildSamplingSlider('存在惩罚', _presencePenalty, 2.0,
-              (v) => setState(() => _presencePenalty = v)),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _saveSampling,
-              child: const FitText('应用采样参数'),
-            ),
-          ),
-          const Divider(),
-          // --- Author's Note (deep injection) ---
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: FitText('作者注释（深度注入）',
-                style: ts.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(height: 4),
-          TextField(
-            controller: _authorNoteCtrl,
-            maxLines: 3,
-            minLines: 2,
-            decoration: const InputDecoration(
-              labelText: '希望模型始终记住/强调的内容',
-              hintText: '例：此刻身处雨夜森林，脚下是湿冷的泥土',
-              isDense: true,
-            ),
-            onChanged: (_) => _saveAuthorNote(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _authorIntervalCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '注入间隔（每多少条历史消息注入一次）',
-              hintText: '0 表示禁用，默认 0',
-              isDense: true,
-            ),
-            onChanged: (_) => _saveAuthorInterval(),
           ),
         ],
       ),

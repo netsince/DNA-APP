@@ -61,8 +61,6 @@ class AppSettings {
     this.minP = 0.0,
     this.repetitionPenalty = 1.0,
     this.repetitionPenaltySlope = 0.0,
-    this.authorNote,
-    this.authorNoteInterval = 0,
     this.loreStickyRounds = 3,
     this.loreMaxEntries = 8,
     this.loreBudgetTokens = 0,
@@ -129,8 +127,6 @@ class AppSettings {
       minP: 0.0,
       repetitionPenalty: 1.0,
       repetitionPenaltySlope: 0.0,
-      authorNote: null,
-      authorNoteInterval: 0,
       loreStickyRounds: 3,
       loreMaxEntries: 8,
       loreBudgetTokens: 0,
@@ -293,13 +289,6 @@ class AppSettings {
   /// 重复惩罚斜率（repetition_penalty_slope）：对最近重复词的额外加权。0 表示关闭。
   final double repetitionPenaltySlope;
 
-  /// 作者注释（Author's Note）：一段希望模型始终记住/强调的内容。
-  /// 非空时按 [authorNoteInterval] 每隔若干条消息深度注入到对话中间。
-  final String? authorNote;
-
-  /// 作者注释注入间隔：每隔多少条历史消息注入一次，0 表示禁用深度注入。
-  final int authorNoteInterval;
-
   /// 世界词条 sticky 轮数：词条被激活后持续保留的轮数，0 表示禁用。
   final int loreStickyRounds;
 
@@ -379,8 +368,6 @@ class AppSettings {
       'minP': minP,
       'repetitionPenalty': repetitionPenalty,
       'repetitionPenaltySlope': repetitionPenaltySlope,
-      'authorNote': authorNote,
-      'authorNoteInterval': authorNoteInterval,
       'loreStickyRounds': loreStickyRounds,
       'loreMaxEntries': loreMaxEntries,
       'loreBudgetTokens': loreBudgetTokens,
@@ -462,8 +449,6 @@ class AppSettings {
       repetitionPenalty: (json['repetitionPenalty'] as num?)?.toDouble() ?? 1.0,
       repetitionPenaltySlope:
           (json['repetitionPenaltySlope'] as num?)?.toDouble() ?? 0.0,
-      authorNote: json['authorNote'] as String?,
-      authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
       loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
       loreBudgetTokens: (json['loreBudgetTokens'] as int?) ?? 0,
       quickReplies: (json['quickReplies'] as List?)
@@ -536,8 +521,6 @@ class AppSettings {
     double? minP,
     double? repetitionPenalty,
     double? repetitionPenaltySlope,
-    String? authorNote,
-    int? authorNoteInterval,
     int? loreStickyRounds,
     int? loreMaxEntries,
     int? loreBudgetTokens,
@@ -604,8 +587,6 @@ class AppSettings {
       repetitionPenalty: repetitionPenalty ?? this.repetitionPenalty,
       repetitionPenaltySlope:
           repetitionPenaltySlope ?? this.repetitionPenaltySlope,
-      authorNote: authorNote ?? this.authorNote,
-      authorNoteInterval: authorNoteInterval ?? this.authorNoteInterval,
       loreStickyRounds: loreStickyRounds ?? this.loreStickyRounds,
       loreMaxEntries: loreMaxEntries ?? this.loreMaxEntries,
       loreBudgetTokens: loreBudgetTokens ?? this.loreBudgetTokens,

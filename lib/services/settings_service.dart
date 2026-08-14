@@ -52,8 +52,6 @@ class SettingsService {
   static const String _temperatureKey = 'temperature';
   static const String _frequencyPenaltyKey = 'frequency_penalty';
   static const String _presencePenaltyKey = 'presence_penalty';
-  static const String _authorNoteKey = 'author_note';
-  static const String _authorNoteIntervalKey = 'author_note_interval';
   static const String _loreStickyRoundsKey = 'lore_sticky_rounds';
   static const String _loreMaxEntriesKey = 'lore_max_entries';
   static const String _loreBudgetTokensKey = 'lore_budget_tokens';
@@ -123,8 +121,6 @@ class SettingsService {
       temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
       frequencyPenalty: (prefs.getDouble(_frequencyPenaltyKey)) ?? 0.0,
       presencePenalty: (prefs.getDouble(_presencePenaltyKey)) ?? 0.0,
-      authorNote: prefs.getString(_authorNoteKey),
-      authorNoteInterval: prefs.getInt(_authorNoteIntervalKey) ?? 0,
       loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
       loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
       loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
@@ -213,12 +209,6 @@ class SettingsService {
     await prefs.setDouble(_temperatureKey, settings.temperature);
     await prefs.setDouble(_frequencyPenaltyKey, settings.frequencyPenalty);
     await prefs.setDouble(_presencePenaltyKey, settings.presencePenalty);
-    if (settings.authorNote != null && settings.authorNote!.trim().isNotEmpty) {
-      await prefs.setString(_authorNoteKey, settings.authorNote!);
-    } else {
-      await prefs.remove(_authorNoteKey);
-    }
-    await prefs.setInt(_authorNoteIntervalKey, settings.authorNoteInterval);
     await prefs.setInt(_loreStickyRoundsKey, settings.loreStickyRounds);
     await prefs.setInt(_loreMaxEntriesKey, settings.loreMaxEntries);
     await prefs.setInt(_loreBudgetTokensKey, settings.loreBudgetTokens);

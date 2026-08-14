@@ -16,12 +16,18 @@ class SamplerSettingsPage extends StatefulWidget {
 }
 
 class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
+  late double _temperature;
+  late double _frequencyPenalty;
+  late double _presencePenalty;
   late double _topP;
   late double _topK;
   late double _minP;
   late double _repetitionPenalty;
   late double _repetitionPenaltySlope;
 
+  static const double _defaultTemperature = 0.7;
+  static const double _defaultFrequencyPenalty = 0.0;
+  static const double _defaultPresencePenalty = 0.0;
   static const double _defaultTopP = 1.0;
   static const double _defaultTopK = 0.0;
   static const double _defaultMinP = 0.0;
@@ -32,6 +38,9 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
   void initState() {
     super.initState();
     final s = widget.controller.settings;
+    _temperature = s.temperature;
+    _frequencyPenalty = s.frequencyPenalty;
+    _presencePenalty = s.presencePenalty;
     _topP = s.topP;
     _topK = s.topK;
     _minP = s.minP;
@@ -40,28 +49,46 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
   }
 
   bool get _isDefault =>
+      _temperature == _defaultTemperature &&
+      _frequencyPenalty == _defaultFrequencyPenalty &&
+      _presencePenalty == _defaultPresencePenalty &&
       _topP == _defaultTopP &&
       _topK == _defaultTopK &&
       _minP == _defaultMinP &&
       _repetitionPenalty == _defaultRepetitionPenalty &&
       _repetitionPenaltySlope == _defaultRepetitionPenaltySlope;
 
-  Future<void> _save() => widget.controller.saveAdvancedSampling(
-        topP: _topP,
-        topK: _topK,
-        minP: _minP,
-        repetitionPenalty: _repetitionPenalty,
-        repetitionPenaltySlope: _repetitionPenaltySlope,
-      );
+  Future<void> _save() async {
+    await widget.controller.saveSampling(
+      temperature: _temperature,
+      frequencyPenalty: _frequencyPenalty,
+      presencePenalty: _presencePenalty,
+    );
+    await widget.controller.saveAdvancedSampling(
+      topP: _topP,
+      topK: _topK,
+      minP: _minP,
+      repetitionPenalty: _repetitionPenalty,
+      repetitionPenaltySlope: _repetitionPenaltySlope,
+    );
+  }
 
   Future<void> _reset() async {
     setState(() {
+      _temperature = _defaultTemperature;
+      _frequencyPenalty = _defaultFrequencyPenalty;
+      _presencePenalty = _defaultPresencePenalty;
       _topP = _defaultTopP;
       _topK = _defaultTopK;
       _minP = _defaultMinP;
       _repetitionPenalty = _defaultRepetitionPenalty;
       _repetitionPenaltySlope = _defaultRepetitionPenaltySlope;
     });
+    await widget.controller.saveSampling(
+      temperature: _temperature,
+      frequencyPenalty: _frequencyPenalty,
+      presencePenalty: _presencePenalty,
+    );
     await widget.controller.resetAdvancedSampling();
   }
 
@@ -115,7 +142,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
     final cs = Theme.of(context).colorScheme;
     final ts = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const FitText('高级功能')),
+      appBar: AppBar(title: const FitText('采样参数')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -131,7 +158,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FitText(
-                    '以下为采样高级参数。如果不懂就不要瞎改，改错可能影响生成质量。',
+                    '以下为采样参数。如果不懂就不要瞎改，改错可能影响生成质量。',
                     style: TextStyle(color: cs.onErrorContainer),
                   ),
                 ),
@@ -139,6 +166,34 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
             ),
           ),
           const SizedBox(height: 16),
+          _buildSlider(
+            label: '温度（Temperature）',
+            description: '值越高随机性越强，越低越保守确定。默认 0.7。',
+            value: _temperature,
+            max: 2.0,
+            divisions: 200,
+            display: (v) => v.toStringAsFixed(2),
+            onChanged: (v) => setState(() => _temperature = v),
+          ),
+          _buildSlider(
+            label: '频率惩罚（Frequency Penalty）',
+            description: '对重复出现的词语施加惩罚，抑制复读。0~2，默认 0。',
+            value: _frequencyPenalty,
+            max: 2.0,
+            divisions: 200,
+            display: (v) => v.toStringAsFixed(2),
+            onChanged: (v) => setState(() => _frequencyPenalty = v),
+          ),
+          _buildSlider(
+            label: '存在惩罚（Presence Penalty）',
+            description: '鼓励谈论新话题，抑制重复话题。0~2，默认 0。',
+            value: _presencePenalty,
+            max: 2.0,
+            divisions: 200,
+            display: (v) => v.toStringAsFixed(2),
+            onChanged: (v) => setState(() => _presencePenalty = v),
+          ),
+          const Divider(height: 32),
           _buildSlider(
             label: 'Top-P（核采样）',
             description: '只从累积概率达到该阈值的词中采样，值越小越保守。1.0 表示关闭。',

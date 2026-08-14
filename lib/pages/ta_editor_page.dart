@@ -560,7 +560,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                         controller: _authorNoteController,
                         decoration: const InputDecoration(
                           labelText: '作者注释（可选）',
-                          hintText: '该角色始终希望强调的内容，按间隔深度注入对话。留空则用全局设置。',
+                          hintText: '该角色始终希望强调的内容，按间隔深度注入对话。留空则不注入。',
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -575,7 +575,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                       ),
                       const SizedBox(height: 4),
                       FitText(
-                        '作者注释会随角色卡导出/导入。留空时不覆盖全局作者注释。',
+                        '作者注释会随角色卡导出/导入。留空则该角色不注入作者注释。',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall

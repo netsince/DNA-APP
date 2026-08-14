@@ -50,19 +50,20 @@ mixin ChatActionsSend on ChatStateMixin {
     return widget.controller.getTaById(taId)?.name;
   }
 
-  /// 当前对话使用的作者注释：优先角色卡（TA）绑定的，未设置则回退全局设置。
+  /// 当前对话使用的作者注释：仅来自角色卡（TA）绑定。
+  /// 全局不再提供作者注释，未设置则不注入。
   String? _effectiveAuthorNote(TA? ta) {
     if (ta != null && ta.authorNote != null && ta.authorNote!.trim().isNotEmpty) {
       return ta.authorNote;
     }
-    return widget.controller.settings.authorNote;
+    return null;
   }
 
   int _effectiveAuthorNoteInterval(TA? ta) {
     if (ta != null && ta.authorNote != null && ta.authorNote!.trim().isNotEmpty) {
       return ta.authorNoteInterval;
     }
-    return widget.controller.settings.authorNoteInterval;
+    return 0;
   }
 
   /// Lorebook 跨轮状态：记录词条 sticky / 冷却 / 延迟的剩余轮数。
