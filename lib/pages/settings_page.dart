@@ -44,7 +44,7 @@ class SettingsPage extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.chat_bubble_outline,
                     title: '对话与策略',
-                    subtitle: '提示词、灵感、摘要及发送策略',
+                    subtitle: '提示词策略、摘要与上下文、回复与发送、消息与高级',
                     onTap: () => _push(context, ConversationSettingsPage(controller: controller)),
                   ),
                   _MenuItem(
@@ -56,7 +56,7 @@ class SettingsPage extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.palette_outlined,
                     title: '外观与体验',
-                    subtitle: '应用图标、动画及引导流程',
+                    subtitle: '主题与颜色、应用与启动、聊天界面',
                     onTap: () => _push(context, AppearanceSettingsPage(controller: controller)),
                   ),
                   _MenuItem(

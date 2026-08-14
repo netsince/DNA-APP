@@ -1,532 +1,145 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
-import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
-import 'app_icon_page.dart';
+import 'appearance_app_page.dart';
+import 'appearance_chat_page.dart';
+import 'appearance_theme_page.dart';
 
-class AppearanceSettingsPage extends StatefulWidget {
+/// 外观与体验：分类入口页。
+///
+/// 按「主题与颜色 / 应用与启动 / 聊天界面」分组，
+/// 点击列表项进入对应的设置页，避免把所有设置项平铺在一个页面。
+class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key, required this.controller});
   final AppController controller;
 
   @override
-  State<AppearanceSettingsPage> createState() => _AppearanceSettingsPageState();
-}
-
-class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
-  bool _showSplash = true;
-  bool _showBottomNav = false;
-  bool _showTokenDashboard = false;
-  String _iconKey = 'default';
-  String _themeMode = 'system';
-  int _snackDurationMs = 1000;
-  String _accentMode = 'auto';
-  int? _customAccentColor;
-  int _chatMaskStrength = 75;
-  int _chatBubbleOpacity = 100;
-  bool _halfScreenChat = false;
-  bool _showMessageAvatar = true;
-  bool _showMessageRetry = true;
-  bool _showMessageCopy = true;
-  bool _showMessageContinue = true;
-  final bool _iconSupported = AppIconService.isSupported || kIsWeb;
-
-  static const Color _defaultAccent = Color(0xFF147B74);
-
-  @override
-  void initState() {
-    super.initState();
-    final s = widget.controller.settings;
-    _showSplash = s.showSplashAnimation;
-    _showBottomNav = s.showBottomNav;
-    _showTokenDashboard = s.showTokenDashboard;
-    _iconKey = s.appIcon;
-    _themeMode = s.themeMode;
-    _snackDurationMs = s.snackDurationMs;
-    _accentMode = s.accentMode;
-    _customAccentColor = s.customAccentColor;
-    _chatMaskStrength = s.chatMaskStrength;
-    _chatBubbleOpacity = s.chatBubbleOpacity;
-    _halfScreenChat = s.halfScreenChat;
-    _showMessageAvatar = s.showMessageAvatar;
-    _showMessageRetry = s.showMessageRetry;
-    _showMessageCopy = s.showMessageCopy;
-    _showMessageContinue = s.showMessageContinue;
-  }
-
-  Color get _currentCustomColor =>
-      _customAccentColor != null ? Color(_customAccentColor!) : _defaultAccent;
-
-  /// 当前选中的图标选项。
-  AppIconOption get _currentIcon {
-    for (final AppIconOption opt in AppIconService.availableOptions) {
-      if (opt.key == _iconKey) return opt;
-    }
-    return AppIconOption.defaultIcon;
-  }
-
-  Future<void> _saveSplash() =>
-      widget.controller.saveSplashAnimation(showSplashAnimation: _showSplash);
-
-  Future<void> _saveBottomNav(bool v) =>
-      widget.controller.saveShowBottomNav(v);
-
-  Future<void> _saveTokenDashboard(bool v) =>
-      widget.controller.saveShowTokenDashboard(v);
-
-  Future<void> _saveQuickButtons() =>
-      widget.controller.saveMessageQuickButtons(
-        showAvatar: _showMessageAvatar,
-        showRetry: _showMessageRetry,
-        showCopy: _showMessageCopy,
-        showContinue: _showMessageContinue,
-      );
-
-  Future<void> _selectTheme(String mode) async {
-    if (_themeMode == mode) return;
-    setState(() => _themeMode = mode);
-    await widget.controller.saveThemeMode(mode);
-  }
-
-  Future<void> _selectAccentMode(String mode) async {
-    if (_accentMode == mode) return;
-    setState(() => _accentMode = mode);
-    await widget.controller.saveAccentMode(mode);
-  }
-
-  Future<void> _pickColor() async {
-    Color pickerColor = _currentCustomColor;
-    final Color? result = await showDialog<Color>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const FitText('选择强调色'),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: pickerColor,
-            onColorChanged: (Color c) => pickerColor = c,
-            enableAlpha: false,
-            pickerAreaHeightPercent: 0.7,
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(pickerColor),
-            child: const FitText('确定'),
-          ),
-        ],
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() => _customAccentColor = result.toARGB32());
-      await widget.controller.saveCustomAccentColor(result.toARGB32());
-    }
-  }
-
-  Future<void> _restartOobe() async {
-    await widget.controller.restartOobe();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const FitText('外观与体验')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          FitText('应用图标',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          if (!_iconSupported)
-            FitText('当前平台不支持切换图标。',
-                style: TextStyle(color: cs.error, fontSize: 12)),
-          const SizedBox(height: 12),
-          // 当前图标预览 + 进入换图标页面入口
-          Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            color: cs.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => AppIconPage(controller: widget.controller),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: <Widget>[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Image.asset(
-                        _currentIcon.assetPath,
-                        width: 64,
-                        height: 64,
-                        errorBuilder: (_, _, _) => Container(
-                          width: 64,
-                          height: 64,
-                          color: cs.surfaceContainerHighest,
-                          alignment: Alignment.center,
-                          child: Icon(Icons.android, size: 32, color: cs.outline),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          FitText(
-                            '当前图标：${_currentIcon.label}',
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 3),
-                          FitText(
-                            _iconSupported
-                                ? (kIsWeb ? '点击更换浏览器标签页图标' : '点击更换启动器图标')
-                                : '当前平台不支持切换',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
-              ),
-            ),
+          _GroupHeader(icon: Icons.palette, title: '主题与颜色',
+              subtitle: '应用主题模式与强调色'),
+          _EntryTile(
+            icon: Icons.brightness_6,
+            title: '主题模式',
+            subtitle: '跟随系统 / 亮色 / 暗色',
+            onTap: () => _push(context, AppearanceThemePage(controller: controller)),
           ),
-          const SizedBox(height: 24),
-          const Divider(),
-          FitText('主题',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText('选择应用外观：跟随系统、始终亮色或始终暗色。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const <Map<String, String>>[
-              <String, String>{'value': 'system', 'label': '跟随系统'},
-              <String, String>{'value': 'light', 'label': '亮色'},
-              <String, String>{'value': 'dark', 'label': '暗色'},
-            ].map((Map<String, String> m) {
-              return ChoiceChip(
-                label: FitText(m['label']!),
-                selected: _themeMode == m['value'],
-                onSelected: (_) => _selectTheme(m['value']!),
-              );
-            }).toList(),
+          _EntryTile(
+            icon: Icons.color_lens,
+            title: '强调色',
+            subtitle: '自动 / 自定义颜色',
+            onTap: () => _push(context, AppearanceThemePage(controller: controller)),
           ),
-          const SizedBox(height: 24),
-          const Divider(),
-          FitText('强调色',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText(
-              '自动：主界面跟随系统取色，聊天界面使用角色卡图片的主色。\n自定义：统一使用你指定的颜色。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const <Map<String, String>>[
-              <String, String>{'value': 'auto', 'label': '自动'},
-              <String, String>{'value': 'custom', 'label': '自定义'},
-            ].map((Map<String, String> m) {
-              return ChoiceChip(
-                label: FitText(m['label']!),
-                selected: _accentMode == m['value'],
-                onSelected: (_) => _selectAccentMode(m['value']!),
-              );
-            }).toList(),
+          _GroupHeader(icon: Icons.apps, title: '应用与启动',
+              subtitle: '应用图标、启动动画与导航显示'),
+          _EntryTile(
+            icon: Icons.widgets,
+            title: '应用图标',
+            subtitle: '更换启动器 / 浏览器标签页图标',
+            onTap: () => _push(context, AppearanceAppPage(controller: controller)),
           ),
-          if (_accentMode == 'custom') ...<Widget>[
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: _currentCustomColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
-              ),
-              title: const FitText('自定义颜色'),
-              subtitle: const FitText('点击选择强调色'),
-              onTap: _pickColor,
-            ),
-          ],
-          const SizedBox(height: 24),
-          const Divider(),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('开场动画'),
-            subtitle: const FitText('关闭后将直接进入应用，不再播放启动动画。'),
-            value: _showSplash,
-            onChanged: (v) {
-              setState(() => _showSplash = v);
-              _saveSplash();
-            },
+          _EntryTile(
+            icon: Icons.rocket_launch,
+            title: '启动与导航',
+            subtitle: '开场动画、主页底部导航栏、Token 仪表盘、重新进入 OOBE',
+            onTap: () => _push(context, AppearanceAppPage(controller: controller)),
           ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('主页底部导航栏'),
-            subtitle: const FitText('开启后，在主页 / 群聊 / 我家 / 世界 底部显示导航栏，方便快速切换。默认关闭。'),
-            value: _showBottomNav,
-            onChanged: (v) {
-              setState(() => _showBottomNav = v);
-              _saveBottomNav(v);
-            },
+          _GroupHeader(icon: Icons.chat_bubble, title: '聊天界面',
+              subtitle: '聊天相关的显示细节'),
+          _EntryTile(
+            icon: Icons.dashboard_customize,
+            title: '背景与气泡',
+            subtitle: '遮罩强度、气泡透明度、半屏聊天',
+            onTap: () => _push(context, AppearanceChatPage(controller: controller)),
           ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('上下文 Token 实时仪表盘'),
-            subtitle: const FitText('开启后，在聊天界面输入栏上方显示当前上下文 Token 占用与预算。默认关闭。'),
-            value: _showTokenDashboard,
-            onChanged: (v) {
-              setState(() => _showTokenDashboard = v);
-              _saveTokenDashboard(v);
-            },
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          FitText('底部提示显示时长',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText('控制复制、保存等操作底部提示（SnackBar）停留的时间。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Slider(
-                  value: _snackDurationMs.toDouble(),
-                  min: 1000,
-                  max: 10000,
-                  divisions: 18,
-                  label: '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
-                  onChanged: (v) => setState(() => _snackDurationMs = v.round()),
-                  onChangeEnd: (v) =>
-                      widget.controller.saveSnackDuration(v.round()),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 64,
-                child: FitText(
-                  '${(_snackDurationMs / 1000).toStringAsFixed(1)} 秒',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          FitText('聊天背景遮罩强度',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText(
-              '聊天界面背景图上的遮罩层不透明度。数值越大背景越暗、文字越清晰；0 为完全不遮罩，100 为遮罩最强。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Slider(
-                  value: _chatMaskStrength.toDouble(),
-                  min: 0,
-                  max: 100,
-                  divisions: 100,
-                  label: '$_chatMaskStrength',
-                  onChanged: (v) => setState(() => _chatMaskStrength = v.round()),
-                  onChangeEnd: (v) =>
-                      widget.controller.saveChatMaskStrength(v.round()),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 44,
-                child: FitText(
-                  '$_chatMaskStrength',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          FitText('对话框透明度',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText(
-              '聊天消息气泡（对话框）的不透明度。数值越小气泡越透明、背景图透出越多；100 为完全不透明。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Slider(
-                  value: _chatBubbleOpacity.toDouble(),
-                  min: 0,
-                  max: 100,
-                  divisions: 100,
-                  label: '$_chatBubbleOpacity',
-                  onChanged: (v) => setState(() => _chatBubbleOpacity = v.round()),
-                  onChangeEnd: (v) =>
-                      widget.controller.saveChatBubbleOpacity(v.round()),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 44,
-                child: FitText(
-                  '$_chatBubbleOpacity',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('半屏聊天'),
-            subtitle: const FitText(
-              '聊天记录只显示在页面下半部分，上半部分留空方便查看背景，交界处带渐变过渡',
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _halfScreenChat,
-            onChanged: (bool v) async {
-              setState(() => _halfScreenChat = v);
-              await widget.controller.saveHalfScreenChat(v);
-            },
-          ),
-          const SizedBox(height: 16),
-          FitText('消息气泡快捷按钮',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText(
-              '控制 AI 消息气泡左上的头像、右上的「重说 / 复制 / 继续说」快捷按钮是否显示；关闭后可通过长按 / 右键菜单使用对应功能。',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 4),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const FitText('头像'),
-            subtitle: const FitText('气泡左上角显示角色头像，群聊中便于区分发言者', style: TextStyle(fontSize: 12)),
-            value: _showMessageAvatar,
-            onChanged: (bool v) {
-              setState(() => _showMessageAvatar = v);
-              _saveQuickButtons();
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const FitText('重说'),
-            subtitle: const FitText('气泡右上角显示「重说」，仅最近一条 AI 消息可用', style: TextStyle(fontSize: 12)),
-            value: _showMessageRetry,
-            onChanged: (bool v) {
-              setState(() => _showMessageRetry = v);
-              _saveQuickButtons();
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const FitText('复制'),
-            subtitle: const FitText('气泡右上角显示「复制」，一键复制消息内容', style: TextStyle(fontSize: 12)),
-            value: _showMessageCopy,
-            onChanged: (bool v) {
-              setState(() => _showMessageCopy = v);
-              _saveQuickButtons();
-            },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const FitText('继续说'),
-            subtitle: const FitText('气泡右上角显示「继续说」，仅最近一条 AI 消息可用', style: TextStyle(fontSize: 12)),
-            value: _showMessageContinue,
-            onChanged: (bool v) {
-              setState(() => _showMessageContinue = v);
-              _saveQuickButtons();
-            },
-          ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: FitText('可重新进入首次启动引导流程。'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _restartOobe,
-            icon: const Icon(Icons.restart_alt),
-            label: const FitText('重新进入 OOBE'),
+          _EntryTile(
+            icon: Icons.bolt,
+            title: '消息快捷按钮与提示时长',
+            subtitle: '气泡快捷按钮、底部提示显示时长',
+            onTap: () => _push(context, AppearanceChatPage(controller: controller)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _push(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+}
+
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({required this.icon, required this.title, required this.subtitle});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 20, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                FitText(title,
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700, color: cs.primary)),
+                const SizedBox(height: 2),
+                FitText(subtitle,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EntryTile extends StatelessWidget {
+  const _EntryTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: ListTile(
+        leading: Icon(icon),
+        title: FitText(title),
+        subtitle: FitText(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
