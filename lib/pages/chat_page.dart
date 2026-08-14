@@ -521,24 +521,23 @@ class _ChatPageState extends State<ChatPage>
                         children: <Widget>[
                           // 上半部分留空，方便查看背景
                           const Expanded(child: SizedBox.expand()),
-                          // 渐变过渡：从透明渐变到表面色，避免上半留空与
-                          // 聊天记录之间突兀截断。
-                          Container(
-                            height: 96,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                          // 下半部分：聊天记录（上半部分留空，露出背景）。
+                          // 顶部经 ShaderMask 渐隐：气泡接近上缘时逐渐淡出，
+                          // 列表保持透明，过渡自然而非硬切。
+                          Expanded(
+                            child: ShaderMask(
+                              shaderCallback: (Rect bounds) => LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: <Color>[
+                                colors: const <Color>[
                                   Colors.transparent,
-                                  colorScheme.surface.withValues(alpha: 0.92),
+                                  Colors.black,
+                                  Colors.black,
                                 ],
-                              ),
-                            ),
-                          ),
-                          // 下半部分：聊天记录
-                          Expanded(
-                            child: ChatMessageList(
+                                stops: const <double>[0.0, 0.06, 1.0],
+                              ).createShader(bounds),
+                              blendMode: BlendMode.dstIn,
+                              child: ChatMessageList(
                               conversation: _conversation,
                     scrollController: _scrollController,
                     messageKeys: _messageKeys,
@@ -578,6 +577,7 @@ class _ChatPageState extends State<ChatPage>
                       }
                     },
                     onContinueMessage: _continueFromContext,
+                              ),
                             ),
                           ),
                         ],
