@@ -29,7 +29,10 @@ class ImageStorage {
     return bytes;
   }
 
-  /// 保存图片字节，引用 = 逻辑文件名 `<taId>_<slot>.<ext>`。
+  /// 保存图片字节，引用 = 逻辑文件名 `<taId>_<slot>_<时间戳>.<ext>`。
+  ///
+  /// 每次保存生成带时间戳的唯一引用，替换图片时旧图缓存（_WebMemoryImage
+  /// 以 ref 为 key）不会命中，界面立即显示新图；替换前调用方可删除旧记录。
   Future<String> saveBytes({
     required String taId,
     required String slot,
@@ -37,7 +40,8 @@ class ImageStorage {
     String? ext,
   }) async {
     final String e = _normalizeExt(ext);
-    final String ref = '${taId}_$slot$e';
+    final String ref =
+        '${taId}_${slot}_${DateTime.now().microsecondsSinceEpoch}$e';
     final Box<Uint8List> box = await _box();
     await box.put(ref, bytes);
     return ref;

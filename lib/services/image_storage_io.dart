@@ -24,7 +24,10 @@ class ImageStorage {
     return f.readAsBytes();
   }
 
-  /// 保存图片字节到 `<doc>/tas/<taId>_<slot>.<ext>`，返回绝对路径。
+  /// 保存图片字节到 `<doc>/tas/<taId>_<slot>_<时间戳>.<ext>`，返回绝对路径。
+  ///
+  /// 每次保存生成带时间戳的唯一路径，替换图片时旧图缓存（Flutter ImageCache
+  /// 以文件路径为 key）不会命中，界面立即显示新图；替换前调用方可删除旧文件。
   Future<String> saveBytes({
     required String taId,
     required String slot,
@@ -33,11 +36,11 @@ class ImageStorage {
   }) async {
     final Directory dir = await _ensureTaDir();
     final String e = _normalizeExt(ext);
-    final String targetPath = path.join(dir.path, '${taId}_$slot$e');
+    final String targetPath = path.join(
+      dir.path,
+      '${taId}_${slot}_${DateTime.now().microsecondsSinceEpoch}$e',
+    );
     final File targetFile = File(targetPath);
-    if (await targetFile.exists()) {
-      await targetFile.delete();
-    }
     await targetFile.writeAsBytes(bytes, flush: true);
     return targetPath;
   }

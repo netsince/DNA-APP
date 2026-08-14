@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
+import '../services/image_storage.dart';
 import '../utils/platform_capabilities.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'ta_editor/image_slot.dart';
@@ -44,6 +45,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
   late String _gender;
   late String _taId;
   Map<String, String> _images = <String, String>{};
+  final Set<String> _obsoleteImageRefs = <String>{};
   List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
 
   @override
@@ -111,6 +113,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
     final XFile source = cropped == null ? picked : XFile(cropped.path);
     final Uint8List bytes = await source.readAsBytes();
     final String ext = path.extension(source.name);
+    final String? oldRef = _images[slot];
     final String storedPath = await widget.controller.storeTaImageBytes(
       taId: _taId,
       slot: slot,
@@ -120,6 +123,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     if (!mounted) {
       return;
+    }
+    // 旧图片引用在保存 TA 后被替换，先记录，待保存成功再清理磁盘文件
+    if (oldRef != null && oldRef.isNotEmpty && oldRef != storedPath) {
+      _obsoleteImageRefs.add(oldRef);
     }
     setState(() {
       _images = Map<String, String>.from(_images)..[slot] = storedPath;
@@ -162,6 +169,13 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Future<void> _save() async {
     final TA ta = _buildCurrentTA();
     await widget.controller.upsertTa(ta);
+    // 保存成功后清理被替换掉的旧图片文件，避免磁盘/IndexedDB 堆积
+    if (_obsoleteImageRefs.isNotEmpty) {
+      for (final String ref in _obsoleteImageRefs) {
+        await ImageStorage.instance.delete(ref);
+      }
+      _obsoleteImageRefs.clear();
+    }
     if (!mounted) {
       return;
     }
