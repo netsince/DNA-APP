@@ -447,8 +447,9 @@ class _ChatPageState extends State<ChatPage>
     // 对话框透明度：0~100，乘入用户/助手气泡的 alpha，实现气泡透出背景。
     final double bubbleOpacity =
         widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
+    // 用户气泡保持偏淡层次（基准 0.5），并随滑块线性变化，0 时完全透明。
     final Color userBubble =
-        schemeColor.withValues(alpha: 0.18 * bubbleOpacity);
+        schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
     final Color assistantBubble = colorScheme.surfaceContainerHighest
         .withValues(alpha: bubbleOpacity);
     // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。

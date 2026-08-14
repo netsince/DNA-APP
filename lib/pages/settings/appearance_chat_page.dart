@@ -139,7 +139,7 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           FitText(
-              '聊天消息气泡（对话框）的不透明度。数值越小气泡越透明、背景图透出越多；100 为完全不透明。',
+              '聊天消息气泡的不透明度，数值越小越透明、背景透出越多（0 为完全透明）。对用户与 AI 气泡均生效：AI 气泡在 100 时完全不透明，用户气泡保持较淡的层次。',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
