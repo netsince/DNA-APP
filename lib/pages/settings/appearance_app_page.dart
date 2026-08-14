@@ -50,12 +50,6 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
   Future<void> _saveTokenDashboard(bool v) =>
       widget.controller.saveShowTokenDashboard(v);
 
-  Future<void> _restartOobe() async {
-    await widget.controller.restartOobe();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -170,16 +164,6 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
               setState(() => _showTokenDashboard = v);
               _saveTokenDashboard(v);
             },
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: FitText('可重新进入首次启动引导流程。'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _restartOobe,
-            icon: const Icon(Icons.restart_alt),
-            label: const FitText('重新进入 OOBE'),
           ),
         ],
       ),

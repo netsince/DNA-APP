@@ -82,8 +82,33 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            color: cs.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.restart_alt),
+              title: const FitText('重新进入 OOBE'),
+              subtitle: const FitText('重新进入首次启动引导流程。'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _restartOobe,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _restartOobe() async {
+    await widget.controller.restartOobe();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 }
