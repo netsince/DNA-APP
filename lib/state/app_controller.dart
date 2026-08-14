@@ -646,6 +646,53 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// 生成备份 ZIP 的目标路径（含目录创建）；Web 无文件系统返回 null。
+  Future<String?> _backupZipPath(String baseName) async {
+    if (kIsWeb) {
+      return null;
+    }
+    try {
+      final Directory docDir = await getApplicationDocumentsDirectory();
+      final Directory backupsDir =
+          Directory(path.join(docDir.path, 'dna_backups'));
+      if (!await backupsDir.exists()) {
+        await backupsDir.create(recursive: true);
+      }
+      return path.join(backupsDir.path, '${baseName}_${_timestamp()}.zip');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 导入替换前自动备份当前数据，返回 `(备份路径, 错误)`。
+  ///
+  /// IO 平台直接流式写出 ZIP 文件（内存峰值仅单个文件），避免替换大备份时
+  /// 先构建完整字节导致 OOM；Web 无文件系统，保持原有内存备份逻辑（返回 null）。
+  Future<(String?, String?)> _autoBackupZip({
+    required String baseName,
+    required bool full,
+  }) async {
+    if (kIsWeb) {
+      final ExportImportResult<Uint8List> current =
+          full ? await exportAllData() : await exportConversations();
+      if (current.success && current.data != null) {
+        final String? p = await _writeZipBackup(current.data!, baseName);
+        return (p, null);
+      }
+      return (null, current.message ?? '未知错误');
+    }
+    final String? target = await _backupZipPath(baseName);
+    if (target == null) {
+      return (null, '自动备份写入失败');
+    }
+    final ExportImportResult<String> r =
+        full ? await exportAllDataToFile(target) : await exportConversationsToFile(target);
+    if (r.success) {
+      return (target, null);
+    }
+    return (null, r.message ?? '自动备份写入失败');
+  }
+
   /// 将 JSON 字符串写入 `<文档目录>/dna_backups/<subDir>/<fileNameBase>_<时间戳>.json`。
   /// 失败时返回 null（不阻断删除流程）。Web 无文件系统，直接返回 null。
   Future<String?> _writeBackupJson(
@@ -1207,7 +1254,7 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
-  /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节
+  /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节（Web 使用）
   Future<ExportImportResult<Uint8List>> exportAllData() async {
     return DataBackupService.buildZip(
       tas: _tas,
@@ -1220,9 +1267,39 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  /// 仅导出对话（单聊 + 群聊）为 ZIP 字节
+  /// 将全部数据流式打包为 ZIP 文件（IO 平台）。
+  ///
+  /// 图片以文件流逐张压缩写盘，内存峰值仅为单文件大小，避免大备份整体载入
+  /// 内存导致 Android OOM。返回写入的 ZIP 路径。
+  Future<ExportImportResult<String>> exportAllDataToFile(String zipPath) async {
+    return DataBackupService.buildZipToFile(
+      zipPath,
+      tas: _tas,
+      worlds: _worlds,
+      conversations: <Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ],
+      identities: _identities,
+    );
+  }
+
+  /// 仅导出对话（单聊 + 群聊）为 ZIP 字节（Web 使用）
   Future<ExportImportResult<Uint8List>> exportConversations() async {
     return DataBackupService.buildConversationsZip(
+      conversations: <Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ],
+    );
+  }
+
+  /// 将对话流式打包为 ZIP 文件（IO 平台，避免整体载入内存）。
+  Future<ExportImportResult<String>> exportConversationsToFile(
+    String zipPath,
+  ) async {
+    return DataBackupService.buildConversationsZipToFile(
+      zipPath,
       conversations: <Conversation>[
         ..._conversations,
         ..._groupConversations,
@@ -1248,24 +1325,10 @@ class AppController extends ChangeNotifier {
     final List<Conversation> incoming = parsed.data!;
 
     try {
-      String? backupPath;
-      String? backupError;
-
       if (replaceAll) {
-        // 先自动备份替换前的对话
-        final ExportImportResult<Uint8List> current =
-            await exportConversations();
-        if (current.success && current.data != null) {
-          backupPath = await _writeZipBackup(
-            current.data!,
-            'DNA_conversations',
-          );
-          if (backupPath == null && !kIsWeb) {
-            backupError = '自动备份写入失败';
-          }
-        } else {
-          backupError = current.message ?? '未知错误';
-        }
+        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
+        final (String?, String?) backup =
+            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
 
         _conversations =
             incoming.where((Conversation c) => !c.isGroup).toList();
@@ -1286,8 +1349,8 @@ class AppController extends ChangeNotifier {
             conversationsCount:
                 _conversations.length + _groupConversations.length,
             identitiesCount: 0,
-            backupPath: backupPath,
-            backupError: backupError,
+            backupPath: backup.$1,
+            backupError: backup.$2,
           ),
         );
       }
@@ -1443,22 +1506,10 @@ class AppController extends ChangeNotifier {
         );
       }).toList();
 
-      String? backupPath;
-      String? backupError;
-
       if (replaceAll) {
-        final ExportImportResult<Uint8List> current = await exportConversations();
-        if (current.success && current.data != null) {
-          backupPath = await _writeZipBackup(
-            current.data!,
-            'DNA_conversations',
-          );
-          if (backupPath == null && !kIsWeb) {
-            backupError = '自动备份写入失败';
-          }
-        } else {
-          backupError = current.message ?? '未知错误';
-        }
+        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
+        final (String?, String?) backup =
+            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
 
         _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
         _groupConversations =
@@ -1477,8 +1528,8 @@ class AppController extends ChangeNotifier {
             conversationsCount:
                 _conversations.length + _groupConversations.length,
             identitiesCount: 0,
-            backupPath: backupPath,
-            backupError: backupError,
+            backupPath: backup.$1,
+            backupError: backup.$2,
           ),
         );
       }
@@ -1521,15 +1572,40 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  /// 从 ZIP 字节导入数据（不含设置）
+  /// 从 ZIP 字节导入数据（不含设置，Web 平台使用）。
+  ///
+  /// 内部使用流式解码与图片懒加载，避免整包与全部图片同时驻留内存。
   /// [replaceAll] 为 true 时全部替换，并先自动备份替换前的数据；
   /// 为 false 时仅追加不存在的条目（按 id 去重），保留现有数据。
   Future<ExportImportResult<DataImportReport>> importData(
     Uint8List zipBytes, {
     required bool replaceAll,
   }) async {
-    final ExportImportResult<ParsedBackup> parsed =
-        DataBackupService.parseZip(zipBytes);
+    return _applyImport(
+      DataBackupService.parseZip(zipBytes),
+      replaceAll: replaceAll,
+    );
+  }
+
+  /// 从 ZIP 文件路径流式导入数据（IO 平台使用）。
+  ///
+  /// 基于 [InputFileStream] 按需读取文件内容，避免大备份在 file_picker /
+  /// 解码过程中整体载入内存导致 Android OOM。导入完成后自动关闭文件流。
+  /// [replaceAll] 语义同 [importData]。
+  Future<ExportImportResult<DataImportReport>> importDataFromPath(
+    String zipPath, {
+    required bool replaceAll,
+  }) async {
+    return _applyImport(
+      DataBackupService.parseZipFile(zipPath),
+      replaceAll: replaceAll,
+    );
+  }
+
+  Future<ExportImportResult<DataImportReport>> _applyImport(
+    ExportImportResult<ParsedBackup> parsed, {
+    required bool replaceAll,
+  }) async {
     if (!parsed.success || parsed.data == null) {
       return ExportImportResult(
         success: false,
@@ -1543,16 +1619,11 @@ class AppController extends ChangeNotifier {
 
     try {
       if (replaceAll) {
-        // 先自动备份替换前的数据
-        final ExportImportResult<Uint8List> current = await exportAllData();
-        if (current.success && current.data != null) {
-          backupPath = await _writeZipBackup(current.data!, 'DNA_backup');
-          if (backupPath == null && !kIsWeb) {
-            backupError = '自动备份写入失败';
-          }
-        } else {
-          backupError = current.message ?? '未知错误';
-        }
+        // 先自动备份替换前的数据（IO 平台流式写盘，避免整体载入内存）
+        final (String?, String?) autoBackup =
+            await _autoBackupZip(baseName: 'DNA_backup', full: true);
+        backupPath = autoBackup.$1;
+        backupError = autoBackup.$2;
 
         // 清空旧图片后写入新数据（跨平台：IO 删 tas 目录 / Web 清 IndexedDB）
         await ImageStorage.instance.clearAll();
@@ -1658,6 +1729,9 @@ class AppController extends ChangeNotifier {
       );
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败：$e');
+    } finally {
+      // 关闭 IO 平台的文件流，释放底层文件句柄
+      await backup.dispose?.call();
     }
   }
 

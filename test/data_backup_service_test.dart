@@ -152,6 +152,8 @@ void main() {
         expect(relName, startsWith('ta-img_avatar_'));
         expect(relName, endsWith('.png'));
         expect(backup.imageBytes.containsKey(relName), isTrue);
+        // 图片为懒加载：调用加载器应返回原图字节
+        expect(backup.imageBytes[relName]!(), _sampleImageBytes);
 
         // 让 ImageStorage(IO) 把图片写入临时目录下的 tas/
         PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
@@ -203,8 +205,8 @@ void main() {
         final String relB = backup.tas.last.images['avatar']!;
         // 两个相对名必须不同
         expect(relA, isNot(equals(relB)));
-        expect(backup.imageBytes[relA], bytesA);
-        expect(backup.imageBytes[relB], bytesB);
+        expect(backup.imageBytes[relA]!(), bytesA);
+        expect(backup.imageBytes[relB]!(), bytesB);
 
         // 让 ImageStorage(IO) 把图片写入临时目录下的 tas/
         PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
@@ -215,6 +217,108 @@ void main() {
         );
         expect(File(resolved[0].images['avatar']!).readAsBytesSync(), bytesA);
         expect(File(resolved[1].images['avatar']!).readAsBytesSync(), bytesB);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+  });
+
+  group('DataBackupService 流式导出/导入（IO 平台）', () {
+    test('buildZipToFile 写出后 parseZipFile 往返一致（含图片流式引用）', () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('dna_flow_');
+      try {
+        final File imgFile = File('${tempDir.path}/avatar.png');
+        await imgFile.writeAsBytes(_sampleImageBytes);
+
+        final TA ta = _buildTa(
+          id: 'ta-flow',
+          images: <String, String>{'avatar': imgFile.path},
+        );
+        final World world = _buildWorld(id: 'w-flow');
+        final Conversation conv = _buildConversation(id: 'c-flow', taId: 'ta-flow');
+
+        final String zipPath = '${tempDir.path}/backup.zip';
+        final ExportImportResult<String> build =
+            await DataBackupService.buildZipToFile(
+          zipPath,
+          tas: [ta],
+          worlds: [world],
+          conversations: [conv],
+        );
+        expect(build.success, isTrue);
+        expect(build.data, zipPath);
+        expect(File(zipPath).existsSync(), isTrue);
+        expect(File(zipPath).lengthSync(), greaterThan(0));
+
+        final ExportImportResult<ParsedBackup> parsed =
+            DataBackupService.parseZipFile(zipPath);
+        expect(parsed.success, isTrue);
+        final ParsedBackup backup = parsed.data!;
+        expect(backup.manifest.type, 'full');
+        expect(backup.tas.length, 1);
+        expect(backup.tas.first.name, '角色ta-flow');
+        expect(backup.worlds.length, 1);
+        expect(backup.conversations.length, 1);
+        expect(backup.conversations.first.id, 'c-flow');
+
+        // 图片以懒加载闭包提供，且内容与源文件一致
+        final String relName = backup.tas.first.images['avatar']!;
+        expect(backup.imageBytes.containsKey(relName), isTrue);
+        expect(backup.imageBytes[relName]!(), _sampleImageBytes);
+
+        // 关闭底层文件流，释放文件句柄（Windows 下不关闭会占用导致删除失败）
+        await backup.dispose?.call();
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('buildConversationsZipToFile 写出后 parseConversationsZip 往返一致', () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('dna_flow_conv_');
+      try {
+        final Conversation c1 = _buildConversation(id: 'cf-1', taId: 'ta-1');
+        final String zipPath = '${tempDir.path}/conv.zip';
+        final ExportImportResult<String> build =
+            await DataBackupService.buildConversationsZipToFile(
+          zipPath,
+          conversations: [c1],
+        );
+        expect(build.success, isTrue);
+        expect(File(zipPath).existsSync(), isTrue);
+
+        final Uint8List bytes = File(zipPath).readAsBytesSync();
+        final ExportImportResult<List<Conversation>> parsed =
+            DataBackupService.parseConversationsZip(bytes);
+        expect(parsed.success, isTrue);
+        expect(parsed.data!.length, 1);
+        expect(parsed.data!.first.id, 'cf-1');
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('parseZipFile 成功返回可用的 dispose（关闭文件流）', () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('dna_dispose_');
+      try {
+        final File imgFile = File('${tempDir.path}/a.png');
+        await imgFile.writeAsBytes(_sampleImageBytes);
+        final TA ta = _buildTa(
+          id: 'ta-d',
+          images: <String, String>{'avatar': imgFile.path},
+        );
+        final String zipPath = '${tempDir.path}/b.zip';
+        await DataBackupService.buildZipToFile(
+          zipPath,
+          tas: [ta],
+          worlds: const <World>[],
+          conversations: const <Conversation>[],
+        );
+        final ExportImportResult<ParsedBackup> parsed =
+            DataBackupService.parseZipFile(zipPath);
+        expect(parsed.success, isTrue);
+        final ParsedBackup backup = parsed.data!;
+        expect(backup.dispose, isNotNull);
+        await backup.dispose!();
       } finally {
         await tempDir.delete(recursive: true);
       }

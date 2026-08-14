@@ -36,7 +36,7 @@ class DataBackupManifest {
   }
 }
 
-/// 解析后的备份数据（图片尚未写入磁盘，仅保留在内存中）
+/// 解析后的备份数据（图片懒加载：仅在落盘时逐个解压，避免整包进内存）
 class ParsedBackup {
   const ParsedBackup({
     required this.manifest,
@@ -45,6 +45,7 @@ class ParsedBackup {
     required this.conversations,
     required this.identities,
     required this.imageBytes,
+    this.dispose,
   });
 
   final DataBackupManifest manifest;
@@ -52,7 +53,13 @@ class ParsedBackup {
   final List<World> worlds;
   final List<Conversation> conversations;
   final List<UserIdentity> identities;
-  final Map<String, List<int>> imageBytes;
+
+  /// 相对文件名 -> 懒加载的图片字节。IO 平台从文件流按需解压，
+  /// 避免所有图片同时驻留内存；访问后即可释放引用。
+  final Map<String, List<int> Function()> imageBytes;
+
+  /// 解析完成后释放底层文件流等资源（IO 平台文件流需要显式关闭）。
+  final Future<void> Function()? dispose;
 }
 
 /// 导入结果报告

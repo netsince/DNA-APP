@@ -48,17 +48,17 @@ class AutoBackupService {
       final String today = _dayKey(DateTime.now());
       if (await service.getLastAutoBackupDate() == today) return;
 
-      final result = await controller.exportAllData();
-      if (!result.success || result.data == null) return;
-
       // 写入外部目录；公共下载目录受限于作用域存储时回退到应用文档目录。
+      // 流式写出：图片逐张压缩写盘，内存峰值仅单文件大小，避免大备份 OOM。
       Directory dir = await _resolveDir();
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
       final String fileName = '$_filePrefix$today.zip';
       try {
-        await File(path.join(dir.path, fileName)).writeAsBytes(result.data!);
+        final r =
+            await controller.exportAllDataToFile(path.join(dir.path, fileName));
+        if (!r.success || r.data == null) return;
       } catch (_) {
         dir = Directory(path.join(
           (await getApplicationDocumentsDirectory()).path,
@@ -67,7 +67,9 @@ class AutoBackupService {
         if (!await dir.exists()) {
           await dir.create(recursive: true);
         }
-        await File(path.join(dir.path, fileName)).writeAsBytes(result.data!);
+        final r =
+            await controller.exportAllDataToFile(path.join(dir.path, fileName));
+        if (!r.success || r.data == null) return;
       }
 
       await service.saveLastAutoBackupDate(today);
