@@ -234,8 +234,8 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           FitText(
-            '角色未单独设置 seed 时使用此值。留空则自动使用 1；填写后锁定不再改动。'
-            '最大不超过 $_maxSeed。',
+            '角色未单独设置 seed 时使用此值。留空则自动使用 1；'
+            '填写后仍可随时修改、随机或测试。最大不超过 $_maxSeed。',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: cs.onSurfaceVariant),
           ),
@@ -243,7 +243,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
           SeedInputField(
             controller: _seedCtrl,
             label: '全局 Seed（整数）',
-            enabled: _seedCtrl.text.trim().isEmpty,
             maxValue: _maxSeed,
             onChanged: (String raw) {
               final int? seed = raw.trim().isEmpty
