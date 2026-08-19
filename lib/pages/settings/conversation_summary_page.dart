@@ -1,11 +1,12 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-/// 对话与策略 → 摘要与上下文
+/// 对话与策略 → 摘要与上下文。
 ///
-/// 控制长对话的自动摘要、上下文保留条数 / token 预算与世界知识注入。
+/// 控制长对话的自动摘要、上下文保留条数 / Token 预算与世界知识注入。
 class ConversationSummaryPage extends StatefulWidget {
   const ConversationSummaryPage({super.key, required this.controller});
   final AppController controller;
@@ -94,99 +95,198 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ts = theme.textTheme;
+
     return Scaffold(
       appBar: AppBar(title: const FitText('摘要与上下文')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: <Widget>[
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('允许自动提示摘要'),
-            value: _autoSummary,
-            onChanged: (v) { setState(() => _autoSummary = v); _saveSummary(); },
-          ),
-          const SizedBox(height: 4),
-          TextField(
-            controller: _summaryCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '触发轮数（按用户消息计）',
-              hintText: '默认 200，范围 10-1000',
-              isDense: true,
+          // ===== 1. 剧情自动摘要 =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
-            onChanged: (_) => _saveSummary(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _wordCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '按词数触发（距上次摘要新增字符数）',
-              hintText: '默认 6000，范围 0-1000000，0 表示禁用',
-              isDense: true,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.history_edu, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('阶段剧情摘要', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '当对话轮数或累计字数达到阈值时自动生成历史摘要，保持角色长期记忆。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const FitText('允许自动提示生成摘要'),
+                    value: _autoSummary,
+                    onChanged: (v) {
+                      setState(() => _autoSummary = v);
+                      _saveSummary();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _summaryCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '按对话轮数触发（轮）',
+                      hintText: '默认 200，范围 10-1000',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveSummary(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _wordCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '按新增字数触发（字符）',
+                      hintText: '默认 6000，填 0 表示不限',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveWord(),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (_) => _saveWord(),
           ),
-          const Divider(),
-          const FitText('上下文保留条数',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          TextField(
-            controller: _ctxCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '单次请求最多携带的历史消息条数',
-              hintText: '默认 120，范围 0-1000，0 表示不限',
-              isDense: true,
+
+          const SizedBox(height: 16),
+
+          // ===== 2. 历史上下文与 Token 预算 =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
-            onChanged: (_) => _saveContext(),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.inventory_2_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('历史上下文限制', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '条数与 Token 预算双重限制，请求时会自动从最旧的消息逐条裁剪。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ctxCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '最多携带的历史消息条数',
+                      hintText: '默认 120，填 0 表示不限条数',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveContext(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _tokenCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '历史消息 Token 预算上限',
+                      hintText: '默认 8000，填 0 表示不限 Token',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveTokens(),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _tokenCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '历史消息 token 预算（精确逐条裁剪）',
-              hintText: '默认 8000，范围 0-100000，0 表示不限',
-              isDense: true,
+
+          const SizedBox(height: 16),
+
+          // ===== 3. 世界书知识库注入 =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
-            onChanged: (_) => _saveTokens(),
-          ),
-          const Divider(),
-          const FitText('世界知识注入',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          TextField(
-            controller: _stickyCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '世界词条 sticky 轮数',
-              hintText: '默认 3，范围 0-30，0 表示禁用',
-              isDense: true,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.public_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('世界书词条注入规则', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '控制世界背景与设定词条被关键词激活后的生效范围与注入量。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _stickyCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '词条附着持续轮数',
+                      hintText: '触发后在接下来的几轮内持续生效，默认 3 轮',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveSticky(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _loreMaxEntriesCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '单次请求最多注入词条数',
+                      hintText: '默认最多 8 条，避免词条过多冲淡人设',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveLoreMaxEntries(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _loreBudgetTokensCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '世界书 Token 预算上限',
+                      hintText: '默认 0（不限），超出时优先截断低优先级词条',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => _saveLoreBudgetTokens(),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (_) => _saveSticky(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _loreMaxEntriesCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '世界知识注入条数上限',
-              hintText: '默认 8，范围 0-50，0 表示不限',
-              isDense: true,
-            ),
-            onChanged: (_) => _saveLoreMaxEntries(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _loreBudgetTokensCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '世界知识注入 token 预算',
-              hintText: '默认 0（不限），超出自动裁剪并告警',
-              isDense: true,
-            ),
-            onChanged: (_) => _saveLoreBudgetTokens(),
           ),
         ],
       ),
