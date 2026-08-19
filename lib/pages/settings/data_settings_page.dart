@@ -233,84 +233,161 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ts = theme.textTheme;
+
     return Scaffold(
       appBar: AppBar(title: const FitText('数据管理')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: <Widget>[
-          FitText('自动备份', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText('开启后，每天首次进入应用时自动在软件外部（公共目录）生成一份全量备份，保留最近 5 天，全程无提示。关闭后停止自动备份。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const FitText('每日自动备份'),
-            subtitle: kIsWeb
-                ? const FitText('当前平台不支持（Web 无文件系统）')
-                : const FitText('数据存于软件外部，卸载后依然保留。'),
-            value: _autoBackup,
-            onChanged: kIsWeb
-                ? null
-                : (v) {
-                    setState(() => _autoBackup = v);
-                    _saveAutoBackup(v);
-                  },
+          // ===== 1. 每日自动备份 =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.backup_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('每日自动备份', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '每天首次进入应用时自动备份至设备公共目录（滚动保留最近 5 天），卸载应用亦不丢失。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const FitText('开启每日静默自动备份'),
+                    subtitle: kIsWeb
+                        ? const FitText('当前平台不支持（Web 无本地文件系统）')
+                        : const FitText('后台自动执行，全程无弹窗打扰'),
+                    value: _autoBackup,
+                    onChanged: kIsWeb
+                        ? null
+                        : (v) {
+                            setState(() => _autoBackup = v);
+                            _saveAutoBackup(v);
+                          },
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 8),
-          FitText('全部数据', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText('将全部数据（角色、世界、对话，不含设置）打包为 ZIP 文件，或从 ZIP 导入。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10, runSpacing: 10,
-            children: <Widget>[
-              FilledButton.tonalIcon(
-                onPressed: _exporting || _importing ? null : _exportAll,
-                icon: _exporting
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.archive_outlined),
-                label: FitText(_exporting ? '导出中...' : '导出全部数据'),
+
+          const SizedBox(height: 16),
+
+          // ===== 2. 全量数据备份与还原 (ZIP) =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.archive_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('全量数据备份与还原 (ZIP)', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '将全部角色、世界设定与对话记录打包为单文件，支持跨设备迁移与完整还原。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      FilledButton.tonalIcon(
+                        onPressed: _exporting || _importing ? null : _exportAll,
+                        icon: _exporting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.download_outlined),
+                        label: FitText(_exporting ? '导出中...' : '导出全量备份 ZIP'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _exporting || _importing ? null : _importAll,
+                        icon: _importing
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.upload_file_outlined),
+                        label: FitText(_importing ? '导入中...' : '从 ZIP 恢复数据'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              OutlinedButton.icon(
-                onPressed: _exporting || _importing ? null : _importAll,
-                icon: _importing
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.upload_file_outlined),
-                label: FitText(_importing ? '导入中...' : '从 ZIP 导入'),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 8),
-          FitText('仅对话', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText('导出为 JSON（可内嵌角色卡）或 Markdown，方便阅读与分享。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10, runSpacing: 10,
-            children: <Widget>[
-              FilledButton.tonalIcon(
-                onPressed: _exportingConv || _importingConv ? null : _exportConv,
-                icon: _exportingConv
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.forum_outlined),
-                label: FitText(_exportingConv ? '导出中...' : '导出对话'),
+
+          const SizedBox(height: 16),
+
+          // ===== 3. 单项对话导出与导入 (JSON) =====
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.forum_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('单项对话导出与导入 (JSON)', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '选择单场对话导出为 JSON 文件（可内嵌角色卡）或单独导入，方便单剧本分享。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      FilledButton.tonalIcon(
+                        onPressed: _exportingConv || _importingConv ? null : _exportConv,
+                        icon: _exportingConv
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.download_outlined),
+                        label: FitText(_exportingConv ? '导出中...' : '导出指定对话'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _exportingConv || _importingConv ? null : _importConv,
+                        icon: _importingConv
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.upload_file_outlined),
+                        label: FitText(_importingConv ? '导入中...' : '从 JSON 导入对话'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              OutlinedButton.icon(
-                onPressed: _exportingConv || _importingConv ? null : _importConv,
-                icon: _importingConv
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.upload_file_outlined),
-                label: FitText(_importingConv ? '导入中...' : '从 JSON 导入'),
-              ),
-            ],
+            ),
           ),
         ],
       ),
