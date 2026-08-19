@@ -224,20 +224,53 @@ class ChatTtsEngine {
 
   // ---- 文本切分 ----
   List<String> _splitText(String text) {
-    if (text.contains('\n')) {
-      return text
-          .split('\n')
+    // 1. 优先按换行符拆分成行
+    final List<String> lines = text
+        .split('\n')
+        .map((String s) => s.trim())
+        .where((String s) => s.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return <String>[text];
+
+    final List<String> parts = <String>[];
+    // 2. 按句子终结标点拆分（句号、感叹号、问号等）
+    final RegExp sentenceRe = RegExp(r'(?<=[。！？!\?])');
+
+    for (final String line in lines) {
+      final List<String> sentences = line
+          .split(sentenceRe)
           .map((String s) => s.trim())
           .where((String s) => s.isNotEmpty)
           .toList();
+      for (final String sentence in sentences) {
+        // 3. 如果单句依然过长（超过 35 字且包含逗号/停顿符），做安全子分句，防止超长输入导致 GPT 退化
+        if (sentence.length > 35) {
+          final RegExp subRe =
+              RegExp(r'(?<=[，,；;、])|(?=\[break_\d\])|(?<=\[break_\d\])');
+          final List<String> subParts = sentence
+              .split(subRe)
+              .map((String s) => s.trim())
+              .where((String s) => s.isNotEmpty)
+              .toList();
+          if (subParts.length > 1) {
+            final StringBuffer buffer = StringBuffer();
+            for (final String sub in subParts) {
+              if (buffer.length + sub.length > 30 && buffer.isNotEmpty) {
+                parts.add(buffer.toString());
+                buffer.clear();
+              }
+              buffer.write(sub);
+            }
+            if (buffer.isNotEmpty) {
+              parts.add(buffer.toString());
+            }
+            continue;
+          }
+        }
+        parts.add(sentence);
+      }
     }
-    final List<String> parts = <String>[];
-    final RegExp re = RegExp(r'(?<=。)|(?<=\.\s)');
-    for (final String s in text.split(re)) {
-      if (s.isNotEmpty) parts.add(s);
-    }
-    if (parts.isEmpty) parts.add(text);
-    return parts;
+    return parts.isEmpty ? <String>[text] : parts;
   }
 
   // ---- speaker 采样 ----
@@ -447,6 +480,9 @@ class ChatTtsEngine {
 
     final TtsRandom rng = seed != null ? TtsRandom(seed) : TtsRandom(_randSeed());
 
+    int repeatCount = 0;
+    Int64List? lastCode;
+
     for (int step = 0; step < maxNewToken; step++) {
       int next0 = -1;
       Int64List newTokens;
@@ -495,6 +531,23 @@ class ChatTtsEngine {
           newTokens[v] = rng.choice(probs.toList());
         }
         if (newTokens.any((int x) => x == eosToken)) break;
+
+        // 死循环/模型崩溃（Degeneration）熔断防护：
+        // 若连续 10 步生成完全相同的 4-vq code，说明自回归已陷入死循环退化，
+        // 立即提前跳出并截断尾部重复帧，避免 Vocos 解码出数十秒的刺耳电音嗡嗡声。
+        if (lastCode != null &&
+            lastCode[0] == newTokens[0] &&
+            lastCode[1] == newTokens[1] &&
+            lastCode[2] == newTokens[2] &&
+            lastCode[3] == newTokens[3]) {
+          repeatCount++;
+          if (repeatCount >= 10) {
+            break;
+          }
+        } else {
+          repeatCount = 0;
+          lastCode = Int64List.fromList(newTokens);
+        }
       }
 
       // 追加
@@ -539,6 +592,12 @@ class ChatTtsEngine {
       past..clear()..addAll(p2);
       curHidden = Float32List.fromList(h2.sublist(0, kHidden));
       onProgress?.call((step + 1) / maxNewToken);
+    }
+    if (!inferText && repeatCount >= 10) {
+      final int validFrames = (seq4.length ~/ 4) - repeatCount;
+      if (validFrames > t) {
+        seq4 = seq4.sublist(0, validFrames * 4);
+      }
     }
     return seq4;
   }
