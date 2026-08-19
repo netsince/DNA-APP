@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../../services/tts/tts_audio_cache.dart';
@@ -45,8 +46,8 @@ class _TtsCachePageState extends State<TtsCachePage> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const FitText('清理缓存'),
-        content: const FitText('将删除所有已合成的缓存音频文件，删除后相同文本需重新合成。确定继续？'),
+        title: const FitText('清空本地语音缓存'),
+        content: const FitText('将删除所有已合成保存的音频文件。清空后再次点击播放将重新触发本地合成。确定继续？'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -54,7 +55,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const FitText('清理'),
+            child: const FitText('确认清空'),
           ),
         ],
       ),
@@ -62,13 +63,12 @@ class _TtsCachePageState extends State<TtsCachePage> {
     if (ok != true || !mounted) return;
     await TtsAudioCache.instance.clear();
     if (!mounted) return;
-    showSnack(context, '缓存已清理。');
+    showSnack(context, '本地语音缓存已清空。');
     await _refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Web 端不支持端侧 TTS：缓存页不可用。
     if (!PlatformCapabilities.ttsSupported) {
       return Scaffold(
         appBar: AppBar(title: const FitText('语音缓存')),
@@ -77,66 +77,105 @@ class _TtsCachePageState extends State<TtsCachePage> {
         ),
       );
     }
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ts = theme.textTheme;
+
     return Scaffold(
-      appBar: AppBar(title: const FitText('语音缓存')),
+      appBar: AppBar(title: const FitText('语音音频缓存')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: <Widget>[
-          FitText('缓存管理',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          FitText(
-            '已合成的音频按「文本 + seed」缓存到本地，相同内容不会重复生成。',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
+          // ===== 缓存概览卡片 =====
           Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.folder_outlined),
-                    title: const FitText('缓存占用'),
-                    trailing: FitText(
-                      _loading ? '计算中…' : _formatBytes(_bytes),
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.pie_chart_outline, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('缓存存储状态', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '已合成的音频会自动保存，再次点击相同台词时即刻播放，不消耗额外算力与电量。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              FitText('占用磁盘空间', style: ts.bodySmall?.copyWith(color: cs.outline)),
+                              const SizedBox(height: 4),
+                              FitText(
+                                _loading ? '计算中…' : _formatBytes(_bytes),
+                                style: ts.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              FitText('缓存音频句数', style: ts.bodySmall?.copyWith(color: cs.outline)),
+                              const SizedBox(height: 4),
+                              FitText(
+                                _loading ? '…' : '$_count 句',
+                                style: ts.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _loading || _count == 0 ? null : _clear,
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                      label: const FitText('清空所有音频缓存'),
                     ),
                   ),
-                  const Divider(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.audiotrack_outlined),
-                    title: const FitText('缓存音频数量'),
-                    trailing: FitText(
-                      _loading ? '…' : '$_count 条',
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.center,
+                    child: FitText(
+                      '注意：清理缓存不会影响语音模型文件本身。',
+                      style: ts.bodySmall?.copyWith(color: cs.outline),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _loading || _count == 0 ? null : _clear,
-              icon: const Icon(Icons.delete_outline),
-              label: const FitText('清理缓存'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          FitText(
-            '清理缓存不会删除模型文件，仅删除合成的音频缓存。',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
       ),
