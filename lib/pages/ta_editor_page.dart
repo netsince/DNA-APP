@@ -447,23 +447,57 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   FitText('TA形象', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  ImageSlot(
-                    title: '1:1 形象',
-                    ref: _images['square'],
-                    onTap: () => _pickImage('square', const CropAspectRatio(ratioX: 1, ratioY: 1)),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '建议上传全套 3 种比例立绘，分别用于头像、横版名片与全屏背景。',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.outline),
                   ),
                   const SizedBox(height: 12),
-                  ImageSlot(
-                    title: '16:9 形象',
-                    ref: _images['landscape'],
-                    onTap: () => _pickImage('landscape', const CropAspectRatio(ratioX: 16, ratioY: 9)),
-                  ),
-                  const SizedBox(height: 12),
-                  ImageSlot(
-                    title: '9:16 形象',
-                    ref: _images['portrait'],
-                    onTap: () => _pickImage('portrait', const CropAspectRatio(ratioX: 9, ratioY: 16)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(
+                        child: ImageSlot(
+                          title: '1:1 头像',
+                          subtitle: '聊天头像',
+                          ref: _images['square'],
+                          aspectRatio: 1.0,
+                          onTap: () => _pickImage(
+                            'square',
+                            const CropAspectRatio(ratioX: 1, ratioY: 1),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ImageSlot(
+                          title: '16:9 背景',
+                          subtitle: '横版名片',
+                          ref: _images['landscape'],
+                          aspectRatio: 16 / 9,
+                          onTap: () => _pickImage(
+                            'landscape',
+                            const CropAspectRatio(ratioX: 16, ratioY: 9),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ImageSlot(
+                          title: '9:16 立绘',
+                          subtitle: '全屏背景',
+                          ref: _images['portrait'],
+                          aspectRatio: 9 / 16,
+                          onTap: () => _pickImage(
+                            'portrait',
+                            const CropAspectRatio(ratioX: 9, ratioY: 16),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -478,8 +512,84 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 children: <Widget>[
                   FitText('人设栏目', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () async {
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: '名字 *',
+                      hintText: '例如：艾莲娜、卡特',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _gender,
+                    decoration: const InputDecoration(
+                      labelText: '性别',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem(value: '男', child: FitText('男')),
+                      DropdownMenuItem(value: '女', child: FitText('女')),
+                      DropdownMenuItem(value: '无性', child: FitText('无性')),
+                      DropdownMenuItem(value: '其他', child: FitText('其他')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() => _gender = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  AdaptiveTextField(
+                    controller: _personaController,
+                    minLines: 4,
+                    maxLines: 12,
+                    decoration: const InputDecoration(
+                      labelText: '设定（角色人设，发送给 AI）*',
+                      hintText: '描述 TA 的性格、身世背景、内在原则、核心能力与说话口吻等（作为核心系统提示词注入）',
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _introController,
+                    maxLines: 1,
+                    decoration: const InputDecoration(
+                      labelText: '介绍（卡片简介，仅对外展示）',
+                      hintText: '在角色列表和名片上对外展示的简短一句话介绍',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AdaptiveTextField(
+                    controller: _openingController,
+                    minLines: 2,
+                    maxLines: 6,
+                    decoration: const InputDecoration(
+                      labelText: '开场白（可选）',
+                      hintText: '初次开启会话时 TA 发送的第一条打招呼消息',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: Theme.of(context).dividerColor),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    leading: const Icon(Icons.chat_bubble_outline),
+                    title: const FitText('对话风格（语气范例）'),
+                    subtitle: FitText(
+                      _dialogueStyle.isEmpty
+                          ? '提供几句问答示例，教 AI 模仿特定的说话习惯'
+                          : '已配置 ${_dialogueStyle.length} 组问答示例',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () async {
                       final TA current = _buildCurrentTA();
                       await Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -497,53 +607,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
                         _dialogueStyle = List<DialogueTurn>.from(updated?.dialogueStyle ?? _dialogueStyle);
                       });
                     },
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const FitText('对话风格'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(labelText: '名字'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _gender,
-                    decoration: const InputDecoration(labelText: '性别'),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem(value: '男', child: FitText('男')),
-                      DropdownMenuItem(value: '女', child: FitText('女')),
-                      DropdownMenuItem(value: '无性', child: FitText('无性')),
-                      DropdownMenuItem(value: '其他', child: FitText('其他')),
-                    ],
-                    onChanged: (String? value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() => _gender = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _personaController,
-                    decoration: const InputDecoration(
-                      labelText: '设定',
-                      hintText: '决定了TA的内在',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _introController,
-                    decoration: const InputDecoration(
-                      labelText: '介绍',
-                      hintText: '仅对外展示',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _openingController,
-                    decoration: const InputDecoration(
-                      labelText: '开场白（可选）',
-                    ),
                   ),
                   const SizedBox(height: 12),
                   ExpansionTile(
@@ -554,7 +617,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     title: const FitText('高级选项'),
                     subtitle: const FitText('语音合成 Seed、作者注释与注入间隔'),
                     children: <Widget>[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       SeedInputField(
                         controller: _seedController,
                         label: '语音合成 Seed（可选）',
@@ -572,9 +635,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
                       const SizedBox(height: 12),
                       AdaptiveTextField(
                         controller: _authorNoteController,
+                        minLines: 2,
+                        maxLines: 6,
                         decoration: const InputDecoration(
                           labelText: '作者注释（可选）',
                           hintText: '该角色始终希望强调的内容，按间隔深度注入对话。留空则不注入。',
+                          border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -584,6 +650,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                         decoration: const InputDecoration(
                           labelText: '注入间隔（每多少条历史消息注入一次）',
                           hintText: '0 表示禁用',
+                          border: OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
@@ -607,8 +674,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>
-[
+                children: <Widget>[
                   FitText('标签', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   TextField(
@@ -616,6 +682,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     decoration: const InputDecoration(
                       labelText: '标签（逗号分隔）',
                       hintText: '例如：治愈, 暖心, 励志',
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ],

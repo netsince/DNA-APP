@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../models/user_identity.dart';
@@ -7,6 +8,7 @@ import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'package:dna/widgets/fit_text.dart';
 
+/// 用户身份（User Persona）编辑页。
 class IdentityEditorPage extends StatefulWidget {
   const IdentityEditorPage({super.key, required this.controller, this.identity});
 
@@ -20,7 +22,6 @@ class IdentityEditorPage extends StatefulWidget {
 class _IdentityEditorPageState extends State<IdentityEditorPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _personaController;
-  late final TextEditingController _introController;
   late String _identityId;
 
   @override
@@ -30,14 +31,12 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
     _identityId = identity?.id ?? newId();
     _nameController = TextEditingController(text: identity?.name ?? '');
     _personaController = TextEditingController(text: identity?.persona ?? '');
-    _introController = TextEditingController(text: identity?.intro ?? '');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _personaController.dispose();
-    _introController.dispose();
     super.dispose();
   }
 
@@ -46,11 +45,18 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
       id: _identityId,
       name: _nameController.text.trim(),
       persona: _personaController.text.trim(),
-      intro: _introController.text.trim(),
+      intro: '',
     );
   }
 
   Future<void> _save() async {
+    final String name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: FitText('请填写身份名称')),
+      );
+      return;
+    }
     final UserIdentity identity = _buildCurrentIdentity();
     await widget.controller.upsertIdentity(identity);
     if (!mounted) {
@@ -113,7 +119,6 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
     setState(() {
       _nameController.text = imported.name;
       _personaController.text = imported.persona;
-      _introController.text = imported.intro;
     });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +131,8 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: FitText(widget.identity == null ? '创建身份' : '编辑身份'),
@@ -168,7 +175,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
           ),
           IconButton(
             onPressed: _save,
-            icon: const Icon(Icons.save_outlined),
+            icon: const Icon(Icons.check),
             tooltip: '保存',
           ),
         ],
@@ -177,29 +184,48 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('身份信息', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.badge_outlined, color: theme.colorScheme.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText('我的身份信息', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '在对话中作为你的专属人设注入给 AI，让 TA 了解你是谁。',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: '身份名称'),
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _personaController,
                     decoration: const InputDecoration(
-                      labelText: '人设',
-                      hintText: '描述你的身份、性格、说话方式等',
+                      labelText: '身份名称 *',
+                      hintText: '例如：旅行者、指挥官、学弟',
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   AdaptiveTextField(
-                    controller: _introController,
-                    decoration: const InputDecoration(labelText: '介绍'),
+                    controller: _personaController,
+                    minLines: 4,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      labelText: '人设（我的身份设定，发送给 AI）*',
+                      hintText: '描述你的性格、外貌、背景、说话口吻以及与 TA 的关系...',
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
+                    ),
                   ),
                 ],
               ),
@@ -209,7 +235,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
-        icon: const Icon(Icons.save_outlined),
+        icon: const Icon(Icons.check),
         label: const FitText('保存身份'),
       ),
     );
