@@ -29,9 +29,10 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleTokens,
     required this.onManageSnapshots,
     required this.onExport,
-    required this.backgroundMode,
-    required this.ta,
+    this.backgroundMode = '',
+    this.ta,
     this.titleOverride,
+    this.transparentBackground = false,
   });
 
   final bool searching;
@@ -54,10 +55,14 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String backgroundMode;
   final TA? ta;
   final String? titleOverride;
+  final bool transparentBackground;
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      backgroundColor: transparentBackground ? Colors.transparent : null,
+      surfaceTintColor: transparentBackground ? Colors.transparent : null,
+      elevation: transparentBackground ? 0 : null,
       title: searching
           ? Row(
               children: <Widget>[

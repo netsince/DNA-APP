@@ -23,6 +23,7 @@ class ChatInputBar extends StatefulWidget {
     this.quickReplies = const <QuickReply>[],
     this.onQuickReply,
     this.onTap,
+    this.halfScreen = false,
   });
 
   final AppController controller;
@@ -39,6 +40,7 @@ class ChatInputBar extends StatefulWidget {
   /// 点击某个快速回复按钮（尚未做宏替换，由上层处理并发送）。
   final ValueChanged<QuickReply>? onQuickReply;
   final VoidCallback? onTap;
+  final bool halfScreen;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -277,6 +279,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
           onChanged: _onChanged,
           decoration: const InputDecoration(
             hintText: '输入消息...',
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           ),
           onTap: widget.onTap,
           textInputAction:
@@ -761,32 +766,64 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
   }
 
-  /// 快速回复按钮行：横向滚动的 chips，点击立即发送对应内容。
+  /// 快速回复按钮行：横向滚动的精致卡片胶囊，点击立即发送对应内容。
   Widget _buildQuickReplies() {
     if (widget.quickReplies.isEmpty) {
       return const SizedBox.shrink();
     }
     final ColorScheme cs = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 40,
-      child: ListView(
+      height: 38,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        children: <Widget>[
-          for (final QuickReply qr in widget.quickReplies) ...<Widget>[
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ActionChip(
-                label: FitText(qr.label.isEmpty ? '回复' : qr.label),
-                backgroundColor: cs.surfaceContainerHighest,
-                side: BorderSide(color: cs.outlineVariant),
-                onPressed: widget.onQuickReply == null
-                    ? null
-                    : () => widget.onQuickReply!(qr),
+        itemCount: widget.quickReplies.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (BuildContext context, int index) {
+          final QuickReply qr = widget.quickReplies[index];
+          return Material(
+            color: cs.surfaceContainerHighest.withValues(
+              alpha: widget.halfScreen ? 0.65 : 0.85,
+            ),
+            borderRadius: BorderRadius.circular(19),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(19),
+              onTap: widget.onQuickReply == null
+                  ? null
+                  : () => widget.onQuickReply!(qr),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(19),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(
+                      alpha: widget.halfScreen ? 0.4 : 0.55,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 13,
+                      color: cs.primary.withValues(alpha: 0.85),
+                    ),
+                    const SizedBox(width: 6),
+                    FitText(
+                      qr.label.isEmpty ? '回复' : qr.label,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
@@ -800,64 +837,102 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             _buildQuickReplies(),
             const SizedBox(height: 6),
-            Row(
-          children: <Widget>[
-            Expanded(
-              child: _buildTextField(),
+            // 悬浮动态输入岛
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh.withValues(
+                  alpha: widget.halfScreen ? 0.72 : 0.95,
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(
+                    alpha: widget.halfScreen ? 0.35 : 0.5,
+                  ),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: widget.halfScreen ? 0.03 : 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Expanded(
+                    child: _buildTextField(),
+                  ),
+                  // 添加括号按钮
+                  if (widget.controller.settings.showParenButton) ...<Widget>[
+                    _buildParenButton(cs),
+                    const SizedBox(width: 2),
+                  ],
+                  // 语音输入按钮
+                  if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
+                    _buildMic(),
+                    const SizedBox(width: 2),
+                  ],
+                  if (!_hasInput) ...<Widget>[
+                    // 灵感按钮
+                    IconButton(
+                      tooltip: '灵感',
+                      color: cs.onSurfaceVariant,
+                      onPressed: widget.inspirationInProgress
+                          ? null
+                          : () => widget.onStartInspiration(),
+                      icon: widget.inspirationInProgress
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_outlined),
+                    ),
+                  ] else ...<Widget>[
+                    // 发送按钮（动态高亮悬浮胶囊状态）
+                    Material(
+                      color: cs.primary,
+                      shape: const CircleBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: widget.sending ? null : widget.onSend,
+                        child: SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: Center(
+                            child: widget.sending
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: cs.onPrimary,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 20,
+                                    color: cs.onPrimary,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                  ],
+                ],
+              ),
             ),
-            // 添加括号按钮：始终显示（不管有没有内容），设置里可关闭。
-            if (widget.controller.settings.showParenButton) ...<Widget>[
-              _buildParenButton(cs),
-              const SizedBox(width: 4),
-            ],
-            const SizedBox(width: 8),
-            // 语音输入按钮：仅在开关开启时显示。
-            // Web 端该设置已被强制关闭，按钮自然隐藏。
-            if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
-              _buildMic(),
-              const SizedBox(width: 8),
-            ],
-            if (!_hasInput) ...<Widget>[
-              // 当输入框没有内容时显示灵感按钮
-              IconButton(
-                tooltip: '灵感',
-                color: cs.onSurfaceVariant,
-                onPressed: widget.inspirationInProgress
-                    ? null
-                    : () => widget.onStartInspiration(),
-                icon: widget.inspirationInProgress
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome_outlined),
-              ),
-            ] else ...<Widget>[
-              // 输入框有内容时显示发送按钮
-              IconButton(
-                tooltip: widget.sending ? '发送中...' : '发送',
-                color: cs.onSurfaceVariant,
-                onPressed: widget.sending ? null : widget.onSend,
-                icon: widget.sending
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send),
-              ),
-            ],
           ],
         ),
-        ],
-      ),
       ),
     );
   }

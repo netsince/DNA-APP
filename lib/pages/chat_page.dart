@@ -81,6 +81,9 @@ class _ChatPageState extends State<ChatPage>
         ChatActionsInspiration,
         ChatActionsSnapshots,
         ChatActionsSummaryUi {
+  // 沉浸模式：隐藏顶栏与底部输入岛，纯享全屏立绘与对话
+  bool _immersiveUiHidden = false;
+
   // 缓存回调函数避免重建
   late final _TokenCountCallback _tokenCountCallback = _TokenCountCallback(
     counter: _tokenCounter,
@@ -462,216 +465,314 @@ class _ChatPageState extends State<ChatPage>
     final List<int> searchMatches =
         _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
 
+    final bool isExtendBehind = useImageBg || halfScreenChat;
+
     return Scaffold(
-      appBar: ChatAppBar(
-        searching: _searching,
-        searchController: _searchController,
-        searchMatchIndex: _searchMatchIndex,
-        searchMatchesCount: searchMatches.length,
-        onSearchChanged: _updateSearch,
-        onNavigateMatch: _navigateMatch,
-        onToggleSearch: _toggleSearch,
-        onScrollToBottom: _scrollToBottom,
-        onToggleBackground: _toggleBackground,
-        rangeSummaryInProgress: _rangeSummaryInProgress,
-        summaryInProgress: _summaryInProgress,
-        showTokenCounts: _showTokenCounts,
-        onRangeSummary: _summarizeRecentRange,
-        onForceSummary: _forceSummaryPrompt,
-        onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
-        onManageSnapshots: _manageSnapshots,
-        onExport: _exportCurrentConversation,
-        backgroundMode: _conversation.backgroundMode,
-        ta: ta,
-        titleOverride: _isGroup
-            ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
-            : null,
+      extendBodyBehindAppBar: isExtendBehind,
+      appBar: PreferredSize(
+        preferredSize: _immersiveUiHidden ? Size.zero : const Size.fromHeight(kToolbarHeight),
+        child: AnimatedOpacity(
+          opacity: _immersiveUiHidden ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: _immersiveUiHidden
+              ? const SizedBox.shrink()
+              : ChatAppBar(
+                  transparentBackground: isExtendBehind,
+                  searching: _searching,
+                  searchController: _searchController,
+                  searchMatchIndex: _searchMatchIndex,
+                  searchMatchesCount: searchMatches.length,
+                  onSearchChanged: _updateSearch,
+                  onNavigateMatch: _navigateMatch,
+                  onToggleSearch: _toggleSearch,
+                  onScrollToBottom: _scrollToBottom,
+                  onToggleBackground: _toggleBackground,
+                  rangeSummaryInProgress: _rangeSummaryInProgress,
+                  summaryInProgress: _summaryInProgress,
+                  showTokenCounts: _showTokenCounts,
+                  onRangeSummary: _summarizeRecentRange,
+                  onForceSummary: _forceSummaryPrompt,
+                  onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
+                  onManageSnapshots: _manageSnapshots,
+                  onExport: _exportCurrentConversation,
+                  backgroundMode: _conversation.backgroundMode,
+                  ta: ta,
+                  titleOverride: _isGroup
+                      ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
+                      : null,
+                ),
+        ),
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        onTap: () {
+          if (_immersiveUiHidden) {
+            setState(() => _immersiveUiHidden = false);
+          } else {
+            FocusManager.instance.primaryFocus?.unfocus();
+          }
+        },
         child: Stack(
-        children: <Widget>[
-          if (useImageBg)
-            Positioned.fill(
-              child: _isGroup
-                  ? _buildGroupBackground(useLandscape)
-                  : (() {
-                      final ImageProvider? image = _getCachedImage(bgPath!);
-                      if (image == null) return const SizedBox.shrink();
-                      return Image(
-                        image: image,
-                        fit: BoxFit.cover,
-                      );
-                    })(),
-            ),
-          if (useImageBg)
-            Positioned.fill(
-              child: Container(
-                color: colorScheme.surface.withValues(
-                  alpha: widget.controller.settings.chatMaskStrength / 100,
-                ),
-              ),
-            ),
-          Column(
-            children: <Widget>[
-              _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
-              Expanded(
-                child: halfScreenChat
-                    ? Column(
-                        children: <Widget>[
-                          // 上半部分留空，方便查看背景
-                          const Expanded(child: SizedBox.expand()),
-                          // 下半部分：聊天记录（上半部分留空，露出背景）。
-                          // 顶部经 ShaderMask 渐隐：气泡接近上缘时逐渐淡出，
-                          // 列表保持透明，过渡自然而非硬切。
-                          Expanded(
-                            child: ShaderMask(
-                              shaderCallback: (Rect bounds) => LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: const <Color>[
-                                  Colors.transparent,
-                                  Colors.black,
-                                  Colors.black,
-                                ],
-                                stops: const <double>[0.0, 0.06, 1.0],
-                              ).createShader(bounds),
-                              blendMode: BlendMode.dstIn,
-                              child: ChatMessageList(
-                              conversation: _conversation,
-                    scrollController: _scrollController,
-                    messageKeys: _messageKeys,
-                    userBubble: userBubble,
-                    assistantBubble: assistantBubble,
-                    showTokenCounts: _showTokenCounts,
-                    searchQuery: searchQuery,
-                    thoughtsByMessageId: _thoughtsByMessageId,
-                    tokenCountForMessage: _tokenCountCallback.call,
-                    summaryById: _summaryById,
-                    onStartSummary: _startSummaryFromPrompt,
-                    onDismissSummary: _dismissSummaryPrompt,
-                    onShowMessageMenu: _showMessageMenu,
-                    summaryInProgress: _summaryInProgress,
-                    showSpeakerLabels: _isGroup,
-                    taNameForId: (String? id) => widget.controller.getTaById(id ?? '')?.name,
-                    visibleThoughtMessageIds: _visibleThoughtMessageIds,
-                    ttsEnabled: widget.controller.settings.ttsEnabled,
-                    ttsGlobalSeed: widget.controller.settings.ttsGlobalSeed,
-                    voiceSeedForTa: (String? id) =>
-                        widget.controller.getTaById(id ?? '')?.voiceSeed,
-                    ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
-                    showMessageAvatar: widget.controller.settings.showMessageAvatar,
-                    showMessageRetry: widget.controller.settings.showMessageRetry,
-                    showMessageCopy: widget.controller.settings.showMessageCopy,
-                    showMessageContinue: widget.controller.settings.showMessageContinue,
-                    avatarForMessage: _avatarForSpeakerTa,
-                    onRetryMessage: _retryLastAssistant,
-                    onCopyMessage: (String text) {
-                      Clipboard.setData(ClipboardData(text: text));
-                      if (mounted) {
-                        showSnack(
-                          context,
-                          '已复制到剪贴板',
-                          behavior: SnackBarBehavior.floating,
+          children: <Widget>[
+            if (useImageBg)
+              Positioned.fill(
+                child: _isGroup
+                    ? _buildGroupBackground(useLandscape)
+                    : (() {
+                        final ImageProvider? image = _getCachedImage(bgPath!);
+                        if (image == null) return const SizedBox.shrink();
+                        return Image(
+                          image: image,
+                          fit: BoxFit.cover,
                         );
-                      }
-                    },
-                    onContinueMessage: _continueFromContext,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : ChatMessageList(
-                        conversation: _conversation,
-                        scrollController: _scrollController,
-                        messageKeys: _messageKeys,
-                        userBubble: userBubble,
-                        assistantBubble: assistantBubble,
-                        showTokenCounts: _showTokenCounts,
-                        searchQuery: searchQuery,
-                        thoughtsByMessageId: _thoughtsByMessageId,
-                        tokenCountForMessage: _tokenCountCallback.call,
-                        summaryById: _summaryById,
-                        onStartSummary: _startSummaryFromPrompt,
-                        onDismissSummary: _dismissSummaryPrompt,
-                        onShowMessageMenu: _showMessageMenu,
-                        summaryInProgress: _summaryInProgress,
-                        showSpeakerLabels: _isGroup,
-                        taNameForId: (String? id) =>
-                            widget.controller.getTaById(id ?? '')?.name,
-                        visibleThoughtMessageIds: _visibleThoughtMessageIds,
-                        ttsEnabled: widget.controller.settings.ttsEnabled,
-                        ttsGlobalSeed: widget.controller.settings.ttsGlobalSeed,
-                        voiceSeedForTa: (String? id) =>
-                            widget.controller.getTaById(id ?? '')?.voiceSeed,
-                        ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
-                        showMessageAvatar: widget.controller.settings.showMessageAvatar,
-                        showMessageRetry: widget.controller.settings.showMessageRetry,
-                        showMessageCopy: widget.controller.settings.showMessageCopy,
-                        showMessageContinue: widget.controller.settings.showMessageContinue,
-                        avatarForMessage: _avatarForSpeakerTa,
-                        onRetryMessage: _retryLastAssistant,
-                        onCopyMessage: (String text) {
-                          Clipboard.setData(ClipboardData(text: text));
-                          if (mounted) {
-                            showSnack(
-                              context,
-                              '已复制到剪贴板',
-                              behavior: SnackBarBehavior.floating,
-                            );
-                          }
-                        },
-                        onContinueMessage: _continueFromContext,
-                      ),
+                      })(),
               ),
-              if (_sending)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: assistantBubble,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const FitText('对方正在输入...'),
-                    ),
+            if (useImageBg)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: halfScreenChat
+                        ? LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              Colors.transparent,
+                              colorScheme.surface.withValues(
+                                alpha: (widget.controller.settings.chatMaskStrength / 100) * 0.35,
+                              ),
+                              colorScheme.surface.withValues(
+                                alpha: widget.controller.settings.chatMaskStrength / 100,
+                              ),
+                            ],
+                            stops: const <double>[0.36, 0.52, 1.0],
+                          )
+                        : null,
+                    color: halfScreenChat
+                        ? null
+                        : colorScheme.surface.withValues(
+                            alpha: widget.controller.settings.chatMaskStrength / 100,
+                          ),
                   ),
                 ),
-              if (_summaryInProgress)
-                _SummaryProgressBar(
-                  onCancel: _cancelSummary,
-                  color: colorScheme.surfaceContainerHigh,
-                  borderColor: colorScheme.outlineVariant,
-                ),
-              if (widget.controller.settings.showTokenDashboard)
-                _TokenDashboard(
-                  usedTokens: _countContextTokens(),
-                  budgetTokens: widget.controller.settings.maxContextTokens,
-                  accent: schemeColor,
-                ),
-              Theme(
-                data: _accentTheme,
-                child: ChatInputBar(
-                  controller: widget.controller,
-                  inputController: _inputController,
-                  inputFocusNode: _inputFocusNode,
-                  sending: _sending,
-                  inspirationInProgress: _inspirationInProgress,
-                  onSend: _send,
-                  onStartInspiration: _startInspiration,
-                  quickReplies: widget.controller.settings.quickReplies,
-                  onQuickReply: _handleQuickReply,
-                ),
               ),
-            ],
-          ),
-        ],
+            SafeArea(
+              top: isExtendBehind && !_immersiveUiHidden,
+              bottom: false,
+              child: Column(
+                children: <Widget>[
+                  if (!_immersiveUiHidden)
+                    _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
+                  Expanded(
+                    child: halfScreenChat
+                        ? Column(
+                            children: <Widget>[
+                              // 上半部分留空，方便查看背景，点击可一键隐藏/恢复顶栏和输入岛
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    setState(() {
+                                      _immersiveUiHidden = !_immersiveUiHidden;
+                                      if (_immersiveUiHidden) {
+                                        FocusManager.instance.primaryFocus?.unfocus();
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    color: Colors.transparent,
+                                  ),
+                                ),
+                              ),
+                              // 下半部分：聊天记录（上半部分留空，露出背景）。
+                              // 顶部与底部经 ShaderMask 渐隐：气泡接近边缘时平滑淡出。
+                              Expanded(
+                                child: ShaderMask(
+                                  shaderCallback: (Rect bounds) => LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: const <Color>[
+                                      Colors.transparent,
+                                      Colors.black,
+                                      Colors.black,
+                                      Colors.transparent,
+                                    ],
+                                    stops: const <double>[0.0, 0.05, 0.97, 1.0],
+                                  ).createShader(bounds),
+                                  blendMode: BlendMode.dstIn,
+                                  child: ChatMessageList(
+                                    conversation: _conversation,
+                                    scrollController: _scrollController,
+                                    messageKeys: _messageKeys,
+                                    userBubble: userBubble,
+                                    assistantBubble: assistantBubble,
+                                    showTokenCounts: _showTokenCounts,
+                                    searchQuery: searchQuery,
+                                    thoughtsByMessageId: _thoughtsByMessageId,
+                                    tokenCountForMessage: _tokenCountCallback.call,
+                                    summaryById: _summaryById,
+                                    onStartSummary: _startSummaryFromPrompt,
+                                    onDismissSummary: _dismissSummaryPrompt,
+                                    onShowMessageMenu: _showMessageMenu,
+                                    summaryInProgress: _summaryInProgress,
+                                    showSpeakerLabels: _isGroup,
+                                    taNameForId: (String? id) =>
+                                        widget.controller.getTaById(id ?? '')?.name,
+                                    visibleThoughtMessageIds:
+                                        _visibleThoughtMessageIds,
+                                    ttsEnabled: widget.controller.settings.ttsEnabled,
+                                    ttsGlobalSeed:
+                                        widget.controller.settings.ttsGlobalSeed,
+                                    voiceSeedForTa: (String? id) => widget.controller
+                                        .getTaById(id ?? '')
+                                        ?.voiceSeed,
+                                    ttsQuoteOnly:
+                                        widget.controller.settings.ttsQuoteOnly,
+                                    showMessageAvatar:
+                                        widget.controller.settings.showMessageAvatar,
+                                    showMessageRetry:
+                                        widget.controller.settings.showMessageRetry,
+                                    showMessageCopy:
+                                        widget.controller.settings.showMessageCopy,
+                                    showMessageContinue: widget
+                                        .controller.settings.showMessageContinue,
+                                    avatarForMessage: _avatarForSpeakerTa,
+                                    onRetryMessage: _retryLastAssistant,
+                                    onCopyMessage: (String text) {
+                                      Clipboard.setData(ClipboardData(text: text));
+                                      if (mounted) {
+                                        showSnack(
+                                          context,
+                                          '已复制到剪贴板',
+                                          behavior: SnackBarBehavior.floating,
+                                        );
+                                      }
+                                    },
+                                    onContinueMessage: _continueFromContext,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ShaderMask(
+                            shaderCallback: (Rect bounds) => LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: const <Color>[
+                                Colors.transparent,
+                                Colors.black,
+                                Colors.black,
+                                Colors.transparent,
+                              ],
+                              stops: const <double>[0.0, 0.03, 0.97, 1.0],
+                            ).createShader(bounds),
+                            blendMode: BlendMode.dstIn,
+                            child: ChatMessageList(
+                              conversation: _conversation,
+                              scrollController: _scrollController,
+                              messageKeys: _messageKeys,
+                              userBubble: userBubble,
+                              assistantBubble: assistantBubble,
+                              showTokenCounts: _showTokenCounts,
+                              searchQuery: searchQuery,
+                              thoughtsByMessageId: _thoughtsByMessageId,
+                              tokenCountForMessage: _tokenCountCallback.call,
+                              summaryById: _summaryById,
+                              onStartSummary: _startSummaryFromPrompt,
+                              onDismissSummary: _dismissSummaryPrompt,
+                              onShowMessageMenu: _showMessageMenu,
+                              summaryInProgress: _summaryInProgress,
+                              showSpeakerLabels: _isGroup,
+                              taNameForId: (String? id) =>
+                                  widget.controller.getTaById(id ?? '')?.name,
+                              visibleThoughtMessageIds: _visibleThoughtMessageIds,
+                              ttsEnabled: widget.controller.settings.ttsEnabled,
+                              ttsGlobalSeed: widget.controller.settings.ttsGlobalSeed,
+                              voiceSeedForTa: (String? id) =>
+                                  widget.controller.getTaById(id ?? '')?.voiceSeed,
+                              ttsQuoteOnly: widget.controller.settings.ttsQuoteOnly,
+                              showMessageAvatar:
+                                  widget.controller.settings.showMessageAvatar,
+                              showMessageRetry:
+                                  widget.controller.settings.showMessageRetry,
+                              showMessageCopy:
+                                  widget.controller.settings.showMessageCopy,
+                              showMessageContinue:
+                                  widget.controller.settings.showMessageContinue,
+                              avatarForMessage: _avatarForSpeakerTa,
+                              onRetryMessage: _retryLastAssistant,
+                              onCopyMessage: (String text) {
+                                Clipboard.setData(ClipboardData(text: text));
+                                if (mounted) {
+                                  showSnack(
+                                    context,
+                                    '已复制到剪贴板',
+                                    behavior: SnackBarBehavior.floating,
+                                  );
+                                }
+                              },
+                              onContinueMessage: _continueFromContext,
+                            ),
+                          ),
+                  ),
+                  if (_sending)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: assistantBubble,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const FitText('对方正在输入...'),
+                        ),
+                      ),
+                    ),
+                  if (_summaryInProgress)
+                    _SummaryProgressBar(
+                      onCancel: _cancelSummary,
+                      color: colorScheme.surfaceContainerHigh,
+                      borderColor: colorScheme.outlineVariant,
+                    ),
+                  AnimatedCrossFade(
+                    firstChild: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (widget.controller.settings.showTokenDashboard)
+                          _TokenDashboard(
+                            usedTokens: _countContextTokens(),
+                            budgetTokens: widget.controller.settings.maxContextTokens,
+                            accent: schemeColor,
+                          ),
+                        Theme(
+                          data: _accentTheme,
+                          child: ChatInputBar(
+                            controller: widget.controller,
+                            inputController: _inputController,
+                            inputFocusNode: _inputFocusNode,
+                            sending: _sending,
+                            inspirationInProgress: _inspirationInProgress,
+                            onSend: _send,
+                            onStartInspiration: _startInspiration,
+                            quickReplies: widget.controller.settings.quickReplies,
+                            onQuickReply: _handleQuickReply,
+                            halfScreen: isExtendBehind,
+                          ),
+                        ),
+                      ],
+                    ),
+                    secondChild: const SizedBox.shrink(),
+                    crossFadeState:
+                        _immersiveUiHidden ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 200),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

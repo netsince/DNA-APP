@@ -269,6 +269,20 @@ class ChatMessageList extends StatelessWidget {
             ? taNameForId(message.speakerTaId)?.trim()
             : null;
 
+        final BorderRadius bubbleRadius = isUser
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(4),
+              )
+            : const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              );
+
         final Widget bubble = GestureDetector(
           onLongPressStart: (LongPressStartDetails details) {
             onShowMessageMenu(
@@ -286,11 +300,18 @@ class ChatMessageList extends StatelessWidget {
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             constraints: const BoxConstraints(maxWidth: 520),
             decoration: BoxDecoration(
               color: bubbleColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: bubbleRadius,
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1.5),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,6 +322,7 @@ class ChatMessageList extends StatelessWidget {
                     speakerName,
                     style: textTheme.labelSmall?.copyWith(
                       color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -319,7 +341,7 @@ class ChatMessageList extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                     ),
                     child: Column(
@@ -331,12 +353,18 @@ class ChatMessageList extends StatelessWidget {
                             const SizedBox(width: 4),
                             FitText(
                               '思考内容',
-                              style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                              style: textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        FitText(thoughtText, style: textTheme.bodySmall),
+                        FitText(
+                          thoughtText,
+                          style: textTheme.bodySmall?.copyWith(height: 1.45),
+                        ),
                       ],
                     ),
                   ),
@@ -681,21 +709,40 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
 }
 
 TextSpan _buildHighlightedText(BuildContext context, String text, String query, Color highlightColor) {
-  final TextStyle base = DefaultTextStyle.of(context).style;
+  final TextStyle base = DefaultTextStyle.of(context).style.copyWith(height: 1.55);
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
-  // Check if a character is an opening bracket (English or Chinese)
-  bool isOpeningBracket(String char) {
-    return char == '(' || char == '（';
+  final TextStyle dialogueStyle = base.copyWith(
+    fontWeight: FontWeight.w500,
+    color: colorScheme.onSurface,
+  );
+
+  final TextStyle narrationStyle = base.copyWith(
+    fontWeight: FontWeight.normal,
+    color: colorScheme.onSurface.withValues(alpha: 0.82),
+  );
+
+  final TextStyle parenStyle = base.copyWith(
+    fontWeight: FontWeight.normal,
+    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+  );
+
+  // 检查是否为括号（中英文）
+  bool isOpeningBracket(String char) => char == '(' || char == '（';
+  bool isClosingBracket(String char) => char == ')' || char == '）';
+
+  // 检查是否为对话引号开始/结束
+  bool isOpeningQuote(String char) => char == '“' || char == '「' || char == '『' || char == '"';
+  bool isClosingQuote(String char, String openChar) {
+    if (openChar == '“') return char == '”';
+    if (openChar == '「') return char == '」';
+    if (openChar == '『') return char == '』';
+    if (openChar == '"') return char == '"';
+    return false;
   }
 
-  // Check if a character is a closing bracket (English or Chinese)
-  bool isClosingBracket(String char) {
-    return char == ')' || char == '）';
-  }
-
-  // Build spans with parenthesis coloring (supports both English and Chinese brackets)
-  List<InlineSpan> buildParenthesisSpans(String input, TextStyle normalStyle, TextStyle parenStyle) {
+  // 构建括号片段（支持中英文括号）
+  List<InlineSpan> buildParenthesisSpans(String input, TextStyle normalStyle, TextStyle pStyle) {
     final List<InlineSpan> spans = <InlineSpan>[];
     int i = 0;
     while (i < input.length) {
@@ -728,7 +775,7 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
       }
 
       if (depth == 0) {
-        spans.add(TextSpan(text: input.substring(openIndex, closeIndex), style: parenStyle));
+        spans.add(TextSpan(text: input.substring(openIndex, closeIndex), style: pStyle));
         i = closeIndex;
       } else {
         spans.add(TextSpan(text: input.substring(openIndex), style: normalStyle));
@@ -738,11 +785,52 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
     return spans;
   }
 
-  // 对一段纯文本应用「括号灰色」+「搜索高亮」，返回内联片段。
+  // 对一段纯文本应用「小说化引号分级」+「括号弱化」
+  List<InlineSpan> buildNovelizedSpans(String input, TextStyle defaultStyle) {
+    final List<InlineSpan> spans = <InlineSpan>[];
+    int i = 0;
+    while (i < input.length) {
+      int quoteStart = -1;
+      String openQuote = '';
+      for (int j = i; j < input.length; j++) {
+        if (isOpeningQuote(input[j])) {
+          quoteStart = j;
+          openQuote = input[j];
+          break;
+        }
+      }
+
+      if (quoteStart == -1) {
+        // 剩余全部为旁白/叙述
+        spans.addAll(buildParenthesisSpans(input.substring(i), narrationStyle, parenStyle));
+        break;
+      }
+
+      if (quoteStart > i) {
+        // 引号前为旁白/叙述
+        spans.addAll(buildParenthesisSpans(input.substring(i, quoteStart), narrationStyle, parenStyle));
+      }
+
+      int quoteEnd = quoteStart + 1;
+      while (quoteEnd < input.length) {
+        if (isClosingQuote(input[quoteEnd], openQuote)) {
+          quoteEnd++;
+          break;
+        }
+        quoteEnd++;
+      }
+
+      final String quoteSegment = input.substring(quoteStart, quoteEnd);
+      spans.addAll(buildParenthesisSpans(quoteSegment, dialogueStyle, parenStyle));
+      i = quoteEnd;
+    }
+    return spans;
+  }
+
+  // 对一段文本应用「搜索高亮」
   List<InlineSpan> buildPlainSpans(String input, TextStyle style) {
-    final TextStyle grayStyle = style.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
     if (query.isEmpty) {
-      return buildParenthesisSpans(input, style, grayStyle);
+      return buildNovelizedSpans(input, style);
     }
     final String lowerText = input.toLowerCase();
     final String lowerQuery = query.toLowerCase();
@@ -751,16 +839,19 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
     while (true) {
       final int index = lowerText.indexOf(lowerQuery, start);
       if (index == -1) {
-        spans.addAll(buildParenthesisSpans(input.substring(start), style, grayStyle));
+        spans.addAll(buildNovelizedSpans(input.substring(start), style));
         break;
       }
       if (index > start) {
-        spans.addAll(buildParenthesisSpans(input.substring(start, index), style, grayStyle));
+        spans.addAll(buildNovelizedSpans(input.substring(start, index), style));
       }
       spans.add(
         TextSpan(
           text: input.substring(index, index + query.length),
-          style: style.copyWith(backgroundColor: highlightColor),
+          style: style.copyWith(
+            backgroundColor: highlightColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       );
       start = index + query.length;
@@ -774,7 +865,7 @@ TextSpan _buildHighlightedText(BuildContext context, String text, String query, 
     fontSize: (base.fontSize ?? 14) * 0.92,
   );
 
-  // 依据轻量 Markdown 标记生成带样式的片段，并在此基础上叠加括号/搜索高亮。
+  // 依据轻量 Markdown 标记生成带样式的片段，并在此基础上叠加小说化排版/搜索高亮。
   final List<InlineSpan> children = <InlineSpan>[];
   for (final LightMarkdownRun run in parseLightMarkdown(text)) {
     TextStyle style = base;
