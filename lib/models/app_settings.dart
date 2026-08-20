@@ -53,7 +53,7 @@ class AppSettings {
     required this.chatMaskStrength,
     this.chatBubbleOpacity = 100,
     this.halfScreenChat = false,
-    this.dynamicHalfScreen = false,
+    bool dynamicHalfScreen = false,
     this.maxContextMessages = 120,
     this.maxContextTokens = 8000,
     this.temperature = 0.7,
@@ -70,11 +70,12 @@ class AppSettings {
     this.quickReplies = const <QuickReply>[],
     this.deepseekThinkingEnabled = true,
     this.deepseekThinkingEffort = 'high',
-    this.simpleModelMode = true,
+    bool simpleModelMode = true,
     this.activeModelId = LlmModelConfig.defaultId,
     this.providers = const <LlmProviderConfig>[],
     this.models = const <LlmModelConfig>[],
-  });
+  })  : _dynamicHalfScreen = dynamicHalfScreen,
+        _simpleModelMode = simpleModelMode;
 
   factory AppSettings.empty() {
     return AppSettings(
@@ -270,7 +271,8 @@ class AppSettings {
   final bool halfScreenChat;
 
   /// 半屏动态自适应滚动：向上翻看历史消息时自动展开为全屏，向下滑动或滚到底部时自动收敛回半屏。
-  final bool dynamicHalfScreen;
+  final bool? _dynamicHalfScreen;
+  bool get dynamicHalfScreen => _dynamicHalfScreen ?? false;
 
   /// 单次请求最多携带的历史消息条数（含用户与AI），0 表示不限制。
   /// 用于防止长对话超出模型上下文窗口导致模型退化（复读、答非所问）。
@@ -326,7 +328,8 @@ class AppSettings {
   final String deepseekThinkingEffort;
 
   /// 简易模式开关（新手模式）：true 时仅展示原版单页面表单并操作默认实体；false 时展示多服务商与多模型列表。
-  final bool simpleModelMode;
+  final bool? _simpleModelMode;
+  bool get simpleModelMode => _simpleModelMode ?? true;
 
   /// 当前激活生效的模型 ID（默认指向 DNAAPP.MODELSETTING.MODEL.DEFAULT）。
   final String activeModelId;
