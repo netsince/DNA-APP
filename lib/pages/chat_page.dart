@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -578,135 +579,180 @@ class _ChatPageState extends State<ChatPage>
                   if (!_immersiveUiHidden)
                     _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
                   Expanded(
-                    child: Column(
-                      children: <Widget>[
-                        if (halfScreenChat)
-                          AnimatedCrossFade(
-                            firstChild: SizedBox(
-                              height: (screenSize.height - kToolbarHeight - 120) * 0.45,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  setState(() {
-                                    _immersiveUiHidden = !_immersiveUiHidden;
-                                    if (_immersiveUiHidden) {
-                                      FocusManager.instance.primaryFocus?.unfocus();
-                                    }
-                                  });
-                                },
-                                child: Container(
-                                  color: Colors.transparent,
-                                ),
-                              ),
-                            ),
-                            secondChild: const SizedBox.shrink(),
-                            crossFadeState: isHalfScreenActive
-                                ? CrossFadeState.showFirst
-                                : CrossFadeState.showSecond,
-                            duration: const Duration(milliseconds: 250),
-                            sizeCurve: Curves.easeInOut,
-                          ),
-                        Expanded(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (ScrollNotification notification) {
-                              if (!dynamicHalfScreen) {
-                                return false;
-                              }
-                              final ScrollMetrics metrics = notification.metrics;
-                              final bool isNearBottom =
-                                  metrics.pixels >= metrics.maxScrollExtent - 32;
-
-                              if (isNearBottom) {
-                                // 滚动到达底部：自动收敛为半屏
+                    child: Listener(
+                      onPointerSignal: (PointerSignalEvent event) {
+                        if (!dynamicHalfScreen) {
+                          return;
+                        }
+                        if (event is PointerScrollEvent) {
+                          // 鼠标滚轮向上滚动（dy < 0，向上翻看历史记录）：展开为全屏
+                          if (event.scrollDelta.dy < -1) {
+                            if (!_dynamicIsFullScreen) {
+                              setState(() => _dynamicIsFullScreen = true);
+                            }
+                          } else if (event.scrollDelta.dy > 1) {
+                            // 鼠标滚轮向下滚动（dy > 0，向底部滚动）
+                            if (_scrollController.hasClients) {
+                              final double max =
+                                  _scrollController.position.maxScrollExtent;
+                              final double current =
+                                  _scrollController.position.pixels;
+                              if (current >= max - 48) {
                                 if (_dynamicIsFullScreen) {
                                   setState(() => _dynamicIsFullScreen = false);
                                 }
-                              } else if (notification is UserScrollNotification) {
-                                if (notification.direction == ScrollDirection.forward) {
-                                  // 从上往下滑动（向上翻看历史记录）：自动展开为全屏
-                                  if (!_dynamicIsFullScreen && metrics.pixels > 24) {
-                                    setState(() => _dynamicIsFullScreen = true);
+                              }
+                            }
+                          }
+                        }
+                      },
+                      child: Column(
+                        children: <Widget>[
+                          if (halfScreenChat)
+                            AnimatedCrossFade(
+                              firstChild: SizedBox(
+                                height: (screenSize.height - kToolbarHeight - 120) * 0.45,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    setState(() {
+                                      _immersiveUiHidden = !_immersiveUiHidden;
+                                      if (_immersiveUiHidden) {
+                                        FocusManager.instance.primaryFocus?.unfocus();
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    color: Colors.transparent,
+                                  ),
+                                ),
+                              ),
+                              secondChild: const SizedBox.shrink(),
+                              crossFadeState: isHalfScreenActive
+                                  ? CrossFadeState.showFirst
+                                  : CrossFadeState.showSecond,
+                              duration: const Duration(milliseconds: 250),
+                              sizeCurve: Curves.easeInOut,
+                            ),
+                          Expanded(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (ScrollNotification notification) {
+                                if (!dynamicHalfScreen) {
+                                  return false;
+                                }
+                                final ScrollMetrics metrics = notification.metrics;
+                                final bool isNearBottom =
+                                    metrics.pixels >= metrics.maxScrollExtent - 32;
+
+                                if (isNearBottom) {
+                                  // 滚动到达底部：自动收敛为半屏
+                                  if (_dynamicIsFullScreen) {
+                                    setState(() => _dynamicIsFullScreen = false);
                                   }
-                                } else if (notification.direction == ScrollDirection.reverse) {
-                                  // 从下往上滑动（向底部滚动看最新消息）
-                                  if (metrics.pixels >= metrics.maxScrollExtent - 70) {
-                                    if (_dynamicIsFullScreen) {
-                                      setState(() => _dynamicIsFullScreen = false);
+                                } else if (notification is ScrollUpdateNotification) {
+                                  final double? delta = notification.scrollDelta;
+                                  if (delta != null) {
+                                    if (delta < -1) {
+                                      // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
+                                      if (!_dynamicIsFullScreen && metrics.pixels > 12) {
+                                        setState(() => _dynamicIsFullScreen = true);
+                                      }
+                                    } else if (delta > 1) {
+                                      // 向下滚动（向底部靠近）
+                                      if (metrics.pixels >= metrics.maxScrollExtent - 60) {
+                                        if (_dynamicIsFullScreen) {
+                                          setState(() => _dynamicIsFullScreen = false);
+                                        }
+                                      }
+                                    }
+                                  }
+                                } else if (notification is UserScrollNotification) {
+                                  if (notification.direction == ScrollDirection.forward) {
+                                    // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
+                                    if (!_dynamicIsFullScreen && metrics.pixels > 12) {
+                                      setState(() => _dynamicIsFullScreen = true);
+                                    }
+                                  } else if (notification.direction == ScrollDirection.reverse) {
+                                    // 触摸手势从下往上滑动（向底部滚动看最新消息）
+                                    if (metrics.pixels >= metrics.maxScrollExtent - 60) {
+                                      if (_dynamicIsFullScreen) {
+                                        setState(() => _dynamicIsFullScreen = false);
+                                      }
                                     }
                                   }
                                 }
-                              }
-                              return false;
-                            },
-                            child: ShaderMask(
-                              shaderCallback: (Rect bounds) => LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: const <Color>[
-                                  Colors.transparent,
-                                  Colors.black,
-                                  Colors.black,
-                                  Colors.transparent,
-                                ],
-                                stops: isHalfScreenActive
-                                    ? const <double>[0.0, 0.05, 0.97, 1.0]
-                                    : const <double>[0.0, 0.03, 0.97, 1.0],
-                              ).createShader(bounds),
-                              blendMode: BlendMode.dstIn,
-                              child: ChatMessageList(
-                                conversation: _conversation,
-                                scrollController: _scrollController,
-                                messageKeys: _messageKeys,
-                                userBubble: userBubble,
-                                assistantBubble: assistantBubble,
-                                showTokenCounts: _showTokenCounts,
-                                searchQuery: searchQuery,
-                                thoughtsByMessageId: _thoughtsByMessageId,
-                                tokenCountForMessage: _tokenCountCallback.call,
-                                summaryById: _summaryById,
-                                onStartSummary: _startSummaryFromPrompt,
-                                onDismissSummary: _dismissSummaryPrompt,
-                                onShowMessageMenu: _showMessageMenu,
-                                summaryInProgress: _summaryInProgress,
-                                showSpeakerLabels: _isGroup,
-                                taNameForId: (String? id) =>
-                                    widget.controller.getTaById(id ?? '')?.name,
-                                visibleThoughtMessageIds:
-                                    _visibleThoughtMessageIds,
-                                ttsEnabled: widget.controller.settings.ttsEnabled,
-                                ttsGlobalSeed:
-                                    widget.controller.settings.ttsGlobalSeed,
-                                voiceSeedForTa: (String? id) => widget.controller
-                                    .getTaById(id ?? '')
-                                    ?.voiceSeed,
-                                ttsQuoteOnly:
-                                    widget.controller.settings.ttsQuoteOnly,
-                                showMessageAvatar:
-                                    widget.controller.settings.showMessageAvatar,
-                                showMessageRetry:
-                                    widget.controller.settings.showMessageRetry,
-                                showMessageCopy:
-                                    widget.controller.settings.showMessageCopy,
-                                showMessageContinue: widget
-                                    .controller.settings.showMessageContinue,
-                                avatarForMessage: _avatarForSpeakerTa,
-                                onRetryMessage: _retryLastAssistant,
-                                onCopyMessage: (String text) {
-                                  Clipboard.setData(ClipboardData(text: text));
-                                  if (mounted) {
-                                    showSnack(
-                                      context,
-                                      '已复制到剪贴板',
-                                      behavior: SnackBarBehavior.floating,
-                                    );
-                                  }
-                                },
-                                onContinueMessage: _continueFromContext,
+                                return false;
+                              },
+                              child: ShaderMask(
+                                shaderCallback: (Rect bounds) => LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: const <Color>[
+                                    Colors.transparent,
+                                    Colors.black,
+                                    Colors.black,
+                                    Colors.transparent,
+                                  ],
+                                  stops: isHalfScreenActive
+                                      ? const <double>[0.0, 0.05, 0.97, 1.0]
+                                      : const <double>[0.0, 0.03, 0.97, 1.0],
+                                ).createShader(bounds),
+                                blendMode: BlendMode.dstIn,
+                                child: ChatMessageList(
+                                  conversation: _conversation,
+                                  scrollController: _scrollController,
+                                  messageKeys: _messageKeys,
+                                  userBubble: userBubble,
+                                  assistantBubble: assistantBubble,
+                                  showTokenCounts: _showTokenCounts,
+                                  searchQuery: searchQuery,
+                                  thoughtsByMessageId: _thoughtsByMessageId,
+                                  tokenCountForMessage: _tokenCountCallback.call,
+                                  summaryById: _summaryById,
+                                  onStartSummary: _startSummaryFromPrompt,
+                                  onDismissSummary: _dismissSummaryPrompt,
+                                  onShowMessageMenu: _showMessageMenu,
+                                  summaryInProgress: _summaryInProgress,
+                                  showSpeakerLabels: _isGroup,
+                                  taNameForId: (String? id) =>
+                                      widget.controller.getTaById(id ?? '')?.name,
+                                  visibleThoughtMessageIds:
+                                      _visibleThoughtMessageIds,
+                                  ttsEnabled: widget.controller.settings.ttsEnabled,
+                                  ttsGlobalSeed:
+                                      widget.controller.settings.ttsGlobalSeed,
+                                  voiceSeedForTa: (String? id) => widget.controller
+                                      .getTaById(id ?? '')
+                                      ?.voiceSeed,
+                                  ttsQuoteOnly:
+                                      widget.controller.settings.ttsQuoteOnly,
+                                  showMessageAvatar:
+                                      widget.controller.settings.showMessageAvatar,
+                                  showMessageRetry:
+                                      widget.controller.settings.showMessageRetry,
+                                  showMessageCopy:
+                                      widget.controller.settings.showMessageCopy,
+                                  showMessageContinue: widget
+                                      .controller.settings.showMessageContinue,
+                                  avatarForMessage: _avatarForSpeakerTa,
+                                  onRetryMessage: _retryLastAssistant,
+                                  onCopyMessage: (String text) {
+                                    Clipboard.setData(ClipboardData(text: text));
+                                    if (mounted) {
+                                      showSnack(
+                                        context,
+                                        '已复制到剪贴板',
+                                        behavior: SnackBarBehavior.floating,
+                                      );
+                                    }
+                                  },
+                                  onContinueMessage: _continueFromContext,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   if (_sending)
