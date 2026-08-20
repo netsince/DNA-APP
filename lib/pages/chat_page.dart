@@ -591,17 +591,9 @@ class _ChatPageState extends State<ChatPage>
                               setState(() => _dynamicIsFullScreen = true);
                             }
                           } else if (event.scrollDelta.dy > 1) {
-                            // 鼠标滚轮向下滚动（dy > 0，向底部滚动）
-                            if (_scrollController.hasClients) {
-                              final double max =
-                                  _scrollController.position.maxScrollExtent;
-                              final double current =
-                                  _scrollController.position.pixels;
-                              if (current >= max - 48) {
-                                if (_dynamicIsFullScreen) {
-                                  setState(() => _dynamicIsFullScreen = false);
-                                }
-                              }
+                            // 鼠标滚轮向下滚动（dy > 0，向最新消息方向回滚）：中途即刻收敛为半屏
+                            if (_dynamicIsFullScreen) {
+                              setState(() => _dynamicIsFullScreen = false);
                             }
                           }
                         }
@@ -658,11 +650,9 @@ class _ChatPageState extends State<ChatPage>
                                         setState(() => _dynamicIsFullScreen = true);
                                       }
                                     } else if (delta > 1) {
-                                      // 向下滚动（向底部靠近）
-                                      if (metrics.pixels >= metrics.maxScrollExtent - 60) {
-                                        if (_dynamicIsFullScreen) {
-                                          setState(() => _dynamicIsFullScreen = false);
-                                        }
+                                      // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
+                                      if (_dynamicIsFullScreen) {
+                                        setState(() => _dynamicIsFullScreen = false);
                                       }
                                     }
                                   }
@@ -673,11 +663,9 @@ class _ChatPageState extends State<ChatPage>
                                       setState(() => _dynamicIsFullScreen = true);
                                     }
                                   } else if (notification.direction == ScrollDirection.reverse) {
-                                    // 触摸手势从下往上滑动（向底部滚动看最新消息）
-                                    if (metrics.pixels >= metrics.maxScrollExtent - 60) {
-                                      if (_dynamicIsFullScreen) {
-                                        setState(() => _dynamicIsFullScreen = false);
-                                      }
+                                    // 触摸手势从下往上滑动（向最新消息方向回滚）：中途即刻收敛为半屏
+                                    if (_dynamicIsFullScreen) {
+                                      setState(() => _dynamicIsFullScreen = false);
                                     }
                                   }
                                 }
