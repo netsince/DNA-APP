@@ -53,6 +53,7 @@ class AppSettings {
     required this.chatMaskStrength,
     this.chatBubbleOpacity = 100,
     this.halfScreenChat = false,
+    this.dynamicHalfScreen = false,
     this.maxContextMessages = 120,
     this.maxContextTokens = 8000,
     this.temperature = 0.7,
@@ -123,6 +124,7 @@ class AppSettings {
       chatMaskStrength: 75,
       chatBubbleOpacity: 100,
       halfScreenChat: false,
+      dynamicHalfScreen: false,
       maxContextMessages: 120,
       maxContextTokens: 8000,
       temperature: 0.7,
@@ -267,6 +269,9 @@ class AppSettings {
   /// 上半部分留空以便查看背景，两者之间以渐变过渡衔接。
   final bool halfScreenChat;
 
+  /// 半屏动态自适应滚动：向上翻看历史消息时自动展开为全屏，向下滑动或滚到底部时自动收敛回半屏。
+  final bool dynamicHalfScreen;
+
   /// 单次请求最多携带的历史消息条数（含用户与AI），0 表示不限制。
   /// 用于防止长对话超出模型上下文窗口导致模型退化（复读、答非所问）。
   final int maxContextMessages;
@@ -380,6 +385,7 @@ class AppSettings {
       'chatMaskStrength': chatMaskStrength,
       'chatBubbleOpacity': chatBubbleOpacity,
       'halfScreenChat': halfScreenChat,
+      'dynamicHalfScreen': dynamicHalfScreen,
       'maxContextMessages': maxContextMessages,
       'maxContextTokens': maxContextTokens,
       'temperature': temperature,
@@ -464,6 +470,7 @@ class AppSettings {
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
       chatBubbleOpacity: (json['chatBubbleOpacity'] as int?) ?? 100,
       halfScreenChat: (json['halfScreenChat'] as bool?) ?? false,
+      dynamicHalfScreen: (json['dynamicHalfScreen'] as bool?) ?? false,
       maxContextMessages: (json['maxContextMessages'] as int?) ?? 120,
       maxContextTokens: (json['maxContextTokens'] as int?) ?? 8000,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
@@ -560,6 +567,7 @@ class AppSettings {
     int? chatMaskStrength,
     int? chatBubbleOpacity,
     bool? halfScreenChat,
+    bool? dynamicHalfScreen,
     int? maxContextMessages,
     int? maxContextTokens,
     double? temperature,
@@ -629,6 +637,7 @@ class AppSettings {
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
       chatBubbleOpacity: chatBubbleOpacity ?? this.chatBubbleOpacity,
       halfScreenChat: halfScreenChat ?? this.halfScreenChat,
+      dynamicHalfScreen: dynamicHalfScreen ?? this.dynamicHalfScreen,
       maxContextMessages: maxContextMessages ?? this.maxContextMessages,
       maxContextTokens: maxContextTokens ?? this.maxContextTokens,
       temperature: temperature ?? this.temperature,

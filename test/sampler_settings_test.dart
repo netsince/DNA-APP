@@ -69,18 +69,24 @@ void main() {
     test('半屏聊天默认关闭', () {
       final AppSettings s = AppSettings.empty();
       expect(s.halfScreenChat, isFalse);
+      expect(s.dynamicHalfScreen, isFalse);
     });
 
     test('halfScreenChat 序列化往返一致', () {
-      final AppSettings s = AppSettings.empty().copyWith(halfScreenChat: true);
+      final AppSettings s = AppSettings.empty().copyWith(
+        halfScreenChat: true,
+        dynamicHalfScreen: true,
+      );
       final AppSettings back = AppSettings.fromJson(s.toJson());
       expect(back.halfScreenChat, isTrue);
+      expect(back.dynamicHalfScreen, isTrue);
     });
 
     test('halfScreenChat 缺失字段回退默认（false）', () {
       final AppSettings back =
           AppSettings.fromJson(<String, dynamic>{'provider': 'openai'});
       expect(back.halfScreenChat, isFalse);
+      expect(back.dynamicHalfScreen, isFalse);
     });
   });
 

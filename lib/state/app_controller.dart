@@ -577,6 +577,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「半屏动态自适应滚动」开关：向上翻看历史自动全屏，向下滚动或触底自动收敛为半屏。
+  Future<void> saveDynamicHalfScreen(bool dynamicHalfScreen) async {
+    _settings = _settings.copyWith(dynamicHalfScreen: dynamicHalfScreen);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存消息气泡快捷按钮显示开关（头像/重说/复制/继续说）。
   Future<void> saveMessageQuickButtons({
     required bool showAvatar,

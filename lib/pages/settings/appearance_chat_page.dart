@@ -20,6 +20,7 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
   int _chatMaskStrength = 75;
   int _chatBubbleOpacity = 100;
   bool _halfScreenChat = false;
+  bool _dynamicHalfScreen = false;
   bool _showMessageAvatar = true;
   bool _showMessageRetry = true;
   bool _showMessageCopy = true;
@@ -33,6 +34,7 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
     _chatMaskStrength = s.chatMaskStrength;
     _chatBubbleOpacity = s.chatBubbleOpacity;
     _halfScreenChat = s.halfScreenChat;
+    _dynamicHalfScreen = s.dynamicHalfScreen;
     _showMessageAvatar = s.showMessageAvatar;
     _showMessageRetry = s.showMessageRetry;
     _showMessageCopy = s.showMessageCopy;
@@ -133,6 +135,31 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
                       setState(() => _halfScreenChat = v);
                       await widget.controller.saveHalfScreenChat(v);
                     },
+                  ),
+
+                  // 3.1 动态自适应滚动（前置条件：开启半屏模式）
+                  AnimatedCrossFade(
+                    firstChild: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const FitText('滚动自适应全半屏'),
+                        subtitle: const FitText(
+                          '翻看上方历史时自动展开为全屏；向下滑动或滚到底部时自动收敛回半屏。',
+                        ),
+                        value: _dynamicHalfScreen,
+                        onChanged: (bool v) async {
+                          setState(() => _dynamicHalfScreen = v);
+                          await widget.controller.saveDynamicHalfScreen(v);
+                        },
+                      ),
+                    ),
+                    secondChild: const SizedBox.shrink(),
+                    crossFadeState: _halfScreenChat
+                        ? CrossFadeState.showFirst
+                        : CrossFadeState.showSecond,
+                    duration: const Duration(milliseconds: 200),
                   ),
                 ],
               ),
