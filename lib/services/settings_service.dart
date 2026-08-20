@@ -3,11 +3,17 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/llm_model_config.dart';
+import '../models/llm_provider_config.dart';
 import '../models/prompt_strategy.dart';
 import '../models/quick_reply.dart';
 import '../models/voice_models.dart';
 
 class SettingsService {
+  static const String _simpleModelModeKey = 'simple_model_mode';
+  static const String _activeModelIdKey = 'active_model_id';
+  static const String _llmProvidersKey = 'llm_providers_json';
+  static const String _llmModelsKey = 'llm_models_json';
   static const String _baseUrlKey = 'base_url';
   static const String _apiKeyKey = 'api_key';
   static const String _providerKey = 'provider';
@@ -72,13 +78,46 @@ class SettingsService {
         // Use defaults if parsing fails.
       }
     }
+
+    final String legacyProvider = prefs.getString(_providerKey) ?? 'openai';
+    final String legacyBaseUrl = prefs.getString(_baseUrlKey) ?? '';
+    final String legacyApiKey = prefs.getString(_apiKeyKey) ?? '';
+    final String legacyModel = prefs.getString(_modelKey) ?? '';
+
+    List<LlmProviderConfig> providers =
+        _decodeProviders(prefs.getString(_llmProvidersKey));
+    if (providers.isEmpty || !providers.any((p) => p.isDefault)) {
+      providers = <LlmProviderConfig>[
+        LlmProviderConfig.defaultConfig(
+          providerType: legacyProvider,
+          baseUrl: legacyBaseUrl,
+          apiKey: legacyApiKey,
+        ),
+        ...providers.where((p) => !p.isDefault),
+      ];
+    }
+
+    List<LlmModelConfig> models =
+        _decodeModels(prefs.getString(_llmModelsKey));
+    if (models.isEmpty || !models.any((m) => m.isDefault)) {
+      models = <LlmModelConfig>[
+        LlmModelConfig.defaultConfig(
+          modelName: legacyModel,
+        ),
+        ...models.where((m) => !m.isDefault),
+      ];
+    }
+
+    final bool simpleModelMode = prefs.getBool(_simpleModelModeKey) ?? true;
+    final String activeModelId =
+        prefs.getString(_activeModelIdKey) ?? LlmModelConfig.defaultId;
     
     return AppSettings(
-      provider: prefs.getString(_providerKey) ?? 'openai',
+      provider: legacyProvider,
       themeMode: prefs.getString(_themeModeKey) ?? 'system',
-      baseUrl: prefs.getString(_baseUrlKey) ?? '',
-      apiKey: prefs.getString(_apiKeyKey) ?? '',
-      selectedModel: prefs.getString(_modelKey) ?? '',
+      baseUrl: legacyBaseUrl,
+      apiKey: legacyApiKey,
+      selectedModel: legacyModel,
       completedOobe: prefs.getBool(_oobeKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
       summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
@@ -125,7 +164,26 @@ class SettingsService {
       loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
       loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
       quickReplies: _decodeQuickReplies(prefs.getString(_quickRepliesKey)),
+      simpleModelMode: simpleModelMode,
+      activeModelId: activeModelId,
+      providers: providers,
+      models: models,
     );
+  }
+
+  static List<LlmProviderConfig> _decodeProviders(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return const <LlmProviderConfig>[];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .whereType<Map>()
+          .map((Map e) => LlmProviderConfig.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    } catch (_) {
+      return const <LlmProviderConfig>[];
+    }
   }
 
   static List<QuickReply> _decodeQuickReplies(String? raw) {
@@ -140,6 +198,21 @@ class SettingsService {
           .toList();
     } catch (_) {
       return const <QuickReply>[];
+    }
+  }
+
+  static List<LlmModelConfig> _decodeModels(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return const <LlmModelConfig>[];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .whereType<Map>()
+          .map((Map e) => LlmModelConfig.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    } catch (_) {
+      return const <LlmModelConfig>[];
     }
   }
 
@@ -217,6 +290,16 @@ class SettingsService {
         jsonEncode(settings.quickReplies
             .map((QuickReply r) => r.toJson())
             .toList()));
+    await prefs.setBool(_simpleModelModeKey, settings.simpleModelMode);
+    await prefs.setString(_activeModelIdKey, settings.activeModelId);
+    await prefs.setString(
+      _llmProvidersKey,
+      jsonEncode(settings.providers.map((p) => p.toJson()).toList()),
+    );
+    await prefs.setString(
+      _llmModelsKey,
+      jsonEncode(settings.models.map((m) => m.toJson()).toList()),
+    );
   }
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。

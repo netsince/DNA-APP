@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import '../models/conversation.dart';
+import '../models/llm_model_config.dart';
+import '../models/llm_provider_config.dart';
 import '../models/prompt_strategy.dart';
 import '../models/quick_reply.dart';
 import '../models/ta.dart';
@@ -86,8 +88,35 @@ class AppController extends ChangeNotifier {
   /// 底层设置存储（供自动备份等需要读写独立偏好项的场景使用）。
   SettingsService get settingsService => _settingsService;
 
+  /// 当前激活的模型配置实体。
+  LlmModelConfig get activeModel {
+    final String targetId = _settings.simpleModelMode
+        ? LlmModelConfig.defaultId
+        : _settings.activeModelId;
+    return _settings.models.firstWhere(
+      (m) => m.id == targetId,
+      orElse: () => _settings.models.firstWhere(
+        (m) => m.isDefault,
+        orElse: () => LlmModelConfig.defaultConfig(),
+      ),
+    );
+  }
+
+  /// 当前激活模型所归属的服务商配置实体。
+  LlmProviderConfig get activeProviderConfig {
+    final String targetProviderId = activeModel.providerId;
+    return _settings.providers.firstWhere(
+      (p) => p.id == targetProviderId,
+      orElse: () => _settings.providers.firstWhere(
+        (p) => p.isDefault,
+        orElse: () => LlmProviderConfig.defaultConfig(),
+      ),
+    );
+  }
+
   /// 当前设置所选的大模型 Provider。业务层应优先使用此接口而非 openAiService。
-  LlmProvider get llmProvider => _providerRegistry[settings.provider];
+  LlmProvider get llmProvider =>
+      _providerRegistry[activeProviderConfig.providerType];
 
   /// 所有已注册的 Provider，供设置页 / OOBE 构建厂商选择列表。
   List<LlmProvider> get llmProviders => _providerRegistry.providers;
@@ -118,6 +147,8 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 同步激活配置到顶层遗留字段
+    _syncActiveModelToLegacyFields();
     // 平台能力门控：Web 上强制关闭不支持的功能设置（置灰，不触发原生调用）。
     if (!PlatformCapabilities.voiceInputSupported) {
       _settings = _settings.copyWith(voiceInputEnabled: false);
@@ -156,6 +187,138 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 同步激活模型和服务商至顶层 settings 遗留字段，以保证下游聊天服务透明适配。
+  void _syncActiveModelToLegacyFields() {
+    final p = activeProviderConfig;
+    final m = activeModel;
+    _settings = _settings.copyWith(
+      provider: p.providerType,
+      baseUrl: p.baseUrl,
+      apiKey: p.apiKey,
+      selectedModel: m.modelName,
+      temperature: m.customSamplingEnabled && m.temperature != null
+          ? m.temperature
+          : _settings.temperature,
+      frequencyPenalty:
+          m.customSamplingEnabled && m.frequencyPenalty != null
+              ? m.frequencyPenalty
+              : _settings.frequencyPenalty,
+      presencePenalty:
+          m.customSamplingEnabled && m.presencePenalty != null
+              ? m.presencePenalty
+              : _settings.presencePenalty,
+      topP: m.customSamplingEnabled && m.topP != null
+          ? m.topP
+          : _settings.topP,
+      topK: m.customSamplingEnabled && m.topK != null
+          ? m.topK
+          : _settings.topK,
+      minP: m.customSamplingEnabled && m.minP != null
+          ? m.minP
+          : _settings.minP,
+      repetitionPenalty:
+          m.customSamplingEnabled && m.repetitionPenalty != null
+              ? m.repetitionPenalty
+              : _settings.repetitionPenalty,
+      repetitionPenaltySlope:
+          m.customSamplingEnabled && m.repetitionPenaltySlope != null
+              ? m.repetitionPenaltySlope
+              : _settings.repetitionPenaltySlope,
+      deepseekThinkingEnabled: m.deepseekThinkingEnabled ?? _settings.deepseekThinkingEnabled,
+      deepseekThinkingEffort: m.deepseekThinkingEffort ?? _settings.deepseekThinkingEffort,
+    );
+  }
+
+  /// 切换简易模式 / 高级多模型列表模式。
+  Future<void> toggleSimpleModelMode(bool enabled) async {
+    _settings = _settings.copyWith(simpleModelMode: enabled);
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 切换当前激活生效的模型。
+  Future<void> setActiveModel(String modelId) async {
+    if (!_settings.models.any((m) => m.id == modelId)) return;
+    _settings = _settings.copyWith(activeModelId: modelId);
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存服务商配置（新增或编辑）。
+  Future<void> saveProviderConfig(LlmProviderConfig config) async {
+    final List<LlmProviderConfig> list = List<LlmProviderConfig>.from(_settings.providers);
+    final int idx = list.indexWhere((p) => p.id == config.id);
+    if (idx >= 0) {
+      list[idx] = config;
+    } else {
+      list.add(config);
+    }
+    _settings = _settings.copyWith(providers: list);
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 删除服务商配置（级联删除归属于该服务商的所有模型）。默认项不可删除。
+  Future<void> deleteProviderConfig(String providerId) async {
+    if (providerId == LlmProviderConfig.defaultId) return;
+    final List<LlmProviderConfig> updatedProviders =
+        _settings.providers.where((p) => p.id != providerId).toList();
+    final List<LlmModelConfig> updatedModels =
+        _settings.models.where((m) => m.providerId != providerId || m.isDefault).toList();
+
+    String activeId = _settings.activeModelId;
+    if (!updatedModels.any((m) => m.id == activeId)) {
+      activeId = LlmModelConfig.defaultId;
+    }
+
+    _settings = _settings.copyWith(
+      providers: updatedProviders,
+      models: updatedModels,
+      activeModelId: activeId,
+    );
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存模型配置（新增或编辑）。
+  Future<void> saveModelConfig(LlmModelConfig config) async {
+    final List<LlmModelConfig> list = List<LlmModelConfig>.from(_settings.models);
+    final int idx = list.indexWhere((m) => m.id == config.id);
+    if (idx >= 0) {
+      list[idx] = config;
+    } else {
+      list.add(config);
+    }
+    _settings = _settings.copyWith(models: list);
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 删除模型配置。默认项不可删除。
+  Future<void> deleteModelConfig(String modelId) async {
+    if (modelId == LlmModelConfig.defaultId) return;
+    final List<LlmModelConfig> updatedModels =
+        _settings.models.where((m) => m.id != modelId).toList();
+
+    String activeId = _settings.activeModelId;
+    if (activeId == modelId) {
+      activeId = LlmModelConfig.defaultId;
+    }
+
+    _settings = _settings.copyWith(
+      models: updatedModels,
+      activeModelId: activeId,
+    );
+    _syncActiveModelToLegacyFields();
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveApiConfig({
     required String baseUrl,
     required String apiKey,
@@ -164,6 +327,16 @@ class AppController extends ChangeNotifier {
       baseUrl: baseUrl.trim(),
       apiKey: apiKey.trim(),
     );
+    // 同步到默认服务商
+    final List<LlmProviderConfig> list = List<LlmProviderConfig>.from(_settings.providers);
+    final int defIdx = list.indexWhere((p) => p.isDefault);
+    if (defIdx >= 0) {
+      list[defIdx] = list[defIdx].copyWith(
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim(),
+      );
+      _settings = _settings.copyWith(providers: list);
+    }
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -171,6 +344,13 @@ class AppController extends ChangeNotifier {
   /// 切换当前使用的大模型厂商。
   Future<void> saveProvider(String provider) async {
     _settings = _settings.copyWith(provider: provider.trim());
+    // 同步到默认服务商
+    final List<LlmProviderConfig> list = List<LlmProviderConfig>.from(_settings.providers);
+    final int defIdx = list.indexWhere((p) => p.isDefault);
+    if (defIdx >= 0) {
+      list[defIdx] = list[defIdx].copyWith(providerType: provider.trim());
+      _settings = _settings.copyWith(providers: list);
+    }
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -184,6 +364,13 @@ class AppController extends ChangeNotifier {
 
   Future<void> saveSelectedModel(String model) async {
     _settings = _settings.copyWith(selectedModel: model.trim());
+    // 同步到默认模型
+    final List<LlmModelConfig> list = List<LlmModelConfig>.from(_settings.models);
+    final int defIdx = list.indexWhere((m) => m.isDefault);
+    if (defIdx >= 0) {
+      list[defIdx] = list[defIdx].copyWith(modelName: model.trim());
+      _settings = _settings.copyWith(models: list);
+    }
     await _settingsService.save(_settings);
     notifyListeners();
   }

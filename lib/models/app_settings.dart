@@ -1,4 +1,6 @@
 import '../utils/message_processor.dart';
+import 'llm_model_config.dart';
+import 'llm_provider_config.dart';
 import 'prompt_strategy.dart';
 import 'quick_reply.dart';
 import 'voice_models.dart';
@@ -67,6 +69,10 @@ class AppSettings {
     this.quickReplies = const <QuickReply>[],
     this.deepseekThinkingEnabled = true,
     this.deepseekThinkingEffort = 'high',
+    this.simpleModelMode = true,
+    this.activeModelId = LlmModelConfig.defaultId,
+    this.providers = const <LlmProviderConfig>[],
+    this.models = const <LlmModelConfig>[],
   });
 
   factory AppSettings.empty() {
@@ -133,6 +139,10 @@ class AppSettings {
       quickReplies: const <QuickReply>[],
       deepseekThinkingEnabled: true,
       deepseekThinkingEffort: 'high',
+      simpleModelMode: true,
+      activeModelId: LlmModelConfig.defaultId,
+      providers: <LlmProviderConfig>[LlmProviderConfig.defaultConfig()],
+      models: <LlmModelConfig>[LlmModelConfig.defaultConfig()],
     );
   }
 
@@ -310,6 +320,18 @@ class AppSettings {
   /// 通过请求的 `reasoning_effort` 字段传递，默认 'high'。
   final String deepseekThinkingEffort;
 
+  /// 简易模式开关（新手模式）：true 时仅展示原版单页面表单并操作默认实体；false 时展示多服务商与多模型列表。
+  final bool simpleModelMode;
+
+  /// 当前激活生效的模型 ID（默认指向 DNAAPP.MODELSETTING.MODEL.DEFAULT）。
+  final String activeModelId;
+
+  /// 服务商配置列表。
+  final List<LlmProviderConfig> providers;
+
+  /// 模型配置列表。
+  final List<LlmModelConfig> models;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'provider': provider,
@@ -376,6 +398,10 @@ class AppSettings {
           .toList(),
       'deepseekThinkingEnabled': deepseekThinkingEnabled,
       'deepseekThinkingEffort': deepseekThinkingEffort,
+      'simpleModelMode': simpleModelMode,
+      'activeModelId': activeModelId,
+      'providers': providers.map((LlmProviderConfig p) => p.toJson()).toList(),
+      'models': models.map((LlmModelConfig m) => m.toJson()).toList(),
     };
   }
 
@@ -461,6 +487,29 @@ class AppSettings {
           (json['deepseekThinkingEnabled'] as bool?) ?? true,
       deepseekThinkingEffort:
           (json['deepseekThinkingEffort'] as String?) ?? 'high',
+      simpleModelMode: (json['simpleModelMode'] as bool?) ?? true,
+      activeModelId:
+          (json['activeModelId'] as String?) ?? LlmModelConfig.defaultId,
+      providers: (json['providers'] as List<dynamic>?)
+              ?.map((dynamic e) =>
+                  LlmProviderConfig.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          <LlmProviderConfig>[
+            LlmProviderConfig.defaultConfig(
+              providerType: (json['provider'] as String?) ?? 'openai',
+              baseUrl: (json['baseUrl'] as String?) ?? '',
+              apiKey: (json['apiKey'] as String?) ?? '',
+            ),
+          ],
+      models: (json['models'] as List<dynamic>?)
+              ?.map((dynamic e) =>
+                  LlmModelConfig.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          <LlmModelConfig>[
+            LlmModelConfig.defaultConfig(
+              modelName: (json['selectedModel'] as String?) ?? '',
+            ),
+          ],
     );
   }
 
@@ -527,6 +576,10 @@ class AppSettings {
     List<QuickReply>? quickReplies,
     bool? deepseekThinkingEnabled,
     String? deepseekThinkingEffort,
+    bool? simpleModelMode,
+    String? activeModelId,
+    List<LlmProviderConfig>? providers,
+    List<LlmModelConfig>? models,
   }) {
     return AppSettings(
       provider: provider ?? this.provider,
@@ -595,6 +648,10 @@ class AppSettings {
           deepseekThinkingEnabled ?? this.deepseekThinkingEnabled,
       deepseekThinkingEffort:
           deepseekThinkingEffort ?? this.deepseekThinkingEffort,
+      simpleModelMode: simpleModelMode ?? this.simpleModelMode,
+      activeModelId: activeModelId ?? this.activeModelId,
+      providers: providers ?? this.providers,
+      models: models ?? this.models,
     );
   }
 }
