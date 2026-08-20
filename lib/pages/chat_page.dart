@@ -549,8 +549,10 @@ class _ChatPageState extends State<ChatPage>
                         widget.controller.settings.chatMaskStrength / 100.0;
                     final Color maskColor =
                         colorScheme.surface.withValues(alpha: baseAlpha);
+                    final Color softMaskColor =
+                        colorScheme.surface.withValues(alpha: baseAlpha * 0.20);
                     final Color halfMaskColor =
-                        colorScheme.surface.withValues(alpha: baseAlpha * 0.35);
+                        colorScheme.surface.withValues(alpha: baseAlpha * 0.60);
                     final Color clearColor =
                         colorScheme.surface.withValues(alpha: 0.0);
 
@@ -562,9 +564,21 @@ class _ChatPageState extends State<ChatPage>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: isHalfScreenActive
-                              ? <Color>[clearColor, clearColor, halfMaskColor, maskColor]
-                              : <Color>[maskColor, maskColor, maskColor, maskColor],
-                          stops: const <double>[0.0, 0.38, 0.54, 1.0],
+                              ? <Color>[
+                                  clearColor,
+                                  clearColor,
+                                  softMaskColor,
+                                  halfMaskColor,
+                                  maskColor,
+                                ]
+                              : <Color>[
+                                  maskColor,
+                                  maskColor,
+                                  maskColor,
+                                  maskColor,
+                                  maskColor,
+                                ],
+                          stops: const <double>[0.0, 0.32, 0.44, 0.60, 1.0],
                         ),
                       ),
                     );
@@ -585,13 +599,13 @@ class _ChatPageState extends State<ChatPage>
                           return;
                         }
                         if (event is PointerScrollEvent) {
-                          // 鼠标滚轮向上滚动（dy < 0，向上翻看历史记录）：展开为全屏
-                          if (event.scrollDelta.dy < -1) {
+                          // 鼠标滚轮向上滚动（dy < -3，向上翻看历史记录）：展开为全屏
+                          if (event.scrollDelta.dy < -3) {
                             if (!_dynamicIsFullScreen) {
                               setState(() => _dynamicIsFullScreen = true);
                             }
-                          } else if (event.scrollDelta.dy > 1) {
-                            // 鼠标滚轮向下滚动（dy > 0，向最新消息方向回滚）：中途即刻收敛为半屏
+                          } else if (event.scrollDelta.dy > 3) {
+                            // 鼠标滚轮向下滚动（dy > 3，向最新消息方向回滚）：中途即刻收敛为半屏
                             if (_dynamicIsFullScreen) {
                               setState(() => _dynamicIsFullScreen = false);
                             }
@@ -634,7 +648,7 @@ class _ChatPageState extends State<ChatPage>
                                 }
                                 final ScrollMetrics metrics = notification.metrics;
                                 final bool isNearBottom =
-                                    metrics.pixels >= metrics.maxScrollExtent - 32;
+                                    metrics.pixels >= metrics.maxScrollExtent - 24;
 
                                 if (isNearBottom) {
                                   // 滚动到达底部：自动收敛为半屏
@@ -644,12 +658,12 @@ class _ChatPageState extends State<ChatPage>
                                 } else if (notification is ScrollUpdateNotification) {
                                   final double? delta = notification.scrollDelta;
                                   if (delta != null) {
-                                    if (delta < -1) {
+                                    if (delta < -3) {
                                       // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
-                                      if (!_dynamicIsFullScreen && metrics.pixels > 12) {
+                                      if (!_dynamicIsFullScreen && metrics.pixels > 16) {
                                         setState(() => _dynamicIsFullScreen = true);
                                       }
-                                    } else if (delta > 1) {
+                                    } else if (delta > 3) {
                                       // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
                                       if (_dynamicIsFullScreen) {
                                         setState(() => _dynamicIsFullScreen = false);
@@ -659,7 +673,7 @@ class _ChatPageState extends State<ChatPage>
                                 } else if (notification is UserScrollNotification) {
                                   if (notification.direction == ScrollDirection.forward) {
                                     // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
-                                    if (!_dynamicIsFullScreen && metrics.pixels > 12) {
+                                    if (!_dynamicIsFullScreen && metrics.pixels > 16) {
                                       setState(() => _dynamicIsFullScreen = true);
                                     }
                                   } else if (notification.direction == ScrollDirection.reverse) {
