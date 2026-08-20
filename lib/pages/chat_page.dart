@@ -543,32 +543,32 @@ class _ChatPageState extends State<ChatPage>
               ),
             if (useImageBg)
               Positioned.fill(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  decoration: BoxDecoration(
-                    gradient: isHalfScreenActive
-                        ? LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: <Color>[
-                              Colors.transparent,
-                              colorScheme.surface.withValues(
-                                alpha: (widget.controller.settings.chatMaskStrength / 100) * 0.35,
-                              ),
-                              colorScheme.surface.withValues(
-                                alpha: widget.controller.settings.chatMaskStrength / 100,
-                              ),
-                            ],
-                            stops: const <double>[0.36, 0.52, 1.0],
-                          )
-                        : null,
-                    color: isHalfScreenActive
-                        ? null
-                        : colorScheme.surface.withValues(
-                            alpha: widget.controller.settings.chatMaskStrength / 100,
-                          ),
-                  ),
+                child: Builder(
+                  builder: (BuildContext context) {
+                    final double baseAlpha =
+                        widget.controller.settings.chatMaskStrength / 100.0;
+                    final Color maskColor =
+                        colorScheme.surface.withValues(alpha: baseAlpha);
+                    final Color halfMaskColor =
+                        colorScheme.surface.withValues(alpha: baseAlpha * 0.35);
+                    final Color clearColor =
+                        colorScheme.surface.withValues(alpha: 0.0);
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeInOutCubic,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: isHalfScreenActive
+                              ? <Color>[clearColor, clearColor, halfMaskColor, maskColor]
+                              : <Color>[maskColor, maskColor, maskColor, maskColor],
+                          stops: const <double>[0.0, 0.38, 0.54, 1.0],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             SafeArea(
@@ -623,8 +623,8 @@ class _ChatPageState extends State<ChatPage>
                               crossFadeState: isHalfScreenActive
                                   ? CrossFadeState.showFirst
                                   : CrossFadeState.showSecond,
-                              duration: const Duration(milliseconds: 250),
-                              sizeCurve: Curves.easeInOut,
+                              duration: const Duration(milliseconds: 320),
+                              sizeCurve: Curves.easeInOutCubic,
                             ),
                           Expanded(
                             child: NotificationListener<ScrollNotification>(
