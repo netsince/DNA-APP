@@ -320,8 +320,11 @@ class ChatMessageList extends StatelessWidget {
                 if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
                   FitText(
                     speakerName,
+                    contrastBackground: bubbleColor,
                     style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      color: FitText.isLightBackground(bubbleColor, colorScheme.surface)
+                          ? const Color(0xFF49454F)
+                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -333,6 +336,7 @@ class ChatMessageList extends StatelessWidget {
                     message.text,
                     searchQuery,
                     colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+                    bubbleColor: bubbleColor,
                   ),
                 ),
                 if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
@@ -373,8 +377,11 @@ class ChatMessageList extends StatelessWidget {
                   const SizedBox(height: 6),
                   FitText(
                     '字数 $charCount / Token $tokenCount',
+                    contrastBackground: bubbleColor,
                     style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: FitText.isLightBackground(bubbleColor, colorScheme.surface)
+                          ? const Color(0xFF49454F)
+                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -708,23 +715,45 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
   }
 }
 
-TextSpan _buildHighlightedText(BuildContext context, String text, String query, Color highlightColor) {
+TextSpan _buildHighlightedText(
+  BuildContext context,
+  String text,
+  String query,
+  Color highlightColor, {
+  Color? bubbleColor,
+}) {
   final TextStyle base = DefaultTextStyle.of(context).style.copyWith(height: 1.55);
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
+  final bool isLightBg = bubbleColor != null
+      ? FitText.isLightBackground(bubbleColor, colorScheme.surface)
+      : Theme.of(context).brightness == Brightness.light;
+
+  final Color dialogueColor = isLightBg
+      ? const Color(0xFF1B1B1F)
+      : colorScheme.onSurface;
+
+  final Color narrationColor = isLightBg
+      ? const Color(0xFF3B383E)
+      : colorScheme.onSurface.withValues(alpha: 0.82);
+
+  final Color parenColor = isLightBg
+      ? const Color(0xFF6B6670)
+      : colorScheme.onSurfaceVariant.withValues(alpha: 0.65);
+
   final TextStyle dialogueStyle = base.copyWith(
     fontWeight: FontWeight.w500,
-    color: colorScheme.onSurface,
+    color: dialogueColor,
   );
 
   final TextStyle narrationStyle = base.copyWith(
     fontWeight: FontWeight.normal,
-    color: colorScheme.onSurface.withValues(alpha: 0.82),
+    color: narrationColor,
   );
 
   final TextStyle parenStyle = base.copyWith(
     fontWeight: FontWeight.normal,
-    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+    color: parenColor,
   );
 
   // 检查是否为括号（中英文）
