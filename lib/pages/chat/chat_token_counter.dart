@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:tiktoken/tiktoken.dart';
 
 import 'chat_models.dart';
@@ -37,8 +36,10 @@ class ChatTokenCounter {
       return 0;
     }
 
-    // 对于长文本，使用近似计算避免阻塞主线程
-    if (text.length > 10000 && !kDebugMode) {
+    // 对于长文本,使用近似计算避免阻塞主线程。
+    // 阈值从 1 万降到 6000 且不再豁免 debug 模式:release 下 1 万字符的
+    // BPE 编码也会造成可感知卡顿,debug 豁免只会掩盖问题(E)。
+    if (text.length > 6000) {
       final int approxCount = approximateTokens(text);
       _tokenCache[messageId] = TokenCacheEntry(text: text, count: approxCount);
       return approxCount;

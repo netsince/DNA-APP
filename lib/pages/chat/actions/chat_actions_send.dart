@@ -2,9 +2,6 @@ part of '../../chat_page.dart';
 
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({
-    required String model,
-    required String apiKey,
-    required String baseUrl,
     required List<Map<String, String>> payload,
     required String assistantId,
     required ConversationMessage assistantMessage,
@@ -180,9 +177,6 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     final TA? ta = _ta;
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
     final ConversationMessage userMessage = ConversationMessage(
       id: newId(),
       role: 'user',
@@ -256,16 +250,14 @@ mixin ChatActionsSend on ChatStateMixin {
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
-      prefixSpeaker: _isGroup,
+      groupPerspective: _isGroup,
+      perspectiveTaId: ta.id,
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
-      model: model,
-      apiKey: apiKey,
-      baseUrl: baseUrl,
       payload: payload,
       assistantId: assistantId,
       assistantMessage: assistantMessage,
@@ -292,9 +284,6 @@ mixin ChatActionsSend on ChatStateMixin {
     if (ta == null) {
       return;
     }
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
     if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
@@ -347,19 +336,20 @@ mixin ChatActionsSend on ChatStateMixin {
         'content': '对话摘要：\n${latestSummary.text.trim()}',
       });
     }
-    // 历史（追加式，保持前缀稳定）。
+    // 历史（追加式，保持前缀稳定）。群聊走角色通道映射(v2)。
     for (final ConversationMessage m in slice.messages) {
       if (m.kind != 'message') {
         continue;
       }
-      payload.add(<String, String>{
-        'role': m.role,
-        'content': ChatMessageBuilder.resolveContentWithSpeaker(
-          message: m,
-          prefixSpeaker: _isGroup,
-          speakerNameResolver: _speakerNameFor,
-        ),
-      });
+      payload.add(ChatMessageBuilder.historyEntryFor(
+        message: m,
+        groupPerspective: _isGroup,
+        perspectiveTaId: ta.id,
+        speakerNameResolver: _speakerNameFor,
+      ));
+    }
+    if (_isGroup) {
+      ChatMessageBuilder.mergeAdjacentSameRole(payload);
     }
     // 动态尾部：Lorebook 激活词条。
     final Map<String, String>? lore = ChatMessageBuilder.loreSystemMessage(
@@ -380,9 +370,6 @@ mixin ChatActionsSend on ChatStateMixin {
       'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
     });
     final bool streamed = await _streamAssistantResponse(
-      model: model,
-      apiKey: apiKey,
-      baseUrl: baseUrl,
       payload: payload,
       assistantId: assistantId,
       assistantMessage: assistantMessage,
@@ -439,9 +426,6 @@ mixin ChatActionsSend on ChatStateMixin {
     if (ta == null) {
       return <String>[];
     }
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
     final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
@@ -465,42 +449,38 @@ mixin ChatActionsSend on ChatStateMixin {
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
-      prefixSpeaker: _isGroup,
+      groupPerspective: _isGroup,
+      perspectiveTaId: ta.id,
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
     );
-    if (widget.controller.settings.retrySequential) {
-      return _generateRetriesSequential(payload, model, apiKey, baseUrl);
-    }
-    return _generateRetries(payload, model, apiKey, baseUrl);
+    // 群聊输出防线:剥掉模型自带「自己名字：」前缀(全/半角冒号),
+    // 避免候选文本入库后与历史前缀叠成「名字：名字：」。
+    final List<String> candidates = widget.controller.settings.retrySequential
+        ? await _generateRetriesSequential(payload)
+        : await _generateRetries(payload);
+    return candidates
+        .map((String c) => ChatMessageBuilder.stripOwnSpeakerPrefix(c, ta.name))
+        .where((String c) => c.trim().isNotEmpty)
+        .toList();
   }
 
+  /// 并发生成一批「重说」候选(默认 3 条),不涉及任何 UI。
+  /// 请求间加入错峰延迟,降低同时并发触发限流的概率。
   Future<List<String>> _generateRetries(
     List<Map<String, String>> payload,
-    String model,
-    String apiKey,
-    String baseUrl,
   ) async {
     try {
-      final List<Future<String?>> tasks = List<Future<String?>>.generate(3, (_) async {
-        final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
-          baseUrl: baseUrl,
-          apiKey: apiKey,
-          model: model,
-          messages: payload,
-          temperature: widget.controller.settings.temperature,
-          frequencyPenalty: widget.controller.settings.frequencyPenalty,
-          presencePenalty: widget.controller.settings.presencePenalty,
-          topP: widget.controller.settings.topP,
-          topK: widget.controller.settings.topK,
-          minP: widget.controller.settings.minP,
-          repetitionPenalty: widget.controller.settings.repetitionPenalty,
-          repetitionPenaltySlope:
-              widget.controller.settings.repetitionPenaltySlope,
-          thinkingType: widget.controller.deepseekThinkingType,
-          reasoningEffort: widget.controller.deepseekReasoningEffort,
+      final List<Future<String?>> tasks =
+          List<Future<String?>>.generate(3, (int i) async {
+        if (i > 0) {
+          await Future<void>.delayed(Duration(milliseconds: 300 * i));
+        }
+        final ChatCompletionResult result =
+            await widget.controller.llmProvider.createChatCompletion(
+          widget.controller.buildLlmRequest(messages: payload),
         );
         if (!result.success || result.content == null) {
           return null;
@@ -508,7 +488,10 @@ mixin ChatActionsSend on ChatStateMixin {
         return result.content!;
       });
       final List<String?> settled = await Future.wait(tasks);
-      return settled.whereType<String>().where((String s) => s.trim().isNotEmpty).toList();
+      return settled
+          .whereType<String>()
+          .where((String s) => s.trim().isNotEmpty)
+          .toList();
     } catch (_) {
       return <String>[];
     }
@@ -516,31 +499,17 @@ mixin ChatActionsSend on ChatStateMixin {
 
   Future<List<String>> _generateRetriesSequential(
     List<Map<String, String>> payload,
-    String model,
-    String apiKey,
-    String baseUrl,
   ) async {
     final List<String> results = <String>[];
     for (int i = 0; i < 3; i++) {
       try {
-        final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
-          baseUrl: baseUrl,
-          apiKey: apiKey,
-          model: model,
-          messages: payload,
-          temperature: widget.controller.settings.temperature,
-          frequencyPenalty: widget.controller.settings.frequencyPenalty,
-          presencePenalty: widget.controller.settings.presencePenalty,
-          topP: widget.controller.settings.topP,
-          topK: widget.controller.settings.topK,
-          minP: widget.controller.settings.minP,
-          repetitionPenalty: widget.controller.settings.repetitionPenalty,
-          repetitionPenaltySlope:
-              widget.controller.settings.repetitionPenaltySlope,
-          thinkingType: widget.controller.deepseekThinkingType,
-          reasoningEffort: widget.controller.deepseekReasoningEffort,
+        final ChatCompletionResult result =
+            await widget.controller.llmProvider.createChatCompletion(
+          widget.controller.buildLlmRequest(messages: payload),
         );
-        if (result.success && result.content != null && result.content!.trim().isNotEmpty) {
+        if (result.success &&
+            result.content != null &&
+            result.content!.trim().isNotEmpty) {
           results.add(result.content!);
         }
       } catch (_) {
@@ -554,9 +523,6 @@ mixin ChatActionsSend on ChatStateMixin {
     if (_sending) {
       return;
     }
-    final String model = widget.controller.settings.selectedModel;
-    final String apiKey = widget.controller.settings.apiKey;
-    final String baseUrl = widget.controller.settings.baseUrl;
     if (!ensureApiReady(context: context, controller: widget.controller)) {
       return;
     }
@@ -603,16 +569,14 @@ mixin ChatActionsSend on ChatStateMixin {
       messages: slice.messages,
       summaryText: summary?.text,
       summaryPrefix: '对话摘要：\n',
-      prefixSpeaker: _isGroup,
+      groupPerspective: _isGroup,
+      perspectiveTaId: ta.id,
       speakerNameResolver: _speakerNameFor,
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
     );
     final bool streamed = await _streamAssistantResponse(
-      model: model,
-      apiKey: apiKey,
-      baseUrl: baseUrl,
       payload: payload,
       assistantId: assistantId,
       assistantMessage: assistantMessage,

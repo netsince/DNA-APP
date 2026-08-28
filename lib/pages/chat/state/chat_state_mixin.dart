@@ -20,6 +20,12 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
 
   bool get _sending => _state.sending;
   set _sending(bool value) => _state.sending = value;
+  bool get _generationStopRequested => _state.generationStopRequested;
+  set _generationStopRequested(bool value) => _state.generationStopRequested = value;
+
+  /// 输入条「停止」按钮回调:请求中断当前流式生成。
+  /// 实际中断发生在消费循环的下一次迭代(break 取消订阅,连接随之终止)。
+  void requestStopGeneration() => _generationStopRequested = true;
   bool get _searching => _state.searching;
   set _searching(bool value) => _state.searching = value;
   bool get _showTokenCounts => _state.showTokenCounts;

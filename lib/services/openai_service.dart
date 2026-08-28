@@ -1,15 +1,18 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
 
 import '../models/service_results.dart';
-import 'llm_provider.dart';
+import 'llm_request.dart';
+import 'llm_service_base.dart';
+import 'llm_stream_chunk.dart';
 
-class OpenAiService implements LlmProvider {
-  OpenAiService({http.Client? client}) : _client = client ?? http.Client();
-
-  final http.Client _client;
+/// OpenAI 兼容适配器(OpenAI 及一切兼容网关/本地推理)。
+///
+/// 传输保障、SSE 解析、能力矩阵、端点规则全部由 [LlmServiceBase] 承载;
+/// 本类只提供鉴权头与端点路径。
+class OpenAiService extends LlmServiceBase {
+  OpenAiService({super.client, super.streamClient});
 
   @override
   String get id => 'openai';
@@ -27,13 +30,17 @@ class OpenAiService implements LlmProvider {
   bool get fixedBaseUrl => false;
 
   @override
+  Map<String, String> buildHeaders(String apiKey) => <String, String>{
+        'Authorization': 'Bearer ${apiKey.trim()}',
+        'Content-Type': 'application/json',
+      };
+
+  @override
   Future<ApiCheckResult> validateApi({
     required String baseUrl,
     required String apiKey,
   }) async {
-    final String normalizedBase = baseUrl.trim();
-    final String normalizedKey = apiKey.trim();
-    if (normalizedBase.isEmpty || normalizedKey.isEmpty) {
+    if (baseUrl.trim().isEmpty || apiKey.trim().isEmpty) {
       return const ApiCheckResult(
         success: false,
         message: '请先填写 base URL 和 API key。',
@@ -42,34 +49,17 @@ class OpenAiService implements LlmProvider {
 
     final Uri endpoint;
     try {
-      endpoint = Uri.parse(modelsEndpoint(normalizedBase));
+      endpoint = Uri.parse(modelsEndpoint(baseUrl));
     } catch (_) {
       return const ApiCheckResult(success: false, message: 'base URL 格式无效。');
     }
 
     try {
-      final http.Response response = await _client.get(
-        endpoint,
-        headers: <String, String>{
-          'Authorization': 'Bearer $normalizedKey',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 12));
-      debugPrint('OpenAI /models raw response: ${response.body}');
-
-      if (response.statusCode == 200) {
-        return const ApiCheckResult(success: true, message: '连接验证成功。');
-      }
-
-      return ApiCheckResult(
-        success: false,
-        message: _extractError(response.body, response.statusCode),
-      );
+      final http.Response response =
+          await getWithTimeout(endpoint, buildHeaders(apiKey));
+      return interpretModelsProbe(response);
     } catch (error) {
-      return ApiCheckResult(
-        success: false,
-        message: '连接失败：$error',
-      );
+      return ApiCheckResult(success: false, message: '连接失败:$error');
     }
   }
 
@@ -81,320 +71,81 @@ class OpenAiService implements LlmProvider {
     final Uri endpoint = Uri.parse(modelsEndpoint(baseUrl.trim()));
 
     try {
-      final http.Response response = await _client.get(
-        endpoint,
-        headers: <String, String>{
-          'Authorization': 'Bearer ${apiKey.trim()}',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 12));
+      final http.Response response =
+          await getWithTimeout(endpoint, buildHeaders(apiKey.trim()));
 
       if (response.statusCode != 200) {
         return ModelFetchResult(
           models: const <String>[],
-          errorMessage: _extractError(response.body, response.statusCode),
+          errorMessage: extractErrorMessage(response.body, response.statusCode),
         );
       }
 
-      final Object? decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) {
-        return const ModelFetchResult(
-          models: <String>[],
-          errorMessage: '模型返回格式无效。',
-        );
-      }
-
-      final Object? data = decoded['data'];
-      if (data is! List) {
+      // B4:容忍裸数组 / data 形 / models 形等多种响应形状。
+      // 泛型兼容网关无法给出有意义的兜底列表,失败仍返回空列表。
+      final List<String> models = extractModelIds(_safeJsonDecode(response.body));
+      if (models.isEmpty) {
         return const ModelFetchResult(
           models: <String>[],
           errorMessage: '模型列表为空。',
         );
       }
-
-      final List<String> models = data
-          .whereType<Map<String, dynamic>>()
-          .map((Map<String, dynamic> item) => item['id'])
-          .whereType<String>()
-          .toSet()
-          .toList()
-        ..sort();
-
       return ModelFetchResult(models: models);
     } catch (error) {
       return ModelFetchResult(
         models: const <String>[],
-        errorMessage: '获取模型失败：$error',
+        errorMessage: '获取模型失败:$error',
       );
     }
   }
 
   @override
-  Future<ChatCompletionResult> createChatCompletion({
-    required String baseUrl,
-    required String apiKey,
-    required String model,
-    required List<Map<String, String>> messages,
-    double temperature = 0.7,
-    double frequencyPenalty = 0.0,
-    double presencePenalty = 0.0,
-    double topP = 1.0,
-    double topK = 0.0,
-    double minP = 0.0,
-    double repetitionPenalty = 1.0,
-    double repetitionPenaltySlope = 0.0,
-    String? thinkingType,
-    String? reasoningEffort,
-  }) async {
-    final String normalizedKey = apiKey.trim();
-    final String normalizedModel = model.trim();
-    if (normalizedKey.isEmpty || normalizedModel.isEmpty) {
+  Future<ChatCompletionResult> createChatCompletion(LlmRequest request) async {
+    if (request.apiKey.trim().isEmpty || request.model.trim().isEmpty) {
       return const ChatCompletionResult(
         success: false,
         errorMessage: 'API Key 或模型不能为空。',
       );
     }
 
-    final Uri endpoint = Uri.parse(chatEndpoint(baseUrl.trim()));
+    final Uri endpoint = Uri.parse(chatEndpoint(request.baseUrl));
     try {
-      final http.Response response = await _client
+      final http.Response response = await client
           .post(
             endpoint,
-            headers: <String, String>{
-              'Authorization': 'Bearer $normalizedKey',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(<String, dynamic>{
-              'model': normalizedModel,
-              'messages': messages,
-              'temperature': temperature,
-              'frequency_penalty': frequencyPenalty,
-              'presence_penalty': presencePenalty,
-              ..._samplingBody(
-                topP: topP,
-                topK: topK,
-                minP: minP,
-                repetitionPenalty: repetitionPenalty,
-                repetitionPenaltySlope: repetitionPenaltySlope,
-              ),
-              ..._thinkingBody(
-                thinkingType: thinkingType,
-                reasoningEffort: reasoningEffort,
-              ),
-            }),
+            headers: buildHeaders(request.apiKey),
+            body: jsonEncode(buildOpenAiCompatibleBody(request)),
           )
-          .timeout(const Duration(seconds: 20));
-      debugPrint('OpenAI /chat/completions raw response: ${response.body}');
-
-      if (response.statusCode != 200) {
-        return ChatCompletionResult(
-          success: false,
-          errorMessage: _extractError(response.body, response.statusCode),
-        );
-      }
-
-      final Object? decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) {
-        return const ChatCompletionResult(success: false, errorMessage: '返回格式无效。');
-      }
-      final Object? choices = decoded['choices'];
-      if (choices is! List || choices.isEmpty) {
-        return const ChatCompletionResult(success: false, errorMessage: '模型未返回内容。');
-      }
-      final Object? message = (choices.first as Map<String, dynamic>)['message'];
-      if (message is! Map<String, dynamic>) {
-        return const ChatCompletionResult(success: false, errorMessage: '返回内容缺失。');
-      }
-      final String? content = message['content'] as String?;
-      if (content == null || content.trim().isEmpty) {
-        return const ChatCompletionResult(success: false, errorMessage: '返回内容为空。');
-      }
-      return ChatCompletionResult(success: true, content: content.trim());
+          .timeout(LlmServiceBase.completionTimeout);
+      return parseOpenAiChatResponse(response);
     } catch (error) {
-      return ChatCompletionResult(success: false, errorMessage: '请求失败：$error');
+      return ChatCompletionResult(success: false, errorMessage: '请求失败:$error');
     }
   }
 
   @override
-  Stream<String> streamChatCompletion({
-    required String baseUrl,
-    required String apiKey,
-    required String model,
-    required List<Map<String, String>> messages,
-    double temperature = 0.7,
-    double frequencyPenalty = 0.0,
-    double presencePenalty = 0.0,
-    double topP = 1.0,
-    double topK = 0.0,
-    double minP = 0.0,
-    double repetitionPenalty = 1.0,
-    double repetitionPenaltySlope = 0.0,
-    String? thinkingType,
-    String? reasoningEffort,
-  }) async* {
-    final String normalizedKey = apiKey.trim();
-    final String normalizedModel = model.trim();
-    if (normalizedKey.isEmpty || normalizedModel.isEmpty) {
-      yield '[ERROR] API Key 或模型不能为空。';
+  Stream<LlmStreamChunk> streamChatCompletion(LlmRequest request) async* {
+    if (request.apiKey.trim().isEmpty || request.model.trim().isEmpty) {
+      yield const LlmErrorChunk('API Key 或模型不能为空。');
       return;
     }
+    yield* streamOpenAiCompatible(request);
+  }
 
-    final Uri endpoint = Uri.parse(chatEndpoint(baseUrl.trim()));
-    final http.Request request = http.Request('POST', endpoint)
-      ..headers.addAll(<String, String>{
-        'Authorization': 'Bearer $normalizedKey',
-        'Content-Type': 'application/json',
-      })
-      ..body = jsonEncode(<String, dynamic>{
-        'model': normalizedModel,
-        'messages': messages,
-        'temperature': temperature,
-        'frequency_penalty': frequencyPenalty,
-        'presence_penalty': presencePenalty,
-        'stream': true,
-        ..._samplingBody(
-          topP: topP,
-          topK: topK,
-          minP: minP,
-          repetitionPenalty: repetitionPenalty,
-          repetitionPenaltySlope: repetitionPenaltySlope,
-        ),
-        ..._thinkingBody(
-          thinkingType: thinkingType,
-          reasoningEffort: reasoningEffort,
-        ),
-      });
-
+  Object? _safeJsonDecode(String body) {
     try {
-      final http.StreamedResponse response = await _client.send(request).timeout(
-        const Duration(seconds: 20),
-      );
-      if (response.statusCode != 200) {
-        final String body = await response.stream.bytesToString();
-        yield '[ERROR] ${_extractError(body, response.statusCode)}';
-        return;
-      }
-
-      final Stream<String> lines = response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
-
-      await for (final String line in lines) {
-        if (line.isEmpty || !line.startsWith('data:')) {
-          continue;
-        }
-        final String data = line.substring(5).trim();
-        if (data == '[DONE]') {
-          break;
-        }
-        try {
-          final Object? decoded = jsonDecode(data);
-          if (decoded is Map<String, dynamic>) {
-            final Object? choices = decoded['choices'];
-            if (choices is List && choices.isNotEmpty) {
-              final Object? delta = (choices.first as Map<String, dynamic>)['delta'];
-              if (delta is Map<String, dynamic>) {
-                final String? reasoning = delta['reasoning_content'] as String?;
-                if (reasoning != null && reasoning.isNotEmpty) {
-                  yield '<think>$reasoning</think>';
-                }
-                final String? content = delta['content'] as String?;
-                if (content != null && content.isNotEmpty) {
-                  yield content;
-                }
-              }
-            }
-          }
-        } catch (_) {
-          // Ignore malformed chunks.
-        }
-      }
-    } catch (error) {
-      yield '[ERROR] 请求失败：$error';
-    }
-  }
-
-  /// 组装 DeepSeek 思考模式（thinking mode）相关请求体字段。
-  ///
-  /// 仅在显式传入非空参数时才携带，其他服务商（参数为 null）不受影响。
-  /// - [thinkingType]：'enabled' / 'disabled'，对应 `thinking.type`；
-  /// - [reasoningEffort]：'low' / 'high' / 'max'，对应 `reasoning_effort`。
-  Map<String, dynamic> _thinkingBody({
-    required String? thinkingType,
-    required String? reasoningEffort,
-  }) {
-    final Map<String, dynamic> out = <String, dynamic>{};
-    if (thinkingType != null) {
-      out['thinking'] = <String, dynamic>{'type': thinkingType};
-    }
-    if (reasoningEffort != null && reasoningEffort.isNotEmpty) {
-      out['reasoning_effort'] = reasoningEffort;
-    }
-    return out;
-  }
-
-  /// 组装仅在「非默认值」时才会携带的高级采样参数。
-  ///
-  /// 默认值（top_p=1、top_k=0、min_p=0、rep=1、slope=0）表示「关闭/中性」，
-  /// 此时不发送对应字段，保证对不支持这些参数的标准端点保持原有行为；
-  /// 仅当用户在「高级功能」中手动改过时才带上，交由后端按需接受。
-  Map<String, dynamic> _samplingBody({
-    required double topP,
-    required double topK,
-    required double minP,
-    required double repetitionPenalty,
-    required double repetitionPenaltySlope,
-  }) {
-    final Map<String, dynamic> out = <String, dynamic>{};
-    if (topP != 1.0) {
-      out['top_p'] = topP;
-    }
-    if (topK > 0) {
-      out['top_k'] = topK;
-    }
-    if (minP > 0) {
-      out['min_p'] = minP;
-    }
-    if (repetitionPenalty != 1.0) {
-      out['repetition_penalty'] = repetitionPenalty;
-    }
-    if (repetitionPenaltySlope != 0.0) {
-      out['repetition_penalty_slope'] = repetitionPenaltySlope;
-    }
-    return out;
-  }
-
-  String modelsEndpoint(String baseUrl) {
-    final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.toLowerCase().endsWith('/v1')) {
-      return '$trimmed/models';
-    }
-    return '$trimmed/v1/models';
-  }
-
-  String chatEndpoint(String baseUrl) {
-    final String trimmed = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.toLowerCase().endsWith('/v1')) {
-      return '$trimmed/chat/completions';
-    }
-    return '$trimmed/v1/chat/completions';
-  }
-
-  String _extractError(String responseBody, int statusCode) {
-    try {
-      final Object? decoded = jsonDecode(responseBody);
-      if (decoded is Map<String, dynamic>) {
-        final Object? errorNode = decoded['error'];
-        if (errorNode is Map<String, dynamic>) {
-          final Object? message = errorNode['message'];
-          if (message is String && message.trim().isNotEmpty) {
-            return 'HTTP $statusCode: $message';
-          }
-        }
-      }
+      return jsonDecode(body);
     } catch (_) {
-      // Keep fallback message.
+      return null;
     }
-    return 'HTTP $statusCode: 请求失败。';
   }
+
+  /// 经典 OpenAI 兼容拼接规则(含 `#` 逃生口与 vX 段检测,见基类)。
+  @override
+  String modelsEndpoint(String baseUrl) =>
+      joinOpenAiEndpoint(baseUrl, '/models');
+
+  @override
+  String chatEndpoint(String baseUrl) =>
+      joinOpenAiEndpoint(baseUrl, '/chat/completions');
 }

@@ -22,6 +22,8 @@ import '../models/service_results.dart';
 import '../models/world.dart';
 import '../services/conversation_export_import_service.dart';
 import '../services/image_storage.dart';
+import '../services/llm_request.dart';
+import '../services/llm_stream_chunk.dart';
 import '../services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../widgets/conversation_export_import_dialogs.dart';
@@ -797,6 +799,7 @@ class _ChatPageState extends State<ChatPage>
                             sending: _sending,
                             inspirationInProgress: _inspirationInProgress,
                             onSend: _send,
+                            onStopGeneration: requestStopGeneration,
                             onStartInspiration: _startInspiration,
                             quickReplies: widget.controller.settings.quickReplies,
                             onQuickReply: _handleQuickReply,

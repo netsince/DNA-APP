@@ -135,6 +135,61 @@ class TaExportImportService {
     }
   }
 
+  /// 将角色导出为标准酒馆（SillyTavern）chara_card_v2 JSON。
+  ///
+  /// 用于上传到社区站点（如 dnaisland）等仅识别社区通用角色卡格式的平台。
+  /// 字段映射与应用自己的导入逻辑一一对应，保证往返一致：
+  ///   persona  → description（导入时写回 persona）
+  ///   intro    → scenario （导入时 personality+scenario 合并回 intro）
+  ///   opening  → first_mes
+  ///   dialogueStyle → mes_example（{{user}}/{{char}} 标记，导入时可解析回对话风格）
+  ///   authorNote → post_history_instructions
+  ///
+  /// 注意：社区格式为标准 chara_card_v2，不内嵌本应用专有图片结构；
+  /// 纯文字信息可无损往返，图片请使用本应用格式导出。
+  static ExportImportResult<String> exportCharacterAsCharaCard(TA character) {
+    try {
+      final List<String> mesExample = character.dialogueStyle
+          .map((DialogueTurn t) {
+        final StringBuffer sb = StringBuffer();
+        if (t.user.isNotEmpty) sb.write('{{user}}: ${t.user}\n');
+        if (t.assistant.isNotEmpty) sb.write('{{char}}: ${t.assistant}');
+        return sb.toString().trimRight();
+      })
+          .where((String s) => s.isNotEmpty)
+          .toList();
+
+      final Map<String, dynamic> data = <String, dynamic>{
+        'name': character.name,
+        'description': character.persona,
+        'personality': '',
+        'scenario': character.intro,
+        'first_mes': character.opening,
+        'mes_example': mesExample.join('\n'),
+        'creator_notes': '',
+        'system_prompt': '',
+        'post_history_instructions': character.authorNote ?? '',
+        'alternate_greetings': <String>[],
+        'character_book': null,
+        'tags': character.tags,
+        'creator': '',
+        'character_version': '',
+        'extensions': <String, dynamic>{},
+      };
+
+      final Map<String, dynamic> card = <String, dynamic>{
+        'spec': 'chara_card_v2',
+        'spec_version': '2.0',
+        'data': data,
+      };
+
+      final String jsonString = const JsonEncoder.withIndent('  ').convert(card);
+      return ExportImportResult(success: true, data: jsonString);
+    } catch (e) {
+      return ExportImportResult(success: false, message: '导出失败: $e');
+    }
+  }
+
   /// 从JSON字符串导入角色。
   ///
   /// 兼容两种格式：

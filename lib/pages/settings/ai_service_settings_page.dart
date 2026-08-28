@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
+import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'models/model_list_page.dart';
@@ -75,7 +76,8 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     if (!mounted) return;
     setState(() {
       _checkingApi = false;
-      _apiMessage = r.message;
+      // 校验文案附加明文 HTTP 传输警示(成功/失败均展示,不阻断)。
+      _apiMessage = withTransportWarning(_baseUrlCtrl.text, r.message);
     });
   }
 

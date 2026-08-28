@@ -10,6 +10,7 @@ class ChatState {
   Color? accent;
 
   bool sending = false;
+  bool generationStopRequested = false;
   bool searching = false;
   bool showTokenCounts = false;
   int searchMatchIndex = -1;

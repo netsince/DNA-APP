@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
+import 'package:dna/utils/api_guard.dart';
 import 'package:dna/utils/id_utils.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -89,7 +90,8 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
     if (!mounted) return;
     setState(() {
       _testingApi = false;
-      _testMessage = result.message;
+      // 校验文案附加明文 HTTP 传输警示(不阻断)。
+      _testMessage = withTransportWarning(baseUrl, result.message);
       _testSuccess = result.message.contains('成功') || result.success;
     });
   }

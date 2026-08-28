@@ -23,6 +23,7 @@ class ChatInputBar extends StatefulWidget {
     this.quickReplies = const <QuickReply>[],
     this.onQuickReply,
     this.onTap,
+    this.onStopGeneration,
     this.halfScreen = false,
   });
 
@@ -32,6 +33,10 @@ class ChatInputBar extends StatefulWidget {
   final bool sending;
   final bool inspirationInProgress;
   final VoidCallback onSend;
+
+  /// 「停止生成」回调。非空且 [sending] 为 true 时,发送按钮变为可点的停止按钮;
+  /// 为 null 时保持旧行为(生成中仅显示转圈、不可点)。
+  final VoidCallback? onStopGeneration;
   final Future<void> Function() onStartInspiration;
 
   /// 快速回复按钮列表（显示在输入栏上方）。
@@ -64,6 +69,10 @@ final Map<String, String> _closeToOpen =
 
 class _ChatInputBarState extends State<ChatInputBar> {
   bool _hasInput = false;
+
+  /// 最近一次点击「停止生成」的时刻,用于吞掉停止后同一手势跨重建
+  /// 误触到发送键的竞态(见 [_sendSafe] 与 [_buildSendOrStopButton])。
+  DateTime? _lastStopAt;
 
   /// 上一次文本与光标，用于推断本次插入的字符。
   String _prevText = '';
@@ -875,12 +884,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     _buildParenButton(cs),
                     const SizedBox(width: 2),
                   ],
-                  // 语音输入按钮
-                  if (!_hasInput && widget.controller.settings.voiceInputEnabled) ...<Widget>[
-                    _buildMic(),
+                  // 生成中:整区恒定显示「停止生成」(不依赖 _hasInput——
+                  // 发送即清空输入,若按文字条件渲染会让停止按钮直接消失)。
+                  if (widget.sending) ...<Widget>[
+                    _buildSendOrStopButton(cs),
                     const SizedBox(width: 2),
-                  ],
-                  if (!_hasInput) ...<Widget>[
+                  ] else if (!_hasInput) ...<Widget>[
+                    // 语音输入按钮
+                    if (widget.controller.settings.voiceInputEnabled) ...<Widget>[
+                      _buildMic(),
+                      const SizedBox(width: 2),
+                    ],
                     // 灵感按钮
                     IconButton(
                       tooltip: '灵感',
@@ -897,35 +911,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           : const Icon(Icons.auto_awesome_outlined),
                     ),
                   ] else ...<Widget>[
-                    // 发送按钮（动态高亮悬浮胶囊状态）
-                    Material(
-                      color: cs.primary,
-                      shape: const CircleBorder(),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: widget.sending ? null : widget.onSend,
-                        child: SizedBox(
-                          width: 38,
-                          height: 38,
-                          child: Center(
-                            child: widget.sending
-                                ? SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: cs.onPrimary,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 20,
-                                    color: cs.onPrimary,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    // 发送按钮(动态高亮悬浮胶囊状态)
+                    _buildSendOrStopButton(cs),
                     const SizedBox(width: 2),
                   ],
                 ],
@@ -935,6 +922,64 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
       ),
     );
+  }
+
+  /// 发送/停止按钮:空闲=发送箭头;生成中=停止方块。
+  ///
+  /// 停止按钮在 [widget.sending] 为真时恒定显示(独立于输入是否有字);
+  /// [ChatInputBar.onStopGeneration] 为空时退回旧行为(仅转圈、不可点)。
+  ///
+  /// 竞态说明:点停止后 `_sending` 会异步翻为 false,按钮随即重建为发送键;
+  /// 若用户此刻仍在抬手,同一个手势的 up 事件会落在新的发送键上,把残留
+  /// 文字误发出去。这里给停止后的发送加冷却,吞掉该同一手势的误触。
+  Widget _buildSendOrStopButton(ColorScheme cs) {
+    final bool canStop = widget.sending && widget.onStopGeneration != null;
+    return Material(
+      color: cs.primary,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: canStop
+            ? () {
+                _lastStopAt = DateTime.now();
+                widget.onStopGeneration!();
+              }
+            : (widget.sending ? null : _sendSafe),
+        child: SizedBox(
+          width: 38,
+          height: 38,
+          child: Center(
+            child: widget.sending
+                ? (canStop
+                    ? Icon(Icons.stop_rounded, size: 22, color: cs.onPrimary)
+                    : SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onPrimary,
+                        ),
+                      ))
+                : Icon(
+                    Icons.arrow_upward_rounded,
+                    size: 20,
+                    color: cs.onPrimary,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 发送入口:若刚点过停止(同一手势内按钮被重建为发送键)则忽略本次,
+  /// 避免误发残留文字;350ms 后正常发送。
+  void _sendSafe() {
+    final DateTime? t = _lastStopAt;
+    if (t != null &&
+        DateTime.now().difference(t) < const Duration(milliseconds: 350)) {
+      return;
+    }
+    widget.onSend();
   }
 }
 

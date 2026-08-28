@@ -22,6 +22,7 @@ import '../services/anthropic_service.dart';
 import '../services/zhipu_service.dart';
 import '../services/deepseek_service.dart';
 import '../services/llm_provider.dart';
+import '../services/llm_request.dart';
 
 import '../services/settings_service.dart';
 import '../services/app_icon_service.dart';
@@ -117,6 +118,40 @@ class AppController extends ChangeNotifier {
   /// 当前设置所选的大模型 Provider。业务层应优先使用此接口而非 openAiService。
   LlmProvider get llmProvider =>
       _providerRegistry[activeProviderConfig.providerType];
+
+  /// 组装一次补全请求(C2 参数对象 + C4 运行时收口)。
+  ///
+  /// baseUrl/apiKey/model 一律从激活的配置实体(activeModel/activeProviderConfig)
+  /// 派生,采样参数按「模型自定义覆盖全局」的既有规则合并——
+  /// 请求路径不再依赖 legacy 扁平字段是否被正确同步。
+  LlmRequest buildLlmRequest({required List<Map<String, String>> messages}) {
+    final LlmModelConfig model = activeModel;
+    final LlmProviderConfig provider = activeProviderConfig;
+    final AppSettings s = _settings;
+    final bool custom = model.customSamplingEnabled;
+    return LlmRequest(
+      baseUrl: provider.baseUrl.trim(),
+      apiKey: provider.apiKey.trim(),
+      model: model.modelName.trim(),
+      messages: messages,
+      temperature: custom ? (model.temperature ?? s.temperature) : s.temperature,
+      frequencyPenalty:
+          custom ? (model.frequencyPenalty ?? s.frequencyPenalty) : s.frequencyPenalty,
+      presencePenalty:
+          custom ? (model.presencePenalty ?? s.presencePenalty) : s.presencePenalty,
+      topP: custom ? (model.topP ?? s.topP) : s.topP,
+      topK: custom ? (model.topK ?? s.topK) : s.topK,
+      minP: custom ? (model.minP ?? s.minP) : s.minP,
+      repetitionPenalty:
+          custom ? (model.repetitionPenalty ?? s.repetitionPenalty) : s.repetitionPenalty,
+      repetitionPenaltySlope: custom
+          ? (model.repetitionPenaltySlope ?? s.repetitionPenaltySlope)
+          : s.repetitionPenaltySlope,
+      maxTokens: model.maxTokens,
+      thinkingType: deepseekThinkingType,
+      reasoningEffort: deepseekReasoningEffort,
+    );
+  }
 
   /// 所有已注册的 Provider，供设置页 / OOBE 构建厂商选择列表。
   List<LlmProvider> get llmProviders => _providerRegistry.providers;

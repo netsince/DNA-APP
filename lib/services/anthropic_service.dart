@@ -1,25 +1,26 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../models/service_results.dart';
-import 'llm_provider.dart';
+import 'llm_request.dart';
+import 'llm_service_base.dart';
+import 'llm_stream_chunk.dart';
 
 /// Anthropic (Claude) 适配器。
 ///
-/// 与 OpenAI 的差异：
-///  - 鉴权走 `x-api-key` + `anthropic-version` 头，而非 `Bearer`。
-///  - `system` 是顶层参数，不能放进 messages。
-///  - 必须携带 `max_tokens`。
-///  - 流式是标准 `event:`/`data:` SSE，`text_delta` 在 `content_block_delta` 中。
-class AnthropicProvider implements LlmProvider {
-  AnthropicProvider({http.Client? client}) : _client = client ?? http.Client();
+/// 与 OpenAI 的差异:
+///  - 鉴权走 `x-api-key` + `anthropic-version` 头,而非 `Bearer`。
+///  - `system` 是顶层参数,不能放进 messages。
+///  - 必须携带 `max_tokens`(可用模型配置覆盖,默认 8192)。
+///  - 流式是标准 event/data SSE:text_delta → 正文,thinking_delta → 思考分片。
+///
+/// 传输保障(超时/看门狗/[LlmErrorChunk] 契约/真取消)由 [LlmServiceBase] 统一承载。
+class AnthropicProvider extends LlmServiceBase {
+  AnthropicProvider({super.client, super.streamClient});
 
-  final http.Client _client;
-
-  /// 单轮最大输出 token（Anthropic 必填）。
-  static const int _maxTokens = 8192;
+  /// 单轮最大输出 token 的默认值(Anthropic 必填;模型配置可覆盖)。
+  static const int defaultMaxTokens = 8192;
 
   @override
   String get id => 'anthropic';
@@ -36,13 +37,14 @@ class AnthropicProvider implements LlmProvider {
   @override
   bool get fixedBaseUrl => false;
 
-  Map<String, String> _headers(String apiKey) => <String, String>{
+  @override
+  Map<String, String> buildHeaders(String apiKey) => <String, String>{
         'x-api-key': apiKey.trim(),
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       };
 
-  /// 归一化 baseUrl：去掉尾部斜杠与多余的 `/v1`，得到 API 根地址。
+  /// 归一化 baseUrl:去掉尾部斜杠与多余的 `/v1`,得到 API 根地址。
   String _apiRoot(String baseUrl) {
     String s = baseUrl.trim();
     while (s.endsWith('/')) {
@@ -54,24 +56,11 @@ class AnthropicProvider implements LlmProvider {
     return s;
   }
 
-  /// 组装 Anthropic 支持的高级采样参数（仅 top_p / top_k，非默认值时携带）。
-  Map<String, dynamic> _samplingBody({
-    required double topP,
-    required double topK,
-  }) {
-    final Map<String, dynamic> out = <String, dynamic>{};
-    if (topP != 1.0) {
-      out['top_p'] = topP;
-    }
-    if (topK > 0) {
-      out['top_k'] = topK;
-    }
-    return out;
-  }
+  @override
+  String chatEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/messages';
 
-  String _messagesEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/messages';
-
-  String _modelsEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/models';
+  @override
+  String modelsEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/models';
 
   /// 从 OpenAI 形态的消息列表里拆出 system 文本与对话消息。
   ({String? system, List<Map<String, String>> convo}) _splitSystem(
@@ -95,23 +84,44 @@ class AnthropicProvider implements LlmProvider {
     return (system: system, convo: convo);
   }
 
+  /// 组装 Anthropic 请求体。采样仅 top_p/top_k(非默认值时携带),
+  /// temperature 始终发送;max_tokens 用配置值或默认值(E/B5)。
+  Map<String, dynamic> _buildBody(LlmRequest request,
+      {required bool stream}) {
+    final (:String? system, :List<Map<String, String>> convo) =
+        _splitSystem(request.messages);
+    return <String, dynamic>{
+      'model': request.model,
+      'max_tokens': request.maxTokens ?? defaultMaxTokens,
+      'temperature': request.temperature,
+      if (stream) 'stream': true,
+      'messages': convo,
+      if (request.topP != 1.0) 'top_p': request.topP,
+      if (request.topK > 0) 'top_k': request.topK,
+      'system': ?system,
+    };
+  }
+
+  int _sumAnthropicUsage(Map<String, dynamic>? usage) {
+    if (usage == null) {
+      return 0;
+    }
+    final Object? input = usage['input_tokens'];
+    final Object? output = usage['output_tokens'];
+    final int i = input is num ? input.toInt() : 0;
+    final int o = output is num ? output.toInt() : 0;
+    return i + o;
+  }
+
   @override
   Future<ApiCheckResult> validateApi({
     required String baseUrl,
     required String apiKey,
   }) async {
     try {
-      final http.Response res = await _client.get(
-        Uri.parse(_modelsEndpoint(baseUrl)),
-        headers: _headers(apiKey),
-      );
-      if (res.statusCode == 200) {
-        return ApiCheckResult(success: true, message: '连接成功');
-      }
-      return ApiCheckResult(
-        success: false,
-        message: _extractError(res.body) ?? '校验失败 (${res.statusCode})',
-      );
+      final http.Response res =
+          await getWithTimeout(Uri.parse(modelsEndpoint(baseUrl)), buildHeaders(apiKey));
+      return interpretModelsProbe(res);
     } catch (e) {
       return ApiCheckResult(success: false, message: e.toString());
     }
@@ -123,28 +133,21 @@ class AnthropicProvider implements LlmProvider {
     required String apiKey,
   }) async {
     try {
-      final http.Response res = await _client.get(
-        Uri.parse(_modelsEndpoint(baseUrl)),
-        headers: _headers(apiKey),
+      final http.Response res = await getWithTimeout(
+        Uri.parse(modelsEndpoint(baseUrl)),
+        buildHeaders(apiKey),
       );
       if (res.statusCode != 200) {
         return ModelFetchResult(
           models: _fallbackModels,
-          errorMessage: _extractError(res.body) ?? '拉取模型失败 (${res.statusCode})',
+          errorMessage: extractErrorMessage(res.body, res.statusCode),
         );
       }
-      final Map<String, dynamic> json =
-          jsonDecode(res.body) as Map<String, dynamic>;
-      final List<dynamic> data = json['data'] as List<dynamic>? ?? <dynamic>[];
-      final List<String> models = data
-          .map((dynamic e) => (e as Map<String, dynamic>)['id'] as String?)
-          .where((String? id) => id != null && id.isNotEmpty)
-          .cast<String>()
-          .toList();
+      // B4:统一走基类的形状容忍提取。
+      final List<String> models = extractModelIds(_safeJsonDecode(res.body));
       if (models.isEmpty) {
-        return ModelFetchResult(models: _fallbackModels);
+        return const ModelFetchResult(models: _fallbackModels);
       }
-      models.sort();
       return ModelFetchResult(models: models);
     } catch (e) {
       return ModelFetchResult(
@@ -155,168 +158,108 @@ class AnthropicProvider implements LlmProvider {
   }
 
   @override
-  Future<ChatCompletionResult> createChatCompletion({
-    required String baseUrl,
-    required String apiKey,
-    required String model,
-    required List<Map<String, String>> messages,
-    double temperature = 0.7,
-    double frequencyPenalty = 0.0,
-    double presencePenalty = 0.0,
-    double topP = 1.0,
-    double topK = 0.0,
-    double minP = 0.0,
-    double repetitionPenalty = 1.0,
-    double repetitionPenaltySlope = 0.0,
-    String? thinkingType,
-    String? reasoningEffort,
-  }) async {
+  Future<ChatCompletionResult> createChatCompletion(LlmRequest request) async {
     try {
-      final (:String? system, :List<Map<String, String>> convo) =
-          _splitSystem(messages);
-      final Map<String, dynamic> body = <String, dynamic>{
-        'model': model,
-        'max_tokens': _maxTokens,
-        'temperature': temperature,
-        'messages': convo,
-        ..._samplingBody(topP: topP, topK: topK),
-      };
-      if (system != null) {
-        body['system'] = system;
-      }
-      final http.Response res = await _client.post(
-        Uri.parse(_messagesEndpoint(baseUrl)),
-        headers: _headers(apiKey),
-        body: jsonEncode(body),
-      );
+      final http.Response res = await client
+          .post(
+            Uri.parse(chatEndpoint(request.baseUrl)),
+            headers: buildHeaders(request.apiKey),
+            body: jsonEncode(_buildBody(request, stream: false)),
+          )
+          .timeout(LlmServiceBase.completionTimeout);
       if (res.statusCode != 200) {
         return ChatCompletionResult(
           success: false,
-          errorMessage: _extractError(res.body) ?? '请求失败 (${res.statusCode})',
+          errorMessage: extractErrorMessage(res.body, res.statusCode),
         );
       }
-      final Map<String, dynamic> json =
-          jsonDecode(res.body) as Map<String, dynamic>;
+      final Object? decoded = _safeJsonDecode(res.body);
+      if (decoded is! Map<String, dynamic>) {
+        return const ChatCompletionResult(success: false, errorMessage: '返回格式无效。');
+      }
       final List<dynamic> content =
-          json['content'] as List<dynamic>? ?? <dynamic>[];
+          decoded['content'] as List<dynamic>? ?? <dynamic>[];
       final String text = content
           .where((dynamic b) =>
-              (b as Map<String, dynamic>)['type'] == 'text')
+              b is Map<String, dynamic> && b['type'] == 'text')
           .map((dynamic b) => (b as Map<String, dynamic>)['text'] as String? ?? '')
           .join();
-      return ChatCompletionResult(success: true, content: text);
+      if (text.trim().isEmpty) {
+        return const ChatCompletionResult(success: false, errorMessage: '返回内容为空。');
+      }
+      return ChatCompletionResult(
+        success: true,
+        content: text,
+        totalTokens:
+            _sumAnthropicUsage(decoded['usage'] as Map<String, dynamic>?),
+      );
     } catch (e) {
       return ChatCompletionResult(success: false, errorMessage: e.toString());
     }
   }
 
   @override
-  Stream<String> streamChatCompletion({
-    required String baseUrl,
-    required String apiKey,
-    required String model,
-    required List<Map<String, String>> messages,
-    double temperature = 0.7,
-    double frequencyPenalty = 0.0,
-    double presencePenalty = 0.0,
-    double topP = 1.0,
-    double topK = 0.0,
-    double minP = 0.0,
-    double repetitionPenalty = 1.0,
-    double repetitionPenaltySlope = 0.0,
-    String? thinkingType,
-    String? reasoningEffort,
-  }) async* {
-    final (:String? system, :List<Map<String, String>> convo) =
-        _splitSystem(messages);
-    final Map<String, dynamic> body = <String, dynamic>{
-      'model': model,
-      'max_tokens': _maxTokens,
-      'temperature': temperature,
-      'stream': true,
-      'messages': convo,
-      ..._samplingBody(topP: topP, topK: topK),
-    };
-    if (system != null) {
-      body['system'] = system;
-    }
+  Stream<LlmStreamChunk> streamChatCompletion(LlmRequest request) {
+    final Uri endpoint = Uri.parse(chatEndpoint(request.baseUrl));
+    final http.Request req = http.Request('POST', endpoint)
+      ..headers.addAll(buildHeaders(request.apiKey))
+      ..body = jsonEncode(_buildBody(request, stream: true));
+    return pumpSse(request: req, decodeEvent: _decodeAnthropicEvent);
+  }
 
-    final http.Request request =
-        http.Request('POST', Uri.parse(_messagesEndpoint(baseUrl)))
-          ..headers.addAll(_headers(apiKey))
-          ..body = jsonEncode(body);
-
-    final http.StreamedResponse response;
+  /// Anthropic SSE 事件解码。
+  /// text_delta → 正文;thinking_delta → 思考分片(扩展思考);
+  /// error 事件 / data 内 error 节点 → 错误分片;message_stop → 终止。
+  SseDecode _decodeAnthropicEvent(String? event, String data) {
     try {
-      response = await _client.send(request);
-    } catch (e) {
-      throw Exception('请求发送失败: $e');
-    }
-
-    if (response.statusCode != 200) {
-      final String bodyText = await response.stream.bytesToString();
-      throw Exception(_extractError(bodyText) ?? '流式请求失败 (${response.statusCode})');
-    }
-
-    String event = '';
-    String dataBuf = '';
-    await for (final String line
-        in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
-      if (line.isEmpty) {
-        // 空行表示一个 SSE 事件结束。
-        if (event == 'content_block_delta' && dataBuf.isNotEmpty) {
-          final String? text = _parseDelta(dataBuf);
-          if (text != null) {
-            yield text;
+      final Object? decoded = jsonDecode(data);
+      if (decoded is! Map<String, dynamic>) {
+        return const SseDecode();
+      }
+      if (event == 'error' || decoded['type'] == 'error') {
+        final Object? err = decoded['error'];
+        final String message = err is Map<String, dynamic>
+            ? (err['message'] as String? ?? '流式请求失败')
+            : '流式请求失败';
+        return SseDecode(chunks: <LlmStreamChunk>[LlmErrorChunk(message)]);
+      }
+      switch (event) {
+        case 'content_block_delta':
+          final Map<String, dynamic> delta =
+              decoded['delta'] as Map<String, dynamic>? ?? <String, dynamic>{};
+          final String type = delta['type'] as String? ?? '';
+          if (type == 'text_delta') {
+            final String text = delta['text'] as String? ?? '';
+            if (text.isNotEmpty) {
+              return SseDecode(chunks: <LlmStreamChunk>[LlmContentChunk(text)]);
+            }
+          } else if (type == 'thinking_delta') {
+            final String text = delta['thinking'] as String? ?? '';
+            if (text.isNotEmpty) {
+              return SseDecode(
+                  chunks: <LlmStreamChunk>[LlmReasoningChunk(text)]);
+            }
           }
-        }
-        event = '';
-        dataBuf = '';
-        continue;
-      }
-      if (line.startsWith('event:')) {
-        event = line.substring(6).trim();
-      } else if (line.startsWith('data:')) {
-        dataBuf = line.substring(5).trim();
-      }
-    }
-  }
-
-  String? _parseDelta(String data) {
-    try {
-      final Map<String, dynamic> json =
-          jsonDecode(data) as Map<String, dynamic>;
-      final Map<String, dynamic> delta =
-          json['delta'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      if (delta['type'] == 'text_delta') {
-        final String? text = delta['text'] as String?;
-        if (text != null && text.isNotEmpty) {
-          return text;
-        }
+          return const SseDecode();
+        case 'message_stop':
+          return const SseDecode(done: true);
+        default:
+          return const SseDecode();
       }
     } catch (_) {
-      // 忽略无法解析的分片。
+      return const SseDecode();
     }
-    return null;
   }
 
-  String? _extractError(String body) {
+  Object? _safeJsonDecode(String body) {
     try {
-      final Map<String, dynamic> json =
-          jsonDecode(body) as Map<String, dynamic>;
-      final Map<String, dynamic>? err =
-          json['error'] as Map<String, dynamic>?;
-      if (err != null) {
-        return err['message'] as String? ?? err['type'] as String?;
-      }
+      return jsonDecode(body);
     } catch (_) {
-      // 非 JSON 错误体，返回原始文本（截断）。
-      return body.length > 200 ? body.substring(0, 200) : body;
+      return null;
     }
-    return null;
   }
 
-  /// Anthropic 没有稳定的「列出模型」接口时使用的兜底列表。
+  /// Anthropic 模型兜底列表(/models 不可用时回退)。
   static const List<String> _fallbackModels = <String>[
     'claude-opus-4-5',
     'claude-sonnet-4-5',

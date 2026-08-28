@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/service_results.dart';
 import '../services/llm_provider.dart';
 import '../state/app_controller.dart';
+import '../utils/api_guard.dart';
 import '../utils/dialogs.dart';
 import 'oobe/oobe_steps.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -124,7 +125,10 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
     setState(() {
       _checkingApi = false;
       _apiValidated = result.success;
-      _apiError = result.success ? null : result.message;
+      // 失败文案附加明文 HTTP 警示(成功态由 _apiValidated 绿标表达,不混入错误区)。
+      _apiError = result.success
+          ? null
+          : withTransportWarning(_baseUrlController.text, result.message);
     });
   }
 

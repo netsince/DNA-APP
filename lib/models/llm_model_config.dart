@@ -20,6 +20,9 @@ class LlmModelConfig {
   final double? repetitionPenaltySlope;
   final int? maxContextMessages;
   final int? maxContextTokens;
+
+  /// 单轮最大输出 token。null = 不发送(Anthropic 回退内部默认 8192)。
+  final int? maxTokens;
   final bool? deepseekThinkingEnabled;
   final String? deepseekThinkingEffort;
 
@@ -39,6 +42,7 @@ class LlmModelConfig {
     this.repetitionPenaltySlope,
     this.maxContextMessages,
     this.maxContextTokens,
+    this.maxTokens,
     this.deepseekThinkingEnabled,
     this.deepseekThinkingEffort,
   });
@@ -78,6 +82,7 @@ class LlmModelConfig {
           'maxContextMessages': maxContextMessages,
         if (maxContextTokens != null)
           'maxContextTokens': maxContextTokens,
+        if (maxTokens != null) 'maxTokens': maxTokens,
         if (deepseekThinkingEnabled != null)
           'deepseekThinkingEnabled': deepseekThinkingEnabled,
         if (deepseekThinkingEffort != null)
@@ -103,6 +108,7 @@ class LlmModelConfig {
             (json['repetitionPenaltySlope'] as num?)?.toDouble(),
         maxContextMessages: json['maxContextMessages'] as int?,
         maxContextTokens: json['maxContextTokens'] as int?,
+        maxTokens: json['maxTokens'] as int?,
         deepseekThinkingEnabled: json['deepseekThinkingEnabled'] as bool?,
         deepseekThinkingEffort: json['deepseekThinkingEffort'] as String?,
       );
@@ -123,6 +129,7 @@ class LlmModelConfig {
     double? repetitionPenaltySlope,
     int? maxContextMessages,
     int? maxContextTokens,
+    int? maxTokens,
     bool? deepseekThinkingEnabled,
     String? deepseekThinkingEffort,
   }) {
@@ -144,6 +151,7 @@ class LlmModelConfig {
           repetitionPenaltySlope ?? this.repetitionPenaltySlope,
       maxContextMessages: maxContextMessages ?? this.maxContextMessages,
       maxContextTokens: maxContextTokens ?? this.maxContextTokens,
+      maxTokens: maxTokens ?? this.maxTokens,
       deepseekThinkingEnabled:
           deepseekThinkingEnabled ?? this.deepseekThinkingEnabled,
       deepseekThinkingEffort:

@@ -42,6 +42,8 @@ void main() {
     await tester.pumpWidget(DnaApp(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('与汝共奏'), findsOneWidget);
+    // 标题同时出现在 FitText 内部 Text 与 AppBar 文本中,
+    // 用 findsWidgets 断言「至少渲染了一次」而非精确一次。
+    expect(find.text('与汝共奏'), findsWidgets);
   });
 }

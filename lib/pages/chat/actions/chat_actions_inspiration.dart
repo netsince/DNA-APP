@@ -54,22 +54,9 @@ mixin ChatActionsInspiration on ChatStateMixin {
       final List<String> results = <String>[];
       for (int i = 0; i < count; i++) {
         try {
-          final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
-            baseUrl: baseUrl,
-            apiKey: apiKey,
-            model: model,
-            messages: payload,
-            temperature: widget.controller.settings.temperature,
-            frequencyPenalty: widget.controller.settings.frequencyPenalty,
-            presencePenalty: widget.controller.settings.presencePenalty,
-            topP: widget.controller.settings.topP,
-            topK: widget.controller.settings.topK,
-            minP: widget.controller.settings.minP,
-            repetitionPenalty: widget.controller.settings.repetitionPenalty,
-            repetitionPenaltySlope:
-                widget.controller.settings.repetitionPenaltySlope,
-            thinkingType: widget.controller.deepseekThinkingType,
-            reasoningEffort: widget.controller.deepseekReasoningEffort,
+          final ChatCompletionResult result =
+              await widget.controller.llmProvider.createChatCompletion(
+            widget.controller.buildLlmRequest(messages: payload),
           );
           if (result.success && result.content != null) {
             final String cleaned = stripThoughtTags(result.content!).trim();
@@ -86,22 +73,9 @@ mixin ChatActionsInspiration on ChatStateMixin {
 
     try {
       final List<Future<String?>> tasks = List<Future<String?>>.generate(count, (_) async {
-        final ChatCompletionResult result = await widget.controller.llmProvider.createChatCompletion(
-          baseUrl: baseUrl,
-          apiKey: apiKey,
-          model: model,
-          messages: payload,
-          temperature: widget.controller.settings.temperature,
-          frequencyPenalty: widget.controller.settings.frequencyPenalty,
-          presencePenalty: widget.controller.settings.presencePenalty,
-          topP: widget.controller.settings.topP,
-          topK: widget.controller.settings.topK,
-          minP: widget.controller.settings.minP,
-          repetitionPenalty: widget.controller.settings.repetitionPenalty,
-          repetitionPenaltySlope:
-              widget.controller.settings.repetitionPenaltySlope,
-          thinkingType: widget.controller.deepseekThinkingType,
-          reasoningEffort: widget.controller.deepseekReasoningEffort,
+        final ChatCompletionResult result =
+            await widget.controller.llmProvider.createChatCompletion(
+          widget.controller.buildLlmRequest(messages: payload),
         );
         if (!result.success || result.content == null) {
           return null;
