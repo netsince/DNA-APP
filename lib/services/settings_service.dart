@@ -42,6 +42,8 @@ class SettingsService {
   static const String _customAccentColorKey = 'custom_accent_color';
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
+  static const String _bgmVolumeKey = 'bgm_volume';
+  static const String _bgmSizeLimitUnlockedKey = 'bgm_size_limit_unlocked';
   static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showParenButtonKey = 'show_paren_button';
   static const String _showMessageAvatarKey = 'show_message_avatar';
@@ -144,6 +146,8 @@ class SettingsService {
       customAccentColor: prefs.getInt(_customAccentColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
       ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
+      bgmVolume: prefs.getInt(_bgmVolumeKey) ?? 50,
+      bgmSizeLimitUnlocked: prefs.getBool(_bgmSizeLimitUnlockedKey) ?? false,
       voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
       showMessageAvatar: prefs.getBool(_showMessageAvatarKey) ?? true,
@@ -267,6 +271,8 @@ class SettingsService {
     } else {
       await prefs.remove(_ttsGlobalSeedKey);
     }
+    await prefs.setInt(_bgmVolumeKey, settings.bgmVolume);
+    await prefs.setBool(_bgmSizeLimitUnlockedKey, settings.bgmSizeLimitUnlocked);
     await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showParenButtonKey, settings.showParenButton);
     await prefs.setBool(_showMessageAvatarKey, settings.showMessageAvatar);

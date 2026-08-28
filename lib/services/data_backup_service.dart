@@ -12,6 +12,7 @@ import '../models/user_identity.dart';
 import '../models/world.dart';
 import 'image_storage.dart';
 import 'ta_export_import_service.dart';
+import 'ta_service.dart';
 import 'data_backup_models.dart';
 export 'data_backup_models.dart';
 
@@ -20,6 +21,7 @@ class DataBackupService {
   static const int _version = 1;
   static const String _app = 'dna-client';
   static const String _imageDir = 'images';
+  static const String _musicDir = 'music';
 
   static void _addJsonFile(Archive archive, String name, Object data) {
     final JsonEncoder encoder = const JsonEncoder.withIndent('  ');
@@ -82,6 +84,26 @@ class DataBackupService {
           }
         }
         map['images'] = portableImages;
+
+        // 背景音乐：把本地绝对路径替换为备份包内的相对文件名，音乐字节写入 music/ 目录。
+        // 音乐只在本地随角色存在、不随角色卡导出，但全量备份要一并带走。
+        final String? musicPath = ta.musicPath;
+        if (musicPath != null && musicPath.isNotEmpty) {
+          final File mf = File(musicPath);
+          if (await mf.exists()) {
+            final String musicName = path.basename(musicPath);
+            map['musicPath'] = '$_musicDir/$musicName';
+            final Uint8List musicBytes = await mf.readAsBytes();
+            archive.addFile(
+              ArchiveFile('$_musicDir/$musicName', musicBytes.length, musicBytes),
+            );
+          } else {
+            map['musicPath'] = '';
+          }
+        } else {
+          map['musicPath'] = '';
+        }
+
         tasJson.add(map);
       }
       _addJsonFile(archive, 'tas.json', tasJson);
@@ -166,6 +188,27 @@ class DataBackupService {
           }
         }
         map['images'] = portableImages;
+
+        // 背景音乐：本地绝对路径 -> 备份包相对文件名，音乐字节以磁盘流写入 music/ 目录。
+        final String? musicPath = ta.musicPath;
+        if (musicPath != null && musicPath.isNotEmpty) {
+          final File mf = File(musicPath);
+          if (await mf.exists()) {
+            final String musicName = path.basename(musicPath);
+            map['musicPath'] = '$_musicDir/$musicName';
+            archive.addFile(
+              ArchiveFile.stream(
+                '$_musicDir/$musicName',
+                InputFileStream(musicPath),
+              ),
+            );
+          } else {
+            map['musicPath'] = '';
+          }
+        } else {
+          map['musicPath'] = '';
+        }
+
         tasJson.add(map);
       }
       _addJsonFile(archive, 'tas.json', tasJson);
@@ -367,6 +410,18 @@ class DataBackupService {
         }
       }
 
+      // 背景音乐懒加载：同样仅落盘时逐个解压，避免整包驻留内存。
+      final Map<String, List<int> Function()> musicBytes =
+          <String, List<int> Function()>{};
+      for (final ArchiveFile file in archive.files) {
+        if (file.isFile && file.name.startsWith('$_musicDir/')) {
+          final String name = file.name.substring('$_musicDir/'.length);
+          if (name.isNotEmpty) {
+            musicBytes[name] = () => file.content as List<int>;
+          }
+        }
+      }
+
       return ExportImportResult(
         success: true,
         data: ParsedBackup(
@@ -376,6 +431,7 @@ class DataBackupService {
           conversations: conversations,
           identities: identities,
           imageBytes: imageBytes,
+          musicBytes: musicBytes,
           dispose: dispose,
         ),
       );
@@ -456,6 +512,41 @@ class DataBackupService {
         resolved[slot] = ref;
       }
       result.add(ta.copyWith(images: resolved));
+    }
+    return result;
+  }
+
+  /// 将 ZIP 中的背景音乐字节写入本地，返回补全 musicPath 的 TA 列表。
+  ///
+  /// 备份中 TA.musicPath 为相对名（如 `music/xxx.mp3`）。这里把字节写回
+  /// `<文档>/tas/music_<taId><ext>`，并把 musicPath 更新为绝对路径。
+  /// 无音乐或字节缺失的角色保持 musicPath 为空。
+  static Future<List<TA>> resolveTasMusic(
+    List<TA> tas,
+    Map<String, List<int> Function()> musicBytes,
+  ) async {
+    final List<TA> result = <TA>[];
+    for (final TA ta in tas) {
+      final String? rel = ta.musicPath;
+      if (rel == null || rel.isEmpty) {
+        result.add(ta.copyWith(musicPath: null));
+        continue;
+      }
+      final String base = rel.contains('/') ? rel.split('/').last : rel;
+      final List<int> Function()? loader = musicBytes[base];
+      if (loader == null) {
+        result.add(ta.copyWith(musicPath: null));
+        continue;
+      }
+      final List<int> bytes = loader();
+      musicBytes.remove(base);
+      final String ext = path.extension(base);
+      final String? saved = await TaService().saveMusicBytes(
+        taId: ta.id,
+        bytes: Uint8List.fromList(bytes),
+        ext: ext.isEmpty ? null : ext,
+      );
+      result.add(ta.copyWith(musicPath: saved));
     }
     return result;
   }

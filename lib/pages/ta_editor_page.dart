@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:path/path.dart' as path;
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../services/image_storage.dart';
+import '../services/ta_service.dart';
 import '../utils/platform_capabilities.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'ta_editor/image_slot.dart';
@@ -47,6 +49,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Map<String, String> _images = <String, String>{};
   final Set<String> _obsoleteImageRefs = <String>{};
   List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
+  String? _musicPath;
 
   @override
   void initState() {
@@ -66,6 +69,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _gender = ta?.gender ?? '无性';
     _images = Map<String, String>.from(ta?.images ?? <String, String>{});
     _dialogueStyle = List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
+    _musicPath = ta?.musicPath;
   }
 
   @override
@@ -133,6 +137,53 @@ class _TaEditorPageState extends State<TaEditorPage> {
     });
   }
 
+  /// 在文件管理器中挑选背景音乐并拷贝到应用私有目录。
+  ///
+  /// 默认限制 10MB 以内（可在设置中解锁）。背景音乐不会随角色卡导出，
+  /// 仅供本地聊天时循环播放。
+  Future<void> _pickMusic() async {
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: <String>['mp3', 'm4a', 'aac', 'ogg', 'wav'],
+    );
+    if (result == null || result.files.isEmpty) return;
+    final String sourcePath = result.files.single.path ?? '';
+    if (sourcePath.isEmpty) return;
+
+    final bool unlocked =
+        widget.controller.settings.bgmSizeLimitUnlocked;
+    final String? stored = await TaService().storeMusic(
+      sourcePath: sourcePath,
+      taId: _taId,
+      oldMusicPath: _musicPath,
+      sizeLimitUnlocked: unlocked,
+    );
+    if (stored == null) {
+      if (mounted) {
+        showSnack(
+          context,
+          unlocked
+              ? '无法保存该背景音乐，请确认文件为支持的音频格式。'
+              : '背景音乐大小不能超过 10MB，可在设置中解锁限制。',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _musicPath = stored;
+    });
+  }
+
+  /// 清除当前角色的背景音乐并删除本地文件。
+  Future<void> _clearMusic() async {
+    final String? old = _musicPath;
+    setState(() {
+      _musicPath = null;
+    });
+    await TaService().deleteMusic(old);
+  }
+
   List<String> _parseTags(String raw) {
     return raw
         .split(',')
@@ -163,6 +214,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
           ? null
           : _authorNoteController.text.trim(),
       authorNoteInterval: int.tryParse(_authorIntervalController.text.trim()) ?? 0,
+      musicPath: _musicPath,
     );
   }
 
@@ -197,6 +249,13 @@ class _TaEditorPageState extends State<TaEditorPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const FitText('将角色数据导出为JSON格式，包含文字设定和图片。'),
+              const SizedBox(height: 4),
+              FitText(
+                '注：背景音乐仅保存在本机，不会随角色卡导出。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
               const SizedBox(height: 16),
               CheckboxListTile(
                 title: const FitText('压缩图片'),
@@ -662,6 +721,52 @@ class _TaEditorPageState extends State<TaEditorPage> {
                             .bodySmall
                             ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FitText('背景音乐', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '进入聊天时循环播放该角色的背景音乐。音乐仅保存在本机，'
+                    '不会随角色卡导出/分享。默认上限 10MB（可在设置中解锁）。',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _musicPath == null
+                            ? const FitText('未设置背景音乐', style: TextStyle(color: Color(0xFF888888)))
+                            : FitText(
+                                path.basename(_musicPath!),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                      ),
+                      IconButton(
+                        tooltip: '选择背景音乐',
+                        onPressed: _pickMusic,
+                        icon: const Icon(Icons.music_note),
+                      ),
+                      if (_musicPath != null)
+                        IconButton(
+                          tooltip: '清除背景音乐',
+                          onPressed: _clearMusic,
+                          icon: const Icon(Icons.delete_outline),
+                        ),
                     ],
                   ),
                 ],

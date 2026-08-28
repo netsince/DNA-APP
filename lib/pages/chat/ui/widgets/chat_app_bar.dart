@@ -8,6 +8,7 @@ typedef NavigateMatch = void Function(int direction);
 typedef ToggleSearch = void Function();
 typedef ScrollToBottom = void Function();
 typedef ToggleBackground = void Function();
+typedef ToggleBgm = void Function();
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ChatAppBar({
@@ -21,6 +22,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleSearch,
     required this.onScrollToBottom,
     required this.onToggleBackground,
+    required this.onToggleBgm,
+    this.bgmEnabled = false,
+    this.showBgmOption = false,
     required this.rangeSummaryInProgress,
     required this.summaryInProgress,
     required this.showTokenCounts,
@@ -44,6 +48,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ToggleSearch onToggleSearch;
   final ScrollToBottom onScrollToBottom;
   final ToggleBackground onToggleBackground;
+  final ToggleBgm onToggleBgm;
+  final bool bgmEnabled;
+  final bool showBgmOption;
   final bool rangeSummaryInProgress;
   final bool summaryInProgress;
   final bool showTokenCounts;
@@ -135,9 +142,20 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onForceSummary();
                   } else if (value == 'range_summary') {
                     onRangeSummary();
+                  } else if (value == 'bgm') {
+                    onToggleBgm();
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  if (showBgmOption)
+                    CheckedPopupMenuItem<String>(
+                      value: 'bgm',
+                      checked: bgmEnabled,
+                      child: const ListTile(
+                        leading: Icon(Icons.music_note_outlined),
+                        title: FitText('背景音乐'),
+                      ),
+                    ),
                   PopupMenuItem<String>(
                     value: 'range_summary',
                     enabled: !rangeSummaryInProgress,

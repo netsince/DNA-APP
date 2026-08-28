@@ -50,6 +50,8 @@ class AppSettings {
     this.showMessageCopy = true,
     this.showMessageContinue = true,
     this.enterToSend = true,
+    this.bgmVolume = 50,
+    this.bgmSizeLimitUnlocked = false,
     required this.chatMaskStrength,
     this.chatBubbleOpacity = 100,
     this.halfScreenChat = false,
@@ -122,6 +124,8 @@ class AppSettings {
       showMessageCopy: true,
       showMessageContinue: true,
       enterToSend: true,
+      bgmVolume: 50,
+      bgmSizeLimitUnlocked: false,
       chatMaskStrength: 75,
       chatBubbleOpacity: 100,
       halfScreenChat: false,
@@ -258,6 +262,12 @@ class AppSettings {
   /// 回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
   final bool enterToSend;
 
+  /// 角色卡背景音乐音量，范围 0~100。默认 50。
+  final int bgmVolume;
+
+  /// 是否解锁背景音乐的 10MB 大小上限（默认 false：超 10MB 拒收）。
+  final bool bgmSizeLimitUnlocked;
+
   /// 聊天界面背景遮罩强度，范围 0~100。
   /// 0 表示完全不遮罩（背景完全透出），100 表示遮罩最强（背景几乎被盖住）。
   final int chatMaskStrength;
@@ -385,6 +395,8 @@ class AppSettings {
       'showMessageCopy': showMessageCopy,
       'showMessageContinue': showMessageContinue,
       'enterToSend': enterToSend,
+      'bgmVolume': bgmVolume,
+      'bgmSizeLimitUnlocked': bgmSizeLimitUnlocked,
       'chatMaskStrength': chatMaskStrength,
       'chatBubbleOpacity': chatBubbleOpacity,
       'halfScreenChat': halfScreenChat,
@@ -470,6 +482,8 @@ class AppSettings {
       showMessageCopy: (json['showMessageCopy'] as bool?) ?? true,
       showMessageContinue: (json['showMessageContinue'] as bool?) ?? true,
       enterToSend: (json['enterToSend'] as bool?) ?? true,
+      bgmVolume: (json['bgmVolume'] as int?) ?? 50,
+      bgmSizeLimitUnlocked: (json['bgmSizeLimitUnlocked'] as bool?) ?? false,
       chatMaskStrength: (json['chatMaskStrength'] as int?) ?? 75,
       chatBubbleOpacity: (json['chatBubbleOpacity'] as int?) ?? 100,
       halfScreenChat: (json['halfScreenChat'] as bool?) ?? false,
@@ -567,6 +581,8 @@ class AppSettings {
     bool? showMessageCopy,
     bool? showMessageContinue,
     bool? enterToSend,
+    int? bgmVolume,
+    bool? bgmSizeLimitUnlocked,
     int? chatMaskStrength,
     int? chatBubbleOpacity,
     bool? halfScreenChat,
@@ -637,6 +653,8 @@ class AppSettings {
       showMessageCopy: showMessageCopy ?? this.showMessageCopy,
       showMessageContinue: showMessageContinue ?? this.showMessageContinue,
       enterToSend: enterToSend ?? this.enterToSend,
+      bgmVolume: bgmVolume ?? this.bgmVolume,
+      bgmSizeLimitUnlocked: bgmSizeLimitUnlocked ?? this.bgmSizeLimitUnlocked,
       chatMaskStrength: chatMaskStrength ?? this.chatMaskStrength,
       chatBubbleOpacity: chatBubbleOpacity ?? this.chatBubbleOpacity,
       halfScreenChat: halfScreenChat ?? this.halfScreenChat,

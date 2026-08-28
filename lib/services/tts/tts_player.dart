@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import '../bgm_player.dart';
 import 'tts_config.dart';
 
 /// 播放 24kHz 单声道 float 音频。
@@ -27,11 +28,14 @@ class TtsPlayer {
     final AudioPlayer player = AudioPlayer();
     _player = player;
     playing.value = true;
+    // 朗读开始：把背景音乐音量调小，避免盖住人声。
+    await BgmPlayer.instance.duck();
     // 音频自然播完时复位「正在播放」状态。
     player.onPlayerComplete.listen((_) {
       if (_player == player) {
         _player = null;
         playing.value = false;
+        BgmPlayer.instance.unduck();
       }
     });
     player.onPlayerStateChanged.listen((PlayerState s) {
@@ -39,6 +43,7 @@ class TtsPlayer {
           _player == player) {
         _player = null;
         playing.value = false;
+        BgmPlayer.instance.unduck();
       }
     });
     await player.play(DeviceFileSource(wav.path), mode: PlayerMode.lowLatency);
@@ -54,6 +59,8 @@ class TtsPlayer {
         await p.dispose();
       } catch (_) {}
     }
+    // 朗读被打断/手动停止：恢复背景音乐音量。
+    await BgmPlayer.instance.unduck();
   }
 
   /// 把 float32 PCM 编码为 16-bit 单声道 WAV 文件。

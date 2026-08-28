@@ -9,6 +9,7 @@ import 'settings/ai_service_settings_page.dart';
 import 'settings/appearance_settings_page.dart';
 import 'settings/conversation_settings_page.dart';
 import 'settings/voice_input_settings_page.dart';
+import 'settings/bgm_settings_page.dart';
 import 'settings/tts_settings_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
@@ -126,6 +127,13 @@ class SettingsPage extends StatelessWidget {
                           subtitle: '麦克风语音转文字、本地离线识别模型管理',
                           enabled: PlatformCapabilities.voiceInputSupported,
                           onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        _MenuItem(
+                          icon: Icons.music_note_outlined,
+                          title: '角色背景音乐',
+                          subtitle: '聊天时循环播放的背景音乐，音量与大小上限',
+                          onTap: () => _push(context, BgmSettingsPage(controller: controller)),
                         ),
                       ],
                     ),

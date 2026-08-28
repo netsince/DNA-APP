@@ -796,6 +796,20 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存角色卡背景音乐音量（0~100）。
+  Future<void> saveBgmVolume(int value) async {
+    _settings = _settings.copyWith(bgmVolume: value.clamp(0, 100));
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存是否解锁背景音乐 10MB 大小上限。
+  Future<void> saveBgmSizeLimitUnlocked(bool value) async {
+    _settings = _settings.copyWith(bgmSizeLimitUnlocked: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用应用图标选择。
   /// Android：切换启动器图标；Web：切换浏览器标签页图标；其余平台仅保存设置。
   Future<void> saveAppIcon(AppIconOption option) async {
@@ -966,6 +980,15 @@ class AppController extends ChangeNotifier {
       }
     } catch (_) {
       // 图片清理失败不阻断删除
+    }
+
+    // 清理该角色的背景音乐文件（音乐仅本地存在，随角色删除一并移除）
+    try {
+      if (ta.musicPath != null && ta.musicPath!.isNotEmpty) {
+        await TaService().deleteMusic(ta.musicPath);
+      }
+    } catch (_) {
+      // 音乐清理失败不阻断删除
     }
 
     await deleteTa(id);
@@ -1846,8 +1869,10 @@ class AppController extends ChangeNotifier {
           backup.imageBytes,
           '',
         );
+        final List<TA> resolvedTasWithMusic = await DataBackupService
+            .resolveTasMusic(resolvedTas, backup.musicBytes);
 
-        _tas = resolvedTas;
+        _tas = resolvedTasWithMusic;
         _worlds = backup.worlds;
         _conversations =
             backup.conversations.where((Conversation c) => !c.isGroup).toList();
@@ -1886,6 +1911,8 @@ class AppController extends ChangeNotifier {
         backup.imageBytes,
         '',
       );
+      final List<TA> resolvedNewTasWithMusic = await DataBackupService
+          .resolveTasMusic(resolvedNewTas, backup.musicBytes);
 
       final Set<String> existingWorldIds =
           _worlds.map((World w) => w.id).toSet();
@@ -1907,7 +1934,7 @@ class AppController extends ChangeNotifier {
           .where((UserIdentity i) => !existingIdentityIds.contains(i.id))
           .toList();
 
-      _tas = <TA>[..._tas, ...resolvedNewTas];
+      _tas = <TA>[..._tas, ...resolvedNewTasWithMusic];
       _worlds = <World>[..._worlds, ...newWorlds];
       _identities = <UserIdentity>[..._identities, ...newIdentities];
       _conversations = <Conversation>[

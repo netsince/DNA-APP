@@ -17,6 +17,7 @@ class TA {
     this.voiceSeed,
     this.authorNote,
     this.authorNoteInterval = 0,
+    this.musicPath,
   });
 
   final String id;
@@ -43,6 +44,15 @@ class TA {
   /// 该角色作者注释的注入间隔（每多少条历史消息注入一次），0 表示禁用。
   final int authorNoteInterval;
 
+  /// 该角色绑定的背景音乐文件路径（应用私有目录内）。
+  ///
+  /// ⚠️ 故意设计：此字段**只**用于本地持久化（Hive）与「全量 ZIP 备份/恢复」，
+  /// **绝不**写入角色卡导出 JSON（`TaExportImportService.exportCharacter`），
+  /// 导入角色卡时也**不识别**该字段。原因：音乐文件体积大，若塞进导出 JSON
+  /// 走 Base64 会把导出包/备份撑爆。因此背景音乐只在本地随角色存在，
+  /// 导出/分享角色卡到其它端时不会带上音乐。
+  final String? musicPath;
+
   TA copyWith({
     String? id,
     String? name,
@@ -59,6 +69,7 @@ class TA {
     int? voiceSeed,
     String? authorNote,
     int? authorNoteInterval,
+    String? musicPath,
   }) {
     return TA(
       id: id ?? this.id,
@@ -74,6 +85,7 @@ class TA {
       originalLink: originalLink ?? this.originalLink,
       protection: protection ?? this.protection,
       voiceSeed: voiceSeed ?? this.voiceSeed,
+      musicPath: musicPath ?? this.musicPath,
     );
   }
 
@@ -94,6 +106,9 @@ class TA {
       'voiceSeed': voiceSeed,
       'authorNote': authorNote,
       'authorNoteInterval': authorNoteInterval,
+      // musicPath 用于本地持久化（Hive）与全量 ZIP 备份。角色卡导出（exportCharacter）
+      // 不经过本方法，因此不会把音乐塞进导出 JSON。
+      'musicPath': musicPath,
     };
   }
 
@@ -120,6 +135,9 @@ class TA {
       voiceSeed: json['voiceSeed'] as int?,
       authorNote: json['authorNote'] as String?,
       authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
+      // 本地持久化 / 全量备份恢复时读回 musicPath；角色卡导入（importCharacter）
+      // 不经过本方法，因此不会从外部导入包中识别音乐字段。
+      musicPath: json['musicPath'] as String?,
     );
   }
 }

@@ -21,6 +21,7 @@ import '../models/user_identity.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../services/conversation_export_import_service.dart';
+import '../services/bgm_player.dart';
 import '../services/image_storage.dart';
 import '../services/llm_request.dart';
 import '../services/llm_stream_chunk.dart';
@@ -503,6 +504,10 @@ class _ChatPageState extends State<ChatPage>
                   onToggleSearch: _toggleSearch,
                   onScrollToBottom: _scrollToBottom,
                   onToggleBackground: _toggleBackground,
+                  onToggleBgm: _toggleBgm,
+                  bgmEnabled: _bgmEnabled,
+                  showBgmOption:
+                      !_isGroup && (_ta?.musicPath?.isNotEmpty ?? false),
                   rangeSummaryInProgress: _rangeSummaryInProgress,
                   summaryInProgress: _summaryInProgress,
                   showTokenCounts: _showTokenCounts,

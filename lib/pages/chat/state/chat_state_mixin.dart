@@ -125,6 +125,12 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
     _ensureGroupDefaults();
     _ensureOpeningMessage();
 
+    // 进入聊天页：同步背景音乐音量并启动角色背景音乐（仅单聊、开启时）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _ensureBgm();
+    });
+
     // 延迟加载 accent 避免阻塞 initState
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
@@ -153,6 +159,8 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
     _scrollController.dispose();
     _searchController.dispose();
     _imageCache.clear();
+    // 离开聊天页停止背景音乐，避免残留播放
+    _stopBgm();
     super.dispose();
   }
 
@@ -179,6 +187,55 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
         _keyboardWasOpen = false;
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 应用切后台时暂停背景音乐，回前台恢复（若仍开启且该角色有音乐）。
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      BgmPlayer.instance.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_bgmEnabled && !_isGroup) {
+        final String? musicPath = _ta?.musicPath;
+        if (musicPath != null && musicPath.isNotEmpty) {
+          BgmPlayer.instance.resume();
+        }
+      }
+    }
+  }
+
+  /// 是否播放当前角色背景音乐（三点菜单切换）。默认开启。
+  bool _bgmEnabled = true;
+
+  /// 同步背景音乐音量，并在满足条件时启动当前角色的音乐。
+  Future<void> _ensureBgm() async {
+    final AppSettings s = widget.controller.settings;
+    BgmPlayer.instance.setBaseVolume(s.bgmVolume / 100.0);
+    if (_bgmEnabled && !_isGroup) {
+      final String? musicPath = _ta?.musicPath;
+      if (musicPath != null && musicPath.isNotEmpty) {
+        await BgmPlayer.instance.play(musicPath);
+      }
+    }
+  }
+
+  /// 停止背景音乐（离开聊天页 / 切到群聊）。
+  void _stopBgm() {
+    BgmPlayer.instance.stop();
+  }
+
+  /// 三点菜单：切换是否播放背景音乐。
+  Future<void> _toggleBgm() async {
+    _bgmEnabled = !_bgmEnabled;
+    if (!mounted) return;
+    setState(() {});
+    if (_bgmEnabled) {
+      await _ensureBgm();
+    } else {
+      BgmPlayer.instance.stop();
+    }
   }
 
   // 设置页切换 accent 模式/颜色后，实时刷新聊天页取色

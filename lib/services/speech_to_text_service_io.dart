@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import '../models/voice_models.dart';
+import 'bgm_player.dart';
 
 /// 离线语音转文字服务（sherpa-onnx + record）。
 ///
@@ -93,6 +94,8 @@ class SpeechToTextService {
     });
 
     _isRecording = true;
+    // 识别开始：把背景音乐音量调小，避免盖住麦克风拾取的人声。
+    await BgmPlayer.instance.duck();
     return true;
   }
 
@@ -110,6 +113,8 @@ class SpeechToTextService {
     _stream?.free();
     _stream = null;
     _isRecording = false;
+    // 识别结束：恢复背景音乐音量。
+    await BgmPlayer.instance.unduck();
     return text.trim();
   }
 
@@ -124,6 +129,8 @@ class SpeechToTextService {
     _stream?.free();
     _stream = null;
     _isRecording = false;
+    // 识别取消：恢复背景音乐音量。
+    await BgmPlayer.instance.unduck();
   }
 
   /// 释放识别器与资源（一般用于退出应用，可选）。
