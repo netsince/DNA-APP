@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dna/models/ta.dart';
+import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/services/data_backup_models.dart';
 import 'package:dna/services/data_backup_service.dart';
 import 'package:dna/services/ta_export_import_service.dart';
@@ -315,6 +316,53 @@ void main() {
           TaExportImportService.importCharacter(silly);
       expect(result.success, isTrue);
       expect(result.data!.ta.name, 'v1角色');
+    });
+
+    test('导出为酒馆 chara_card_v2 后可被自身导入（字段往返一致）', () {
+      final TA ta = TA(
+        id: 'ta-cc-1',
+        name: '社区角色',
+        gender: '女',
+        persona: 'persona-cc',
+        intro: 'intro-cc',
+        opening: 'opening-cc',
+        tags: <String>['社区', 'v2'],
+        images: <String, String>{},
+        dialogueStyle: const <DialogueTurn>[
+          DialogueTurn(user: '你好', assistant: '你好呀'),
+          DialogueTurn(user: '再来', assistant: '好的'),
+        ],
+        authorNote: '作者注释',
+      );
+
+      final ExportImportResult<String> exported =
+          TaExportImportService.exportCharacterAsCharaCard(ta);
+      expect(exported.success, isTrue);
+
+      // 必须是标准 chara_card_v2 结构（社区站点能识别）。
+      final Map<String, dynamic> card = jsonDecode(exported.data!)
+          as Map<String, dynamic>;
+      expect(card['spec'], 'chara_card_v2');
+      final Map<String, dynamic> data = card['data'] as Map<String, dynamic>;
+      expect(data['name'], '社区角色');
+      expect(data['description'], 'persona-cc');
+      expect(data['scenario'], 'intro-cc');
+      expect(data['first_mes'], 'opening-cc');
+      expect(data['tags'], <String>['社区', 'v2']);
+      expect(data['post_history_instructions'], '作者注释');
+
+      // 再导入回来：字段应无损映射回 TA。
+      final ExportImportResult<ImportResult> back =
+          TaExportImportService.importCharacter(exported.data!);
+      expect(back.success, isTrue);
+      final TA restored = back.data!.ta;
+      expect(restored.name, '社区角色');
+      expect(restored.persona, 'persona-cc');
+      expect(restored.intro, contains('intro-cc'));
+      expect(restored.opening, 'opening-cc');
+      expect(restored.tags, <String>['社区', 'v2']);
+      expect(restored.dialogueStyle, hasLength(2));
+      expect(restored.dialogueStyle[1].assistant, '好的');
     });
 
     test('不支持的格式返回失败', () {
