@@ -31,8 +31,17 @@ class TtsService {
 
   bool _downloading = false;
 
+  /// 用户是否请求取消本次下载。置位后在流读取的下一帧检查并中止。
+  bool _cancelRequested = false;
+
   String? get modelsDir => _modelsDir;
   String? _modelsDir;
+
+  /// 请求取消正在进行的模型下载。下载流会在下一帧被中断，
+  /// 已写入的 `.part` 临时文件会被清理，不影响已完成的模型文件。
+  void cancelDownload() {
+    _cancelRequested = true;
+  }
 
   /// 应用文档目录下模型根目录。
   Future<String> _resolveModelsDir() async {
@@ -57,16 +66,24 @@ class TtsService {
   }
 
   /// 只下载缺失的模型文件。
+  ///
+  /// 支持中途取消：调用 [cancelDownload] 后，当前文件下载会被中断并抛
+  /// [TtsDownloadCancelled]，已写入的 `.part` 会被清理、已完成的文件保留，
+  /// 下次调用会从剩余文件继续。
   Future<void> ensureModels({
     void Function(TtsDownloadProgress)? onProgress,
   }) async {
     if (_downloading) return;
     _downloading = true;
+    _cancelRequested = false;
     try {
       final String dir = await _resolveModelsDir();
       await Directory(dir).create(recursive: true);
       int done = 0;
       for (final String file in kTtsModelFiles) {
+        if (_cancelRequested) {
+          throw const TtsDownloadCancelled();
+        }
         if (_fileExists(dir, file)) {
           done++;
           continue;
@@ -85,6 +102,7 @@ class TtsService {
       }
     } finally {
       _downloading = false;
+      _cancelRequested = false;
     }
   }
 
@@ -116,6 +134,11 @@ class TtsService {
         DateTime lastStamp = DateTime.now();
         final IOSink sink = tmp.openWrite();
         await for (final List<int> chunk in resp.stream) {
+          if (_cancelRequested) {
+            // 用户取消：中断流，交给外层 catch 清理 `.part` 并重抛取消异常。
+            client.close();
+            throw const TtsDownloadCancelled();
+          }
           sink.add(chunk);
           received += chunk.length;
           final DateTime now = DateTime.now();
@@ -143,7 +166,6 @@ class TtsService {
   }
 
   /// 合成文本。seed 选择：角色固定 seed 优先，否则用全局 seed。
-  ///
   /// 返回 24kHz 单声道 float 音频。未下载模型时抛 [StateError]。
   /// 相同（文本 + seed + 参数）会命中缓存，不重复合成。
   ///
@@ -310,4 +332,15 @@ class TtsDownloadProgress {
   final int receivedBytes;
   final int? totalBytes;
   final double? speedBps;
+}
+
+/// 下载被用户取消时抛出。
+///
+/// 由 [TtsService.cancelDownload] 触发。抛出前已清理当前文件的 `.part`
+/// 临时文件，已完成的模型文件不受影响。
+class TtsDownloadCancelled implements Exception {
+  const TtsDownloadCancelled();
+
+  @override
+  String toString() => 'TtsDownloadCancelled: 模型下载已取消';
 }

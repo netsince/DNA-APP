@@ -209,7 +209,6 @@ class OrtEngine {
   bool _envInitialized = false;
 
   OrtSessionWrapper? _gpt;
-  OrtSessionWrapper? _gptCode;
   OrtSessionWrapper? _embText;
   OrtSessionWrapper? _embCode;
   OrtSessionWrapper? _headText;
@@ -240,10 +239,13 @@ class OrtEngine {
   OrtSessionWrapper gpt(String modelsDir) =>
       _gpt ??= _open('$modelsDir/gpt_emb_quant_int8.onnx');
 
-  /// 独立的 code 生成专用 GPT 会话。与 [gpt]（refine 用）分离，
-  /// 避免 refine 的自回归污染 code 生成首步的 GPT 前向结果。
-  OrtSessionWrapper gptCode(String modelsDir) =>
-      _gptCode ??= _open('$modelsDir/gpt_emb_quant_int8.onnx');
+  /// code 生成专用 GPT 会话。
+  ///
+  /// ONNX session.run 本身无状态（KV cache 全部通过输入/输出张量在每次 run
+  /// 之间传递），refine 与 code 生成在 [ChatTtsEngine] 内是顺序调用、绝不并发，
+  /// 因此这里直接复用 [gpt] 的同一会话即可，避免把体积最大的
+  /// `gpt_emb_quant_int8.onnx` 同时常驻两份、白白翻倍低配机内存占用。
+  OrtSessionWrapper gptCode(String modelsDir) => gpt(modelsDir);
   OrtSessionWrapper embText(String modelsDir) =>
       _embText ??= _open('$modelsDir/emb_text.onnx');
   OrtSessionWrapper embCode(String modelsDir) =>
@@ -261,7 +263,6 @@ class OrtEngine {
   void dispose() {
     void release(OrtSessionWrapper? w) => w?.dispose();
     release(_gpt); _gpt = null;
-    release(_gptCode); _gptCode = null;
     release(_embText); _embText = null;
     release(_embCode); _embCode = null;
     release(_headText); _headText = null;

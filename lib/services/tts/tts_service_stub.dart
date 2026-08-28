@@ -14,6 +14,9 @@ class TtsService {
 
   String? get modelsDir => null;
 
+  /// 请求取消正在进行的模型下载（Web 上空操作）。
+  void cancelDownload() {}
+
   /// 检查模型是否已全部下载就绪（Web 上恒为 false）。
   Future<bool> isModelsReady() async => false;
 
@@ -64,4 +67,12 @@ class TtsDownloadProgress {
   final int receivedBytes;
   final int? totalBytes;
   final double? speedBps;
+}
+
+/// 下载被用户取消时抛出（与 IO 实现同构，保证调用方类型兼容）。
+class TtsDownloadCancelled implements Exception {
+  const TtsDownloadCancelled();
+
+  @override
+  String toString() => 'TtsDownloadCancelled: 模型下载已取消';
 }

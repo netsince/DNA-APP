@@ -159,6 +159,10 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
       if (mounted) {
         showSnack(context, '端侧语音模型已就绪。');
       }
+    } on TtsDownloadCancelled {
+      if (mounted) {
+        showSnack(context, '模型下载已取消。');
+      }
     } catch (e) {
       if (mounted) {
         showSnack(context, '模型下载失败：$e');
@@ -171,6 +175,15 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
         });
       }
       await _refresh();
+    }
+  }
+
+  Future<void> _cancel() async {
+    TtsService.instance.cancelDownload();
+    if (mounted) {
+      setState(() {
+        _fileInfo = '正在取消下载，请稍候…';
+      });
     }
   }
 
@@ -370,6 +383,15 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                         style: ts.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.bold),
                       ),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _cancel,
+                        icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                        label: const FitText('取消下载'),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                   ],
                   if (_ready) ...<Widget>[
                     ListTile(
