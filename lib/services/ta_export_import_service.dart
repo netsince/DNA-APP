@@ -45,7 +45,23 @@ class TaExportImportService {
         int width;
         int height;
 
-        if (compressImages) {
+        // GIF 动态立绘：导出时必须保留逐帧动画，因此跳过压缩/重编码，
+        // 直接用原始字节做 base64（否则压缩成 JPEG 会退化为静态帧）。
+        // 通过魔数识别（GIF87a / GIF89a），比扩展名更可靠。
+        final bool isGif = rawBytes.length > 6 &&
+            rawBytes[0] == 0x47 && // 'G'
+            rawBytes[1] == 0x49 && // 'I'
+            rawBytes[2] == 0x46 && // 'F'
+            rawBytes[3] == 0x38 && // '8'
+            (rawBytes[4] == 0x37 || rawBytes[4] == 0x39) && // '7' or '9'
+            rawBytes[5] == 0x61; // 'a'
+
+        if (isGif) {
+          imageBytes = rawBytes;
+          final decoded = img.decodeImage(imageBytes);
+          width = decoded?.width ?? 0;
+          height = decoded?.height ?? 0;
+        } else if (compressImages) {
           if (kIsWeb) {
             // Web 无 flutter_image_compress：用纯 Dart image 库缩放
             final img.Image? decoded = img.decodeImage(rawBytes);

@@ -40,4 +40,27 @@ void main() {
       expect(back.pinned, isFalse);
     });
   });
+
+  group('Conversation 动态背景（bgmAnimated）', () {
+    test('bgmAnimated 默认 false（暂停第一帧）', () {
+      expect(_conversation().bgmAnimated, isFalse);
+    });
+
+    test('copyWith 可设置播放动画', () {
+      expect(_conversation().copyWith(bgmAnimated: true).bgmAnimated, isTrue);
+    });
+
+    test('toJson / fromJson 往返一致（随会话持久化）', () {
+      final Conversation c = _conversation().copyWith(bgmAnimated: true);
+      final Conversation back = Conversation.fromJson(c.toJson());
+      expect(back.bgmAnimated, isTrue);
+    });
+
+    test('缺失 bgmAnimated 字段回退默认 false', () {
+      final Map<String, dynamic> json = _conversation().toJson();
+      json.remove('bgmAnimated');
+      final Conversation back = Conversation.fromJson(json);
+      expect(back.bgmAnimated, isFalse);
+    });
+  });
 }

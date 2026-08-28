@@ -40,6 +40,7 @@ import 'chat/world_lorebook.dart';
 import 'chat/state/chat_state.dart';
 import 'chat/state/chat_controller.dart';
 import 'chat/ui/widgets/chat_app_bar.dart';
+import 'chat/ui/widgets/animated_background.dart';
 import 'chat/ui/widgets/chat_input_bar.dart';
 import 'chat/ui/widgets/chat_message_list.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -508,6 +509,9 @@ class _ChatPageState extends State<ChatPage>
                   bgmEnabled: _bgmEnabled,
                   showBgmOption:
                       !_isGroup && (_ta?.musicPath?.isNotEmpty ?? false),
+                  onToggleBgmAnimation: _toggleBgmAnimation,
+                  bgmAnimated: _conversation.bgmAnimated,
+                  showBgmAnimationOption: _bgmIsGif,
                   rangeSummaryInProgress: _rangeSummaryInProgress,
                   summaryInProgress: _summaryInProgress,
                   showTokenCounts: _showTokenCounts,
@@ -540,11 +544,15 @@ class _ChatPageState extends State<ChatPage>
                 child: _isGroup
                     ? _buildGroupBackground(useLandscape)
                     : (() {
-                        final ImageProvider? image = _getCachedImage(bgPath!);
+                        final String bg = bgPath!;
+                        final ImageProvider? image = _getCachedImage(bg);
                         if (image == null) return const SizedBox.shrink();
-                        return Image(
+                        // GIF 动态背景：支持暂停第一帧 / 继续播放（状态随会话）。
+                        // 静态立绘走普通 Image。
+                        return AnimatedBackground(
                           image: image,
-                          fit: BoxFit.cover,
+                          path: bg,
+                          animate: _conversation.bgmAnimated,
                         );
                       })(),
               ),

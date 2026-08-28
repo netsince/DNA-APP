@@ -12,7 +12,7 @@ import 'package:dna/services/ta_export_import_service.dart';
 /// 2. 角色卡导出（exportCharacter）绝不写入 musicPath（防 Base64 撑爆导出包）；
 /// 3. 角色卡导入（importCharacter）不识别 musicPath。
 void main() {
-  TA _baseTa() => TA(
+  TA baseTa() => TA(
         id: 'ta_1',
         name: '测试角色',
         gender: '女',
@@ -26,7 +26,7 @@ void main() {
       );
 
   test('TA.toJson / fromJson 往返保留 musicPath（本地持久化/全量备份用）', () {
-    final Map<String, dynamic> json = _baseTa().toJson();
+    final Map<String, dynamic> json = baseTa().toJson();
     expect(json['musicPath'], '/doc/tas/music_ta_1.mp3');
 
     final TA restored = TA.fromJson(json);
@@ -34,14 +34,14 @@ void main() {
   });
 
   test('TA.fromJson 缺失 musicPath 时默认为 null（向后兼容）', () {
-    final Map<String, dynamic> json = _baseTa().toJson()..remove('musicPath');
+    final Map<String, dynamic> json = baseTa().toJson()..remove('musicPath');
     final TA restored = TA.fromJson(json);
     expect(restored.musicPath, isNull);
   });
 
   test('角色卡导出 exportCharacter 不含 musicPath（防止 Base64 撑爆导出包）', () async {
     final ExportImportResult<String> result =
-        await TaExportImportService.exportCharacter(_baseTa());
+        await TaExportImportService.exportCharacter(baseTa());
     expect(result.success, isTrue);
 
     final Map<String, dynamic> decoded =

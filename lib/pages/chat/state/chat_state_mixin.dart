@@ -238,6 +238,29 @@ mixin ChatStateMixin on State<ChatPage>, WidgetsBindingObserver {
     }
   }
 
+  /// 当前单聊背景是否为 GIF 动图（是才显示「动态背景」暂停/继续菜单项）。
+  bool get _bgmIsGif {
+    if (_isGroup) return false;
+    final bool useLandscape = MediaQuery.sizeOf(context).width >=
+        MediaQuery.sizeOf(context).height;
+    final String? bgPath = useLandscape
+        ? _ta?.images['landscape']
+        : _ta?.images['portrait'];
+    if (bgPath == null || bgPath.isEmpty) return false;
+    return bgPath.toLowerCase().endsWith('.gif');
+  }
+
+  /// 三点菜单：切换当前会话的动态背景动画（暂停第一帧 / 继续播放）。
+  /// 状态跟随当前会话持久化，默认暂停第一帧。
+  Future<void> _toggleBgmAnimation() async {
+    _conversation = _conversation.copyWith(
+      bgmAnimated: !_conversation.bgmAnimated,
+    );
+    await widget.controller.upsertConversation(_conversation);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   // 设置页切换 accent 模式/颜色后，实时刷新聊天页取色
   void _onSettingsChanged() {
     if (!mounted) {

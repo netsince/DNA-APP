@@ -15,6 +15,7 @@ class Conversation {
     required this.activeTaId,
     this.identityId,
     this.pinned = false,
+    this.bgmAnimated = false,
   });
 
   final String id;
@@ -37,6 +38,10 @@ class Conversation {
   /// 是否置顶：置顶的会话在列表中排在前面。
   final bool pinned;
 
+  /// 动态背景（GIF 立绘）是否播放动画。跟随当前会话持久化。
+  /// false = 暂停，仅显示第一帧（默认）；true = 继续播放动画。
+  final bool bgmAnimated;
+
   Conversation copyWith({
     String? taId,
     String? worldId,
@@ -52,6 +57,7 @@ class Conversation {
     String? activeTaId,
     String? identityId,
     bool? pinned,
+    bool? bgmAnimated,
   }) {
     return Conversation(
       id: id,
@@ -69,6 +75,7 @@ class Conversation {
       activeTaId: activeTaId ?? this.activeTaId,
       identityId: identityId ?? this.identityId,
       pinned: pinned ?? this.pinned,
+      bgmAnimated: bgmAnimated ?? this.bgmAnimated,
     );
   }
 
@@ -89,6 +96,7 @@ class Conversation {
       'activeTaId': activeTaId,
       'identityId': identityId,
       'pinned': pinned,
+      'bgmAnimated': bgmAnimated,
     };
   }
 
@@ -135,6 +143,7 @@ class Conversation {
       activeTaId: activeTaId,
       identityId: json['identityId'] as String?,
       pinned: (json['pinned'] as bool?) ?? false,
+      bgmAnimated: (json['bgmAnimated'] as bool?) ?? false,
     );
   }
 }

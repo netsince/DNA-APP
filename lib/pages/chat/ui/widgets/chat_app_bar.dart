@@ -9,6 +9,7 @@ typedef ToggleSearch = void Function();
 typedef ScrollToBottom = void Function();
 typedef ToggleBackground = void Function();
 typedef ToggleBgm = void Function();
+typedef ToggleBgmAnimation = void Function();
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ChatAppBar({
@@ -25,6 +26,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleBgm,
     this.bgmEnabled = false,
     this.showBgmOption = false,
+    required this.onToggleBgmAnimation,
+    this.bgmAnimated = false,
+    this.showBgmAnimationOption = false,
     required this.rangeSummaryInProgress,
     required this.summaryInProgress,
     required this.showTokenCounts,
@@ -51,6 +55,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ToggleBgm onToggleBgm;
   final bool bgmEnabled;
   final bool showBgmOption;
+  final ToggleBgmAnimation onToggleBgmAnimation;
+  final bool bgmAnimated;
+  final bool showBgmAnimationOption;
   final bool rangeSummaryInProgress;
   final bool summaryInProgress;
   final bool showTokenCounts;
@@ -144,6 +151,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onRangeSummary();
                   } else if (value == 'bgm') {
                     onToggleBgm();
+                  } else if (value == 'bgm_animation') {
+                    onToggleBgmAnimation();
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -154,6 +163,15 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                       child: const ListTile(
                         leading: Icon(Icons.music_note_outlined),
                         title: FitText('背景音乐'),
+                      ),
+                    ),
+                  if (showBgmAnimationOption)
+                    CheckedPopupMenuItem<String>(
+                      value: 'bgm_animation',
+                      checked: bgmAnimated,
+                      child: const ListTile(
+                        leading: Icon(Icons.animation_outlined),
+                        title: FitText('动态背景'),
                       ),
                     ),
                   PopupMenuItem<String>(

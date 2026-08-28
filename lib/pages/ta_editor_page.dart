@@ -87,14 +87,18 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
   Future<void> _pickImage(String slot, CropAspectRatio ratio) async {
     final ImagePicker picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 95);
+    // 不传 imageQuality：GIF 若经 image_picker 重编码会丢失逐帧动画。
+    final XFile? picked =
+        await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) {
       return;
     }
+    final bool isGif = picked.name.toLowerCase().endsWith('.gif');
 
     // 裁剪仅 IO 平台可用（image_cropper 无 Web 实现）；Web 上直接用原图。
+    // GIF 跳过裁剪/压缩：image_cropper 会重编码，导致动态 GIF 退化为静态帧。
     CroppedFile? cropped;
-    if (!kIsWeb && !Platform.isWindows) {
+    if (!isGif && !kIsWeb && !Platform.isWindows) {
       try {
         cropped = await ImageCropper().cropImage(
           sourcePath: picked.path,
