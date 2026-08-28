@@ -184,12 +184,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
   // ========== 导出导入功能 ==========
 
-  /// 角色导出格式：本应用格式（可无损再导入，含图片）或社区通用酒馆卡。
-  enum _CharaExportFormat { own, charaCardV2 }
-
   Future<void> _showExportDialog() async {
     bool compressImages = true;
-    _CharaExportFormat format = _CharaExportFormat.own;
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -200,7 +196,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const FitText('将角色数据导出为JSON，可粘贴分享到社区站点。'),
+              const FitText('将角色数据导出为JSON格式，包含文字设定和图片。'),
               const SizedBox(height: 16),
               CheckboxListTile(
                 title: const FitText('压缩图片'),
@@ -209,26 +205,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 onChanged: (value) {
                   setState(() => compressImages = value ?? true);
                 },
-              ),
-              const SizedBox(height: 4),
-              const FitText('导出格式'),
-              RadioGroup<_CharaExportFormat>(
-                groupValue: format,
-                onChanged: (v) => setState(() => format = v!),
-                child: Column(
-                  children: <Widget>[
-                    RadioListTile<_CharaExportFormat>(
-                      title: const FitText('本应用格式'),
-                      subtitle: const FitText('含文字与图片，可在本应用内无损再导入'),
-                      value: _CharaExportFormat.own,
-                    ),
-                    RadioListTile<_CharaExportFormat>(
-                      title: const FitText('酒馆 chara_card_v2'),
-                      subtitle: const FitText('社区/站点通用格式（如 dnaisland），纯文字信息'),
-                      value: _CharaExportFormat.charaCardV2,
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -251,13 +227,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
     showSnack(context, '正在导出...');
 
     final currentTA = _buildCurrentTA();
-    final ExportImportResult<String> result =
-        format == _CharaExportFormat.charaCardV2
-            ? TaExportImportService.exportCharacterAsCharaCard(currentTA)
-            : await TaExportImportService.exportCharacter(
-                currentTA,
-                compressImages: compressImages,
-              );
+    final result = await TaExportImportService.exportCharacter(
+      currentTA,
+      compressImages: compressImages,
+    );
 
     if (!mounted) return;
 
