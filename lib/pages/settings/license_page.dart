@@ -80,7 +80,7 @@ class _LicensePageState extends State<LicensePage> {
       padding: const EdgeInsets.all(16),
       child: SelectableText(
         text,
-        style: const TextStyle(fontSize: 13, height: 1.5),
+        style: const TextStyle(fontSize: 12, height: 1.5),
       ),
     );
   }

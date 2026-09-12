@@ -323,7 +323,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                   const Expanded(
                     child: FitText(
                       '欢迎使用网页版（预览版）',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -485,7 +485,7 @@ class _WebNoticeItem extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               FitText(detail,
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             ],
           ),
         ),

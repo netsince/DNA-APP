@@ -97,7 +97,7 @@ class ImageSlot extends StatelessWidget {
               subtitle,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.outline,
-                fontSize: 10,
+                fontSize: 11,
               ),
               textAlign: TextAlign.center,
             ),

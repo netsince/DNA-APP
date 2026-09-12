@@ -7,6 +7,8 @@ import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'world_editor_page.dart';
+import '../theme/tokens.dart';
+import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class WorldPage extends StatefulWidget {
@@ -93,25 +95,17 @@ class _WorldListBody extends StatelessWidget {
             .toList();
 
         if (worlds.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                FitText(showArchived ? '还没有归档世界。' : '暂无世界背景，先创建一个吧。'),
-                const SizedBox(height: 12),
-                if (!showArchived)
-                  FilledButton.icon(
-                    onPressed: onCreateWorld,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('创建世界'),
-                  ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: showArchived ? Icons.archive_outlined : Icons.public_outlined,
+            title: showArchived ? '还没有归档世界。' : '暂无世界背景，先创建一个吧。',
+            actionLabel: showArchived ? null : '创建世界',
+            actionIcon: showArchived ? null : Icons.add,
+            onAction: showArchived ? null : onCreateWorld,
           );
         }
 
         return ReorderableListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: worlds.length,
           onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use

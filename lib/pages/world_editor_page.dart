@@ -682,7 +682,7 @@ class _BadgeChip extends StatelessWidget {
       child: FitText(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          fontSize: 10,
+          fontSize: 11,
           color: textColor ?? theme.colorScheme.onSurfaceVariant,
         ),
       ),

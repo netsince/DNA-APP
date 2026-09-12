@@ -704,7 +704,7 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
       return Text(
         _status.replaceAll('%', ''),
         style: TextStyle(
-          fontSize: 8.5,
+          fontSize: 11,
           height: 1,
           fontWeight: FontWeight.w600,
           color: fg,

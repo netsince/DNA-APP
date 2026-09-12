@@ -313,7 +313,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                               child: FitText(
                                 _testMessage!,
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: (_testSuccess ?? false)
                                       ? cs.onPrimaryContainer
                                       : cs.onErrorContainer,

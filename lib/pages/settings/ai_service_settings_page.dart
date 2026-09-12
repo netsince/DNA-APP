@@ -670,7 +670,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                             Text(
                               '当前生效模型',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: cs.primary,
                               ),

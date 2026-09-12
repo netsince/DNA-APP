@@ -8,6 +8,8 @@ import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
+import '../theme/tokens.dart';
+import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -97,25 +99,17 @@ class _TaListBody extends StatelessWidget {
             .toList();
 
         if (tas.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                FitText(showArchived ? '还没有归档TA。' : '暂无TA，先创建一个吧。'),
-                const SizedBox(height: 12),
-                if (!showArchived)
-                  FilledButton.icon(
-                    onPressed: onCreateTa,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('创建TA'),
-                  ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: showArchived ? Icons.archive_outlined : Icons.people_outline,
+            title: showArchived ? '还没有归档TA。' : '暂无TA，先创建一个吧。',
+            actionLabel: showArchived ? null : '创建TA',
+            actionIcon: showArchived ? null : Icons.add,
+            onAction: showArchived ? null : onCreateTa,
           );
         }
 
         return ReorderableListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: tas.length,
           onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use

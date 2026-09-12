@@ -822,7 +822,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     FitText(
                       qr.label.isEmpty ? '回复' : qr.label,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: cs.onSurface,
                       ),

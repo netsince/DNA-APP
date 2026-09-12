@@ -110,7 +110,7 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
                               children: <Widget>[
                                 FitText(
                                   _currentIcon.label,
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 2),
                                 FitText(
