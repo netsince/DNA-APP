@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_controller.dart';
+import '../../theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 高级采样参数设置页。
@@ -303,23 +304,22 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
 
           const SizedBox(height: 16),
 
-          // ===== 核心采样参数 =====
+          // ===== 核心采样参数(默认折叠,降低心智负担) =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                title: FitText(
+                  '核心采样参数',
+                  style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                subtitle: FitText(
+                  '温度、频率惩罚、存在惩罚。不确定时建议直接使用上方场景预设。',
+                  style: ts.bodySmall?.copyWith(color: cs.outline),
+                ),
+                tilePadding: AppInsets.card,
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: <Widget>[
-                  FitText(
-                    '核心采样参数',
-                    style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
                   _buildSlider(
                     label: '温度 (Temperature)',
                     description: '控制回复随机性。越低越确定、严谨；越高越发散、富有想象力。默认 0.7。',
@@ -351,23 +351,22 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
 
           const SizedBox(height: 16),
 
-          // ===== 进阶采样参数 =====
+          // ===== 进阶采样参数(默认折叠) =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                title: FitText(
+                  '进阶核采样与惩罚',
+                  style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                subtitle: FitText(
+                  'Top-P / Top-K / Min-P / 重复惩罚。多数模型无需调整。',
+                  style: ts.bodySmall?.copyWith(color: cs.outline),
+                ),
+                tilePadding: AppInsets.card,
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: <Widget>[
-                  FitText(
-                    '进阶核采样与惩罚',
-                    style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
                   _buildSlider(
                     label: 'Top-P (核采样)',
                     description: '仅从累积概率达到 P 的候选词中采样。1.0 表示不截断。默认 1.0。',

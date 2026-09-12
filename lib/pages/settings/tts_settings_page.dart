@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import '../../services/tts/tts_audio_cache.dart';
 import '../../services/tts/tts_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/tokens.dart';
 import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
+import 'package:dna/widgets/setting_section.dart';
 import 'tts_cache_page.dart';
 
 /// 端侧语音合成（TTS）设置：开关、台词朗读、全局 seed、模型管理与音频缓存。
@@ -233,6 +235,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     final cs = theme.colorScheme;
     final ts = theme.textTheme;
     final bool enabled = widget.controller.settings.ttsEnabled;
+    final bgm = widget.controller.settings;
 
     return Scaffold(
       appBar: AppBar(title: const FitText('端侧语音合成')),
@@ -478,6 +481,54 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                 ],
               ),
             ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== 5. 角色背景音乐(原独立设置页,按规范并入本页) =====
+          SettingSection(
+            icon: Icons.music_note_outlined,
+            title: '角色背景音乐',
+            description: '在「TA 编辑」中可为角色绑定一首背景音乐，进入聊天时自动循环播放。'
+                '朗读台词或语音输入时音量会自动调小，结束后恢复。',
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(Icons.volume_down_outlined, color: cs.primary, size: AppSize.iconCard),
+                  Expanded(
+                    child: Slider(
+                      value: bgm.bgmVolume.toDouble().clamp(0, 100),
+                      min: 0,
+                      max: 100,
+                      divisions: 100,
+                      label: '${bgm.bgmVolume}%',
+                      onChanged: (double v) =>
+                          widget.controller.saveBgmVolume(v.round()),
+                    ),
+                  ),
+                  Icon(Icons.volume_up_outlined, color: cs.primary, size: AppSize.iconCard),
+                  SizedBox(
+                    width: 44,
+                    child: FitText(
+                      '${bgm.bgmVolume}%',
+                      textAlign: TextAlign.end,
+                      style: ts.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SettingSwitch(
+                title: '解锁背景音乐大小上限（10MB）',
+                subtitle: '默认限制音乐不超过 10MB；开启后可选择更大的音频文件。',
+                value: bgm.bgmSizeLimitUnlocked,
+                onChanged: (bool v) =>
+                    widget.controller.saveBgmSizeLimitUnlocked(v),
+              ),
+              SettingHint('背景音乐仅保存在本机，不会随角色卡导出或分享。群聊不播放背景音乐。'),
+            ],
           ),
         ],
       ),

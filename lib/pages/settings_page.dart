@@ -9,7 +9,6 @@ import 'settings/ai_service_settings_page.dart';
 import 'settings/appearance_settings_page.dart';
 import 'settings/conversation_settings_page.dart';
 import 'settings/voice_input_settings_page.dart';
-import 'settings/bgm_settings_page.dart';
 import 'settings/tts_settings_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
@@ -115,8 +114,8 @@ class SettingsPage extends StatelessWidget {
                       children: <Widget>[
                         _MenuItem(
                           icon: Icons.record_voice_over_outlined,
-                          title: '端侧语音合成 (TTS)',
-                          subtitle: '本地角色朗读、台词过滤、全局音色 Seed 与音频缓存',
+                          title: '语音合成与背景音乐',
+                          subtitle: '本地角色朗读、台词过滤、全局音色 Seed、音频缓存与角色背景音乐',
                           enabled: PlatformCapabilities.ttsSupported,
                           onTap: () => _push(context, TtsSettingsPage(controller: controller)),
                         ),
@@ -127,13 +126,6 @@ class SettingsPage extends StatelessWidget {
                           subtitle: '麦克风语音转文字、本地离线识别模型管理',
                           enabled: PlatformCapabilities.voiceInputSupported,
                           onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.music_note_outlined,
-                          title: '角色背景音乐',
-                          subtitle: '聊天时循环播放的背景音乐，音量与大小上限',
-                          onTap: () => _push(context, BgmSettingsPage(controller: controller)),
                         ),
                       ],
                     ),
