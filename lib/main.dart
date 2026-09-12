@@ -17,6 +17,7 @@ import 'services/ta_service.dart';
 import 'services/web_font_loader.dart';
 import 'services/web_utils.dart';
 import 'state/app_controller.dart';
+import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -74,7 +75,7 @@ class DnaApp extends StatefulWidget {
 
   final AppController controller;
 
-  static const Color _fallbackSeed = Color(0xFF147B74);
+  static const Color _fallbackSeed = AppColors.seed;
 
   @override
   State<DnaApp> createState() => _DnaAppState();
@@ -151,29 +152,111 @@ class _DnaAppState extends State<DnaApp> {
       title: 'Duet Nurturing Ally',
       debugShowCheckedModeBanner: false,
       themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
-      theme: ThemeData(
-        colorScheme: lightColorScheme,
-        useMaterial3: true,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: darkColorScheme,
-        useMaterial3: true,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
+      theme: _buildTheme(lightColorScheme),
+      darkTheme: _buildTheme(darkColorScheme),
       home: AppRoot(controller: widget.controller),
+    );
+  }
+
+  /// 由配色方案构建完整主题。
+  ///
+  /// 所有视觉规范集中在此处定义(参见 `DESIGN_SPEC.md`),业务代码不再手写
+  /// 卡片圆角/描边/间距,避免同类元素在不同页面长得不一样。
+  /// 注意:本项目无品牌字体,字体保持系统默认(不注册 fontFamily)。
+  static ThemeData _buildTheme(ColorScheme cs) {
+    return ThemeData(
+      colorScheme: cs,
+      useMaterial3: true,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
+
+      // 卡片:扁平 + 细描边(全局统一,替代各页面 235 处手写样式)。
+      cardTheme: CardThemeData(
+        elevation: AppElevation.flat,
+        margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+        shape: AppBorder.cardShape(cs),
+        clipBehavior: Clip.antiAlias,
+      ),
+
+      // 应用栏:无阴影、左对齐标题。
+      appBarTheme: AppBarTheme(
+        elevation: AppElevation.flat,
+        scrolledUnderElevation: AppElevation.flat,
+        centerTitle: false,
+        backgroundColor: cs.surface,
+        foregroundColor: cs.onSurface,
+      ),
+
+      // 列表项:统一圆角与图标间距。
+      listTileTheme: const ListTileThemeData(
+        contentPadding: AppInsets.tile,
+        iconColor: null,
+        horizontalTitleGap: AppSpacing.sm,
+        minVerticalPadding: AppSpacing.sm,
+      ),
+
+      // 输入框:统一圆角与内边距,使用描边风格而非填充。
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: cs.surfaceContainerLowest,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: AppRadius.smAll,
+          borderSide: AppBorder.card(cs),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadius.smAll,
+          borderSide: AppBorder.card(cs),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppRadius.smAll,
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: AppRadius.smAll,
+          borderSide: BorderSide(color: cs.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: AppRadius.smAll,
+          borderSide: BorderSide(color: cs.error, width: 1.5),
+        ),
+      ),
+
+      // 分割线:统一颜色。
+      dividerTheme: DividerThemeData(
+        color: AppBorder.color(cs),
+        thickness: 1,
+        space: 1,
+      ),
+
+      // 提示条:浮动样式,统一圆角。
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.xsAll),
+      ),
+
+      // 对话框:统一圆角。
+      dialogTheme: DialogThemeData(
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+      ),
+
+      // 底部抽屉:统一顶部圆角。
+      bottomSheetTheme: const BottomSheetThemeData(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.topRounded),
+      ),
+
+      // 弹窗菜单:统一圆角。
+      popupMenuTheme: PopupMenuThemeData(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.smAll),
+      ),
     );
   }
 }
