@@ -242,6 +242,13 @@ abstract final class AppColors {
 
   /// 启动页背景(刻意固定为深色,不随明暗主题变化)。
   static const Color splashBackground = Color(0xFF1A1A1A);
+
+  /// 浅色背景上的深色墨字(用于 [FitText] 对比度自适应)。
+  ///
+  /// 语义为「Material 3 浅色主题的 onSurface」:当文字落在浅色/高亮背景
+  /// (如从角色卡提取的亮色气泡)上时,即使在深色模式下也必须使用深色字,
+  /// 否则会出现"白字配白底"看不清的问题。
+  static const Color inkOnLight = Color(0xFF1D1B20);
 }
 
 /// 阴影令牌(全局唯一来源)。

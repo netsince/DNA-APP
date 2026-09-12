@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/tokens.dart';
+
 /// 文本短于 6 个字时，若因空间不足需要换行，则通过缩小字号保持在单行；
 /// 6 字及以上保持原生 [Text] 行为（正常换行）。
 ///
@@ -63,8 +65,9 @@ class FitText extends Text {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final bool isLight = isLightBackground(bgColor, cs.surface);
     if (isLight) {
-      // 浅色背景上需要深色文字：优先用调用方指定色，否则跟随当前配色方案。
-      return darkColor ?? cs.onSurface;
+      // 浅色/高亮背景上必须用深色墨字(即使当前是深色主题),
+      // 否则会出现「白字配白底」看不清的问题。
+      return darkColor ?? AppColors.inkOnLight;
     } else {
       return lightColor ?? cs.onSurface;
     }
