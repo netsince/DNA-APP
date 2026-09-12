@@ -280,7 +280,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                 if (isModelMissing)
                   Container(
                     margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: cs.errorContainer.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(12),
@@ -291,7 +291,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                       children: <Widget>[
                         Icon(Icons.warning_amber_rounded,
                             color: cs.error, size: 22),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,7 +332,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         FitText('服务商选择',
                             style: ts.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -406,7 +406,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                                     ? cs.primary
                                     : cs.error,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               Expanded(
                                 child: FitText(
                                   _apiMessage!,
@@ -452,7 +452,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: cs.primaryContainer,
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: FitText(
                                   _selectedModel!,
@@ -516,7 +516,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         else ...<Widget>[
                           FitText('可选模型列表（点击切换）：',
                               style: ts.bodySmall?.copyWith(color: cs.outline)),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Container(
                             constraints: const BoxConstraints(maxHeight: 240),
                             decoration: BoxDecoration(
@@ -606,7 +606,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                           FitText('思考强度',
                               style: ts.bodyMedium
                                   ?.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -720,7 +720,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                     leading: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cs.secondaryContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
@@ -760,7 +760,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                     leading: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cs.tertiaryContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
@@ -799,9 +799,9 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 6),
+                      horizontal: 16, vertical: 8),
                   leading: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: cs.primaryContainer.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),

@@ -83,7 +83,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 TextField(
                   controller: messageCtrl,
                   maxLines: 4,
@@ -94,7 +94,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 TextField(
                   controller: groupCtrl,
                   decoration: const InputDecoration(
@@ -161,11 +161,6 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
         children: <Widget>[
           // ===== 顶部引导卡片 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -178,7 +173,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                       FitText('一键快速回复', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText(
                     '在聊天输入栏上方展示快捷操作按钮，点击即发送指定句式。\n'
                     '支持动态占位变量：\n'
@@ -207,11 +202,11 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
               child: Column(
                 children: <Widget>[
                   Icon(Icons.flash_on_outlined, size: 40, color: cs.outline),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   const FitText('暂无快速回复短语'),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText('点击右上角【+】或下方按钮添加常用快捷发送语句', style: ts.bodySmall?.copyWith(color: cs.outline)),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   FilledButton.tonalIcon(
                     onPressed: _add,
                     icon: const Icon(Icons.add),
@@ -225,13 +220,13 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
               children: _items.map((QuickReply qr) {
                 return Card(
                   elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 10),
+                  margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -246,10 +241,10 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                         if ((qr.group ?? '').isNotEmpty) ...<Widget>[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                             decoration: BoxDecoration(
                               color: cs.secondaryContainer,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: FitText(
                               qr.group!,

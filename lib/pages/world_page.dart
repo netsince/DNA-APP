@@ -167,7 +167,7 @@ class _WorldItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     FitText(world.name.isEmpty ? '未命名世界' : world.name),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     FitText(
                       world.summary.isEmpty ? '暂无简介' : world.summary,
                       maxLines: 2,

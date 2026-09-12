@@ -189,7 +189,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
                             children: <Widget>[
                               for (int i = 0; i < options.length; i++)
                                 Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.only(bottom: 12),
                                   child: RetryOptionCard(
                                     index: i,
                                     text: options[i],

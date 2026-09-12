@@ -187,7 +187,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),

@@ -88,11 +88,6 @@ class _TtsCachePageState extends State<TtsCachePage> {
         children: <Widget>[
           // ===== 缓存概览卡片 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -115,7 +110,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
                     children: <Widget>[
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(12),
@@ -136,7 +131,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(12),

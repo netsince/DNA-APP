@@ -575,7 +575,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               _buildBackRow(cs),
               const SizedBox(height: 8),
               _buildTranscriptArea(theme, cs, hasText, '识别完成'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: <Widget>[
                   Expanded(
@@ -620,7 +620,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _buildTranscriptArea(theme, cs, hasText, '聆听中…'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               SizedBox(
                 height: 120,
                 child: _buildBigVoiceButton(cs, listening: true),
@@ -643,7 +643,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             _buildBackRow(cs),
             const SizedBox(height: 8),
             _buildTranscriptArea(theme, cs, hasText, '长按或点击下方按钮说话'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _buildBigVoiceButton(cs, listening: false),
           ],
         ),
@@ -794,16 +794,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
             color: cs.surfaceContainerHighest.withValues(
               alpha: widget.halfScreen ? 0.65 : 0.85,
             ),
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(20),
             child: InkWell(
-              borderRadius: BorderRadius.circular(19),
+              borderRadius: BorderRadius.circular(20),
               onTap: widget.onQuickReply == null
                   ? null
                   : () => widget.onQuickReply!(qr),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(19),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: cs.outlineVariant.withValues(
                       alpha: widget.halfScreen ? 0.4 : 0.55,
@@ -818,7 +818,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       size: 13,
                       color: cs.primary.withValues(alpha: 0.85),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     FitText(
                       qr.label.isEmpty ? '回复' : qr.label,
                       style: TextStyle(
@@ -851,7 +851,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             _buildQuickReplies(),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // 悬浮动态输入岛
             Container(
               padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
@@ -859,7 +859,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 color: cs.surfaceContainerHigh.withValues(
                   alpha: widget.halfScreen ? 0.72 : 0.95,
                 ),
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(
                   color: cs.outlineVariant.withValues(
                     alpha: widget.halfScreen ? 0.35 : 0.5,

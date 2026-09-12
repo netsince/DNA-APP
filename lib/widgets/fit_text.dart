@@ -63,7 +63,8 @@ class FitText extends Text {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final bool isLight = isLightBackground(bgColor, cs.surface);
     if (isLight) {
-      return darkColor ?? const Color(0xFF1D1B20);
+      // 浅色背景上需要深色文字：优先用调用方指定色，否则跟随当前配色方案。
+      return darkColor ?? cs.onSurface;
     } else {
       return lightColor ?? cs.onSurface;
     }

@@ -147,12 +147,6 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
           children: <Widget>[
             // ===== 基础配置卡片 =====
             Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -263,12 +257,6 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
 
             // ===== 连通性测试卡片 =====
             Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -282,7 +270,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                       '测试当前填写的 Base URL 与 API Key 是否能成功连通服务商。',
                       style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _testingApi ? null : _testConnection,
                       icon: _testingApi
@@ -302,7 +290,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                           color: (_testSuccess ?? false)
                               ? cs.primaryContainer.withValues(alpha: 0.4)
                               : cs.errorContainer.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: (_testSuccess ?? false)
                                 ? cs.primary.withValues(alpha: 0.4)
@@ -320,7 +308,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                                   : cs.error,
                               size: 20,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: FitText(
                                 _testMessage!,
@@ -348,7 +336,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
               icon: const Icon(Icons.check),
               label: FitText(_isEditing ? '保存修改' : '确认添加'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
           ],

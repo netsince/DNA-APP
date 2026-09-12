@@ -40,7 +40,7 @@ class WelcomeStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -70,14 +70,14 @@ class StepBullet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
             width: 8,
             height: 8,
-            margin: const EdgeInsets.only(top: 6, right: 10),
+            margin: const EdgeInsets.only(top: 8, right: 12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(999),
@@ -128,7 +128,7 @@ class ApiStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: ListView(
           children: <Widget>[
             FitText('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
@@ -179,14 +179,14 @@ class ApiStep extends StatelessWidget {
               label: FitText(checkingApi ? '检测中...' : '保存并检测 API'),
             ),
             if (apiValidated) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               FitText(
                 '连接验证成功。',
                 style: TextStyle(color: Colors.green.shade700),
               ),
             ],
             if (apiError != null) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               FitText(
                 apiError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -230,7 +230,7 @@ class ModelStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -258,7 +258,7 @@ class ModelStep extends StatelessWidget {
               ],
             ),
             if (modelsError != null) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               FitText(
                 modelsError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),

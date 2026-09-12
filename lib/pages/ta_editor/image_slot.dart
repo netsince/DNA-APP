@@ -36,7 +36,7 @@ class ImageSlot extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(
             color: provider != null
-                ? theme.colorScheme.primary.withOpacity(0.5)
+                ? theme.colorScheme.primary.withValues(alpha: 0.5)
                 : theme.colorScheme.outlineVariant,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -51,7 +51,7 @@ class ImageSlot extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: provider == null
                     ? Container(
-                        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         child: Center(
                           child: Icon(
                             Icons.add_photo_alternate_outlined,
@@ -70,7 +70,7 @@ class ImageSlot extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
+                                color: Colors.black.withValues(alpha: 0.6),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(

@@ -153,7 +153,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: FitText(
                   value.toStringAsFixed(fractionDigits),
@@ -211,7 +211,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -308,7 +308,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -356,7 +356,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -415,7 +415,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
         ],
       ),
     );

@@ -154,12 +154,12 @@ class ChatMessageList extends StatelessWidget {
                 );
               },
               child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 constraints: const BoxConstraints(maxWidth: 520),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
@@ -169,7 +169,7 @@ class ChatMessageList extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Icon(Icons.auto_awesome, size: 18),
-                        SizedBox(width: 6),
+                        SizedBox(width: 4),
                         FitText('建议生成摘要'),
                       ],
                     ),
@@ -218,12 +218,12 @@ class ChatMessageList extends StatelessWidget {
                 );
               },
               child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 constraints: const BoxConstraints(maxWidth: 520),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
@@ -234,11 +234,11 @@ class ChatMessageList extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Icon(Icons.article_outlined, size: 18),
-                        SizedBox(width: 6),
+                        SizedBox(width: 4),
                         FitText('摘要已生成'),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     FitText(preview, style: textTheme.bodySmall),
                     const SizedBox(height: 4),
                     FitText(
@@ -299,8 +299,8 @@ class ChatMessageList extends StatelessWidget {
             );
           },
           child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             constraints: const BoxConstraints(maxWidth: 520),
             decoration: BoxDecoration(
               color: bubbleColor,
@@ -322,9 +322,12 @@ class ChatMessageList extends StatelessWidget {
                     speakerName,
                     contrastBackground: bubbleColor,
                     style: textTheme.labelSmall?.copyWith(
-                      color: FitText.isLightBackground(bubbleColor, colorScheme.surface)
-                          ? const Color(0xFF49454F)
-                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: FitText.isLightBackground(
+                                bubbleColor, colorScheme.surface)
+                            ? 1.0
+                            : 0.75,
+                      ),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -342,10 +345,10 @@ class ChatMessageList extends StatelessWidget {
                 if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                     ),
                     child: Column(
@@ -364,7 +367,7 @@ class ChatMessageList extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         FitText(
                           thoughtText,
                           style: textTheme.bodySmall?.copyWith(height: 1.45),
@@ -374,7 +377,7 @@ class ChatMessageList extends StatelessWidget {
                   ),
                 ],
                 if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText(
                     '字数 $charCount / Token $tokenCount',
                     contrastBackground: bubbleColor,
@@ -459,7 +462,7 @@ class ChatMessageList extends StatelessWidget {
               // 头像列：关闭头像开关时整体移除，气泡自动回挪。
               if (avatarProvider != null) ...<Widget>[
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.only(right: 8),
                   child: _MessageAvatarButton(avatar: avatarProvider),
                 ),
               ],
@@ -476,7 +479,7 @@ class ChatMessageList extends StatelessWidget {
                         alignment: WrapAlignment.start,
                         children: actionButtons,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                     ],
                     bubble,
                   ],
@@ -729,16 +732,14 @@ TextSpan _buildHighlightedText(
       ? FitText.isLightBackground(bubbleColor, colorScheme.surface)
       : Theme.of(context).brightness == Brightness.light;
 
-  final Color dialogueColor = isLightBg
-      ? const Color(0xFF1B1B1F)
-      : colorScheme.onSurface;
+  final Color dialogueColor = colorScheme.onSurface;
 
-  final Color narrationColor = isLightBg
-      ? const Color(0xFF3B383E)
-      : colorScheme.onSurface.withValues(alpha: 0.82);
+  final Color narrationColor = colorScheme.onSurface.withValues(
+    alpha: isLightBg ? 0.88 : 0.82,
+  );
 
   final Color parenColor = isLightBg
-      ? const Color(0xFF6B6670)
+      ? colorScheme.onSurfaceVariant
       : colorScheme.onSurfaceVariant.withValues(alpha: 0.65);
 
   final TextStyle dialogueStyle = base.copyWith(

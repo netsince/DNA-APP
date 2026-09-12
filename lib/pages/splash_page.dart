@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/tokens.dart';
 import 'splash/logo_painter.dart';
 
 class SplashPage extends StatefulWidget {
@@ -72,7 +73,7 @@ class _SplashPageState extends State<SplashPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: AppColors.splashBackground,
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,

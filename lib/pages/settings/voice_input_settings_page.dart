@@ -89,11 +89,6 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
         children: <Widget>[
           // ===== 1. 离线语音识别模型选择 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -150,7 +145,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                             },
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText(_model.description, style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                 ],
               ),
@@ -161,11 +156,6 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
 
           // ===== 2. 模型下载与管理 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -225,11 +215,6 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
 
           // ===== 3. 下载来源节点 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

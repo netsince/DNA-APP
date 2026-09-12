@@ -244,11 +244,6 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
         children: <Widget>[
           // ===== 1. 每日自动备份 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -290,11 +285,6 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
 
           // ===== 2. 全量数据备份与还原 (ZIP) =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -342,11 +332,6 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
 
           // ===== 3. 单项对话导出与导入 (JSON) =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

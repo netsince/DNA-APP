@@ -66,7 +66,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -109,9 +109,9 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withOpacity(0.4),
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FitText(
@@ -133,7 +133,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -176,9 +176,9 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withOpacity(0.4),
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FitText(
@@ -200,7 +200,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),

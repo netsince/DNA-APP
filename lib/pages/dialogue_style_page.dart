@@ -77,10 +77,10 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
           if (index == 0) {
             return Card(
               elevation: 0,
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.4)),
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
               ),
               margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
@@ -91,7 +91,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                     Row(
                       children: <Widget>[
                         Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         FitText(
                           '对话风格说明',
                           style: theme.textTheme.labelMedium?.copyWith(
@@ -120,10 +120,10 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
             margin: const EdgeInsets.only(bottom: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
@@ -162,7 +162,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                       _turns[turnIndex] = _turns[turnIndex].copyWith(user: value);
                     },
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   // 2. 角色回答（你一句）
                   AdaptiveTextField(

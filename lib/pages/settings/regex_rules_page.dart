@@ -77,7 +77,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               TextField(
                 controller: replacementController,
                 decoration: const InputDecoration(
@@ -145,11 +145,6 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
         children: <Widget>[
           // ===== 顶部用途说明卡片 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -162,7 +157,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                       FitText('正则清洗有什么用？', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText(
                     '在消息展示和保存前自动执行匹配替换。典型用途：\n'
                     '1. 过滤 AI 频繁输出的多余口癖（如每句话末尾的特定语气词）；\n'
@@ -189,11 +184,11 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
               child: Column(
                 children: <Widget>[
                   Icon(Icons.find_replace, size: 40, color: cs.outline),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   const FitText('暂无清洗规则'),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText('点击右上角【+】或下方按钮创建第一条规则', style: ts.bodySmall?.copyWith(color: cs.outline)),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   FilledButton.tonalIcon(
                     onPressed: _add,
                     icon: const Icon(Icons.add),
@@ -228,7 +223,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                     side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
                     leading: CircleAvatar(
                       radius: 14,
                       backgroundColor: cs.primaryContainer,

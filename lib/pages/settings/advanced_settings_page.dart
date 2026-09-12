@@ -88,7 +88,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             elevation: 0,
             color: cs.surfaceContainerLow,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               side: BorderSide(
                 color: cs.outlineVariant.withValues(alpha: 0.4),
               ),

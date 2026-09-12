@@ -346,7 +346,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                 title: '预览版',
                 detail: '当前为预览版本，功能与体验可能仍在调整，请以实际使用为准。',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -476,7 +476,7 @@ class _WebNoticeItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Icon(icon, size: 20, color: cs.primary),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

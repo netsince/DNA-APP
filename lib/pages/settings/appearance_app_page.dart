@@ -64,11 +64,6 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
         children: <Widget>[
           // ===== 1. 应用图标 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -94,7 +89,7 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
                       child: Row(
                         children: <Widget>[
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             child: Image.asset(
                               _currentIcon.assetPath,
                               width: 52,
@@ -108,7 +103,7 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,11 +136,6 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
 
           // ===== 2. 启动与全局交互 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

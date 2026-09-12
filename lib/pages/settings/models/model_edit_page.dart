@@ -287,12 +287,6 @@ class _ModelEditPageState extends State<ModelEditPage> {
           children: <Widget>[
             // ===== 1. 模型基本信息 =====
             Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -421,7 +415,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                         FitText('思考强度',
                             style: ts.bodyMedium
                                 ?.copyWith(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -450,12 +444,6 @@ class _ModelEditPageState extends State<ModelEditPage> {
 
             // ===== 3. 专属采样参数微调（完整复用） =====
             Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side:
-                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -506,7 +494,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
               icon: const Icon(Icons.check),
               label: FitText(_isEditing ? '保存修改' : '确认添加'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
           ],

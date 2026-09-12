@@ -28,21 +28,21 @@ class ConversationSettingsPage extends StatelessWidget {
             subtitle: '推进策略（主导/顺应/启发）与沉浸模式设置',
             onTap: () => _push(context, PromptStrategyPage(controller: controller)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _EntryTile(
             icon: Icons.account_tree_outlined,
             title: '摘要与上下文',
             subtitle: '阶段剧情摘要阈值、历史消息 Token 预算与世界书词条注入规则',
             onTap: () => _push(context, ConversationSummaryPage(controller: controller)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _EntryTile(
             icon: Icons.send_outlined,
             title: '回复与发送',
             subtitle: '回车键换行逻辑、动作描写括号快捷键、灵感生成与快速回复管理',
             onTap: () => _push(context, ConversationSendPage(controller: controller)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _EntryTile(
             icon: Icons.rule_outlined,
             title: '消息与高级能力',
@@ -87,13 +87,13 @@ class _EntryTile extends StatelessWidget {
         ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
             color: cs.primaryContainer.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: cs.onPrimaryContainer, size: 22),
         ),

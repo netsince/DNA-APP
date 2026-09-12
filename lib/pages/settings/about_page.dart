@@ -86,7 +86,7 @@ class _AboutPageState extends State<AboutPage> {
                     child: Column(
                       children: <Widget>[
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
                             'assets/app_icon.png',
                             width: 88,
@@ -98,7 +98,7 @@ class _AboutPageState extends State<AboutPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         FitText(
                           AppInfo.name,
                           style: ts.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -110,7 +110,7 @@ class _AboutPageState extends State<AboutPage> {
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: cs.primaryContainer,
                             borderRadius: BorderRadius.circular(999),
@@ -133,15 +133,10 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // ===== 2. 项目成员 =====
                   Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       leading: Container(
@@ -165,11 +160,6 @@ class _AboutPageState extends State<AboutPage> {
 
                   // ===== 3. 官方站点与社区 =====
                   Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -213,11 +203,6 @@ class _AboutPageState extends State<AboutPage> {
 
                   // ===== 4. 开源与许可证 =====
                   Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -241,7 +226,7 @@ class _AboutPageState extends State<AboutPage> {
                                   label: const FitText('许可证全文'),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () => Navigator.of(context).push(

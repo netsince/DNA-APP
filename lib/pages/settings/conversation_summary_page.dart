@@ -106,11 +106,6 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
         children: <Widget>[
           // ===== 1. 剧情自动摘要 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -171,11 +166,6 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
 
           // ===== 2. 历史上下文与 Token 预算 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -226,11 +216,6 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
 
           // ===== 3. 世界书知识库注入 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

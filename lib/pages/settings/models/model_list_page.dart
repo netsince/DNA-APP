@@ -90,7 +90,7 @@ class ModelListPage extends StatelessWidget {
                           size: 64, color: cs.outline),
                       const SizedBox(height: 12),
                       FitText('暂无模型预设', style: ts.titleMedium),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       FitText('点击右上角「+」添加新的大模型预设',
                           style: ts.bodySmall
                               ?.copyWith(color: cs.onSurfaceVariant)),
@@ -128,7 +128,7 @@ class ModelListPage extends StatelessWidget {
                           ? cs.primaryContainer.withValues(alpha: 0.2)
                           : null,
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
@@ -165,7 +165,7 @@ class ModelListPage extends StatelessWidget {
                                             ),
                                           ),
                                           if (isDefault) ...[
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 4),
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -175,7 +175,7 @@ class ModelListPage extends StatelessWidget {
                                               decoration: BoxDecoration(
                                                 color: cs.secondaryContainer,
                                                 borderRadius:
-                                                    BorderRadius.circular(6),
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 '默认项',
@@ -189,7 +189,7 @@ class ModelListPage extends StatelessWidget {
                                             ),
                                           ],
                                           if (isActive) ...[
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 4),
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -199,7 +199,7 @@ class ModelListPage extends StatelessWidget {
                                               decoration: BoxDecoration(
                                                 color: cs.primary,
                                                 borderRadius:
-                                                    BorderRadius.circular(6),
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 '当前生效',
@@ -259,7 +259,7 @@ class ModelListPage extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: cs.tertiaryContainer
                                       .withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,

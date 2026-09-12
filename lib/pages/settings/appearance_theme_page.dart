@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import '../../state/app_controller.dart';
+import '../../theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 外观与体验 → 主题与颜色。
@@ -17,7 +18,7 @@ class AppearanceThemePage extends StatefulWidget {
 }
 
 class _AppearanceThemePageState extends State<AppearanceThemePage> {
-  static const Color _defaultAccent = Color(0xFF147B74);
+  static const Color _defaultAccent = AppColors.seed;
 
   late String _themeMode;
   late String _accentMode;
@@ -92,11 +93,6 @@ class _AppearanceThemePageState extends State<AppearanceThemePage> {
         children: <Widget>[
           // ===== 1. 主题明暗模式 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -136,11 +132,6 @@ class _AppearanceThemePageState extends State<AppearanceThemePage> {
 
           // ===== 2. 主题强调色 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -170,10 +161,10 @@ class _AppearanceThemePageState extends State<AppearanceThemePage> {
                     onSelectionChanged: (Set<String> val) => _selectAccentMode(val.first),
                   ),
                   if (_accentMode == 'custom') ...<Widget>[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     ListTile(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

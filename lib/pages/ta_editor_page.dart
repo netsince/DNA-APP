@@ -753,7 +753,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     children: <Widget>[
                       Expanded(
                         child: _musicPath == null
-                            ? const FitText('未设置背景音乐', style: TextStyle(color: Color(0xFF888888)))
+                            ? FitText('未设置背景音乐',
+                                style: TextStyle(color: Theme.of(context).colorScheme.outline))
                             : FitText(
                                 path.basename(_musicPath!),
                                 maxLines: 1,

@@ -391,7 +391,7 @@ class _ChatPageState extends State<ChatPage>
       child: Row(
         children: <Widget>[
           const FitText('发言控制'),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: SizedBox(
               height: 56,
@@ -774,7 +774,7 @@ class _ChatPageState extends State<ChatPage>
                   ),
                   if (_sending)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
@@ -917,7 +917,7 @@ class _TokenDashboard extends StatelessWidget {
                 size: 14,
                 color: over ? cs.error : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Expanded(
                 child: FitText(
                   budgetTokens > 0
@@ -934,7 +934,7 @@ class _TokenDashboard extends StatelessWidget {
           if (ratio != null) ...[
             const SizedBox(height: 4),
             ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
                 value: ratio.clamp(0.0, 1.0),
                 minHeight: 4,
@@ -964,21 +964,21 @@ class _SummaryProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Align(
         alignment: Alignment.center,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               const Icon(Icons.auto_awesome, size: 16),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               const FitText('正在生成摘要...'),
               const SizedBox(width: 8),
               TextButton(

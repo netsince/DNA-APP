@@ -203,7 +203,7 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Icon(icon, size: 18, color: cs.primary),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           FitText(
             title,
             style: ts.labelLarge?.copyWith(
@@ -249,7 +249,7 @@ class _MenuItem extends StatelessWidget {
           color: enabled
               ? cs.primaryContainer.withValues(alpha: 0.6)
               : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           icon,

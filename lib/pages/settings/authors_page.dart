@@ -135,11 +135,11 @@ class _AuthorCard extends StatelessWidget {
       elevation: 0,
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -155,7 +155,7 @@ class _AuthorCard extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               if (author.role != null && author.role!.trim().isNotEmpty) ...[
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Row(
                   children: <Widget>[
                     Icon(Icons.workspace_premium_outlined,
@@ -203,7 +203,7 @@ class _AuthorCard extends StatelessWidget {
     return Row(
       children: <Widget>[
         Icon(icon, size: 15, color: isLink ? cs.primary : cs.onSurfaceVariant),
-        const SizedBox(width: 6),
+        const SizedBox(width: 4),
         Expanded(
           child: FitText(
             text,

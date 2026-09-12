@@ -58,7 +58,7 @@ class _AppIconPageState extends State<AppIconPage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cs.errorContainer,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: FitText(
                         '当前平台不支持切换图标，仅展示预览。',
@@ -129,7 +129,7 @@ class _IconCard extends StatelessWidget {
             children: <Widget>[
               // 大图预览
               ClipRRect(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(20),
                 child: Image.asset(
                   option.assetPath,
                   width: 96,

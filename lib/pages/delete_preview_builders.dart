@@ -77,7 +77,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
             if (ta.tags.isNotEmpty) ...<Widget>[
               FitText('标签',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -102,7 +102,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
               for (final DialogueTurn turn in ta.dialogueStyle) ...<Widget>[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
@@ -149,7 +149,7 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
             if (world.tags.isNotEmpty) ...<Widget>[
               FitText('标签',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -159,10 +159,10 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
               ),
             ],
             if (world.forbiddenWords.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               FitText('屏蔽词',
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -188,7 +188,7 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
               for (final WorldEntry entry in world.entries) ...<Widget>[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
@@ -267,7 +267,7 @@ List<Widget> buildConversationPreviewSections(
             for (final ConversationMessage m in conv.messages) ...<Widget>[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
@@ -307,7 +307,7 @@ Widget _infoRow(
   String value,
 ) {
   return Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -333,9 +333,9 @@ Widget _previewSlot(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         FitText(title, style: tt.titleMedium),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           child: AspectRatio(
             aspectRatio: aspect,
             child: imageOrPlaceholder(path),

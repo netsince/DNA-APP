@@ -62,11 +62,6 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
         children: <Widget>[
           // ===== 视觉与透明度 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -170,11 +165,6 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
 
           // ===== 交互与快捷按钮 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -237,11 +227,6 @@ class _AppearanceChatPageState extends State<AppearanceChatPage> {
 
           // ===== 提示时长 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

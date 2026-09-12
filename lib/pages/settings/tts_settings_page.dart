@@ -241,11 +241,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
         children: <Widget>[
           // ===== 1. 主控开关与朗读偏好 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -294,11 +289,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
 
           // ===== 2. 全局音色 Seed 调节 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -347,11 +337,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
 
           // ===== 3. 本地声学模型管理 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -439,11 +424,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
 
           // ===== 4. 本地音频缓存管理 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -473,12 +453,12 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     '已合成音频按「台词 + Seed」自动缓存在本地，避免二次播放消耗算力。',
                     style: ts.bodySmall?.copyWith(color: cs.outline),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

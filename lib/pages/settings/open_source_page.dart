@@ -310,7 +310,7 @@ class _OpenSourcePageState extends State<OpenSourcePage> {
                   Card(
                     margin: EdgeInsets.zero,
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       child: Row(
                         children: <Widget>[
                           Icon(Icons.menu_book_outlined, color: cs.primary),
@@ -378,7 +378,7 @@ class _OssTile extends StatelessWidget {
     return InkWell(
       onTap: enabled ? onTap : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -401,7 +401,7 @@ class _OssTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: enabled ? cs.secondaryContainer : cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: FitText(
                           item.license,
@@ -432,10 +432,10 @@ class _OssTile extends StatelessWidget {
                     ),
                   ],
                   if (item.notice != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),

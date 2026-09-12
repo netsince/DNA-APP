@@ -169,11 +169,6 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
         children: <Widget>[
           // ===== 常见场景一键预设 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -188,7 +183,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
                               ?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   FitText('一键应用针对不同任务调优的参数组合：',
                       style:
                           ts.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
@@ -264,11 +259,6 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
 
           // ===== 基础随机性参数 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -334,11 +324,6 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
 
           // ===== 防复读与惩罚参数 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -395,7 +380,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
             icon: const Icon(Icons.check),
             label: const FitText('完成微调并返回'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
         ],
@@ -430,7 +415,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: FitText(
                 displayValue,

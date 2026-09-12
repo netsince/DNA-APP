@@ -27,14 +27,14 @@ class AppearanceSettingsPage extends StatelessWidget {
             subtitle: '亮暗模式切换与自动提取/自定义强调色方案',
             onTap: () => _push(context, AppearanceThemePage(controller: controller)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _EntryTile(
             icon: Icons.apps_outlined,
             title: '应用与启动',
             subtitle: '桌面应用图标、开场动画与聊天记忆容量仪表盘',
             onTap: () => _push(context, AppearanceAppPage(controller: controller)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _EntryTile(
             icon: Icons.chat_bubble_outline,
             title: '聊天界面',
@@ -79,13 +79,13 @@ class _EntryTile extends StatelessWidget {
         ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
             color: cs.primaryContainer.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: cs.onPrimaryContainer, size: 22),
         ),

@@ -43,11 +43,6 @@ class _BgmSettingsPageState extends State<BgmSettingsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: <Widget>[
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -95,11 +90,6 @@ class _BgmSettingsPageState extends State<BgmSettingsPage> {
           ),
           const SizedBox(height: 16),
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: SwitchListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               title: const FitText('解锁背景音乐大小上限（10MB）'),
@@ -110,11 +100,6 @@ class _BgmSettingsPageState extends State<BgmSettingsPage> {
           ),
           const SizedBox(height: 16),
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -138,12 +123,12 @@ class _BgmSettingsPageState extends State<BgmSettingsPage> {
 
   Widget _bullet(ColorScheme cs, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.only(top: 6, right: 8),
+            padding: const EdgeInsets.only(top: 8, right: 8),
             child: Icon(Icons.circle, size: 6, color: cs.primary),
           ),
           Expanded(child: FitText(text)),

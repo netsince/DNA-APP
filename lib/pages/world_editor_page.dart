@@ -324,10 +324,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
           // ===== 1. 世界核心信息卡片 =====
           Card(
             elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -475,7 +475,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withOpacity(0.4),
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                   style: BorderStyle.solid,
                 ),
               ),
@@ -483,7 +483,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                 padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
                 child: Column(
                   children: <Widget>[
-                    Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline.withOpacity(0.5)),
+                    Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
                     const SizedBox(height: 8),
                     FitText('暂无词条', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.outline)),
                     const SizedBox(height: 4),
@@ -519,7 +519,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
               },
             ),
 
-          const SizedBox(height: 80),
+          const SizedBox(height: 24),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -552,10 +552,10 @@ class _WorldEntryCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.35),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.4)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: InkWell(
         onTap: onEdit,
@@ -572,7 +572,7 @@ class _WorldEntryCard extends StatelessWidget {
                     size: 18,
                     color: theme.colorScheme.primary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: FitText(
                       entry.name.isEmpty ? '未命名词条' : entry.name,
@@ -640,7 +640,7 @@ class _WorldEntryCard extends StatelessWidget {
               ),
               if (entry.relation != null && relationTargetName != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: <Widget>[
                       Icon(Icons.link, size: 14, color: theme.colorScheme.outline),
@@ -674,10 +674,10 @@ class _BadgeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color ?? theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: FitText(
         label,

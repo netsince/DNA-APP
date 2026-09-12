@@ -60,11 +60,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         children: <Widget>[
           // ===== 身份验证保护 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -89,7 +84,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                       child: Row(
                         children: <Widget>[
                           Icon(Icons.info_outline, size: 16, color: cs.error),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           FitText(
                             '当前设备或平台不支持生物识别验证',
                             style: TextStyle(color: cs.error, fontSize: 12),
@@ -128,11 +123,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
           // ===== 删除确认防误触 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

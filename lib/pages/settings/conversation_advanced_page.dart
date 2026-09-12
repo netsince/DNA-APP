@@ -38,11 +38,6 @@ class _ConversationAdvancedPageState extends State<ConversationAdvancedPage> {
         children: <Widget>[
           // ===== 消息管理能力 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -80,11 +75,6 @@ class _ConversationAdvancedPageState extends State<ConversationAdvancedPage> {
 
           // ===== 文本增强与动态处理 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

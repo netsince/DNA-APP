@@ -46,11 +46,6 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
         children: <Widget>[
           // ===== 键盘与输入辅助 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -59,7 +54,7 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
                   FitText('键盘与输入辅助', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   FitText('回车键按键行为', style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   RadioGroup<String>(
                     groupValue: widget.controller.settings.enterToSend ? 'send' : 'newline',
                     onChanged: (String? v) {
@@ -104,11 +99,6 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
 
           // ===== 灵感与重试 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -146,13 +136,8 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
 
           // ===== 快捷短语 =====
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               leading: Icon(Icons.bolt, color: cs.primary),
               title: const FitText('快速回复管理'),
               subtitle: const FitText('自定义聊天输入栏上方展示的常用一键发送短语。'),

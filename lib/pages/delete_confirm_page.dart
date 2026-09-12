@@ -200,7 +200,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
               children: <Widget>[
                 ...widget.contentBuilder(context),
-                const SizedBox(height: 240),
+                const SizedBox(height: 24),
               ],
             ),
           ),

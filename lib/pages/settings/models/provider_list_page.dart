@@ -95,7 +95,7 @@ class ProviderListPage extends StatelessWidget {
                       Icon(Icons.hub_outlined, size: 64, color: cs.outline),
                       const SizedBox(height: 12),
                       FitText('暂无服务商', style: ts.titleMedium),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       FitText('点击右上角「+」添加新的大模型服务商',
                           style: ts.bodySmall
                               ?.copyWith(color: cs.onSurfaceVariant)),
@@ -136,7 +136,7 @@ class ProviderListPage extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     color: cs.primaryContainer
                                         .withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(Icons.cloud_outlined,
                                       color: cs.primary, size: 20),
@@ -160,7 +160,7 @@ class ProviderListPage extends StatelessWidget {
                                             ),
                                           ),
                                           if (isDefault) ...[
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 4),
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -170,7 +170,7 @@ class ProviderListPage extends StatelessWidget {
                                               decoration: BoxDecoration(
                                                 color: cs.secondaryContainer,
                                                 borderRadius:
-                                                    BorderRadius.circular(6),
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 '默认项',

@@ -196,7 +196,7 @@ class _TaItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     FitText(
                       ta.intro.isEmpty ? '暂无介绍' : ta.intro,
                       maxLines: 2,

@@ -142,7 +142,7 @@ class _IdentityItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     FitText(identity.name.isEmpty ? '未命名身份' : identity.name),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     FitText(
                       identity.persona.isEmpty ? '暂无设定' : identity.persona,
                       maxLines: 2,

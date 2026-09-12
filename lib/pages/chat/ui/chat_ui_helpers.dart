@@ -695,14 +695,14 @@ class _RetryOriginalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
                 Icon(Icons.chat_bubble_outline, size: 16, color: cs.onSurfaceVariant),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 FitText(
                   '当前回复',
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -748,7 +748,7 @@ class RetryOptionCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         elevation: selected ? 2 : 0,
         margin: EdgeInsets.zero,
@@ -764,7 +764,7 @@ class RetryOptionCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -785,7 +785,7 @@ class RetryOptionCard extends StatelessWidget {
                     children: <Widget>[
                       if (isNew)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.only(bottom: 8),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,

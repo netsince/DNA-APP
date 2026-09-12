@@ -239,6 +239,9 @@ abstract final class AppColors {
 
   /// 遮罩底色。
   static const Color scrim = Colors.black;
+
+  /// 启动页背景(刻意固定为深色,不随明暗主题变化)。
+  static const Color splashBackground = Color(0xFF1A1A1A);
 }
 
 /// 阴影令牌(全局唯一来源)。
