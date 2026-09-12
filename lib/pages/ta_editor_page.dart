@@ -11,6 +11,7 @@ import 'package:path/path.dart' as path;
 
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
+import '../services/export_file_utils.dart';
 import '../services/image_storage.dart';
 import '../services/ta_service.dart';
 import '../utils/platform_capabilities.dart';
@@ -21,6 +22,7 @@ import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
+import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
 
@@ -243,49 +245,24 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Future<void> _showExportDialog() async {
     bool compressImages = true;
 
-    final bool? confirmed = await showDialog<bool>(
+    // 询问导出目的地(剪贴板 / 文件),并保留原有的「压缩图片」选项。
+    final ExportTarget? target = await showExportTargetDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const FitText('导出角色'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const FitText('将角色数据导出为JSON格式，包含文字设定和图片。'),
-              const SizedBox(height: 4),
-              FitText(
-                '注：背景音乐仅保存在本机，不会随角色卡导出。',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                title: const FitText('压缩图片'),
-                subtitle: const FitText('减小导出文件大小（推荐）'),
-                value: compressImages,
-                onChanged: (value) {
-                  setState(() => compressImages = value ?? true);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const FitText('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const FitText('导出'),
-            ),
-          ],
+      title: '导出角色',
+      description: '导出内容包含文字设定与图片。'
+          '注：背景音乐仅保存在本机，不会随角色卡导出。',
+      extraOptions: StatefulBuilder(
+        builder: (BuildContext ctx, StateSetter setSB) => CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const FitText('压缩图片'),
+          subtitle: const FitText('减小导出文件大小（推荐）'),
+          value: compressImages,
+          onChanged: (bool? value) => setSB(() => compressImages = value ?? true),
         ),
       ),
     );
 
-    if (confirmed != true || !mounted) return;
+    if (target == null || !mounted) return;
 
     showSnack(context, '正在导出...');
 
@@ -302,54 +279,86 @@ class _TaEditorPageState extends State<TaEditorPage> {
       return;
     }
 
-    // 复制到剪贴板
-    final copyResult = await TaExportImportService.copyToClipboard(result.data!);
-
-    if (!mounted) return;
-
-    if (copyResult.success) {
+    if (target == ExportTarget.clipboard) {
+      // 复制到剪贴板(原有行为)
+      final copyResult =
+          await TaExportImportService.copyToClipboard(result.data!);
+      if (!mounted) return;
       showSnack(
         context,
-        '已复制到剪贴板，可以粘贴分享',
+        copyResult.success ? '已复制到剪贴板，可以粘贴分享' : '导出完成，但复制到剪贴板失败',
         behavior: SnackBarBehavior.floating,
       );
-    } else {
-      showSnack(context, '导出完成，但复制到剪贴板失败');
+      return;
     }
+
+    // 导出为文件
+    final fileResult = await ExportFileUtils.exportText(
+      content: result.data!,
+      fileName: ExportFileUtils.buildFileName(
+        name: currentTA.name,
+        fallbackName: '角色',
+        ext: _fileExt,
+      ),
+      ext: _fileExt,
+      dialogTitle: '导出角色卡',
+    );
+    if (!mounted) return;
+    if (!fileResult.success) {
+      showSnack(context, fileResult.message ?? '导出到文件失败');
+      return;
+    }
+    showSnack(
+      context,
+      fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
+      behavior: SnackBarBehavior.floating,
+    );
   }
 
+  /// 角色卡导出扩展名。
+  static const String _fileExt = 'dnata';
+
   Future<void> _showImportDialog() async {
-    final bool? confirmed = await showDialog<bool>(
+    final ImportSource? source = await showImportSourceDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const FitText('导入角色'),
-        content: const FitText('将从剪贴板读取角色数据并导入。支持本应用导出格式与酒馆（SillyTavern）角色卡 JSON。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const FitText('从剪贴板导入'),
-          ),
-        ],
-      ),
+      title: '导入角色',
+      description: '支持本应用导出的角色卡，以及酒馆（SillyTavern）角色卡 JSON。',
     );
 
-    if (confirmed != true || !mounted) return;
+    if (source == null || !mounted) return;
 
-    // 读取剪贴板
-    final pasteResult = await TaExportImportService.pasteFromClipboard();
-
-    if (!pasteResult.success) {
+    // 取得导入内容:剪贴板或文件
+    final String? content;
+    if (source == ImportSource.clipboard) {
+      final pasteResult = await TaExportImportService.pasteFromClipboard();
       if (!mounted) return;
-      showSnack(context, pasteResult.message ?? '读取剪贴板失败');
+      if (!pasteResult.success) {
+        showSnack(context, pasteResult.message ?? '读取剪贴板失败');
+        return;
+      }
+      content = pasteResult.data;
+    } else {
+      final fileResult = await ExportFileUtils.importText(
+        exts: const <String>[_fileExt, 'json'],
+        dialogTitle: '选择角色卡文件',
+      );
+      if (!mounted) return;
+      if (!fileResult.success) {
+        showSnack(context, fileResult.message ?? '读取文件失败');
+        return;
+      }
+      if (fileResult.data == null) return; // 用户取消
+      content = fileResult.data;
+    }
+
+    if (content == null || content.isEmpty) {
+      if (!mounted) return;
+      showSnack(context, '没有可导入的内容');
       return;
     }
 
     // 解析导入数据
-    final importResult = TaExportImportService.importCharacter(pasteResult.data!);
+    final importResult = TaExportImportService.importCharacter(content);
 
     if (!importResult.success) {
       if (!mounted) return;
@@ -385,45 +394,46 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     if (!mounted) return;
     // 永不覆盖已有角色，故图片回落始终为空（图片从导入包内恢复）
-    await _importWithImages(taToImport, {});
+    await _importWithImages(taToImport, {}, content);
   }
 
-  Future<void> _importWithImages(TA ta, Map<String, String> existingImages) async {
+  Future<void> _importWithImages(
+    TA ta,
+    Map<String, String> existingImages,
+    String content,
+  ) async {
     showSnack(context, '正在导入图片...');
 
     final Map<String, String> newImages = {};
 
     // 从导出包中恢复图片（仅本应用格式内嵌图片；酒馆角色卡无此结构，跳过）
-    final pasteResult = await TaExportImportService.pasteFromClipboard();
-    if (pasteResult.success) {
-      try {
-        final decoded = jsonDecode(pasteResult.data!);
-        if (decoded is Map<String, dynamic> &&
-            (decoded.containsKey('character') || decoded.containsKey('exportType'))) {
-          final package = ExportPackage.fromJson(decoded);
+    try {
+      final decoded = jsonDecode(content);
+      if (decoded is Map<String, dynamic> &&
+          (decoded.containsKey('character') || decoded.containsKey('exportType'))) {
+        final package = ExportPackage.fromJson(decoded);
 
-          for (final entry in package.character.images.entries) {
-            final slot = entry.key;
-            final imageInfo = entry.value;
+        for (final entry in package.character.images.entries) {
+          final slot = entry.key;
+          final imageInfo = entry.value;
 
-            if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
-              final saveResult =
-                  await TaExportImportService.saveImageToStorage(
-                imageInfo.data!,
-                taId: ta.id,
-                slot: slot,
-              );
-              if (saveResult.success) {
-                newImages[slot] = saveResult.data!;
-              }
-            } else if (existingImages.containsKey(slot)) {
-              newImages[slot] = existingImages[slot]!;
+          if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
+            final saveResult =
+                await TaExportImportService.saveImageToStorage(
+              imageInfo.data!,
+              taId: ta.id,
+              slot: slot,
+            );
+            if (saveResult.success) {
+              newImages[slot] = saveResult.data!;
             }
+          } else if (existingImages.containsKey(slot)) {
+            newImages[slot] = existingImages[slot]!;
           }
         }
-      } catch (_) {
-        // 非本应用格式（如酒馆角色卡）无内嵌图片，忽略
       }
+    } catch (_) {
+      // 非本应用格式（如酒馆角色卡）无内嵌图片，忽略
     }
 
     // 更新TA并保存（originalLink 已在 importCharacter 阶段设置）

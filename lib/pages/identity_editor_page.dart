@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_identity.dart';
+import '../services/export_file_utils.dart';
 import '../services/identity_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
+import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 用户身份（User Persona）编辑页。
@@ -65,18 +67,19 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
     Navigator.of(context).pop();
   }
 
-  /// 将当前编辑中的身份复制到剪贴板，便于分享或跨设备粘贴。
+  /// 将当前编辑中的身份导出到剪贴板或文件，便于分享或跨设备传递。
   Future<void> _copyToClipboard() async {
-    final String name = _nameController.text.trim();
-    if (name.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请先填写身份名称再复制。')),
-      );
-      return;
-    }
+    // 询问导出目的地(剪贴板 / 文件)
+    final ExportTarget? target = await showExportTargetDialog(
+      context: context,
+      title: '导出身份',
+      description: '导出内容为该身份的完整人设设定。',
+    );
+    if (target == null || !mounted) return;
+
+    final UserIdentity identity = _buildCurrentIdentity();
     final ExportImportResult<String> result =
-        IdentityExportImportService.exportIdentity(_buildCurrentIdentity());
+        IdentityExportImportService.exportIdentity(identity);
     if (!mounted) return;
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,30 +87,104 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
       );
       return;
     }
-    final ExportImportResult<void> copyResult =
-        await IdentityExportImportService.copyToClipboard(result.data!);
+
+    if (target == ExportTarget.clipboard) {
+      final ExportImportResult<void> copyResult =
+          await IdentityExportImportService.copyToClipboard(result.data!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: FitText(
+            copyResult.success
+                ? '已复制到剪贴板，可以粘贴分享'
+                : (copyResult.message ?? '复制失败'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // 导出为文件
+    final ExportImportResult<String?> fileResult =
+        await ExportFileUtils.exportText(
+      content: result.data!,
+      fileName: ExportFileUtils.buildFileName(
+        name: identity.name,
+        fallbackName: '身份',
+        ext: _fileExt,
+      ),
+      ext: _fileExt,
+      dialogTitle: '导出身份',
+    );
     if (!mounted) return;
+    if (!fileResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(fileResult.message ?? '导出到文件失败')),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: FitText(copyResult.success ? '已复制到剪贴板，可以粘贴分享' : (copyResult.message ?? '复制失败')),
+        content: FitText(
+          fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  /// 从剪贴板导入身份，回填到当前表单（需用户检查后保存）。
+  /// 身份导出扩展名。
+  static const String _fileExt = 'dnapersona';
+
+  /// 从剪贴板或文件导入身份，回填到当前表单（需用户检查后保存）。
   Future<void> _importFromClipboard() async {
-    final ExportImportResult<String> pasteResult =
-        await IdentityExportImportService.pasteFromClipboard();
-    if (!mounted) return;
-    if (!pasteResult.success) {
+    final ImportSource? source = await showImportSourceDialog(
+      context: context,
+      title: '导入身份',
+      description: '支持本应用导出的身份文件与直接的身份 JSON。',
+    );
+    if (source == null || !mounted) return;
+
+    final String? content;
+    if (source == ImportSource.clipboard) {
+      final ExportImportResult<String> pasteResult =
+          await IdentityExportImportService.pasteFromClipboard();
+      if (!mounted) return;
+      if (!pasteResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
+        );
+        return;
+      }
+      content = pasteResult.data;
+    } else {
+      final ExportImportResult<String?> fileResult =
+          await ExportFileUtils.importText(
+        exts: const <String>[_fileExt, 'json'],
+        dialogTitle: '选择身份文件',
+      );
+      if (!mounted) return;
+      if (!fileResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: FitText(fileResult.message ?? '读取文件失败')),
+        );
+        return;
+      }
+      if (fileResult.data == null) return; // 用户取消
+      content = fileResult.data;
+    }
+
+    if (content == null || content.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
+        const SnackBar(content: FitText('没有可导入的内容')),
       );
       return;
     }
+
     final ExportImportResult<UserIdentity> importResult =
-        IdentityExportImportService.importIdentity(pasteResult.data!);
+        IdentityExportImportService.importIdentity(content);
     if (!mounted) return;
     if (!importResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -155,9 +232,9 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
                 value: 'copy',
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.copy_outlined),
+                    Icon(Icons.ios_share),
                     SizedBox(width: 8),
-                    FitText('复制到剪贴板'),
+                    FitText('导出身份'),
                   ],
                 ),
               ),
@@ -165,9 +242,9 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
                 value: 'import',
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.content_paste_outlined),
+                    Icon(Icons.file_download_outlined),
                     SizedBox(width: 8),
-                    FitText('从剪贴板导入'),
+                    FitText('导入身份'),
                   ],
                 ),
               ),

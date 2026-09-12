@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/world.dart';
+import '../services/export_file_utils.dart';
 import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
+import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 世界编辑与创建页面。
@@ -138,16 +140,17 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
 
   /// 复制到剪贴板
   Future<void> _copyToClipboard() async {
-    final String worldName = _nameController.text.trim();
-    if (worldName.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请先填写世界名称再复制。')),
-      );
-      return;
-    }
+    // 询问导出目的地(剪贴板 / 文件)
+    final ExportTarget? target = await showExportTargetDialog(
+      context: context,
+      title: '导出世界观',
+      description: '导出内容为该世界的完整设定与全部词条。',
+    );
+    if (target == null || !mounted) return;
+
+    final World currentWorld = _buildCurrentWorld();
     final ExportImportResult<String> result =
-        WorldExportImportService.exportWorld(_buildCurrentWorld());
+        WorldExportImportService.exportWorld(currentWorld);
     if (!mounted) return;
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -155,56 +158,104 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       );
       return;
     }
-    final ExportImportResult<void> copyResult =
-        await WorldExportImportService.copyToClipboard(result.data!);
-    if (!mounted) return;
-    if (copyResult.success) {
+
+    if (target == ExportTarget.clipboard) {
+      final ExportImportResult<void> copyResult =
+          await WorldExportImportService.copyToClipboard(result.data!);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: FitText('已复制到剪贴板，可以粘贴分享'),
+        SnackBar(
+          content: FitText(
+            copyResult.success
+                ? '已复制到剪贴板，可以粘贴分享'
+                : (copyResult.message ?? '复制到剪贴板失败'),
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(copyResult.message ?? '复制到剪贴板失败')),
-      );
+      return;
     }
-  }
 
-  /// 从剪贴板导入
-  Future<void> _importFromClipboard() async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const FitText('导入世界观'),
-        content: const FitText('将从剪贴板读取世界观数据并导入。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const FitText('从剪贴板导入'),
-          ),
-        ],
+    // 导出为文件
+    final ExportImportResult<String?> fileResult =
+        await ExportFileUtils.exportText(
+      content: result.data!,
+      fileName: ExportFileUtils.buildFileName(
+        name: currentWorld.name,
+        fallbackName: '世界',
+        ext: _fileExt,
+      ),
+      ext: _fileExt,
+      dialogTitle: '导出世界观',
+    );
+    if (!mounted) return;
+    if (!fileResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(fileResult.message ?? '导出到文件失败')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: FitText(
+          fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
     );
-    if (confirmed != true || !mounted) return;
+  }
 
-    final ExportImportResult<String> pasteResult =
-        await WorldExportImportService.pasteFromClipboard();
-    if (!mounted) return;
-    if (!pasteResult.success) {
+  /// 世界观导出扩展名。
+  static const String _fileExt = 'dnaworld';
+
+  /// 从剪贴板 / 文件导入
+  Future<void> _importFromClipboard() async {
+    final ImportSource? source = await showImportSourceDialog(
+      context: context,
+      title: '导入世界观',
+      description: '支持本应用导出的世界观文件与直接的世界 JSON。',
+    );
+    if (source == null || !mounted) return;
+
+    final String? content;
+    if (source == ImportSource.clipboard) {
+      final ExportImportResult<String> pasteResult =
+          await WorldExportImportService.pasteFromClipboard();
+      if (!mounted) return;
+      if (!pasteResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
+        );
+        return;
+      }
+      content = pasteResult.data;
+    } else {
+      final ExportImportResult<String?> fileResult =
+          await ExportFileUtils.importText(
+        exts: const <String>[_fileExt, 'json'],
+        dialogTitle: '选择世界观文件',
+      );
+      if (!mounted) return;
+      if (!fileResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: FitText(fileResult.message ?? '读取文件失败')),
+        );
+        return;
+      }
+      if (fileResult.data == null) return; // 用户取消
+      content = fileResult.data;
+    }
+
+    if (content == null || content.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
+        const SnackBar(content: FitText('没有可导入的内容')),
       );
       return;
     }
 
     final ExportImportResult<World> importResult =
-        WorldExportImportService.importWorld(pasteResult.data!);
+        WorldExportImportService.importWorld(content);
     if (!mounted) return;
     if (!importResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -293,9 +344,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                 value: 'copy',
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.content_copy_outlined),
+                    Icon(Icons.ios_share),
                     SizedBox(width: 8),
-                    FitText('复制到剪贴板'),
+                    FitText('导出世界观'),
                   ],
                 ),
               ),
@@ -303,9 +354,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                 value: 'import',
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.content_paste_outlined),
+                    Icon(Icons.file_download_outlined),
                     SizedBox(width: 8),
-                    FitText('从剪贴板导入'),
+                    FitText('导入世界观'),
                   ],
                 ),
               ),
