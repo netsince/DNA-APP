@@ -132,58 +132,67 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
         ),
 
         // ===== 展开态:滑块 + 说明 =====
-        AnimatedCrossFade(
+        //
+        // 刻意不用 `AnimatedCrossFade`:它会把两个子树**都**建进 widget tree
+        // (只做透明度/尺寸动画),导致收起态依然创建 Slider、说明文字等控件 ——
+        // 页面上的实例数与"折叠"的初衷相反,长列表下白白付出构建与布局开销。
+        // 这里用条件插入:收起时子树根本不存在。
+        AnimatedSize(
           duration: const Duration(milliseconds: 180),
-          crossFadeState:
-              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              bottom: AppSpacing.sm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Slider(
-                  value: widget.value.clamp(widget.min, widget.max).toDouble(),
-                  min: widget.min.toDouble(),
-                  max: widget.max.toDouble(),
-                  divisions: _divisions,
-                  label: _displayValue,
-                  onChanged: (double v) => setState(() {
-                    widget.onChanged(v.round().clamp(widget.min, widget.max));
-                  }),
-                ),
-                // 范围边界:用控件的物理位置表达,不需要文字描述范围。
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      FitText('${widget.min}',
-                          style: AppTextStyles.tiny(theme)
-                              .copyWith(color: cs.outline)),
-                      FitText('${widget.max}',
-                          style: AppTextStyles.tiny(theme)
-                              .copyWith(color: cs.outline)),
+                      Slider(
+                        value: widget.value
+                            .clamp(widget.min, widget.max)
+                            .toDouble(),
+                        min: widget.min.toDouble(),
+                        max: widget.max.toDouble(),
+                        divisions: _divisions,
+                        label: _displayValue,
+                        onChanged: (double v) => setState(() {
+                          widget.onChanged(
+                              v.round().clamp(widget.min, widget.max));
+                        }),
+                      ),
+                      // 范围边界:用控件的物理位置表达,不需要文字描述范围。
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: <Widget>[
+                            FitText('${widget.min}',
+                                style: AppTextStyles.tiny(theme)
+                                    .copyWith(color: cs.outline)),
+                            FitText('${widget.max}',
+                                style: AppTextStyles.tiny(theme)
+                                    .copyWith(color: cs.outline)),
+                          ],
+                        ),
+                      ),
+                      if (widget.helper != null) ...<Widget>[
+                        AppSpacing.hSm,
+                        FitText(
+                          widget.helper!,
+                          style: AppTextStyles.caption(theme)
+                              .copyWith(color: cs.outline),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                if (widget.helper != null) ...<Widget>[
-                  AppSpacing.hSm,
-                  FitText(
-                    widget.helper!,
-                    style: AppTextStyles.caption(theme)
-                        .copyWith(color: cs.outline),
-                  ),
-                ],
-              ],
-            ),
-          ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );
@@ -329,12 +338,14 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
         ),
 
         // ===== 展开态:滑块 + 说明 =====
-        AnimatedCrossFade(
+        //
+        // 同 CollapsibleNumberSetting:不用 AnimatedCrossFade(它会同时
+        // 构建两个子树),改条件插入,收起态不产生任何控件。
+        AnimatedSize(
           duration: const Duration(milliseconds: 180),
-          crossFadeState:
-              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: Padding(
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _expanded ? Padding(
             padding: const EdgeInsets.only(
               left: AppSpacing.md,
               right: AppSpacing.md,
@@ -384,7 +395,8 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
                 ],
               ],
             ),
-          ),
+          )
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );
@@ -469,53 +481,57 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
             ),
           ),
         ),
-        AnimatedCrossFade(
+        // 同 CollapsibleNumberSetting:不用 AnimatedCrossFade(它会同时
+        // 构建两个子树),改条件插入,收起态不产生 TextField。
+        AnimatedSize(
           duration: const Duration(milliseconds: 180),
-          crossFadeState:
-              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              bottom: AppSpacing.sm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                TextField(
-                  controller: widget.controller,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    isDense: true,
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
                   ),
-                  onSubmitted: (String raw) {
-                    final int v = (int.tryParse(raw.trim()) ?? widget.clampMin)
-                        .clamp(widget.clampMin, widget.clampMax);
-                    widget.controller.text = v.toString();
-                    widget.onSubmitted(v);
-                  },
-                  onEditingComplete: () {
-                    final int v =
-                        (int.tryParse(widget.controller.text.trim()) ??
-                                widget.clampMin)
-                            .clamp(widget.clampMin, widget.clampMax);
-                    widget.controller.text = v.toString();
-                    widget.onSubmitted(v);
-                  },
-                ),
-                if (widget.helper != null) ...<Widget>[
-                  AppSpacing.hSm,
-                  FitText(
-                    widget.helper!,
-                    style:
-                        AppTextStyles.caption(theme).copyWith(color: cs.outline),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      TextField(
+                        controller: widget.controller,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onSubmitted: (String raw) {
+                          final int v =
+                              (int.tryParse(raw.trim()) ?? widget.clampMin)
+                                  .clamp(widget.clampMin, widget.clampMax);
+                          widget.controller.text = v.toString();
+                          widget.onSubmitted(v);
+                        },
+                        onEditingComplete: () {
+                          final int v = (int.tryParse(
+                                      widget.controller.text.trim()) ??
+                                  widget.clampMin)
+                              .clamp(widget.clampMin, widget.clampMax);
+                          widget.controller.text = v.toString();
+                          widget.onSubmitted(v);
+                        },
+                      ),
+                      if (widget.helper != null) ...<Widget>[
+                        AppSpacing.hSm,
+                        FitText(
+                          widget.helper!,
+                          style: AppTextStyles.caption(theme)
+                              .copyWith(color: cs.outline),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );

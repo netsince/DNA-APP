@@ -1,0 +1,34 @@
+fix(settings): 折叠组件并未真正折叠 —— 改用 AnimatedSize + 条件插入
+
+上一轮把数值设置项改成可折叠，但实现用了 AnimatedCrossFade。
+该组件会把两个子树都建进 widget tree，只做透明度/尺寸动画 ——
+也就是说收起态依然创建了 Slider、说明文字、范围标注等控件，
+页面上的实例数与「折叠降低视觉噪音、减少构建开销」的初衷完全相反。
+长列表下白白付出构建与布局成本。
+
+改用 AnimatedSize + 条件插入：收起时子树根本不存在。
+三个折叠组件（CollapsibleNumberSetting / CollapsibleDoubleSetting /
+CollapsibleTextSetting）全部修正。
+
+这是运行时测试发现的缺陷 —— 上一轮只做了静态正则数数，
+统计的是「折叠组件的调用次数」，完全看不出组件内部没生效。
+只有真正渲染并断言「收起态不应存在 Slider」才能暴露。
+
+新增 test/settings_widget_runtime_test.dart 10 项运行时断言：
+- 收起态只渲染名称+当前值，Slider 不存在
+- 点击标题行展开后 Slider 出现
+- 拖动滑块回调收到 clamp 后的值
+- zeroLabel 生效（值为 0 显示「不限」而非 0）
+- helper 文案收起态不占位、展开后才出现
+- decimals 控制浮点显示精度
+- SettingSection 渲染图标/标题/说明/子项
+- SettingSwitch.description 渲染
+- subtitle 为 null 时不渲染副标题
+
+注：FitText extends Text，因此 find.text 会重复命中，
+测试内用排除 FitText 的谓词精确匹配内层 Text。
+
+验证：
+- flutter analyze lib test -> No issues found
+- 99 项测试全通过（含新增 10 项运行时测试）
+- Windows release 构建成功，冒烟测试 86.7 MB 无崩溃

@@ -17,6 +17,11 @@
 > * `repetitionPenaltySlope` 滑块上限 `10.0`,但 `AppController` 里 `clamp(0.0, 1.0)`
 >   —— **90% 的可拖区间是无效的**,一保存就被夹掉。已把上限改为 `1.0`。
 > * `ai_service_settings_page` 密钥框原为永久 `obscureText: true`,无法核对已填内容。已加显示/隐藏按钮。
+> * **折叠组件用 `AnimatedCrossFade` 实现,等于没折叠** —— 该组件会把两个子树
+>   **都**建进 widget tree(只做透明度/尺寸动画),收起态依然创建 `Slider`、
+>   说明文字等控件。已改为 `AnimatedSize` + 条件插入,收起态子树根本不存在。
+>   *此缺陷由运行时测试(`test/settings_widget_runtime_test.dart`)发现 —— 静态
+>   正则数数完全看不出来,只有真正渲染才能暴露。*
 
 ---
 
