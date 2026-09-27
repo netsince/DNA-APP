@@ -2,20 +2,43 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
-import 'package:dna/widgets/fit_text.dart';
-import 'package:dna/widgets/setting_section.dart';
-import 'models/model_list_page.dart';
-import 'models/provider_list_page.dart';
+import 'ai_service/advanced_view.dart';
+import 'ai_service/contract.dart';
+import 'ai_service/quick_switch_sheet.dart';
+import 'ai_service/simple_view.dart';
 import 'sampler_settings_page.dart';
 
 /// 设置 → AI 服务主页。
 ///
-/// 支持「新手简易模式」（单页直接操作默认项）与「高级模式」（独立分层的服务商与模型列表路由）。
+/// 支持「新手简易模式」（单页直接操作默认项）与「完整模式」
+/// （分层的服务商 / 模型预设管理路由）。
+///
+/// ## 本文件只做装配
+///
+/// 页面状态（两个输入框控制器、连接检测、模型列表）与全部业务逻辑
+/// 都留在这里；两个分支的**视图**分别委托给:
+///
+/// * `ai_service/simple_view.dart` —— 精简模式(服务商 / 连接 / 模型 / 思考);
+/// * `ai_service/advanced_view.dart` —— 完整模式的三个入口;
+/// * `ai_service/quick_switch_sheet.dart` —— 快速切换模型弹窗;
+/// * `ai_service/contract.dart` —— 子组件接收的参数与回调契约。
+///
+/// ## 为什么用「契约对象」而不是散装参数
+///
+/// 本页**曾经被拆坏过一次**:旧拆分把 `baseUrlController` /
+/// `apiKeyController` 作为参数传给子组件却从未使用,精简模式渲染出来
+/// 一个输入框都没有,用户切过去只看到模式开关。代码能编译、
+/// `flutter analyze` 干净、行数也正常 —— 静态手段查不出来。
+///
+/// 现在子组件统一接收 [AiServicePageContract],缺字段直接编译失败,
+/// 不会静默丢失;另有 `test/ai_service_page_render_test.dart` 真正把
+/// 页面渲染出来断言配置项存在,锁死这个回归。
 class AiServiceSettingsPage extends StatefulWidget {
   const AiServiceSettingsPage({super.key, required this.controller});
   final AppController controller;
@@ -27,6 +50,9 @@ class AiServiceSettingsPage extends StatefulWidget {
 class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
   late final TextEditingController _baseUrlCtrl;
   late final TextEditingController _apiKeyCtrl;
+
+  /// 两个控制器是否已创建(`late final` 只能赋值一次)。
+  bool _controllersReady = false;
 
   bool _checkingApi = false;
   bool _loadingModels = false;
@@ -41,13 +67,24 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     _initValues();
   }
 
+  /// 从设置装载输入框内容。
+  ///
+  /// **首次调用**才创建控制器(字段是 `late final`,只能赋值一次);
+  /// 之后调用只刷新文本,不重建 —— 重建会丢弃用户正在输入的内容,
+  /// 也会让已挂载的 `TextField` 指向被 dispose 的控制器。
   void _initValues() {
     final s = widget.controller.settings;
     final LlmProvider provider = widget.controller.llmProvider;
-    _baseUrlCtrl = TextEditingController(
-      text: provider.fixedBaseUrl ? provider.defaultBaseUrl : s.baseUrl,
-    );
-    _apiKeyCtrl = TextEditingController(text: s.apiKey);
+    final String baseUrl =
+        provider.fixedBaseUrl ? provider.defaultBaseUrl : s.baseUrl;
+    if (!_controllersReady) {
+      _baseUrlCtrl = TextEditingController(text: baseUrl);
+      _apiKeyCtrl = TextEditingController(text: s.apiKey);
+      _controllersReady = true;
+    } else {
+      _baseUrlCtrl.text = baseUrl;
+      _apiKeyCtrl.text = s.apiKey;
+    }
     _selectedModel = s.selectedModel.isEmpty ? null : s.selectedModel;
     if (provider.fixedBaseUrl) {
       _saveApi();
@@ -102,9 +139,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         _selectedModel = _models.first;
         _saveModel();
       }
-      if (_selectedModel != null &&
-          _selectedModel!.isNotEmpty &&
-          !_models.contains(_selectedModel)) {
+      if (_selectedModel != null && !_models.contains(_selectedModel)) {
         _models = <String>[_selectedModel!, ..._models];
       }
     });
@@ -144,645 +179,134 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     await _saveModel();
   }
 
-  void _showQuickSwitchModelModal() {
-    final models = widget.controller.settings.models;
-    final activeId = widget.controller.settings.activeModelId;
-
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: <Widget>[
-                    const Icon(Icons.bolt),
-                    const SizedBox(width: 8),
-                    const FitText(
-                      '切换当前生效模型',
-                      style:
-                          TextStyle(fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const FitText('关闭'),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: models.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (ctx, idx) {
-                    final m = models[idx];
-                    final isSel = m.id == activeId;
-                    final provider =
-                        widget.controller.settings.providers.firstWhere(
-                      (p) => p.id == m.providerId,
-                      orElse: () =>
-                          widget.controller.settings.providers.isNotEmpty
-                              ? widget.controller.settings.providers.first
-                              : widget.controller.activeProviderConfig,
-                    );
-                    return ListTile(
-                      leading: Icon(
-                        isSel
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: isSel
-                            ? Theme.of(ctx).colorScheme.primary
-                            : null,
-                      ),
-                      title: Text(
-                        m.alias,
-                        style: TextStyle(
-                          fontWeight:
-                              isSel ? AppWeight.medium : AppWeight.regular,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${provider.alias} • ${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
-                        style: const TextStyle(fontSize: AppFontSize.caption),
-                      ),
-                      onTap: () {
-                        widget.controller.setActiveModel(m.id);
-                        Navigator.of(ctx).pop();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  void _pickModel(String model) {
+    setState(() => _selectedModel = model);
   }
+
+  /// 组装子组件所需的全部状态与回调。
+  ///
+  /// 集中构造而非分散传参 —— 新增字段时只需改这里,
+  /// 子组件漏用会在渲染契约测试里暴露。
+  AiServicePageContract get _contract => AiServicePageContract(
+        controller: widget.controller,
+        baseUrlController: _baseUrlCtrl,
+        apiKeyController: _apiKeyCtrl,
+        checkingApi: _checkingApi,
+        loadingModels: _loadingModels,
+        apiMessage: _apiMessage,
+        modelsError: _modelsError,
+        models: _models,
+        selectedModel: _selectedModel,
+        onSaveApi: _saveApi,
+        onCheckApi: _checkApi,
+        onFetchModels: _fetchModels,
+        onPickModel: _pickModel,
+        onSaveModel: _saveModel,
+        onSelectProvider: _selectProvider,
+        onAddCustomModel: _addCustomModel,
+        onShowQuickSwitch: () =>
+            showQuickSwitchModelSheet(context, widget.controller),
+        onResetValues: _initValues,
+      );
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
-    final bool fixedBaseUrl = widget.controller.llmProvider.fixedBaseUrl;
-    final bool isModelMissing = (_selectedModel ?? '').trim().isEmpty;
+    final ColorScheme cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const FitText('AI 服务')),
       body: AnimatedBuilder(
         animation: widget.controller,
-        builder: (context, _) {
-          final isSimple = widget.controller.settings.simpleModelMode;
-          final activeModel = widget.controller.activeModel;
-          final activeProvider = widget.controller.activeProviderConfig;
+        builder: (BuildContext context, Widget? _) {
+          final bool isSimple = widget.controller.settings.simpleModelMode;
 
           return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: AppInsets.page,
             children: <Widget>[
-              // ===== 模式切换卡片 =====
-              Card(
-                elevation: 0,
-                color: cs.secondaryContainer.withValues(alpha: 0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                      color: cs.outlineVariant.withValues(alpha: 0.5)),
-                ),
-                margin: const EdgeInsets.only(bottom: 16),
-                child: SwitchListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  title: const FitText('新手简易模式'),
-                  subtitle: Text(
-                    isSimple
-                        ? '已开启：仅操作默认模型与服务商，界面清爽聚焦'
-                        : '已关闭：开启多服务商与多模型预设列表管理',
-                    style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
-                  ),
-                  value: isSimple,
-                  onChanged: (bool value) async {
-                    await widget.controller.toggleSimpleModelMode(value);
-                    if (value) {
-                      _initValues();
-                    }
-                  },
-                ),
-              ),
+              // ===== 模式切换 =====
+              _modeSwitch(cs, isSimple),
 
-              // ==========================================
-              // 分支 A：新手简易模式（单页经典配置器）
-              // ==========================================
-              if (isSimple) ...<Widget>[
-                if (isModelMissing)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cs.errorContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: cs.error.withValues(alpha: 0.5)),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        Icon(Icons.warning_amber_rounded,
-                            color: cs.error, size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              FitText(
-                                '未选定模型',
-                                style: ts.labelLarge?.copyWith(
-                                  fontWeight: AppWeight.medium,
-                                  color: cs.error,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              FitText(
-                                '当前服务商下尚未选定模型，聊天将无法发起请求。请在下方点击【刷新模型列表】或【自定义模型】进行指定。',
-                                style: ts.bodySmall
-                                    ?.copyWith(color: cs.onErrorContainer),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // 1. 服务商与 API 连接卡片
-                SettingSection(
-                  icon: Icons.dns_outlined,
-                  title: '服务商选择',
-                  children: <Widget>[
-                    const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children:
-                              widget.controller.llmProviders.map((LlmProvider p) {
-                            final bool selected =
-                                p.id == widget.controller.settings.provider;
-                            return ChoiceChip(
-                              label: FitText(p.label),
-                              selected: selected,
-                              onSelected: (_) => _selectProvider(p),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        if (!fixedBaseUrl) ...<Widget>[
-                          TextField(
-                            controller: _baseUrlCtrl,
-                            decoration: InputDecoration(
-                              labelText: 'Base URL',
-                              hintText:
-                                  widget.controller.llmProvider.defaultBaseUrl,
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                tooltip: '恢复默认地址',
-                                icon: const Icon(Icons.restore),
-                                onPressed: () {
-                                  _baseUrlCtrl.text = widget
-                                      .controller.llmProvider.defaultBaseUrl;
-                                  _saveApi();
-                                },
-                              ),
-                            ),
-                            onChanged: (_) => _saveApi(),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        TextField(
-                          controller: _apiKeyCtrl,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'API Key',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (_) => _saveApi(),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _checkingApi ? null : _checkApi,
-                          icon: _checkingApi
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Icon(Icons.network_check),
-                          label:
-                              FitText(_checkingApi ? '检测中...' : '检测连接'),
-                        ),
-                        if (_apiMessage != null) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            children: <Widget>[
-                              Icon(
-                                _apiMessage!.contains('成功')
-                                    ? Icons.check_circle
-                                    : Icons.error,
-                                size: 16,
-                                color: _apiMessage!.contains('成功')
-                                    ? cs.primary
-                                    : cs.error,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: FitText(
-                                  _apiMessage!,
-                                  style: TextStyle(
-                                    color: _apiMessage!.contains('成功')
-                                        ? cs.primary
-                                        : cs.error,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 2. 模型选择卡片
-                SettingSection(
-                  icon: Icons.memory_outlined,
-                  title: '当前生效模型',
-                  trailing: isModelMissing
-                      ? null
-                      : Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: cs.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: FitText(
-                            _selectedModel!,
-                            style: ts.labelSmall?.copyWith(
-                              color: cs.onPrimaryContainer,
-                              fontWeight: AppWeight.medium,
-                            ),
-                          ),
-                        ),
-                  children: <Widget>[
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: <Widget>[
-                            FilledButton.tonalIcon(
-                              onPressed:
-                                  _loadingModels ? null : _fetchModels,
-                              icon: _loadingModels
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.refresh),
-                              label: FitText(
-                                  _loadingModels ? '加载中...' : '刷新模型列表'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _addCustomModel,
-                              icon: const Icon(Icons.edit_outlined),
-                              label: const FitText('自定义模型'),
-                            ),
-                          ],
-                        ),
-                        if (_modelsError != null) ...[
-                          const SizedBox(height: 8),
-                          FitText(_modelsError!,
-                              style: TextStyle(color: cs.error)),
-                        ],
-                        const SizedBox(height: 12),
-                        if (_models.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest
-                                  .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: FitText(
-                              _selectedModel == null
-                                  ? '尚未加载模型列表。可点击【刷新模型列表】自动拉取，或点击【自定义模型】手动填写。'
-                                  : '已选定当前模型：$_selectedModel',
-                              style: ts.bodySmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
-                            ),
-                          )
-                        else ...<Widget>[
-                          FitText('可选模型列表（点击切换）：',
-                              style: ts.bodySmall?.copyWith(color: cs.outline)),
-                          const SizedBox(height: 4),
-                          Container(
-                            constraints: const BoxConstraints(maxHeight: 240),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: cs.outlineVariant
-                                      .withValues(alpha: 0.4)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: _models.length,
-                              separatorBuilder: (context, index) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (BuildContext context, int index) {
-                                final String model = _models[index];
-                                final bool sel = model == _selectedModel;
-                                return ListTile(
-                                  dense: true,
-                                  visualDensity: VisualDensity.compact,
-                                  leading: Icon(
-                                    sel
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_unchecked,
-                                    color: sel ? cs.primary : cs.outline,
-                                    size: 18,
-                                  ),
-                                  title: FitText(
-                                    model,
-                                    style: TextStyle(
-                                      fontWeight: sel
-                                          ? AppWeight.medium
-                                          : AppWeight.regular,
-                                      color: sel ? cs.primary : null,
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    setState(() => _selectedModel = model);
-                                    _saveModel();
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // 3. DeepSeek 思考模式（严格仅在当前服务商为 DeepSeek 时展示）
-                if (widget.controller.llmProvider.id == 'deepseek') ...[
-                    SettingSection(
-                      icon: Icons.psychology_outlined,
-                      title: 'DeepSeek 深度思考模式',
-                      children: <Widget>[
-                          const SizedBox(height: 8),
-                          SwitchListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: const FitText('启用思考模式（Reasoning）'),
-                            subtitle: const FitText('开启后模型会在作答前展开深度思考过程'),
-                            value: widget
-                                .controller.settings.deepseekThinkingEnabled,
-                            onChanged: (bool v) async {
-                              await widget.controller.saveDeepseekThinking(
-                                enabled: v,
-                                effort: widget.controller.settings
-                                    .deepseekThinkingEffort,
-                              );
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          FitText('思考强度',
-                              style: ts.bodyMedium
-                                  ?.copyWith(fontWeight: AppWeight.medium)),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: <Widget>[
-                              for (final String effort in const <String>[
-                                'low',
-                                'high',
-                                'max'
-                              ])
-                                ChoiceChip(
-                                  label: FitText(switch (effort) {
-                                    'low' => '低',
-                                    'high' => '高',
-                                    _ => '最高',
-                                  }),
-                                  selected: widget.controller.settings
-                                          .deepseekThinkingEffort ==
-                                      effort,
-                                  onSelected: (_) async {
-                                    await widget.controller
-                                        .saveDeepseekThinking(
-                                      enabled: widget.controller.settings
-                                          .deepseekThinkingEnabled,
-                                      effort: effort,
-                                    );
-                                    if (mounted) setState(() {});
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                  const SizedBox(height: 16),
-                ],
-              ]
-              // ==========================================
-              // 分支 B：高级模式（分层路由入口，清爽分明）
-              // ==========================================
-              else ...<Widget>[
-                // 1. 当前激活模型展示与快捷切换卡片
-                Card(
-                  elevation: 0,
-                  color: cs.primaryContainer.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                        color: cs.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Icon(Icons.bolt_rounded,
-                                color: cs.primary, size: 24),
-                            const SizedBox(width: 8),
-                            Text(
-                              '当前生效模型',
-                              style: TextStyle(
-                                fontSize: AppFontSize.caption,
-                                fontWeight: AppWeight.medium,
-                                color: cs.primary,
-                              ),
-                            ),
-                            const Spacer(),
-                            FilledButton.tonal(
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                              ),
-                              onPressed: _showQuickSwitchModelModal,
-                              child: const FitText('快速切换'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          activeModel.alias,
-                          style: ts.titleMedium
-                              ?.copyWith(fontWeight: AppWeight.medium),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '模型: ${activeModel.modelName.isEmpty ? "未指定模型 ID" : activeModel.modelName} • 服务商: ${activeProvider.alias} (${activeProvider.providerType})',
-                          style: TextStyle(
-                            fontSize: AppFontSize.caption,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // 2. 服务商管理入口
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.5)),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    leading: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: cs.secondaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.hub_outlined,
-                          color: cs.onSecondaryContainer),
-                    ),
-                    title: const FitText('服务商管理'),
-                    subtitle: Text(
-                      '已配置 ${widget.controller.settings.providers.length} 个服务商（支持 OpenAI / Anthropic / DeepSeek / 智谱等）',
-                      style:
-                          TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ProviderListPage(
-                              controller: widget.controller),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // 3. 模型预设管理入口
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.5)),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    leading: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: cs.tertiaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.psychology_outlined,
-                          color: cs.onTertiaryContainer),
-                    ),
-                    title: const FitText('模型预设管理'),
-                    subtitle: Text(
-                      '已配置 ${widget.controller.settings.models.length} 个模型预设（支持专属采样参数与深度思考设定）',
-                      style:
-                          TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              ModelListPage(controller: widget.controller),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-              ],
+              // ===== 分支 A：新手简易模式 =====
+              // ===== 分支 B：完整模式 =====
+              if (isSimple)
+                AiServiceSimpleView(contract: _contract)
+              else
+                AiServiceAdvancedView(contract: _contract),
 
               // ===== 采样参数入口 =====
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                      color: cs.outlineVariant.withValues(alpha: 0.5)),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.tune, color: cs.primary),
-                  ),
-                  title: FitText(isSimple ? '采样参数微调' : '全局默认采样参数'),
-                  subtitle: const FitText('含场景预设与采样、防复读等高级参数'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SamplerSettingsPage(
-                            controller: widget.controller),
-                      ),
-                    );
-                  },
-                ),
-              ),
+              //
+              // 两种模式都显示(仅标题随模式变化),所以它**不属于任何一个分支**,
+              // 由主页统一渲染 —— 原实现即如此,拆分时不要把它挪进某个分支。
+              AppSpacing.hMd,
+              _samplerEntry(cs, isSimple),
             ],
           );
+        },
+      ),
+    );
+  }
+
+  /// 「采样参数」入口。两种模式都显示,仅标题不同。
+  Widget _samplerEntry(ColorScheme cs, bool isSimple) {
+    return Card(
+      elevation: AppElevation.flat,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.mdAll,
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: AppInsets.tile,
+          decoration: BoxDecoration(
+            color: cs.primaryContainer.withValues(alpha: 0.6),
+            borderRadius: AppRadius.smAll,
+          ),
+          child: Icon(Icons.tune, color: cs.primary),
+        ),
+        title: FitText(isSimple ? '采样参数微调' : '全局默认采样参数'),
+        subtitle: const FitText('含场景预设与采样、防复读等高级参数'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                SamplerSettingsPage(controller: widget.controller),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 顶部「新手简易模式」开关。
+  Widget _modeSwitch(ColorScheme cs, bool isSimple) {
+    return Card(
+      elevation: AppElevation.flat,
+      color: cs.secondaryContainer.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.mdAll,
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      margin: EdgeInsets.only(bottom: AppSpacing.lg),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: const FitText('新手简易模式'),
+        subtitle: Text(
+          isSimple
+              ? '已开启：仅操作默认模型与服务商，界面清爽聚焦'
+              : '已关闭：开启多服务商与多模型预设列表管理',
+          style: TextStyle(
+            fontSize: AppFontSize.caption,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        value: isSimple,
+        onChanged: (bool value) async {
+          await widget.controller.toggleSimpleModelMode(value);
+          if (!mounted) return;
+          if (value) {
+            setState(_initValues);
+          }
         },
       ),
     );
