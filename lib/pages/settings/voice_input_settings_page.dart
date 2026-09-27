@@ -210,19 +210,19 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                       RadioListTile<String>(
                         contentPadding: EdgeInsets.zero,
                         title: FitText('自动选择（推荐）'),
-                        subtitle: FitText('国内走镜像源，海外走官方源'),
+                        subtitle: FitText('国内优先 ModelScope，海外用 GitHub'),
                         value: 'auto',
                       ),
                       RadioListTile<String>(
                         contentPadding: EdgeInsets.zero,
-                        title: FitText('国内镜像源'),
+                        title: FitText('ModelScope 镜像'),
                         subtitle: FitText('国内高速节点，无需代理直连'),
                         value: 'modelscope',
                       ),
                       RadioListTile<String>(
                         contentPadding: EdgeInsets.zero,
-                        title: FitText('海外官方源'),
-                        subtitle: FitText('官方发布仓库，需海外网络'),
+                        title: FitText('GitHub 官方源'),
+                        subtitle: FitText('官方发布仓库，需良好海外网络环境'),
                         value: 'github',
                       ),
                       RadioListTile<String>(
