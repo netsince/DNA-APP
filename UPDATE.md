@@ -49,6 +49,17 @@ v0.2.2 制作中。
     - 无品牌字体，字体保持系统默认（不注册 `fontFamily`）；
     - 完整规范文档见 `DESIGN_SPEC.md`（页面语义图谱 + 设计令牌 + 组件规范 + 落地清单）。
 
+- 内置思源黑体，根治「字体看起来怪」：此前项目处于**零字体**状态（`pubspec.yaml` 的 `fonts:` 整段被注释），导致四个叠加的渲染问题：
+    - **中英混排大小不一、高低不齐**：无 `fontFamily` 时拉丁字母走 `Segoe UI`、中文走 `Microsoft YaHei`，两套字体的 x-height 与基线不同，**同一行文字实际用到两种字体**；
+    - **假粗（同一屏粗细不一致）**：微软雅黑**只有 Regular 与 Bold，没有 Medium 字重**，而项目里用了 45 处 `w600` —— 该字重不存在于雅黑，渲染器只能不一致地回退到 w400 或 w700，于是"有的字看着太粗、有的字看着太细"；
+    - **行距松紧不一**：从未定义 `height`，行高由系统字体默认度量决定（Segoe UI ≈1.33 / 雅黑 ≈1.40），页面里还散落 `1.45`/`1.5`/`1.55` 三种手写值；
+    - **跨平台割裂**：Android 无雅黑，各平台回退结果不同。
+    - 方案：内置**思源黑体（Source Han Sans / Noto Sans SC）**Regular 400 + Medium 500 两个字重（合计约 15.9 MB），字体文件**直接进仓库**，随各平台安装包（APK / Exe / Linux / macOS / iOS / Web）统一分发；授权为 **SIL Open Font License 1.1**（可自由商用与再分发），全文见 `LICENSE-OFL.txt`，并已接入「关于 → 许可证全文」页；
+    - 新增 `AppFont.family` / `AppWeight`（只用 real 400 与 500）/ `AppLineHeight`（1.35 标题 / 1.55 正文 / 1.70 长文）三组令牌；
+    - 全项目 **108 处** `w600`/`w700`/`bold`（涉及 37 个文件）统一收敛为 `AppWeight.medium` —— 消灭合成加粗；层级改由**字号 + 颜色**区分；
+    - 5 处手写 `height: 1.45/1.5/1.55` 统一改用 `AppLineHeight` 令牌；
+    - 不选微软雅黑的原因：其授权仅限 Windows 系统内使用，**不可打包分发**（塞进 APK/Exe 属侵权）。
+
 - 设置页重构（消除层级套娃，按用户意图重新分组）：
     - 删除两个「跳板页」：`conversation_settings_page` 与 `appearance_settings_page` 自己不含任何设置项、只列入口，导致用户连续两屏看到几乎相同的列表；现已删除，其入口全部上提到设置主页，**所有入口直达最终页面**；
     - 合并外观三页：`appearance_theme_page`（主题与颜色）、`appearance_app_page`（应用与启动）、`appearance_chat_page`（聊天界面）本质都是「界面长什么样」，合并为单一 `appearance_display_page`（界面与显示），页内用分区卡片组织；

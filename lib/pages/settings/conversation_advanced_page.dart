@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'regex_rules_page.dart';
@@ -43,7 +45,7 @@ class _ConversationAdvancedPageState extends State<ConversationAdvancedPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('消息编辑与分支能力', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('消息编辑与分支能力', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -80,7 +82,7 @@ class _ConversationAdvancedPageState extends State<ConversationAdvancedPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('文本增强与动态宏', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('文本增强与动态宏', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,

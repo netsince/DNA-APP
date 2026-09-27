@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'quick_replies_page.dart';
@@ -51,9 +53,9 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('键盘与输入辅助', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('键盘与输入辅助', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 12),
-                  FitText('回车键按键行为', style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  FitText('回车键按键行为', style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 4),
                   RadioGroup<String>(
                     groupValue: widget.controller.settings.enterToSend ? 'send' : 'newline',
@@ -104,7 +106,7 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('请求与灵感策略', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('请求与灵感策略', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,

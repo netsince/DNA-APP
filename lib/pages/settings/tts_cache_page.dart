@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../services/tts/tts_audio_cache.dart';
 import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
@@ -97,7 +99,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
                     children: <Widget>[
                       Icon(Icons.pie_chart_outline, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('缓存存储状态', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('缓存存储状态', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -122,7 +124,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
                               const SizedBox(height: 4),
                               FitText(
                                 _loading ? '计算中…' : _formatBytes(_bytes),
-                                style: ts.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+                                style: ts.titleLarge?.copyWith(fontWeight: AppWeight.medium, color: cs.primary),
                               ),
                             ],
                           ),
@@ -143,7 +145,7 @@ class _TtsCachePageState extends State<TtsCachePage> {
                               const SizedBox(height: 4),
                               FitText(
                                 _loading ? '…' : '$_count 句',
-                                style: ts.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary),
+                                style: ts.titleLarge?.copyWith(fontWeight: AppWeight.medium, color: cs.primary),
                               ),
                             ],
                           ),

@@ -156,7 +156,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                     children: <Widget>[
                       Icon(Icons.auto_fix_high_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('正则清洗有什么用？', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('正则清洗有什么用？', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -165,7 +165,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                     '1. 过滤 AI 频繁输出的多余口癖（如每句话末尾的特定语气词）；\n'
                     '2. 消除星号动作描写（如把 *微笑* 清除）；\n'
                     '3. 自动修正常见错别字或屏蔽敏感词。',
-                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: AppLineHeight.reading),
                   ),
                 ],
               ),
@@ -231,12 +231,12 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                       backgroundColor: cs.primaryContainer,
                       child: FitText(
                         '${index + 1}',
-                        style: TextStyle(fontSize: AppFontSize.caption, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
+                        style: TextStyle(fontSize: AppFontSize.caption, fontWeight: AppWeight.medium, color: cs.onPrimaryContainer),
                       ),
                     ),
                     title: FitText(
                       '匹配：${rule.pattern}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'monospace'),
+                      style: const TextStyle(fontWeight: AppWeight.medium, fontFamily: 'monospace'),
                     ),
                     subtitle: FitText(
                       rule.replacement.isEmpty ? '替换为：[删除匹配内容]' : '替换为：${rule.replacement}',

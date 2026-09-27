@@ -330,7 +330,7 @@ class ChatMessageList extends StatelessWidget {
                             ? 1.0
                             : 0.75,
                       ),
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppWeight.medium,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -364,7 +364,7 @@ class ChatMessageList extends StatelessWidget {
                               '思考内容',
                               style: textTheme.labelSmall?.copyWith(
                                 color: colorScheme.primary,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: AppWeight.medium,
                               ),
                             ),
                           ],
@@ -372,7 +372,7 @@ class ChatMessageList extends StatelessWidget {
                         const SizedBox(height: 4),
                         FitText(
                           thoughtText,
-                          style: textTheme.bodySmall?.copyWith(height: 1.45),
+                          style: textTheme.bodySmall?.copyWith(height: AppLineHeight.body),
                         ),
                       ],
                     ),
@@ -708,7 +708,7 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
         style: TextStyle(
           fontSize: AppFontSize.tiny,
           height: 1,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppWeight.medium,
           color: fg,
         ),
       );
@@ -727,7 +727,7 @@ TextSpan _buildHighlightedText(
   Color highlightColor, {
   Color? bubbleColor,
 }) {
-  final TextStyle base = DefaultTextStyle.of(context).style.copyWith(height: 1.55);
+  final TextStyle base = DefaultTextStyle.of(context).style.copyWith(height: AppLineHeight.body);
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
   final bool isLightBg = bubbleColor != null
@@ -745,7 +745,7 @@ TextSpan _buildHighlightedText(
       : colorScheme.onSurfaceVariant.withValues(alpha: 0.65);
 
   final TextStyle dialogueStyle = base.copyWith(
-    fontWeight: FontWeight.w500,
+    fontWeight: AppWeight.medium,
     color: dialogueColor,
   );
 
@@ -882,7 +882,7 @@ TextSpan _buildHighlightedText(
           text: input.substring(index, index + query.length),
           style: style.copyWith(
             backgroundColor: highlightColor,
-            fontWeight: FontWeight.bold,
+            fontWeight: AppWeight.medium,
           ),
         ),
       );
@@ -904,7 +904,7 @@ TextSpan _buildHighlightedText(
     if (run.code) {
       style = codeStyle;
     } else {
-      if (run.bold) style = style.copyWith(fontWeight: FontWeight.w700);
+      if (run.bold) style = style.copyWith(fontWeight: AppWeight.medium);
       if (run.italic) style = style.copyWith(fontStyle: FontStyle.italic);
       if (run.strike) style = style.copyWith(decoration: TextDecoration.lineThrough);
     }

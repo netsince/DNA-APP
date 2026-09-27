@@ -58,7 +58,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                   children: <Widget>[
                     Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
                     const SizedBox(width: 8),
-                    FitText('危险操作', style: TextStyle(fontWeight: FontWeight.w600, color: cs.error, fontSize: AppFontSize.subtitle)),
+                    FitText('危险操作', style: TextStyle(fontWeight: AppWeight.medium, color: cs.error, fontSize: AppFontSize.subtitle)),
                   ],
                 ),
                 const SizedBox(height: 12),

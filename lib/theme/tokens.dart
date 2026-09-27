@@ -106,6 +106,46 @@ abstract final class AppSpacing {
   static const Widget wLg = SizedBox(width: lg);
 }
 
+/// 字体族令牌。
+///
+/// 内置**思源黑体**(Source Han Sans / Noto Sans SC),随安装包分发,
+/// 不依赖系统字体。授权 SIL OFL 1.1,全文见 `LICENSE-OFL.txt`。
+abstract final class AppFont {
+  /// 字体族名(与 `pubspec.yaml` 的 `fonts:` 声明一致)。
+  static const String family = 'SourceHanSans';
+}
+
+/// 字重令牌。
+///
+/// 内置字体**只有 Regular(400) 与 Medium(500)两个真实字重**,
+/// 因此禁止使用 [w600] / [w700] —— 那会触发 Flutter 的**合成加粗**
+/// (人为描边变粗),中文小字号下会糊成一团。
+///
+/// 层级区分优先靠**字号 + 颜色**,而非字重。
+abstract final class AppWeight {
+  /// 400 —— 正文、说明文字(默认)。
+  static const FontWeight regular = FontWeight.w400;
+
+  /// 500 —— 需要轻度强调时使用(标题、选中项)。
+  static const FontWeight medium = FontWeight.w500;
+}
+
+/// 行高令牌。
+///
+/// 此前项目**完全未定义 `height`**,导致中英混排时行距由系统字体的
+/// 默认度量决定,页面里还散落着 `1.45` / `1.5` / `1.55` 三种手写值。
+/// 内置字体后统一为两档。
+abstract final class AppLineHeight {
+  /// 1.35 —— 标题、标签(紧凑)。
+  static const double title = 1.35;
+
+  /// 1.55 —— 正文、说明(中文比英文需要更多呼吸)。
+  static const double body = 1.55;
+
+  /// 1.70 —— 长文阅读(消息正文、许可证全文)。
+  static const double reading = 1.70;
+}
+
 /// 字号阶(6 档)。
 ///
 /// 此前项目直接沿用 Material 默认 `TextTheme`,导致两处层级断裂:
@@ -142,25 +182,28 @@ abstract final class AppFontSize {
 ///
 /// 用法:`AppTextStyles.sectionTitle(theme)`。
 abstract final class AppTextStyles {
-  /// 卡片分区标题(如「TA形象」「人设栏目」)。16px / w600。
+  /// 卡片分区标题(如「TA形象」「人设栏目」)。16px / Medium。
   static TextStyle sectionTitle(ThemeData t) =>
       t.textTheme.titleMedium!.copyWith(
         fontSize: AppFontSize.subtitle,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: AppLineHeight.title,
       );
 
-  /// 页面主标题(全屏编辑页、OOBE 步骤)。20px / w600。
+  /// 页面主标题(全屏编辑页、OOBE 步骤)。20px / Medium。
   static TextStyle pageTitle(ThemeData t) =>
       t.textTheme.headlineSmall!.copyWith(
         fontSize: AppFontSize.title,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: AppLineHeight.title,
       );
 
-  /// 大标题(启动页、空状态)。24px / w600。
+  /// 大标题(启动页、空状态)。24px / Medium。
   static TextStyle headline(ThemeData t) =>
       t.textTheme.headlineSmall!.copyWith(
         fontSize: AppFontSize.headline,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: AppLineHeight.title,
       );
 
   /// 正文。14px。

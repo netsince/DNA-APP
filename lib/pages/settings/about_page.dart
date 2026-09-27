@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -101,7 +103,7 @@ class _AboutPageState extends State<AboutPage> {
                         const SizedBox(height: 12),
                         FitText(
                           AppInfo.name,
-                          style: ts.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: ts.headlineSmall?.copyWith(fontWeight: AppWeight.medium),
                         ),
                         const SizedBox(height: 2),
                         FitText(
@@ -119,7 +121,7 @@ class _AboutPageState extends State<AboutPage> {
                             _version.isEmpty ? '版本加载中…' : 'v$_version',
                             style: ts.labelMedium?.copyWith(
                               color: cs.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: AppWeight.medium,
                             ),
                           ),
                         ),
@@ -165,7 +167,7 @@ class _AboutPageState extends State<AboutPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('官方支持与社区', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          FitText('官方支持与社区', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                           const SizedBox(height: 8),
                           _LinkRow(
                             icon: Icons.language,
@@ -208,10 +210,11 @@ class _AboutPageState extends State<AboutPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('开源与许可证', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          FitText('开源与许可证', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                           const SizedBox(height: 4),
                           FitText(
-                            '源代码采用 netSince 项目公开许可证 (nSPPL)，美术与标志资源采用 CC BY-NC-ND 4.0。',
+                            '源代码采用 netSince 项目公开许可证 (nSPPL)，美术与标志资源采用 CC BY-NC-ND 4.0，'
+                            '内置字体思源黑体采用 SIL Open Font License 1.1。',
                             style: ts.bodySmall?.copyWith(color: cs.outline),
                           ),
                           const SizedBox(height: 12),
@@ -274,7 +277,7 @@ class _LinkRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       dense: true,
       leading: Icon(icon, color: cs.primary, size: 20),
-      title: FitText(title, style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+      title: FitText(title, style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
       subtitle: FitText(subtitle, style: ts.bodySmall?.copyWith(color: cs.primary)),
       trailing: const Icon(Icons.open_in_new, size: 16),
       onTap: onTap,

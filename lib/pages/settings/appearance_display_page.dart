@@ -152,7 +152,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             children: <Widget>[
               FitText(
                 '明暗外观',
-                style: ts.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
               ),
               AppSpacing.hXs,
               SegmentedButton<String>(
@@ -179,7 +179,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
               AppSpacing.hLg,
               FitText(
                 '强调色',
-                style: ts.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
               ),
               AppSpacing.hXs,
               FitText(
@@ -241,7 +241,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             children: <Widget>[
               FitText(
                 '背景遮罩强度',
-                style: ts.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
               ),
               AppSpacing.hXs,
               FitText(
@@ -272,7 +272,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
               AppSpacing.hSm,
               FitText(
                 '气泡透明度',
-                style: ts.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
               ),
               AppSpacing.hXs,
               FitText(

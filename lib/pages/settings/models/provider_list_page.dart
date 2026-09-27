@@ -155,7 +155,7 @@ class ProviderListPage extends StatelessWidget {
                                             child: Text(
                                               p.alias,
                                               style: ts.titleSmall?.copyWith(
-                                                fontWeight: FontWeight.bold,
+                                                fontWeight: AppWeight.medium,
                                               ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
@@ -178,7 +178,7 @@ class ProviderListPage extends StatelessWidget {
                                                 '默认项',
                                                 style: TextStyle(
                                                   fontSize: AppFontSize.tiny,
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight: AppWeight.medium,
                                                   color:
                                                       cs.onSecondaryContainer,
                                                 ),

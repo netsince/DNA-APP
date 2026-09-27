@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 模型专属采样参数设置全屏页。
@@ -180,7 +182,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
                       const SizedBox(width: 8),
                       FitText('常见场景预设',
                           style: ts.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
+                              ?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -266,7 +268,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
                 children: <Widget>[
                   FitText('基础随机性',
                       style: ts.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                          ?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 16),
                   _buildSlider(
                     context: context,
@@ -331,7 +333,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
                 children: <Widget>[
                   FitText('防复读与惩罚',
                       style: ts.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                          ?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 16),
                   _buildSlider(
                     context: context,
@@ -410,7 +412,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             FitText(title,
-                style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -420,7 +422,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
               child: FitText(
                 displayValue,
                 style: ts.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: AppWeight.medium,
                   color: cs.onPrimaryContainer,
                 ),
               ),

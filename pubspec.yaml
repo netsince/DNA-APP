@@ -118,6 +118,26 @@ flutter:
     # 本项目许可证全文（关于页「许可证」标签页读取展示）
     - LICENSE-nSPPL
     - LICENSE-CC
+    - LICENSE-OFL.txt
+
+  # 内置品牌字体：思源黑体（Source Han Sans / Noto Sans SC）。
+  #
+  # 用「内置字体」而非依赖系统字体，是为了根治三个渲染问题：
+  #   1. 中英混排跳字体 —— 此前拉丁走 Segoe UI、中文走 Microsoft YaHei，
+  #      两套字体的字面高度与基线不同，导致同行文字大小不一、高低不齐；
+  #   2. 假粗 —— 微软雅黑只有 Regular/Bold 两档，没有 Medium，
+  #      项目里 45 处 `w600` 会被不一致地渲染成 w400 或 w700；
+  #   3. 跨平台不一致 —— Android 无雅黑，各平台观感割裂。
+  #
+  # 授权：SIL Open Font License 1.1（可自由商用与再分发），全文见 LICENSE-OFL.txt。
+  # 体积：两个字重合计约 15.9 MB，随各平台安装包（APK / Exe / Linux / macOS / iOS / Web）分发。
+  fonts:
+    - family: SourceHanSans
+      fonts:
+        - asset: assets/fonts/SourceHanSansSC-Regular.otf
+          weight: 400
+        - asset: assets/fonts/SourceHanSansSC-Medium.otf
+          weight: 500
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/widgets/fit_text.dart';
@@ -152,7 +154,7 @@ class _AuthorCard extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                    ?.copyWith(fontWeight: AppWeight.medium),
               ),
               if (author.role != null && author.role!.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -209,7 +211,7 @@ class _AuthorCard extends StatelessWidget {
             text,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: isLink ? cs.primary : cs.onSurfaceVariant,
-                  fontWeight: isLink ? FontWeight.w500 : null,
+                  fontWeight: isLink ? AppWeight.medium : null,
                 ),
           ),
         ),

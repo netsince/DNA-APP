@@ -100,7 +100,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.mic_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('离线语音识别', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('离线语音识别', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                       const SizedBox(width: 8),
                       const BetaTag(),
                     ],
@@ -123,7 +123,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  FitText('识别模型规格', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  FitText('识别模型规格', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 8),
                   InputDecorator(
                     decoration: const InputDecoration(border: OutlineInputBorder()),
@@ -163,7 +163,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('模型管理与状态', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('模型管理与状态', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 12),
                   if (_downloading) ...<Widget>[
                     LinearProgressIndicator(value: _progress),
@@ -222,7 +222,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  FitText('下载网络节点', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('下载网络节点', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(height: 4),
                   FitText('选择下载语音模型时连接的服务器源。', style: theme.textTheme.bodySmall?.copyWith(color: cs.outline)),
                   const SizedBox(height: 8),

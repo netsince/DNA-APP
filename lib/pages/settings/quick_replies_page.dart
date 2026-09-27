@@ -172,7 +172,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     children: <Widget>[
                       Icon(Icons.bolt, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('一键快速回复', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('一键快速回复', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -183,7 +183,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     '• {{user}}：自动替换为我的身份昵称\n'
                     '• {{random 选项A|选项B}}：随机挑选一个词条发送\n'
                     '• {{newline}}：换行',
-                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: AppLineHeight.reading),
                   ),
                 ],
               ),
@@ -239,7 +239,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     ),
                     title: Row(
                       children: <Widget>[
-                        FitText(qr.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        FitText(qr.label, style: const TextStyle(fontWeight: AppWeight.medium)),
                         if ((qr.group ?? '').isNotEmpty) ...<Widget>[
                           const SizedBox(width: 8),
                           Container(

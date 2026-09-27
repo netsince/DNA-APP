@@ -243,7 +243,29 @@ L6  模型专属采样                  model_sampler_settings
 
 ## 3. 排版规范
 
-**已落地**:37 处硬编码 `fontSize` 全部收敛为 `AppFontSize` 令牌(残余 0),并重写 `textTheme` 完成语义重映射。
+**已落地**:37 处硬编码 `fontSize` 全部收敛为 `AppFontSize` 令牌(残余 0);重写 `textTheme` 完成语义重映射;**内置思源黑体**,全项目 108 处 `w600`/`w700`/`bold` 收敛为 `AppWeight.medium`。
+
+### 3.0 字体:内置思源黑体(Source Han Sans / Noto Sans SC)
+
+**决定**:字体文件**进仓库**,随各平台安装包分发(APK / Exe / Linux / macOS / iOS / Web)。
+
+| 项 | 值 |
+|---|---|
+| 字体族 | `SourceHanSans`(见 `AppFont.family`) |
+| 字重 | Regular **400** + Medium **500**(仅此两档,**真实字重**) |
+| 体积 | 约 **15.9 MB**(2 × 7.95 MB) |
+| 授权 | **SIL Open Font License 1.1**(可自由商用与再分发),全文见 `LICENSE-OFL.txt` |
+| 文件 | `assets/fonts/SourceHanSansSC-Regular.otf`、`assets/fonts/SourceHanSansSC-Medium.otf` |
+
+**为什么必须内置**(此前"零字体"状态引发的三个渲染问题):
+
+| 问题 | 根因 | 内置后 |
+|---|---|---|
+| 中英混排**大小不一、高低不齐** | 无 `fontFamily` 时拉丁走 `Segoe UI`、中文走 `Microsoft YaHei`,两套字体的 x-height 与基线不同,**同一行文字用到两种字体** | 中西文字形同属一套,基线天然对齐 |
+| **假粗**(同一屏粗细不一) | 微软雅黑**只有 Regular/Bold,没有 Medium**;项目 45 处 `w600` 被渲染器不一致地映射成 w400 或 w700 | 400/500 都是真实字重,渲染确定 |
+| **跨平台割裂** | Android 无雅黑,各平台回退结果不同 | 所有平台同一套字形 |
+
+> 微软雅黑**不可打包分发**(授权仅限 Windows 系统内使用),这也是"指定系统中文字体"方案在 Android 上走不通的原因。
 
 ### 3.1 字号阶(`AppFontSize`,6 档)
 
@@ -265,28 +287,52 @@ L6  模型专属采样                  model_sampler_settings
 
 项目**不再直接沿用 Material 默认字号**,`ThemeData.textTheme` 在 `main.dart` 中按上表重映射:
 
-| 槽位 | 字号 | 字重 | 用途 |
-|---|---|---|---|
-| `headlineMedium` | 24 | w600 | 大标题 |
-| `headlineSmall` | 20 | w600 | 页面标题(侧边栏品牌名、OOBE) |
-| `titleLarge` | **16** | w600 | 卡片分区标题(原为 22,是"字号过大"主因) |
-| `titleMedium` | 16 | w600 | 对话框 / 列表标题 |
-| `titleSmall` | 14 | w600 | 强调正文 |
-| `bodyLarge` | 16 | w400 | 大号正文(输入框) |
-| `bodyMedium` | 14 | w400 | 正文(默认) |
-| `bodySmall` | 12 | w400 | 说明文字 |
-| `labelLarge` | 14 | w500 | 按钮文字 |
-| `labelMedium` | 12 | w500 | 次要标签 |
-| `labelSmall` | 11 | w500 | 极小标注 |
+| 槽位 | 字号 | 字重 | 行高 | 用途 |
+|---|---|---|---|---|
+| `headlineMedium` | 24 | Medium | 1.35 | 大标题 |
+| `headlineSmall` | 20 | Medium | 1.35 | 页面标题(侧边栏品牌名、OOBE) |
+| `titleLarge` | **16** | Medium | 1.35 | 卡片分区标题(原为 22,是"字号过大"主因) |
+| `titleMedium` | 16 | Medium | 1.35 | 对话框 / 列表标题 |
+| `titleSmall` | 14 | Medium | 1.35 | 强调正文 |
+| `bodyLarge` | 16 | Regular | 1.55 | 大号正文(输入框) |
+| `bodyMedium` | 14 | Regular | 1.55 | 正文(默认) |
+| `bodySmall` | 12 | Regular | 1.55 | 说明文字 |
+| `labelLarge` | 14 | Medium | 1.35 | 按钮文字 |
+| `labelMedium` | 12 | Medium | 1.35 | 次要标签 |
+| `labelSmall` | 11 | Medium | 1.35 | 极小标注 |
+
+### 3.2.1 字重令牌(`AppWeight`)
+
+内置思源黑体**只有 400 / 500 两个真实字重**,因此:
+
+| 令牌 | 值 | 用途 |
+|---|---|---|
+| `AppWeight.regular` | `w400` | 正文、说明文字(默认) |
+| `AppWeight.medium` | `w500` | 标题、选中项等轻度强调 |
+
+> **禁止使用 `w600` / `w700` / `bold`** —— 会触发 Flutter 的**合成加粗**(对字形人为描边),
+> 中文小字号下笔画会粘连发糊。需要强调时改用**字号 + 颜色**区分。
+> 当前全项目 `FontWeight.w600/w700/bold` 使用数为 **0**。
+
+### 3.2.2 行高令牌(`AppLineHeight`)
+
+| 令牌 | 值 | 用途 |
+|---|---|---|
+| `AppLineHeight.title` | 1.35 | 标题、标签(紧凑) |
+| `AppLineHeight.body` | 1.55 | 正文、说明(中文比英文需要更多呼吸) |
+| `AppLineHeight.reading` | 1.70 | 长文阅读(消息正文、许可证全文) |
+
+> 此前项目**完全未定义 `height`**,导致行距由系统字体的默认度量决定(Segoe UI ≈1.33 / 雅黑 ≈1.40),
+> 页面里还散落 `1.45` / `1.5` / `1.55` 三种手写值。现已统一。
 
 ### 3.3 语义化样式快捷方式(`AppTextStyles`)
 
 业务代码优先使用具名样式,避免"同一视觉层级在不同页面用到不同 `textTheme` 级别":
 
 ```dart
-AppTextStyles.sectionTitle(theme)  // 卡片分区标题 16/w600
-AppTextStyles.pageTitle(theme)     // 页面标题 20/w600
-AppTextStyles.headline(theme)      // 大标题 24/w600
+AppTextStyles.sectionTitle(theme)  // 卡片分区标题 16/Medium/1.35
+AppTextStyles.pageTitle(theme)     // 页面标题 20/Medium/1.35
+AppTextStyles.headline(theme)      // 大标题 24/Medium/1.35
 AppTextStyles.body(theme)          // 正文 14
 AppTextStyles.caption(theme)       // 说明文字 12
 AppTextStyles.tiny(theme)          // 极小标注 11
@@ -295,9 +341,10 @@ AppTextStyles.tiny(theme)          // 极小标注 11
 **规则**
 1. **禁止 `fontSize:` 硬编码**(当前残余 **0**),一律使用 `AppFontSize` 令牌或 `textTheme`。
 2. `AppFontSize.tiny`(11px)**仅用于**"看一眼就够"的辅助信息,正文与说明文字禁止使用。
-3. 正文行高统一 `height: 1.45`(消息气泡已在用)。
-4. **字体**:本项目**不引入品牌字体**,保持系统默认(不注册 `fontFamily`)。
-5. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
+3. 行高统一使用 `AppLineHeight` 令牌,禁止手写 `height: 1.x`(当前残余 **0**)。
+4. **字体**:内置**思源黑体**(`AppFont.family`),不依赖系统字体。详见 §3.0。
+5. **字重**:只用 `AppWeight.regular` / `AppWeight.medium`,禁止 `w600`/`w700`/`bold`。详见 §3.2.1。
+6. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
 
 ---
 

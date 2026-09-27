@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -253,7 +255,7 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.backup_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('每日自动备份', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('每日自动备份', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -294,7 +296,7 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.archive_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('全量数据备份与还原 (ZIP)', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('全量数据备份与还原 (ZIP)', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -341,7 +343,7 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.forum_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('单项对话导出与导入 (JSON)', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('单项对话导出与导入 (JSON)', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),

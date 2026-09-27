@@ -253,7 +253,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.record_voice_over_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('语音朗读功能', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('语音朗读功能', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                       const SizedBox(width: 8),
                       const BetaTag(),
                     ],
@@ -301,7 +301,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.tune, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('全局音色 Seed', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('全局音色 Seed', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -349,7 +349,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     children: <Widget>[
                       Icon(Icons.download_for_offline_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('离线声学模型', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('离线声学模型', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -368,7 +368,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     if (_bytesText.isNotEmpty)
                       FitText(
                         _bytesText + (_speedText.isNotEmpty ? ' · $_speedText' : ''),
-                        style: ts.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.bold),
+                        style: ts.bodySmall?.copyWith(color: cs.primary, fontWeight: AppWeight.medium),
                       ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -439,7 +439,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                         children: <Widget>[
                           Icon(Icons.cleaning_services_outlined, color: cs.primary, size: 20),
                           const SizedBox(width: 8),
-                          FitText('语音音频缓存', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          FitText('语音音频缓存', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                         ],
                       ),
                       TextButton.icon(
@@ -468,7 +468,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                       children: <Widget>[
                         FitText(
                           _cacheLoading ? '正在计算缓存…' : '已缓存 $_cacheCount 条音频 (${_formatBytes(_cacheBytes)})',
-                          style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                          style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _cacheLoading || _cacheCount == 0 ? null : _clearCache,
@@ -513,7 +513,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                       '${bgm.bgmVolume}%',
                       textAlign: TextAlign.end,
                       style: ts.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: AppWeight.medium,
                         color: cs.primary,
                       ),
                     ),

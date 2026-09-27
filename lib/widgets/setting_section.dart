@@ -73,7 +73,7 @@ class SettingSection extends StatelessWidget {
                 Expanded(
                   child: FitText(
                     title,
-                    style: ts.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                   ),
                 ),
                 ?trailing,

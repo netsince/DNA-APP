@@ -144,7 +144,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                       const FitText(
                         '选择模型',
                         style: TextStyle(
-                            fontSize: AppFontSize.subtitle, fontWeight: FontWeight.bold),
+                            fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
                       ),
                       const Spacer(),
                       TextButton(
@@ -296,7 +296,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                   children: <Widget>[
                     FitText('模型预设信息',
                         style: ts.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                            ?.copyWith(fontWeight: AppWeight.medium)),
                     const SizedBox(height: 16),
 
                     // 模型别名
@@ -400,7 +400,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                     children: <Widget>[
                       FitText('DeepSeek 深度思考模式',
                           style: ts.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
+                              ?.copyWith(fontWeight: AppWeight.medium)),
                       const SizedBox(height: 8),
                       SwitchListTile(
                         dense: true,
@@ -416,7 +416,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                         const SizedBox(height: 8),
                         FitText('思考强度',
                             style: ts.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                                ?.copyWith(fontWeight: AppWeight.medium)),
                         const SizedBox(height: 4),
                         Wrap(
                           spacing: 8,
@@ -453,7 +453,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                   children: <Widget>[
                     FitText('专属采样参数',
                         style: ts.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                            ?.copyWith(fontWeight: AppWeight.medium)),
                     const SizedBox(height: 8),
                     SwitchListTile(
                       dense: true,

@@ -295,7 +295,7 @@ class _Group extends StatelessWidget {
                 child: FitText(
                   title,
                   style: ts.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppWeight.medium,
                     color: cs.primary,
                   ),
                 ),
@@ -364,7 +364,7 @@ class _EntryTile extends StatelessWidget {
       title: FitText(
         entry.title,
         style: ts.bodyLarge?.copyWith(
-          fontWeight: FontWeight.w600,
+          fontWeight: AppWeight.medium,
           color: on ? null : cs.outline,
         ),
         maxLines: 1,

@@ -147,7 +147,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
               Expanded(
                 child: FitText(
                   label,
-                  style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
                 ),
               ),
               Container(
@@ -160,7 +160,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
                   value.toStringAsFixed(fractionDigits),
                   style: ts.labelMedium?.copyWith(
                     color: cs.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: AppWeight.medium,
                   ),
                 ),
               ),
@@ -225,7 +225,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
                       const SizedBox(width: 8),
                       FitText(
                         '场景预设',
-                        style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                       ),
                     ],
                   ),
@@ -311,7 +311,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
               child: ExpansionTile(
                 title: FitText(
                   '核心采样参数',
-                  style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                 ),
                 subtitle: FitText(
                   '温度、频率惩罚、存在惩罚。不确定时建议直接使用上方场景预设。',
@@ -358,7 +358,7 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
               child: ExpansionTile(
                 title: FitText(
                   '进阶核采样与惩罚',
-                  style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                 ),
                 subtitle: FitText(
                   'Top-P / Top-K / Min-P / 重复惩罚。多数模型无需调整。',

@@ -163,7 +163,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     const FitText(
                       '切换当前生效模型',
                       style:
-                          TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
                     ),
                     const Spacer(),
                     TextButton(
@@ -203,7 +203,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         m.alias,
                         style: TextStyle(
                           fontWeight:
-                              isSel ? FontWeight.bold : FontWeight.normal,
+                              isSel ? AppWeight.medium : FontWeight.normal,
                         ),
                       ),
                       subtitle: Text(
@@ -301,7 +301,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                               FitText(
                                 '未选定模型',
                                 style: ts.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: AppWeight.medium,
                                   color: cs.error,
                                 ),
                               ),
@@ -333,7 +333,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                       children: <Widget>[
                         FitText('服务商选择',
                             style: ts.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold)),
+                                ?.copyWith(fontWeight: AppWeight.medium)),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
@@ -447,7 +447,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                           children: <Widget>[
                             FitText('当前生效模型',
                                 style: ts.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold)),
+                                    ?.copyWith(fontWeight: AppWeight.medium)),
                             if (!isModelMissing)
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -460,7 +460,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                                   _selectedModel!,
                                   style: ts.labelSmall?.copyWith(
                                     color: cs.onPrimaryContainer,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: AppWeight.medium,
                                   ),
                                 ),
                               ),
@@ -549,7 +549,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                                     model,
                                     style: TextStyle(
                                       fontWeight: sel
-                                          ? FontWeight.bold
+                                          ? AppWeight.medium
                                           : FontWeight.normal,
                                       color: sel ? cs.primary : null,
                                     ),
@@ -586,7 +586,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         children: <Widget>[
                           FitText('DeepSeek 深度思考模式',
                               style: ts.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
+                                  ?.copyWith(fontWeight: AppWeight.medium)),
                           const SizedBox(height: 8),
                           SwitchListTile(
                             dense: true,
@@ -607,7 +607,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                           const SizedBox(height: 8),
                           FitText('思考强度',
                               style: ts.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                                  ?.copyWith(fontWeight: AppWeight.medium)),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 8,
@@ -673,7 +673,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                               '当前生效模型',
                               style: TextStyle(
                                 fontSize: AppFontSize.caption,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: AppWeight.medium,
                                 color: cs.primary,
                               ),
                             ),
@@ -693,7 +693,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         Text(
                           activeModel.alias,
                           style: ts.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                              ?.copyWith(fontWeight: AppWeight.medium),
                         ),
                         const SizedBox(height: 4),
                         Text(

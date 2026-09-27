@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../models/prompt_strategy.dart';
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -79,7 +81,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                       const SizedBox(width: 8),
                       FitText(
                         '剧情推进策略',
-                        style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                       ),
                     ],
                   ),
@@ -146,7 +148,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                       const SizedBox(width: 8),
                       FitText(
                         '沉浸描写策略',
-                        style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                       ),
                     ],
                   ),
@@ -213,7 +215,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                       const SizedBox(width: 8),
                       FitText(
                         '回复字数控制',
-                        style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
                       ),
                     ],
                   ),

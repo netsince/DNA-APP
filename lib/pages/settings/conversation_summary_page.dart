@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -115,7 +117,7 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
                     children: <Widget>[
                       Icon(Icons.history_edu, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('阶段剧情摘要', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('阶段剧情摘要', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -175,7 +177,7 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
                     children: <Widget>[
                       Icon(Icons.inventory_2_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('历史上下文限制', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('历史上下文限制', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -225,7 +227,7 @@ class _ConversationSummaryPageState extends State<ConversationSummaryPage> {
                     children: <Widget>[
                       Icon(Icons.public_outlined, color: cs.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('世界书词条注入规则', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('世界书词条注入规则', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),

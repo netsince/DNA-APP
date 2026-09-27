@@ -157,7 +157,7 @@ class ModelListPage extends StatelessWidget {
                                             child: Text(
                                               m.alias,
                                               style: ts.titleSmall?.copyWith(
-                                                fontWeight: FontWeight.bold,
+                                                fontWeight: AppWeight.medium,
                                                 color: isActive
                                                     ? cs.primary
                                                     : null,
@@ -183,7 +183,7 @@ class ModelListPage extends StatelessWidget {
                                                 '默认项',
                                                 style: TextStyle(
                                                   fontSize: AppFontSize.tiny,
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight: AppWeight.medium,
                                                   color:
                                                       cs.onSecondaryContainer,
                                                 ),
@@ -207,7 +207,7 @@ class ModelListPage extends StatelessWidget {
                                                 '当前生效',
                                                 style: TextStyle(
                                                   fontSize: AppFontSize.tiny,
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight: AppWeight.medium,
                                                   color: cs.onPrimary,
                                                 ),
                                               ),

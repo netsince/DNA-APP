@@ -162,15 +162,20 @@ class _DnaAppState extends State<DnaApp> {
   ///
   /// 所有视觉规范集中在此处定义(参见 `DESIGN_SPEC.md`),业务代码不再手写
   /// 卡片圆角/描边/间距,避免同类元素在不同页面长得不一样。
-  /// 注意:本项目无品牌字体,字体保持系统默认(不注册 fontFamily)。
+  ///
+  /// 字体:内置**思源黑体**(Source Han Sans / Noto Sans SC,Regular 400 +
+  /// Medium 500),不依赖系统字体。原因见 `pubspec.yaml` 的 `fonts:` 注释 ——
+  /// 内置字体根治了「中英混排跳字体」「假粗」「跨平台不一致」三个问题。
   static ThemeData _buildTheme(ColorScheme cs) {
     final ThemeData base = ThemeData(
       colorScheme: cs,
       useMaterial3: true,
+      fontFamily: AppFont.family,
     );
     return ThemeData(
       colorScheme: cs,
       useMaterial3: true,
+      fontFamily: AppFont.family,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -285,38 +290,68 @@ class _DnaAppState extends State<DnaApp> {
   /// | `labelMedium`    | 12 | 次要标签                   |
   /// | `labelSmall`     | 11 | 极小标注(时间戳、角标)     |
   static TextTheme _buildTextTheme(TextTheme base) {
+    // 字重只用 400 / 500(内置字体的两个真实字重),禁止 w600/w700 合成加粗。
+    // 行高按中文阅读优化:标题紧凑(1.35)、正文宽松(1.55)。
+    const double hTitle = AppLineHeight.title;
+    const double hBody = AppLineHeight.body;
     return base.copyWith(
       // 大标题 24
       headlineMedium: base.headlineMedium?.copyWith(
         fontSize: AppFontSize.headline,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
       ),
       // 页面标题 20
       headlineSmall: base.headlineSmall?.copyWith(
         fontSize: AppFontSize.title,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
       ),
       // 小标题 16(此前为 22,是"字号过大"的主因)
       titleLarge: base.titleLarge?.copyWith(
         fontSize: AppFontSize.subtitle,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
       ),
       titleMedium: base.titleMedium?.copyWith(
         fontSize: AppFontSize.subtitle,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
       ),
       titleSmall: base.titleSmall?.copyWith(
         fontSize: AppFontSize.body,
-        fontWeight: FontWeight.w600,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
       ),
       // 正文
-      bodyLarge: base.bodyLarge?.copyWith(fontSize: AppFontSize.subtitle),
-      bodyMedium: base.bodyMedium?.copyWith(fontSize: AppFontSize.body),
-      bodySmall: base.bodySmall?.copyWith(fontSize: AppFontSize.caption),
+      bodyLarge: base.bodyLarge?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        height: hBody,
+      ),
+      bodyMedium: base.bodyMedium?.copyWith(
+        fontSize: AppFontSize.body,
+        height: hBody,
+      ),
+      bodySmall: base.bodySmall?.copyWith(
+        fontSize: AppFontSize.caption,
+        height: hBody,
+      ),
       // 标签
-      labelLarge: base.labelLarge?.copyWith(fontSize: AppFontSize.body),
-      labelMedium: base.labelMedium?.copyWith(fontSize: AppFontSize.caption),
-      labelSmall: base.labelSmall?.copyWith(fontSize: AppFontSize.tiny),
+      labelLarge: base.labelLarge?.copyWith(
+        fontSize: AppFontSize.body,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      labelMedium: base.labelMedium?.copyWith(
+        fontSize: AppFontSize.caption,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      labelSmall: base.labelSmall?.copyWith(
+        fontSize: AppFontSize.tiny,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
     );
   }
 }
@@ -383,7 +418,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                   const Expanded(
                     child: FitText(
                       '欢迎使用网页版（预览版）',
-                      style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
                     ),
                   ),
                 ],
@@ -542,7 +577,7 @@ class _WebNoticeItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               FitText(title,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                  style: const TextStyle(fontWeight: AppWeight.medium)),
               const SizedBox(height: 2),
               FitText(detail,
                   style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant)),
