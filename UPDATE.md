@@ -45,9 +45,19 @@ v0.2.2 制作中。
     - 重写全局文字层级（修复字号忽大忽小）：此前项目直接沿用 Material 默认 `TextTheme`，导致 ① `titleLarge` 为 22px 却被当成卡片分区小标题使用（「TA形象」「背景音乐」等 25 处），明显过大；② 14px 上挤了 `bodyMedium` / `titleSmall` / `labelLarge` 三个语义级别，16px 上挤了两个，语义完全失效；③ 16 → 22 之间断层 6px，正文到小标题跳跃感强。现定义 `AppFontSize` 六档字号阶（11 / 12 / 14 / 16 / 20 / 24，相邻跨度均 ≤ 4px）重映射 `textTheme`，并新增 `AppTextStyles` 语义化快捷样式；37 处硬编码 `fontSize` 全部令牌化（残余 0）；
     - 修复列表项间距过于松散：此前全局 `listTileTheme` 把 `minVerticalPadding` 设为 8（Material 默认 4）、`contentPadding` 垂直设为 8（默认 0），使侧边栏等所有列表行高被撑大、观感松散；现恢复 Material 默认密度（`AppInsets.tile` 垂直归零，行高交还 `ListTile` 自适应）；
     - 新增设置组件族（`lib/widgets/setting_section.dart`）：`SettingSection` / `SettingSwitch` / `SettingTile` / `SettingHint`，固化「图标+标题 → 说明 → 设置项」视觉语序；新增空状态组件 `AppEmptyState`（`lib/widgets/app_empty_state.dart`）；
-    - 降低心智负担：`bgm_settings_page` 并入 `tts_settings_page`（设置入口从 3 个减为 2 个，页面总数 50 → 49）；采样参数页 8 个滑块改为默认折叠，只露标题与引导，需要时再展开；
+    - 降低心智负担：`bgm_settings_page` 并入 `tts_settings_page`；采样参数页 8 个滑块改为默认折叠，只露标题与引导，需要时再展开；
     - 无品牌字体，字体保持系统默认（不注册 `fontFamily`）；
-    - 完整规范文档见 `DESIGN_SPEC.md`（50 个页面语义图谱 + 设计令牌 + 组件规范 + 落地清单）。
+    - 完整规范文档见 `DESIGN_SPEC.md`（页面语义图谱 + 设计令牌 + 组件规范 + 落地清单）。
+
+- 设置页重构（消除层级套娃，按用户意图重新分组）：
+    - 删除两个「跳板页」：`conversation_settings_page` 与 `appearance_settings_page` 自己不含任何设置项、只列入口，导致用户连续两屏看到几乎相同的列表；现已删除，其入口全部上提到设置主页，**所有入口直达最终页面**；
+    - 合并外观三页：`appearance_theme_page`（主题与颜色）、`appearance_app_page`（应用与启动）、`appearance_chat_page`（聊天界面）本质都是「界面长什么样」，合并为单一 `appearance_display_page`（界面与显示），页内用分区卡片组织；
+    - 按用户任务重新分组（7 组 / 12 入口）：AI 接入、对话风格、记忆与上下文、角色语音、界面与显示、数据与安全、关于 —— 取代此前的「核心 AI 与对话 / 视觉与安全 / 语音与多模态 / 系统与数据」技术模块式分组；例如「背景音乐」不再挂在「语音与多模态」下（它与语音无关），而归入「角色语音」；「剧情摘要」从「对话与策略」移出，与「AI 记得多久」这一意图对齐；
+    - 导航深度显著下降：重构前最深达 6 层（设置 → AI服务 → 高级模式 → 模型列表 → 模型编辑 → 专属采样），现设置主页入口全部直达，常规路径 2~3 层；
+    - 入口行重新设计：改用**裸图标**（去掉 38×38 色块，同屏多个不再显得吵）；副标题**强制单行**（`maxLines: 1` + 省略号），用代码约束文案长度、顺带压矮行高；内边距收紧；
+    - 全部 12 条副标题重写为「一句话说清能解决什么问题」，砍掉 `Base URL`、`API Key`、`Seed`、`Token`、`ZIP`、`JSON`、`正则` 等对普通用户零信息量的黑话；
+    - 新增**滚动位置保持**：从子页返回时停在原滚动位置，不再跳回顶部；
+    - 页面总数 49 → 45（净删 4 个文件），新增 `test/settings_structure_test.dart` 8 项结构约束测试防止跳板页回潮。
 
 - 角色卡 / 世界 / 身份支持导出到文件与从文件导入：
     - 导出与导入均新增单选询问：「复制到剪贴板 / 导出为文件」与「从剪贴板导入 / 从文件导入」，原有剪贴板通道完整保留；
