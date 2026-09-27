@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:dna/widgets/fit_text.dart';
@@ -80,7 +82,7 @@ class _LicensePageState extends State<LicensePage> {
       padding: const EdgeInsets.all(16),
       child: SelectableText(
         text,
-        style: const TextStyle(fontSize: 12, height: 1.5),
+        style: const TextStyle(fontSize: AppFontSize.caption, height: 1.5),
       ),
     );
   }

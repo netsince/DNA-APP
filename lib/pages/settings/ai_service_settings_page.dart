@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/api_guard.dart';
@@ -161,7 +163,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     const FitText(
                       '切换当前生效模型',
                       style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     TextButton(
@@ -206,7 +208,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                       ),
                       subtitle: Text(
                         '${provider.alias} • ${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: AppFontSize.caption),
                       ),
                       onTap: () {
                         widget.controller.setActiveModel(m.id);
@@ -261,7 +263,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     isSimple
                         ? '已开启：仅操作默认模型与服务商，界面清爽聚焦'
                         : '已关闭：开启多服务商与多模型预设列表管理',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
                   ),
                   value: isSimple,
                   onChanged: (bool value) async {
@@ -670,7 +672,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                             Text(
                               '当前生效模型',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: AppFontSize.caption,
                                 fontWeight: FontWeight.bold,
                                 color: cs.primary,
                               ),
@@ -697,7 +699,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                         Text(
                           '模型: ${activeModel.modelName.isEmpty ? "未指定模型 ID" : activeModel.modelName} • 服务商: ${activeProvider.alias} (${activeProvider.providerType})',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: AppFontSize.caption,
                             color: cs.onSurfaceVariant,
                           ),
                         ),
@@ -732,7 +734,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     subtitle: Text(
                       '已配置 ${widget.controller.settings.providers.length} 个服务商（支持 OpenAI / Anthropic / DeepSeek / 智谱等）',
                       style:
-                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
@@ -772,7 +774,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
                     subtitle: Text(
                       '已配置 ${widget.controller.settings.models.length} 个模型预设（支持专属采样参数与深度思考设定）',
                       style:
-                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {

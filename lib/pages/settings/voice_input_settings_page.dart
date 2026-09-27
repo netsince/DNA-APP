@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../models/voice_models.dart';
 import '../../services/sherpa_model_service.dart';
 import '../../state/app_controller.dart';
@@ -114,7 +116,7 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
                     title: const FitText('启用语音输入'),
                     subtitle: _readyForCurrent
                         ? const FitText('模型已就绪，随时可用')
-                        : const FitText('需先下载下方识别模型后方可启用', style: TextStyle(fontSize: 12)),
+                        : const FitText('需先下载下方识别模型后方可启用', style: TextStyle(fontSize: AppFontSize.caption)),
                     value: _readyForCurrent && s.voiceInputEnabled,
                     onChanged: _readyForCurrent
                         ? (bool v) => widget.controller.saveVoiceInputEnabled(v)

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../models/quick_reply.dart';
@@ -323,7 +325,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       onPressed: _insertParens,
       icon: const Text(
         '（）',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -822,7 +824,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     FitText(
                       qr.label.isEmpty ? '回复' : qr.label,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppFontSize.caption,
                         fontWeight: FontWeight.w500,
                         color: cs.onSurface,
                       ),

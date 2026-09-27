@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/models/llm_model_config.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
@@ -142,7 +144,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                       const FitText(
                         '选择模型',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: AppFontSize.subtitle, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       TextButton(
@@ -476,7 +478,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
                         subtitle: Text(
                           '温度: ${(_temperature ?? 0.7).toStringAsFixed(2)} • 核采样: ${(_topP ?? 1.0).toStringAsFixed(2)}',
                           style: TextStyle(
-                              fontSize: 12, color: cs.onSurfaceVariant),
+                              fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
                         ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: _openSamplerSettings,

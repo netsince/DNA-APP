@@ -197,7 +197,7 @@ class SettingHint extends StatelessWidget {
             const SizedBox(width: AppSpacing.xs),
           ],
           Expanded(
-            child: FitText(text, style: TextStyle(color: effective, fontSize: 12)),
+            child: FitText(text, style: TextStyle(color: effective, fontSize: AppFontSize.caption)),
           ),
         ],
       ),

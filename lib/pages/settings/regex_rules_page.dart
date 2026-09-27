@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/message_processor.dart';
@@ -91,7 +93,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                 alignment: Alignment.centerLeft,
                 child: FitText(
                   '规则将按顺序依次应用于消息文本，语法错误的非法正则会被自动跳过。',
-                  style: TextStyle(fontSize: 12),
+                  style: TextStyle(fontSize: AppFontSize.caption),
                 ),
               ),
             ],
@@ -229,7 +231,7 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
                       backgroundColor: cs.primaryContainer,
                       child: FitText(
                         '${index + 1}',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
+                        style: TextStyle(fontSize: AppFontSize.caption, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
                       ),
                     ),
                     title: FitText(

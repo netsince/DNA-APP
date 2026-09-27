@@ -269,7 +269,7 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
                     title: const FitText('启用端侧语音合成'),
                     subtitle: _ready
                         ? const FitText('模型已就绪，随时可点击播放')
-                        : const FitText('请先下载下方语音模型后方可开启', style: TextStyle(fontSize: 12)),
+                        : const FitText('请先下载下方语音模型后方可开启', style: TextStyle(fontSize: AppFontSize.caption)),
                     value: _ready && enabled,
                     onChanged: _ready
                         ? (bool v) => widget.controller.saveTtsEnabled(v)

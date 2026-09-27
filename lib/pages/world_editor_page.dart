@@ -699,7 +699,7 @@ class _WorldEntryCard extends StatelessWidget {
                       Expanded(
                         child: FitText(
                           '关联: $relationTargetName · ${entry.relation!.content}',
-                          style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -733,7 +733,6 @@ class _BadgeChip extends StatelessWidget {
       child: FitText(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          fontSize: 11,
           color: textColor ?? theme.colorScheme.onSurfaceVariant,
         ),
       ),

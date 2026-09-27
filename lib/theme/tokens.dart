@@ -106,6 +106,76 @@ abstract final class AppSpacing {
   static const Widget wLg = SizedBox(width: lg);
 }
 
+/// 字号阶(6 档)。
+///
+/// 此前项目直接沿用 Material 默认 `TextTheme`,导致两处层级断裂:
+/// * 14px 挤了 `bodyMedium` / `titleSmall` / `labelLarge` 三个语义级别;
+/// * 16px 挤了 `bodyLarge` / `titleMedium`,且 16 → 22 之间断层 6px。
+///
+/// 这里重新定义 6 档,中间补上 20px 一档,消除断层。
+abstract final class AppFontSize {
+  /// 11 —— 极小标注:时间戳、角标、图片槽注释。
+  ///
+  /// 仅用于「看一眼就够」的辅助信息,正文与说明文字**禁止**使用。
+  static const double tiny = 11;
+
+  /// 12 —— 说明文字:卡片副标题、设置项描述。
+  static const double caption = 12;
+
+  /// 14 —— 正文(默认):输入框、列表主文字、消息正文。
+  static const double body = 14;
+
+  /// 16 —— 小标题:卡片分区标题、对话框标题。
+  static const double subtitle = 16;
+
+  /// 20 —— 页面标题:全屏页大标题、OOBE 步骤标题。
+  static const double title = 20;
+
+  /// 24 —— 大标题:启动页、空状态主文案。
+  static const double headline = 24;
+}
+
+/// 语义化文字样式。
+///
+/// 业务代码优先使用这里的具名样式,而非直接引用 `textTheme.xxx`,
+/// 避免「同一个视觉层级在不同页面用到不同 textTheme 级别」。
+///
+/// 用法:`AppTextStyles.sectionTitle(theme)`。
+abstract final class AppTextStyles {
+  /// 卡片分区标题(如「TA形象」「人设栏目」)。16px / w600。
+  static TextStyle sectionTitle(ThemeData t) =>
+      t.textTheme.titleMedium!.copyWith(
+        fontSize: AppFontSize.subtitle,
+        fontWeight: FontWeight.w600,
+      );
+
+  /// 页面主标题(全屏编辑页、OOBE 步骤)。20px / w600。
+  static TextStyle pageTitle(ThemeData t) =>
+      t.textTheme.headlineSmall!.copyWith(
+        fontSize: AppFontSize.title,
+        fontWeight: FontWeight.w600,
+      );
+
+  /// 大标题(启动页、空状态)。24px / w600。
+  static TextStyle headline(ThemeData t) =>
+      t.textTheme.headlineSmall!.copyWith(
+        fontSize: AppFontSize.headline,
+        fontWeight: FontWeight.w600,
+      );
+
+  /// 正文。14px。
+  static TextStyle body(ThemeData t) =>
+      t.textTheme.bodyMedium!.copyWith(fontSize: AppFontSize.body);
+
+  /// 说明文字(卡片副标题、设置项描述)。12px。
+  static TextStyle caption(ThemeData t) =>
+      t.textTheme.bodySmall!.copyWith(fontSize: AppFontSize.caption);
+
+  /// 极小标注(时间戳、角标)。11px。
+  static TextStyle tiny(ThemeData t) =>
+      t.textTheme.labelSmall!.copyWith(fontSize: AppFontSize.tiny);
+}
+
 /// 页面级内边距令牌。
 ///
 /// 现状 4 种 `EdgeInsets` 写法混用,收敛为 3 种。
@@ -119,10 +189,12 @@ abstract final class AppInsets {
   /// 卡片内容内边距(all 16)。
   static const EdgeInsets card = EdgeInsets.all(AppSpacing.lg);
 
-  /// 列表项内边距(h16 / v8)。
+  /// 列表项内边距(h16,垂直交给 [ListTile] 自适应)。
+  ///
+  /// 垂直方向刻意保持 0:让 `ListTile` 按 Material 默认密度决定行高
+  /// (单行 56 / 双行 72),避免全局把列表撑得过松。
   static const EdgeInsets tile = EdgeInsets.symmetric(
     horizontal: AppSpacing.lg,
-    vertical: AppSpacing.sm,
   );
 
   /// 分组容器内边距(h16 / v4)。

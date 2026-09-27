@@ -81,9 +81,10 @@ class AppDrawer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                FitText('Duet Nurturing Ally', style: theme.textTheme.titleLarge),
+                FitText('Duet Nurturing Ally',
+                    style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 8),
-                FitText('与汝共奏', style: theme.textTheme.bodyMedium),
+                FitText('与汝共奏', style: theme.textTheme.bodySmall),
               ],
             ),
           ),

@@ -2,6 +2,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -110,7 +112,7 @@ class _AppearanceAppPageState extends State<AppearanceAppPage> {
                               children: <Widget>[
                                 FitText(
                                   _currentIcon.label,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 2),
                                 FitText(

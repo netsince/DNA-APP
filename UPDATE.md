@@ -41,7 +41,9 @@ v0.2.2 制作中。
 - 视觉规范统一（设计系统落地）：
     - 建立全局设计令牌（`lib/theme/tokens.dart`）：把此前散落在各页面的约 1000 处视觉魔数收敛为约 25 个具名常量 —— 圆角 `AppRadius`（8/12/16/20/999，默认 16）、间距 `AppSpacing`（2/4/8/12/16/24，8pt 栅格）、内边距 `AppInsets`、阴影 `AppElevation`、描边 `AppBorder`、透明度 `AppAlpha`、尺寸 `AppSize`、颜色 `AppColors` 与阴影 `AppShadows`；
     - 补齐全局主题子项（此前 `ThemeData` 自定义子主题数为 0）：`cardTheme` / `appBarTheme` / `listTileTheme` / `inputDecorationTheme` / `dividerTheme` / `snackBarTheme` / `dialogTheme` / `bottomSheetTheme` / `popupMenuTheme` 全部统一，业务代码不再手写卡片样式；
-    - 收敛实测魔数：圆角 156 处 13 种值 → 5 种；`SizedBox` 间距 520 处 21 种值 → 6 种；`EdgeInsets` 279 处收敛为 3 种写法；删除 44 处手写卡片样式（改由 `cardTheme` 接管）；清理硬编码 `Color(0xFF...)`（仅保留品牌种子色与启动页底色）；`withOpacity` 全量迁移至 `withValues`（残余 0）；字号 37 处 9 种值 → 3 种（11/12/16）；
+    - 收敛实测魔数：圆角 156 处 13 种值 → 5 种；`SizedBox` 间距 520 处 21 种值 → 6 种；`EdgeInsets` 279 处收敛为 3 种写法；删除 44 处手写卡片样式（改由 `cardTheme` 接管）；清理硬编码 `Color(0xFF...)`（仅保留品牌种子色与启动页底色）；`withOpacity` 全量迁移至 `withValues`（残余 0）；
+    - 重写全局文字层级（修复字号忽大忽小）：此前项目直接沿用 Material 默认 `TextTheme`，导致 ① `titleLarge` 为 22px 却被当成卡片分区小标题使用（「TA形象」「背景音乐」等 25 处），明显过大；② 14px 上挤了 `bodyMedium` / `titleSmall` / `labelLarge` 三个语义级别，16px 上挤了两个，语义完全失效；③ 16 → 22 之间断层 6px，正文到小标题跳跃感强。现定义 `AppFontSize` 六档字号阶（11 / 12 / 14 / 16 / 20 / 24，相邻跨度均 ≤ 4px）重映射 `textTheme`，并新增 `AppTextStyles` 语义化快捷样式；37 处硬编码 `fontSize` 全部令牌化（残余 0）；
+    - 修复列表项间距过于松散：此前全局 `listTileTheme` 把 `minVerticalPadding` 设为 8（Material 默认 4）、`contentPadding` 垂直设为 8（默认 0），使侧边栏等所有列表行高被撑大、观感松散；现恢复 Material 默认密度（`AppInsets.tile` 垂直归零，行高交还 `ListTile` 自适应）；
     - 新增设置组件族（`lib/widgets/setting_section.dart`）：`SettingSection` / `SettingSwitch` / `SettingTile` / `SettingHint`，固化「图标+标题 → 说明 → 设置项」视觉语序；新增空状态组件 `AppEmptyState`（`lib/widgets/app_empty_state.dart`）；
     - 降低心智负担：`bgm_settings_page` 并入 `tts_settings_page`（设置入口从 3 个减为 2 个，页面总数 50 → 49）；采样参数页 8 个滑块改为默认折叠，只露标题与引导，需要时再展开；
     - 无品牌字体，字体保持系统默认（不注册 `fontFamily`）；

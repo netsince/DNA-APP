@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -175,7 +177,7 @@ class ProviderListPage extends StatelessWidget {
                                               child: Text(
                                                 '默认项',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: AppFontSize.tiny,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       cs.onSecondaryContainer,
@@ -189,7 +191,7 @@ class ProviderListPage extends StatelessWidget {
                                       Text(
                                         '协议: ${registered.label}',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: AppFontSize.caption,
                                           color: cs.onSurfaceVariant,
                                         ),
                                       ),

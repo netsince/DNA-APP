@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
@@ -150,7 +152,7 @@ class _IconCard extends StatelessWidget {
                   FitText(
                     option.label,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: AppFontSize.subtitle,
                       fontWeight: FontWeight.w600,
                       color: enabled ? null : cs.outline,
                     ),
@@ -166,7 +168,7 @@ class _IconCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: FitText(
                     '当前平台不支持切换',
-                    style: TextStyle(fontSize: 12, color: cs.outline),
+                    style: TextStyle(fontSize: AppFontSize.caption, color: cs.outline),
                   ),
                 ),
             ],

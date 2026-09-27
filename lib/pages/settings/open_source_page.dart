@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/services/tts/tts_service.dart';
@@ -406,7 +408,7 @@ class _OssTile extends StatelessWidget {
                         child: FitText(
                           item.license,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: AppFontSize.tiny,
                             color: enabled ? cs.onSecondaryContainer : cs.outline,
                           ),
                         ),

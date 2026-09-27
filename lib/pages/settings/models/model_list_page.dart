@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/models/llm_model_config.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
@@ -180,7 +182,7 @@ class ModelListPage extends StatelessWidget {
                                               child: Text(
                                                 '默认项',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: AppFontSize.tiny,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       cs.onSecondaryContainer,
@@ -204,7 +206,7 @@ class ModelListPage extends StatelessWidget {
                                               child: Text(
                                                 '当前生效',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: AppFontSize.tiny,
                                                   fontWeight: FontWeight.bold,
                                                   color: cs.onPrimary,
                                                 ),
@@ -217,7 +219,7 @@ class ModelListPage extends StatelessWidget {
                                       Text(
                                         '服务商: ${provider.alias} • ${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: AppFontSize.caption,
                                           color: cs.onSurfaceVariant,
                                         ),
                                       ),
@@ -270,7 +272,7 @@ class ModelListPage extends StatelessWidget {
                                     Text(
                                       '专属采样参数已启用 (温度: ${(m.temperature ?? 0.7).toStringAsFixed(2)})',
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: AppFontSize.tiny,
                                         color: cs.onTertiaryContainer,
                                       ),
                                     ),

@@ -242,22 +242,61 @@ L6  模型专属采样                  model_sampler_settings
 
 ## 3. 排版规范
 
-**现状 37 处硬编码 `fontSize`(9 种值)+ 与 `textTheme` 混用。**
+**已落地**:37 处硬编码 `fontSize` 全部收敛为 `AppFontSize` 令牌(残余 0),并重写 `textTheme` 完成语义重映射。
 
-| 层级 | 令牌 | 字号/字重 | 用途 |
+### 3.1 字号阶(`AppFontSize`,6 档)
+
+| 档位 | 令牌 | 字号 | 用途 |
 |---|---|---|---|
-| 页面标题 | `titleLarge` | 20 / w600 | AppBar 标题 |
-| 卡片标题 | `titleMedium` | 16 / **w700** | 卡片区块主标题 |
-| 列表主文本 | `bodyLarge` | 16 / w400 | ListTile title |
-| 正文 | `bodyMedium` | 14 / w400 | 消息气泡正文 |
-| 说明文字 | `bodySmall` + `onSurfaceVariant` | 12 / w400 | 副标题、提示 |
-| 标签 / 徽章 | `labelSmall` | 11 / w600 | `BetaTag`、状态标签 |
+| 1 | `AppFontSize.tiny` | **11** | 极小标注:时间戳、角标、图片槽注释 |
+| 2 | `AppFontSize.caption` | **12** | 说明文字:卡片副标题、设置项描述 |
+| 3 | `AppFontSize.body` | **14** | 正文(默认):输入框、列表主文字、消息正文 |
+| 4 | `AppFontSize.subtitle` | **16** | 小标题:卡片分区标题、对话框标题 |
+| 5 | `AppFontSize.title` | **20** | 页面标题:全屏页大标题、OOBE 步骤标题 |
+| 6 | `AppFontSize.headline` | **24** | 大标题:启动页、空状态主文案 |
+
+**为什么是这 6 档**:修复了原 Material 默认字号的两个层级缺陷 ——
+① 14px 上挤了 `bodyMedium` / `titleSmall` / `labelLarge` 三个语义级别,16px 上挤了 `bodyLarge` / `titleMedium` 两个;
+② 16 → 22 之间**断层 6px**,导致正文到小标题跳跃感强("不协调"的观感来源)。
+现在补齐 20px 一档,相邻跨度均 ≤ 4px。
+
+### 3.2 `textTheme` 重映射表
+
+项目**不再直接沿用 Material 默认字号**,`ThemeData.textTheme` 在 `main.dart` 中按上表重映射:
+
+| 槽位 | 字号 | 字重 | 用途 |
+|---|---|---|---|
+| `headlineMedium` | 24 | w600 | 大标题 |
+| `headlineSmall` | 20 | w600 | 页面标题(侧边栏品牌名、OOBE) |
+| `titleLarge` | **16** | w600 | 卡片分区标题(原为 22,是"字号过大"主因) |
+| `titleMedium` | 16 | w600 | 对话框 / 列表标题 |
+| `titleSmall` | 14 | w600 | 强调正文 |
+| `bodyLarge` | 16 | w400 | 大号正文(输入框) |
+| `bodyMedium` | 14 | w400 | 正文(默认) |
+| `bodySmall` | 12 | w400 | 说明文字 |
+| `labelLarge` | 14 | w500 | 按钮文字 |
+| `labelMedium` | 12 | w500 | 次要标签 |
+| `labelSmall` | 11 | w500 | 极小标注 |
+
+### 3.3 语义化样式快捷方式(`AppTextStyles`)
+
+业务代码优先使用具名样式,避免"同一视觉层级在不同页面用到不同 `textTheme` 级别":
+
+```dart
+AppTextStyles.sectionTitle(theme)  // 卡片分区标题 16/w600
+AppTextStyles.pageTitle(theme)     // 页面标题 20/w600
+AppTextStyles.headline(theme)      // 大标题 24/w600
+AppTextStyles.body(theme)          // 正文 14
+AppTextStyles.caption(theme)       // 说明文字 12
+AppTextStyles.tiny(theme)          // 极小标注 11
+```
 
 **规则**
-1. **禁止 `fontSize:` 硬编码**,全部走 `textTheme` + `copyWith(fontWeight:)`。
-2. 正文行高统一 `height: 1.45`(消息气泡已在用)。
-3. **字体**:规范要求显式声明 `fontFamily`,不再依赖系统默认(当前唯一的"完全未定制"项)。
-4. 所有文本**一律使用 `FitText`**(现状已执行,需保持),传入 `contrastBackground` 以自动适配对比度。
+1. **禁止 `fontSize:` 硬编码**(当前残余 **0**),一律使用 `AppFontSize` 令牌或 `textTheme`。
+2. `AppFontSize.tiny`(11px)**仅用于**"看一眼就够"的辅助信息,正文与说明文字禁止使用。
+3. 正文行高统一 `height: 1.45`(消息气泡已在用)。
+4. **字体**:本项目**不引入品牌字体**,保持系统默认(不注册 `fontFamily`)。
+5. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
 
 ---
 
@@ -403,13 +442,19 @@ L6  模型专属采样                  model_sampler_settings
 |---|---|
 | 卡片间距 | `AppSpacing.lg` (16) |
 | 模块间距 | `AppSpacing.xl` (24) |
-| 列表项高度 | 单行 56 / 双行 72 |
+| 列表项高度 | 单行 56 / 双行 72(Material 默认密度,**不额外加垂直内边距**) |
+| 列表项内边距 | `AppInsets.tile` = `EdgeInsets.symmetric(horizontal: 16)`,垂直为 **0** |
 | 图标尺寸 | 行内 16 / 卡片头 20 / 空状态 48 |
 | 触摸目标 | ≥ 48×48 |
 | 输入栏 | 浮岛式,圆角 `AppRadius.pill`(28),半透明背景 |
 | 危险操作 | 必须走 `delete_confirm_page`(输入名称 + 5 秒滚动反悔) |
 | 操作反馈 | 统一 `showSnack` / `showConfirmDialog` |
 | 动画 | 页面转场由 `pageTransitionsTheme` 统一(Android 预测式返回 / iOS·macOS Cupertino) |
+
+> **密度踩坑记录**:曾把 `listTileTheme.minVerticalPadding` 设为 8(默认 4)、
+> `contentPadding` 垂直设为 8(默认 0),导致侧边栏等所有列表项行高被撑大、
+> 明显过于松散。现已恢复 Material 默认密度 —— **全局列表密度不要额外"加大",
+> 需要更紧凑时用 `dense: true`,需要更宽松时**只**在单个页面局部调整。**
 
 ### 7.1 信息密度规范(直接关系"心智负担")
 
@@ -448,7 +493,8 @@ L6  模型专属采样                  model_sampler_settings
 卡片:  elevation 0 + 圆角16 + 描边 outlineVariant@0.5 + padding 16 + margin bottom 16
 图标:  行内16 / 卡片头20 / 空状态48
 尺寸:  触摸≥48 / 聊天区≤520 / 设置页≤900 / 侧栏260
-字号:  titleLarge20 / titleMedium16w700 / bodyLarge16 / bodyMedium14 / bodySmall12 / labelSmall11
+字号:  tiny11 / caption12 / body14 / subtitle16 / title20 / headline24
+       (textTheme 槽位:titleLarge16 / bodyMedium14 / bodySmall12 / labelSmall11)
 颜色:  只用 ColorScheme,禁止 Color(0xFF...)
 文字:  一律 FitText;副标题 bodySmall + onSurfaceVariant
 弹窗:  只用 showConfirmDialog / showTextInputDialog / showInfoDialog
@@ -466,7 +512,7 @@ L6  模型专属采样                  model_sampler_settings
 | 间距(width) | 117 | 7 | 6 | 同上 |
 | 内边距 | 279 | 4 种写法 | 3 | ListView 统一 h16/v16;卡片统一 all(16) |
 | 卡片样式 | 235 | 手写 | 0(主题) | 全部进 `cardTheme` |
-| 字号 | 37 | 9 | 6 | 全部改用 `textTheme` |
+| 字号 | 37 | 9 | 6 | 全部改用 `AppFontSize` 令牌 + `textTheme` 重映射 |
 | 颜色 | 10 | 8 | 2(保留) | 其余映射到 ColorScheme |
 | **合计** | **≈1,086** | — | **≈25** | — |
 
@@ -478,7 +524,7 @@ L6  模型专属采样                  model_sampler_settings
 | **P0** | `main.dart` 的 `ThemeData` 补 `cardTheme` + `appBarTheme` + `listTileTheme` + `inputDecorationTheme` + `dividerTheme` + `snackBarTheme` | **235** | 无 | 无 |
 | **P1** | 批量替换硬编码圆角 / 间距 / 内边距为令牌 | **799** | 低 | 无 |
 | **P1** | 清理硬编码颜色 + 迁移 `withOpacity` → `withValues` | **31** | 低 | 无 |
-| **P2** | 注册 `fontFamily` + 统一 `textTheme`,移除硬编码 `fontSize` | **37** | 低 | 无 |
+| **P2** | 重写 `textTheme`(6 档字号阶)+ `AppFontSize` 令牌,移除硬编码 `fontSize` | **37** | 低 | 无 |
 | **P2** | 新建 `SettingSection` 组件族,重构 30 个设置页 | — | 中 | 无 |
 | **P2** | 新建 `AppEmptyState`,替换各页手写空状态 | — | 低 | 无 |
 | **P3** | 导航重构:底栏与抽屉去重;`bgm_settings` 并入 `tts_settings` | — | 中 | 轻微 |

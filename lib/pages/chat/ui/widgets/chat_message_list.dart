@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../../../models/conversation.dart';
 import '../../../../services/tts/tts_player.dart';
 import '../../../../services/tts/tts_service.dart';
@@ -704,7 +706,7 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
       return Text(
         _status.replaceAll('%', ''),
         style: TextStyle(
-          fontSize: 11,
+          fontSize: AppFontSize.tiny,
           height: 1,
           fontWeight: FontWeight.w600,
           color: fg,

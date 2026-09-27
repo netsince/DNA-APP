@@ -95,9 +95,8 @@ class ImageSlot extends StatelessWidget {
             const SizedBox(height: 2),
             FitText(
               subtitle,
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.outline,
-                fontSize: 11,
               ),
               textAlign: TextAlign.center,
             ),

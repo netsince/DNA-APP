@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
@@ -313,7 +315,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                               child: FitText(
                                 _testMessage!,
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: AppFontSize.caption,
                                   color: (_testSuccess ?? false)
                                       ? cs.onPrimaryContainer
                                       : cs.onErrorContainer,

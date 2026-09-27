@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../models/quick_reply.dart';
 import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
@@ -248,7 +250,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                             ),
                             child: FitText(
                               qr.group!,
-                              style: TextStyle(fontSize: 11, color: cs.onSecondaryContainer),
+                              style: TextStyle(fontSize: AppFontSize.tiny, color: cs.onSecondaryContainer),
                             ),
                           ),
                         ],

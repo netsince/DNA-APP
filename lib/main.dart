@@ -164,6 +164,10 @@ class _DnaAppState extends State<DnaApp> {
   /// 卡片圆角/描边/间距,避免同类元素在不同页面长得不一样。
   /// 注意:本项目无品牌字体,字体保持系统默认(不注册 fontFamily)。
   static ThemeData _buildTheme(ColorScheme cs) {
+    final ThemeData base = ThemeData(
+      colorScheme: cs,
+      useMaterial3: true,
+    );
     return ThemeData(
       colorScheme: cs,
       useMaterial3: true,
@@ -192,12 +196,10 @@ class _DnaAppState extends State<DnaApp> {
         foregroundColor: cs.onSurface,
       ),
 
-      // 列表项:统一圆角与图标间距。
+      // 列表项:保持 Material 默认密度(此前 minVerticalPadding 被设为 8、
+      // contentPadding 垂直设为 8,导致侧边栏等列表项间距翻倍、过于松散)。
       listTileTheme: const ListTileThemeData(
         contentPadding: AppInsets.tile,
-        iconColor: null,
-        horizontalTitleGap: AppSpacing.sm,
-        minVerticalPadding: AppSpacing.sm,
       ),
 
       // 输入框:统一圆角与内边距,使用描边风格而非填充。
@@ -257,6 +259,64 @@ class _DnaAppState extends State<DnaApp> {
       popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(borderRadius: AppRadius.smAll),
       ),
+
+      // 文字层级:把 Material 默认字号重映射到项目自己的 6 档字号阶。
+      //
+      // 默认 M3 的问题:titleLarge=22 被当成卡片小标题用(实际应为 16),
+      // 而 14px 上挤了 3 个级别、16→22 之间断层 6px。这里按 AppFontSize
+      // 重新映射,保证语义与视觉一一对应(参见 DESIGN_SPEC.md 字号章节)。
+      textTheme: _buildTextTheme(base.textTheme),
+    );
+  }
+
+  /// 按 [AppFontSize] 六档重映射 Material `TextTheme`。
+  ///
+  /// | 槽位          | 字号 | 用途                       |
+  /// |---------------|------|----------------------------|
+  /// | `headlineMedium` | 24 | 大标题(启动页、空状态)     |
+  /// | `headlineSmall`  | 20 | 页面标题(全屏页、OOBE)     |
+  /// | `titleLarge`     | 16 | 小标题(卡片分区)           |
+  /// | `titleMedium`    | 16 | 小标题(对话框/列表)        |
+  /// | `titleSmall`     | 14 | 强调正文                   |
+  /// | `bodyLarge`      | 16 | 大号正文(输入框)           |
+  /// | `bodyMedium`     | 14 | 正文(默认)                 |
+  /// | `bodySmall`      | 12 | 说明文字                   |
+  /// | `labelLarge`     | 14 | 按钮文字                   |
+  /// | `labelMedium`    | 12 | 次要标签                   |
+  /// | `labelSmall`     | 11 | 极小标注(时间戳、角标)     |
+  static TextTheme _buildTextTheme(TextTheme base) {
+    return base.copyWith(
+      // 大标题 24
+      headlineMedium: base.headlineMedium?.copyWith(
+        fontSize: AppFontSize.headline,
+        fontWeight: FontWeight.w600,
+      ),
+      // 页面标题 20
+      headlineSmall: base.headlineSmall?.copyWith(
+        fontSize: AppFontSize.title,
+        fontWeight: FontWeight.w600,
+      ),
+      // 小标题 16(此前为 22,是"字号过大"的主因)
+      titleLarge: base.titleLarge?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        fontWeight: FontWeight.w600,
+      ),
+      titleMedium: base.titleMedium?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        fontWeight: FontWeight.w600,
+      ),
+      titleSmall: base.titleSmall?.copyWith(
+        fontSize: AppFontSize.body,
+        fontWeight: FontWeight.w600,
+      ),
+      // 正文
+      bodyLarge: base.bodyLarge?.copyWith(fontSize: AppFontSize.subtitle),
+      bodyMedium: base.bodyMedium?.copyWith(fontSize: AppFontSize.body),
+      bodySmall: base.bodySmall?.copyWith(fontSize: AppFontSize.caption),
+      // 标签
+      labelLarge: base.labelLarge?.copyWith(fontSize: AppFontSize.body),
+      labelMedium: base.labelMedium?.copyWith(fontSize: AppFontSize.caption),
+      labelSmall: base.labelSmall?.copyWith(fontSize: AppFontSize.tiny),
     );
   }
 }
@@ -323,7 +383,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                   const Expanded(
                     child: FitText(
                       '欢迎使用网页版（预览版）',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -485,7 +545,7 @@ class _WebNoticeItem extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               FitText(detail,
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant)),
             ],
           ),
         ),
