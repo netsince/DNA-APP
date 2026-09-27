@@ -315,7 +315,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                   padding: const EdgeInsets.only(left: AppSpacing.md),
                   child: SettingSwitch(
                     title: '滚动时自动全半屏',
-                    subtitle: '往上翻历史时展开全屏，滚回底部时收成半屏。',
+                    subtitle: '翻历史时展开，滚回底部时收成半屏。',
                     value: _dynamicHalfScreen,
                     onChanged: (bool v) async {
                       setState(() => _dynamicHalfScreen = v);
@@ -330,7 +330,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
           SettingSection(
             title: '气泡快捷按钮',
             icon: Icons.touch_app_outlined,
-            description: '显示在消息气泡上的快捷操作。关掉后仍可长按消息使用。',
+            description: '关掉后仍可长按消息使用。',
             children: <Widget>[
               SettingSwitch(
                 title: '角色头像',
@@ -386,7 +386,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
               ),
               SettingSwitch(
                 title: '底部导航栏',
-                subtitle: '在屏幕底部常驻主页/群聊/我家/世界，方便单手切换。',
+                subtitle: '底部常驻四个主页面，方便单手切换。',
                 value: _showBottomNav,
                 onChanged: (bool v) {
                   setState(() => _showBottomNav = v);

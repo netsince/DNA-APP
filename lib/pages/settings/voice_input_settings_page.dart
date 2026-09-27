@@ -9,8 +9,15 @@ import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_section.dart';
 
-/// 语音输入设置：选择模型、选择下载源、下载/删除离线模型。
+/// 语音输入设置：选择识别模型、选择下载源、下载/删除离线模型。
+///
+/// **本次重构**（见 `SETTINGS_AUDIT.md`）：
+/// * 原「3 张卡装 3 个设置项」→ **2 张卡**：
+///   模型规格并入「离线语音识别」卡，不再单独成卡；
+/// * 3 处手写 `Card > Padding > Column` 样板 → `SettingSection`；
+/// * 卡片说明压到一行以内，超长提示（33 字）改写并下沉为条目说明。
 class VoiceInputSettingsPage extends StatefulWidget {
   const VoiceInputSettingsPage({required this.controller, super.key});
 
@@ -87,197 +94,162 @@ class _VoiceInputSettingsPageState extends State<VoiceInputSettingsPage> {
     return Scaffold(
       appBar: AppBar(title: const FitText('语音输入')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 1. 离线语音识别模型选择 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.mic_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('离线语音识别', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                      const SizedBox(width: 8),
-                      const BetaTag(),
+          // ===== 1. 离线语音识别（开关 + 模型规格合并为一张卡） =====
+          SettingSection(
+            icon: Icons.mic_outlined,
+            title: '离线语音识别',
+            description: '本机把说的话转成文字，不联网。',
+            trailing: const BetaTag(),
+            children: <Widget>[
+              SettingSwitch(
+                title: '启用语音输入',
+                subtitle:
+                    _readyForCurrent ? '模型已就绪，随时可用。' : '需先下载下方的识别模型。',
+                value: _readyForCurrent && s.voiceInputEnabled,
+                onChanged: _readyForCurrent
+                    ? (bool v) => widget.controller.saveVoiceInputEnabled(v)
+                    : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: '识别模型规格',
+                  ),
+                  child: DropdownButton<VoiceModelOption>(
+                    value: _model,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items: kVoiceModelOptions
+                        .map((VoiceModelOption m) => DropdownMenuItem<VoiceModelOption>(
+                              value: m,
+                              child: FitText(m.label),
+                            ))
+                        .toList(),
+                    onChanged: _downloading
+                        ? null
+                        : (VoiceModelOption? v) {
+                            if (v != null) {
+                              widget.controller.saveSelectedVoiceModel(v.id);
+                              setState(() {});
+                            }
+                          },
+                  ),
+                ),
+              ),
+              SettingHint(_model.description, icon: Icons.info_outline),
+            ],
+          ),
+
+          // ===== 2. 模型下载与管理（下载源并入本卡） =====
+          SettingSection(
+            icon: Icons.download_for_offline_outlined,
+            title: '模型下载与管理',
+            description: '下载一次即可离线使用。',
+            children: <Widget>[
+              if (_downloading) ...<Widget>[
+                LinearProgressIndicator(value: _progress),
+                AppSpacing.hSm,
+                FitText(
+                  _status,
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.primary),
+                ),
+                AppSpacing.hMd,
+              ],
+              if (_readyForCurrent) ...<Widget>[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.check_circle, color: cs.primary),
+                  title: const FitText('模型已就绪（可离线使用）'),
+                  subtitle: FitText('当前模型：${_model.label}'),
+                ),
+                AppSpacing.hSm,
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _downloading ? null : _download,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const FitText('重新下载'),
+                      ),
+                    ),
+                    AppSpacing.wMd,
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _downloading ? null : _delete,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const FitText('删除模型'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...<Widget>[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _downloading ? null : _download,
+                    icon: const Icon(Icons.download),
+                    label: FitText(_downloading ? '下载中…' : '下载离线语音模型'),
+                  ),
+                ),
+              ],
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: RadioGroup<String>(
+                  groupValue: s.sherpaModelSource,
+                  onChanged: (String? v) {
+                    if (_downloading || v == null) return;
+                    widget.controller.saveSherpaModelSource(v);
+                    setState(() {});
+                  },
+                  child: Column(
+                    children: const <Widget>[
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: FitText('自动选择（推荐）'),
+                        subtitle: FitText('国内走镜像源，海外走官方源'),
+                        value: 'auto',
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: FitText('国内镜像源'),
+                        subtitle: FitText('国内高速节点，无需代理直连'),
+                        value: 'modelscope',
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: FitText('海外官方源'),
+                        subtitle: FitText('官方发布仓库，需海外网络'),
+                        value: 'github',
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: FitText('自定义服务器源'),
+                        subtitle: FitText('使用自行搭建的模型存储服务'),
+                        value: 'custom',
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '模型下载后完全在本地设备离线运行，点击聊天输入栏麦克风即可语音转文字。',
-                    style: theme.textTheme.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('启用语音输入'),
-                    subtitle: _readyForCurrent
-                        ? const FitText('模型已就绪，随时可用')
-                        : const FitText('需先下载下方识别模型后方可启用', style: TextStyle(fontSize: AppFontSize.caption)),
-                    value: _readyForCurrent && s.voiceInputEnabled,
-                    onChanged: _readyForCurrent
-                        ? (bool v) => widget.controller.saveVoiceInputEnabled(v)
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  FitText('识别模型规格', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
-                  const SizedBox(height: 8),
-                  InputDecorator(
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                    child: DropdownButton<VoiceModelOption>(
-                      value: _model,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items: kVoiceModelOptions
-                          .map((VoiceModelOption m) => DropdownMenuItem<VoiceModelOption>(
-                                value: m,
-                                child: FitText(m.label),
-                              ))
-                          .toList(),
-                      onChanged: _downloading
-                          ? null
-                          : (VoiceModelOption? v) {
-                              if (v != null) {
-                                widget.controller.saveSelectedVoiceModel(v.id);
-                                setState(() {});
-                              }
-                            },
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(_model.description, style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                ],
+                ),
               ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ===== 2. 模型下载与管理 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('模型管理与状态', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                  const SizedBox(height: 12),
-                  if (_downloading) ...<Widget>[
-                    LinearProgressIndicator(value: _progress),
-                    const SizedBox(height: 8),
-                    FitText(_status, style: theme.textTheme.bodySmall?.copyWith(color: cs.primary)),
-                    const SizedBox(height: 12),
-                  ],
-                  if (_readyForCurrent) ...<Widget>[
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.check_circle, color: Colors.green),
-                      title: const FitText('模型已就绪（可完全离线使用）'),
-                      subtitle: FitText('当前就绪模型：${_model.label}'),
+              if (s.sherpaModelSource == 'custom')
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
+                  child: TextFormField(
+                    initialValue: s.sherpaCustomBaseUrl ?? '',
+                    decoration: const InputDecoration(
+                      labelText: '服务器根地址',
+                      hintText: 'https://your-server/models',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _downloading ? null : _download,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: const FitText('重新下载'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _downloading ? null : _delete,
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const FitText('删除模型'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...<Widget>[
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _downloading ? null : _download,
-                        icon: const Icon(Icons.download),
-                        label: FitText(_downloading ? '下载中…' : '下载离线语音模型'),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ===== 3. 下载来源节点 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('下载网络节点', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                  const SizedBox(height: 4),
-                  FitText('选择下载语音模型时连接的服务器源。', style: theme.textTheme.bodySmall?.copyWith(color: cs.outline)),
-                  const SizedBox(height: 8),
-                  RadioGroup<String>(
-                    groupValue: s.sherpaModelSource,
-                    onChanged: (String? v) {
-                      if (_downloading || v == null) return;
-                      widget.controller.saveSherpaModelSource(v);
-                      setState(() {});
-                    },
-                    child: Column(
-                      children: const <Widget>[
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          title: FitText('自动选择（推荐）'),
-                          subtitle: FitText('国内优先走 ModelScope 镜像，海外自动尝试 GitHub'),
-                          value: 'auto',
-                        ),
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          title: FitText('ModelScope 镜像'),
-                          subtitle: FitText('国内高速节点，无需代理直连'),
-                          value: 'modelscope',
-                        ),
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          title: FitText('GitHub 官方源'),
-                          subtitle: FitText('官方发布仓库，需良好海外网络环境'),
-                          value: 'github',
-                        ),
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          title: FitText('自定义局域网/服务器源'),
-                          subtitle: FitText('使用自行搭建的模型存储服务'),
-                          value: 'custom',
-                        ),
-                      ],
-                    ),
+                    onChanged: (String v) =>
+                        widget.controller.saveSherpaCustomBaseUrl(v.trim()),
                   ),
-                  if (s.sherpaModelSource == 'custom')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: TextFormField(
-                        initialValue: s.sherpaCustomBaseUrl ?? '',
-                        decoration: const InputDecoration(
-                          labelText: '服务器根地址',
-                          hintText: 'https://your-server/models',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (String v) => widget.controller.saveSherpaCustomBaseUrl(v.trim()),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         ],
       ),

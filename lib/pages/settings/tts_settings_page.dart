@@ -10,10 +10,17 @@ import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
+import 'package:dna/widgets/setting_collapsible.dart';
 import 'package:dna/widgets/setting_section.dart';
 import 'tts_cache_page.dart';
 
-/// 端侧语音合成（TTS）设置：开关、台词朗读、全局 seed、模型管理与音频缓存。
+/// 端侧语音合成（TTS）设置：开关、台词朗读、全局音色种子、模型管理与音频缓存。
+///
+/// **本次重构**（见 `SETTINGS_AUDIT.md`）：
+/// * 5 张手写 `Card > Padding > Column` 样板 → 5 个 `SettingSection`；
+/// * 全局音色种子改为**可折叠数值项**，收起态只显示「名称 + 当前值」；
+/// * 卡片说明压到一行以内，模块清单、默认值等参考信息移入条目内说明；
+/// * 「Token」等黑话改为「记忆容量」这类中文说法。
 class TtsSettingsPage extends StatefulWidget {
   const TtsSettingsPage({super.key, required this.controller});
 
@@ -23,8 +30,13 @@ class TtsSettingsPage extends StatefulWidget {
   State<TtsSettingsPage> createState() => _TtsSettingsPageState();
 }
 
+/// 全局音色种子未指定时的兜底值（服务端同样使用 1）。
+const int kDefaultTtsSeed = 1;
+
 class _TtsSettingsPageState extends State<TtsSettingsPage> {
-  late final TextEditingController _seedCtrl;
+  /// 界面数值上限（保持原有 32 位有符号整数上限，功能不变）。
+  static const int _maxSeed = 0x7FFFFFFF;
+
   bool _downloading = false;
   bool _ready = false;
   String _status = '';
@@ -49,14 +61,9 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     return '${bps.toStringAsFixed(0)} B/s';
   }
 
-  static const int _maxSeed = 0x7FFFFFFF;
-
   @override
   void initState() {
     super.initState();
-    _seedCtrl = TextEditingController(
-      text: widget.controller.settings.ttsGlobalSeed?.toString() ?? '',
-    );
     widget.controller.addListener(_onControllerChanged);
     _refresh();
     _refreshCache();
@@ -65,7 +72,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
-    _seedCtrl.dispose();
     super.dispose();
   }
 
@@ -215,12 +221,6 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
     await _refresh();
   }
 
-  void _clearSeed() {
-    _seedCtrl.text = '';
-    widget.controller.saveTtsGlobalSeed(null);
-    setState(() {});
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!PlatformCapabilities.ttsSupported) {
@@ -231,307 +231,365 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
         ),
       );
     }
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
     final bool enabled = widget.controller.settings.ttsEnabled;
-    final bgm = widget.controller.settings;
+    final s = widget.controller.settings;
+    final int? seed = s.ttsGlobalSeed;
 
     return Scaffold(
       appBar: AppBar(title: const FitText('端侧语音合成')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 1. 主控开关与朗读偏好 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.record_voice_over_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('语音朗读功能', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                      const SizedBox(width: 8),
-                      const BetaTag(),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '开启后，AI 消息左上角将展示播放按钮，点击即可朗读。完全在本地离线运行。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('启用端侧语音合成'),
-                    subtitle: _ready
-                        ? const FitText('模型已就绪，随时可点击播放')
-                        : const FitText('请先下载下方语音模型后方可开启', style: TextStyle(fontSize: AppFontSize.caption)),
-                    value: _ready && enabled,
-                    onChanged: _ready
-                        ? (bool v) => widget.controller.saveTtsEnabled(v)
-                        : null,
-                  ),
-                  const SizedBox(height: 4),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('优先朗读引号对话台词'),
-                    subtitle: const FitText('含引号时仅读说话台词，跳过动作与旁白描写（括号内容始终跳过）。'),
-                    value: widget.controller.settings.ttsQuoteOnly,
-                    onChanged: (bool v) => widget.controller.saveTtsQuoteOnly(v),
-                  ),
-                ],
+          // ===== 1. 朗读开关与偏好 =====
+          SettingSection(
+            icon: Icons.record_voice_over_outlined,
+            title: '语音朗读',
+            description: '让 AI 的消息可以朗读出来。',
+            trailing: const BetaTag(),
+            children: <Widget>[
+              SettingSwitch(
+                title: '启用端侧语音合成',
+                subtitle: _ready ? '模型已就绪，随时可朗读。' : '需先下载下方的语音模型。',
+                value: _ready && enabled,
+                onChanged:
+                    _ready ? (bool v) => widget.controller.saveTtsEnabled(v) : null,
               ),
-            ),
+              SettingSwitch(
+                title: '只读引号里的台词',
+                subtitle: '跳过动作与旁白，只念说话内容。',
+                value: s.ttsQuoteOnly,
+                onChanged: (bool v) => widget.controller.saveTtsQuoteOnly(v),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 16),
+          // ===== 2. 全局音色种子 =====
+          SettingSection(
+            icon: Icons.tune,
+            title: '全局音色',
+            description: '角色卡没单独指定嗓音时使用。',
+            children: <Widget>[
+              _SeedSetting(
+                value: seed,
+                maxValue: _maxSeed,
+                onChanged: (int? v) =>
+                    widget.controller.saveTtsGlobalSeed(v),
+              ),
+            ],
+          ),
 
-          // ===== 2. 全局音色 Seed 调节 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.tune, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('全局音色 Seed', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+          // ===== 3. 离线语音模型 =====
+          SettingSection(
+            icon: Icons.download_for_offline_outlined,
+            title: '离线语音模型',
+            description: '下载一次，之后不再联网。',
+            children: <Widget>[
+              SettingHint('模型约 400MB，包含声学与声码模块。'),
+              if (_downloading) ...<Widget>[
+                if (_progress != null) ...<Widget>[
+                  LinearProgressIndicator(value: _progress),
+                  AppSpacing.hSm,
+                ],
+                if (_fileInfo.isNotEmpty)
                   FitText(
-                    '当角色卡未单独指定音色时采用此全局数值。数值不同，生成的嗓音与语气风格不同。留空默认使用 1。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                    _fileInfo,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 12),
-                  SeedInputField(
-                    controller: _seedCtrl,
-                    label: '全局 Seed 整数（最大 $_maxSeed）',
-                    maxValue: _maxSeed,
-                    onChanged: (String raw) {
-                      final int? seed = raw.trim().isEmpty ? null : int.tryParse(raw.trim());
-                      widget.controller.saveTtsGlobalSeed(seed);
-                      setState(() {});
-                    },
-                  ),
-                  if (_seedCtrl.text.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _clearSeed,
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const FitText('清除 Seed（恢复默认 1）'),
-                      ),
+                if (_bytesText.isNotEmpty)
+                  FitText(
+                    _bytesText + (_speedText.isNotEmpty ? ' · $_speedText' : ''),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.primary,
+                      fontWeight: AppWeight.medium,
                     ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ===== 3. 本地声学模型管理 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.download_for_offline_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('离线声学模型', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
                   ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '模型约 400MB（含 GPT/Embed/DVAE/Vocos 模块），首次下载完成后永久离线运行。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                AppSpacing.hMd,
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _cancel,
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: const FitText('取消下载'),
                   ),
-                  const SizedBox(height: 12),
-                  if (_downloading) ...<Widget>[
-                    if (_progress != null) ...<Widget>[
-                      LinearProgressIndicator(value: _progress),
-                      const SizedBox(height: 8),
-                    ],
-                    if (_fileInfo.isNotEmpty)
-                      FitText(_fileInfo, style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                    if (_bytesText.isNotEmpty)
-                      FitText(
-                        _bytesText + (_speedText.isNotEmpty ? ' · $_speedText' : ''),
-                        style: ts.bodySmall?.copyWith(color: cs.primary, fontWeight: AppWeight.medium),
-                      ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
+                ),
+                AppSpacing.hXs,
+              ],
+              if (_ready) ...<Widget>[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.check_circle,
+                    color: cs.primary,
+                  ),
+                  title: const FitText('语音模型已就绪'),
+                  subtitle: FitText(_status),
+                ),
+                AppSpacing.hSm,
+                Row(
+                  children: <Widget>[
+                    Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _cancel,
-                        icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                        label: const FitText('取消下载'),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  if (_ready) ...<Widget>[
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.check_circle, color: Colors.green),
-                      title: const FitText('语音模型已就绪'),
-                      subtitle: FitText(_status),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _downloading ? null : _download,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: const FitText('重新下载'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _downloading ? null : _delete,
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const FitText('删除模型'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...<Widget>[
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
                         onPressed: _downloading ? null : _download,
-                        icon: Icon(_downloading ? Icons.hourglass_top : Icons.download),
-                        label: FitText(_downloading ? '下载中…' : '下载离线语音模型'),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const FitText('重新下载'),
+                      ),
+                    ),
+                    AppSpacing.wMd,
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _downloading ? null : _delete,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const FitText('删除模型'),
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
+                ),
+              ] else ...<Widget>[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _downloading ? null : _download,
+                    icon: Icon(_downloading ? Icons.hourglass_top : Icons.download),
+                    label: FitText(_downloading ? '下载中…' : '下载离线语音模型'),
+                  ),
+                ),
+              ],
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 4. 本地音频缓存管理 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Icon(Icons.cleaning_services_outlined, color: cs.primary, size: 20),
-                          const SizedBox(width: 8),
-                          FitText('语音音频缓存', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                        ],
+          // ===== 4. 语音音频缓存 =====
+          SettingSection(
+            icon: Icons.cleaning_services_outlined,
+            title: '语音音频缓存',
+            description: '听过的台词会存下来，再听不再合成。',
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest
+                      .withValues(alpha: AppAlpha.half),
+                  borderRadius: AppRadius.smAll,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: FitText(
+                        _cacheLoading
+                            ? '正在计算缓存…'
+                            : '已缓存 $_cacheCount 条音频 '
+                                '(${_formatBytes(_cacheBytes)})',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: AppWeight.medium,
+                        ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (_) => const TtsCachePage()),
-                        ),
-                        icon: const Icon(Icons.chevron_right, size: 18),
-                        label: const FitText('详情'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '已合成音频按「台词 + Seed」自动缓存在本地，避免二次播放消耗算力。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        FitText(
-                          _cacheLoading ? '正在计算缓存…' : '已缓存 $_cacheCount 条音频 (${_formatBytes(_cacheBytes)})',
-                          style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _cacheLoading || _cacheCount == 0 ? null : _clearCache,
-                          icon: const Icon(Icons.delete_sweep_outlined, size: 16),
-                          label: const FitText('一键清空'),
-                        ),
-                      ],
+                    AppSpacing.wSm,
+                    FilledButton.tonalIcon(
+                      onPressed: _cacheLoading || _cacheCount == 0
+                          ? null
+                          : _clearCache,
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                      label: const FitText('一键清空'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              SettingTile(
+                icon: Icons.pie_chart_outline,
+                title: '缓存详情',
+                subtitle: '查看占用空间与缓存条目',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const TtsCachePage()),
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 5. 角色背景音乐(原独立设置页,按规范并入本页) =====
+          // ===== 5. 角色背景音乐 =====
           SettingSection(
             icon: Icons.music_note_outlined,
             title: '角色背景音乐',
-            description: '在「TA 编辑」中可为角色绑定一首背景音乐，进入聊天时自动循环播放。'
-                '朗读台词或语音输入时音量会自动调小，结束后恢复。',
+            description: '进入聊天时播放角色的专属配乐。',
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(Icons.volume_down_outlined, color: cs.primary, size: AppSize.iconCard),
-                  Expanded(
-                    child: Slider(
-                      value: bgm.bgmVolume.toDouble().clamp(0, 100),
-                      min: 0,
-                      max: 100,
-                      divisions: 100,
-                      label: '${bgm.bgmVolume}%',
-                      onChanged: (double v) =>
-                          widget.controller.saveBgmVolume(v.round()),
-                    ),
-                  ),
-                  Icon(Icons.volume_up_outlined, color: cs.primary, size: AppSize.iconCard),
-                  SizedBox(
-                    width: 44,
-                    child: FitText(
-                      '${bgm.bgmVolume}%',
-                      textAlign: TextAlign.end,
-                      style: ts.bodyMedium?.copyWith(
-                        fontWeight: AppWeight.medium,
-                        color: cs.primary,
-                      ),
-                    ),
-                  ),
-                ],
+              SettingHint(
+                '在「TA 编辑」里为角色绑定音乐。仅保存在本机，群聊不播放。',
+                icon: Icons.info_outline,
+              ),
+              CollapsibleNumberSetting(
+                title: '背景音乐音量',
+                value: s.bgmVolume.clamp(0, 100),
+                min: 0,
+                max: 100,
+                step: 5,
+                unit: '%',
+                helper: '朗读台词或语音输入时音量会自动调小，结束后恢复。',
+                onChanged: (int v) => widget.controller.saveBgmVolume(v),
               ),
               SettingSwitch(
-                title: '解锁背景音乐大小上限（10MB）',
-                subtitle: '默认限制音乐不超过 10MB；开启后可选择更大的音频文件。',
-                value: bgm.bgmSizeLimitUnlocked,
+                title: '允许超过 10MB 的音乐',
+                subtitle: '开启后可选更大的音频文件。',
+                value: s.bgmSizeLimitUnlocked,
                 onChanged: (bool v) =>
                     widget.controller.saveBgmSizeLimitUnlocked(v),
               ),
-              SettingHint('背景音乐仅保存在本机，不会随角色卡导出或分享。群聊不播放背景音乐。'),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 全局音色种子的可折叠输入项。
+///
+/// **外观**与 [CollapsibleNumberSetting] 保持一致（收起态「名称 + 当前值」），
+/// 但数值范围极大（0 ~ 2147483647），滑块无法逐档选择，因此展开态仍为
+/// 原有的 [SeedInputField]（数字输入 + 随机 + 试听），**功能不变**。
+class _SeedSetting extends StatefulWidget {
+  const _SeedSetting({
+    required this.value,
+    required this.maxValue,
+    required this.onChanged,
+  });
+
+  /// 当前种子；null 表示未指定（实际使用默认值 1）。
+  final int? value;
+
+  final int maxValue;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  State<_SeedSetting> createState() => _SeedSettingState();
+}
+
+class _SeedSettingState extends State<_SeedSetting> {
+  late final TextEditingController _ctrl;
+  bool _expanded = false;
+  bool _adjusting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.value?.toString() ?? '');
+  }
+
+  @override
+  void didUpdateWidget(_SeedSetting oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_adjusting) return;
+    final String next = widget.value?.toString() ?? '';
+    if (next != _ctrl.text) _ctrl.text = next;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  /// 未指定种子时显示默认值。
+  String get _displayValue =>
+      _ctrl.text.trim().isEmpty ? '默认 1' : _ctrl.text.trim();
+
+  void _clear() {
+    _ctrl.text = '';
+    widget.onChanged(null);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        // ===== 收起态：名称 + 当前值 =====
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: AppRadius.xsAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: FitText('音色种子', style: AppTextStyles.body(theme)),
+                ),
+                AppSpacing.wMd,
+                FitText(
+                  _displayValue,
+                  style: AppTextStyles.body(theme).copyWith(
+                    color: cs.primary,
+                    fontWeight: AppWeight.medium,
+                  ),
+                ),
+                AppSpacing.wXs,
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: AppSize.iconInline,
+                  color: cs.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ===== 展开态：原输入控件 + 说明 =====
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 180),
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          firstChild: const SizedBox(width: double.infinity),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              bottom: AppSpacing.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SeedInputField(
+                  controller: _ctrl,
+                  label: '音色种子（0 - ${widget.maxValue}）',
+                  maxValue: widget.maxValue,
+                  onChanged: (String raw) {
+                    final String text = raw.trim();
+                    final int? seed =
+                        text.isEmpty ? null : int.tryParse(text);
+                    _adjusting = true;
+                    widget.onChanged(seed);
+                    _adjusting = false;
+                    setState(() {});
+                  },
+                ),
+                AppSpacing.hSm,
+                FitText(
+                  '种子决定嗓音与语气：数值不同，音色不同；相同种子结果稳定。'
+                  '留空则按默认值 $kDefaultTtsSeed 处理。',
+                  style:
+                      AppTextStyles.caption(theme).copyWith(color: cs.outline),
+                ),
+                if (_ctrl.text.trim().isNotEmpty) ...<Widget>[
+                  AppSpacing.hXs,
+                  TextButton.icon(
+                    onPressed: _clear,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const FitText('清除种子（恢复默认）'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

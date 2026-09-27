@@ -4,10 +4,21 @@ import 'package:flutter/material.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_collapsible.dart';
+import 'package:dna/widgets/setting_section.dart';
 
 /// 高级采样参数设置页。
 ///
 /// 提供常见场景一键预设与专业级参数微调。
+///
+/// **本次重构**(见 `SETTINGS_AUDIT.md`):
+/// * 原来的 `ExpansionTile` 一次展开 3~5 个滑块,粒度太粗 ——
+///   现改为每个参数各自独立折叠([CollapsibleDoubleSetting]),
+///   收起态只显示「参数名 + 当前值」;
+/// * 范围交给滑块边界表达,删掉「默认 0.7」这类描述性文案,
+///   默认值移入展开后的 helper;
+/// * 手写的 `Card > Padding > Column` 样板换成 [SettingSection];
+/// * 两条超长提示(30 字 / 38 字)压到 20 字以内。
 class SamplerSettingsPage extends StatefulWidget {
   const SamplerSettingsPage({super.key, required this.controller});
   final AppController controller;
@@ -123,75 +134,37 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
     await widget.controller.resetAdvancedSampling();
   }
 
-  Widget _buildSlider({
+  /// 场景预设按钮(参数组合与改动前完全一致)。
+  Widget _preset({
+    required IconData icon,
     required String label,
-    required String description,
-    required double value,
-    required double max,
-    required int? divisions,
-    required ValueChanged<double> onChanged,
-    double min = 0.0,
-    int fractionDigits = 2,
+    required double temp,
+    required double freq,
+    required double pres,
+    required double topP,
+    required double topK,
+    required double minP,
+    required double rep,
+    required double slope,
   }) {
-    final cs = Theme.of(context).colorScheme;
-    final ts = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Expanded(
-                child: FitText(
-                  label,
-                  style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: FitText(
-                  value.toStringAsFixed(fractionDigits),
-                  style: ts.labelMedium?.copyWith(
-                    color: cs.onPrimaryContainer,
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          FitText(
-            description,
-            style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-          Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: (v) {
-              onChanged(v);
-              _save();
-            },
-          ),
-        ],
+    return ActionChip(
+      avatar: Icon(icon, size: AppSize.iconInline),
+      label: FitText(label),
+      onPressed: () => _applyPreset(
+        temp: temp,
+        freq: freq,
+        pres: pres,
+        topP: topP,
+        topK: topK,
+        minP: minP,
+        rep: rep,
+        slope: slope,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    final TextTheme ts = theme.textTheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const FitText('采样参数'),
@@ -205,216 +178,192 @@ class _SamplerSettingsPageState extends State<SamplerSettingsPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 场景预设卡片 =====
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.auto_awesome, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText(
-                        '场景预设',
-                        style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '可直接套用典型场景参数，下方滑块会联动更新并支持自由微调。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      ActionChip(
-                        avatar: const Icon(Icons.balance, size: 16),
-                        label: const FitText('标准平衡'),
-                        onPressed: () => _applyPreset(
-                          temp: 0.7,
-                          freq: 0.0,
-                          pres: 0.0,
-                          topP: 1.0,
-                          topK: 0.0,
-                          minP: 0.0,
-                          rep: 1.0,
-                          slope: 0.0,
-                        ),
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.psychology, size: 16),
-                        label: const FitText('天马行空'),
-                        onPressed: () => _applyPreset(
-                          temp: 1.05,
-                          freq: 0.2,
-                          pres: 0.2,
-                          topP: 0.95,
-                          topK: 40.0,
-                          minP: 0.05,
-                          rep: 1.05,
-                          slope: 0.0,
-                        ),
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.menu_book, size: 16),
-                        label: const FitText('长篇叙事'),
-                        onPressed: () => _applyPreset(
-                          temp: 0.85,
-                          freq: 0.1,
-                          pres: 0.15,
-                          topP: 0.9,
-                          topK: 0.0,
-                          minP: 0.0,
-                          rep: 1.05,
-                          slope: 0.0,
-                        ),
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.shield_outlined, size: 16),
-                        label: const FitText('强力防复读'),
-                        onPressed: () => _applyPreset(
-                          temp: 0.7,
-                          freq: 0.6,
-                          pres: 0.4,
-                          topP: 0.95,
-                          topK: 0.0,
-                          minP: 0.0,
-                          rep: 1.15,
-                          slope: 0.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          // ===== 1. 场景预设 =====
+          SettingSection(
+            icon: Icons.auto_awesome_outlined,
+            title: '场景预设',
+            description: '套用典型场景参数，下方会同步更新。',
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: <Widget>[
+                    _preset(
+                      icon: Icons.balance,
+                      label: '标准平衡',
+                      temp: 0.7,
+                      freq: 0.0,
+                      pres: 0.0,
+                      topP: 1.0,
+                      topK: 0.0,
+                      minP: 0.0,
+                      rep: 1.0,
+                      slope: 0.0,
+                    ),
+                    _preset(
+                      icon: Icons.psychology,
+                      label: '天马行空',
+                      temp: 1.05,
+                      freq: 0.2,
+                      pres: 0.2,
+                      topP: 0.95,
+                      topK: 40.0,
+                      minP: 0.05,
+                      rep: 1.05,
+                      slope: 0.0,
+                    ),
+                    _preset(
+                      icon: Icons.menu_book,
+                      label: '长篇叙事',
+                      temp: 0.85,
+                      freq: 0.1,
+                      pres: 0.15,
+                      topP: 0.9,
+                      topK: 0.0,
+                      minP: 0.0,
+                      rep: 1.05,
+                      slope: 0.0,
+                    ),
+                    _preset(
+                      icon: Icons.shield_outlined,
+                      label: '强力防复读',
+                      temp: 0.7,
+                      freq: 0.6,
+                      pres: 0.4,
+                      topP: 0.95,
+                      topK: 0.0,
+                      minP: 0.0,
+                      rep: 1.15,
+                      slope: 0.1,
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 核心采样参数(默认折叠,降低心智负担) =====
-          Card(
-            child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                title: FitText(
-                  '核心采样参数',
-                  style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
-                ),
-                subtitle: FitText(
-                  '温度、频率惩罚、存在惩罚。不确定时建议直接使用上方场景预设。',
-                  style: ts.bodySmall?.copyWith(color: cs.outline),
-                ),
-                tilePadding: AppInsets.card,
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                children: <Widget>[
-                  _buildSlider(
-                    label: '温度 (Temperature)',
-                    description: '控制回复随机性。越低越确定、严谨；越高越发散、富有想象力。默认 0.7。',
-                    value: _temperature,
-                    max: 2.0,
-                    divisions: 40,
-                    onChanged: (v) => setState(() => _temperature = v),
-                  ),
-                  _buildSlider(
-                    label: '频率惩罚 (Frequency Penalty)',
-                    description: '根据词语在文本中出现的绝对频次施加惩罚，降低复读倾向。默认 0.0。',
-                    value: _frequencyPenalty,
-                    max: 2.0,
-                    divisions: 40,
-                    onChanged: (v) => setState(() => _frequencyPenalty = v),
-                  ),
-                  _buildSlider(
-                    label: '存在惩罚 (Presence Penalty)',
-                    description: '只要词语出现过即施加固定惩罚，鼓励引入新话题。默认 0.0。',
-                    value: _presencePenalty,
-                    max: 2.0,
-                    divisions: 40,
-                    onChanged: (v) => setState(() => _presencePenalty = v),
-                  ),
-                ],
+          // ===== 2. 核心采样参数(每个参数独立折叠) =====
+          SettingSection(
+            icon: Icons.thermostat_outlined,
+            title: '核心采样参数',
+            description: '决定回复的随机程度。',
+            children: <Widget>[
+              CollapsibleDoubleSetting(
+                title: '温度 (Temperature)',
+                value: _temperature,
+                min: 0.0,
+                max: 2.0,
+                divisions: 40,
+                helper: '越低越确定、严谨；越高越发散、富有想象力。默认 0.70。',
+                onChanged: (double v) {
+                  setState(() => _temperature = v);
+                  _save();
+                },
               ),
-            ),
+              CollapsibleDoubleSetting(
+                title: '频率惩罚 (Frequency Penalty)',
+                value: _frequencyPenalty,
+                min: 0.0,
+                max: 2.0,
+                divisions: 40,
+                helper: '按词语出现的绝对次数施加惩罚，降低复读倾向。默认 0.00。',
+                onChanged: (double v) {
+                  setState(() => _frequencyPenalty = v);
+                  _save();
+                },
+              ),
+              CollapsibleDoubleSetting(
+                title: '存在惩罚 (Presence Penalty)',
+                value: _presencePenalty,
+                min: 0.0,
+                max: 2.0,
+                divisions: 40,
+                helper: '词语出现过就施加固定惩罚，鼓励引入新话题。默认 0.00。',
+                onChanged: (double v) {
+                  setState(() => _presencePenalty = v);
+                  _save();
+                },
+              ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 进阶采样参数(默认折叠) =====
-          Card(
-            child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                title: FitText(
-                  '进阶核采样与惩罚',
-                  style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
-                ),
-                subtitle: FitText(
-                  'Top-P / Top-K / Min-P / 重复惩罚。多数模型无需调整。',
-                  style: ts.bodySmall?.copyWith(color: cs.outline),
-                ),
-                tilePadding: AppInsets.card,
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                children: <Widget>[
-                  _buildSlider(
-                    label: 'Top-P (核采样)',
-                    description: '仅从累积概率达到 P 的候选词中采样。1.0 表示不截断。默认 1.0。',
-                    value: _topP,
-                    max: 1.0,
-                    divisions: 20,
-                    onChanged: (v) => setState(() => _topP = v),
-                  ),
-                  _buildSlider(
-                    label: 'Top-K',
-                    description: '仅从概率最高的前 K 个候选词中采样。0 表示不限制。默认 0。',
-                    value: _topK,
-                    max: 100.0,
-                    divisions: 100,
-                    fractionDigits: 0,
-                    onChanged: (v) => setState(() => _topK = v),
-                  ),
-                  _buildSlider(
-                    label: 'Min-P',
-                    description: '过滤概率低于「最高概率 × Min-P」的候选词。0 表示不限制。默认 0.0。',
-                    value: _minP,
-                    max: 1.0,
-                    divisions: 20,
-                    onChanged: (v) => setState(() => _minP = v),
-                  ),
-                  _buildSlider(
-                    label: '重复惩罚 (Repetition Penalty)',
-                    description: '直接降低已出现词的生成概率。1.0 为无惩罚，通常取 1.05~1.2。默认 1.0。',
-                    value: _repetitionPenalty,
-                    min: 1.0,
-                    max: 2.0,
-                    divisions: 20,
-                    onChanged: (v) => setState(() => _repetitionPenalty = v),
-                  ),
-                  _buildSlider(
-                    label: '重复惩罚斜率 (Slope)',
-                    description: '距离越近的重复词惩罚越重。0 表示平权惩罚。默认 0.0。',
-                    value: _repetitionPenaltySlope,
-                    max: 10.0,
-                    divisions: 20,
-                    fractionDigits: 1,
-                    onChanged: (v) => setState(() => _repetitionPenaltySlope = v),
-                  ),
-                ],
+          // ===== 3. 进阶核采样与惩罚(每个参数独立折叠) =====
+          SettingSection(
+            icon: Icons.filter_alt_outlined,
+            title: '进阶核采样与惩罚',
+            description: '多数模型无需调整。',
+            children: <Widget>[
+              CollapsibleDoubleSetting(
+                title: 'Top-P (核采样)',
+                value: _topP,
+                min: 0.0,
+                max: 1.0,
+                divisions: 20,
+                helper: '只从累积概率达到 P 的候选词里采样。1.00 表示不截断。默认 1.00。',
+                onChanged: (double v) {
+                  setState(() => _topP = v);
+                  _save();
+                },
               ),
-            ),
+              CollapsibleDoubleSetting(
+                title: 'Top-K',
+                value: _topK,
+                min: 0.0,
+                max: 100.0,
+                divisions: 100,
+                decimals: 0,
+                zeroLabel: '不限制',
+                helper: '只从概率最高的前 K 个候选词里采样。默认 0。',
+                onChanged: (double v) {
+                  setState(() => _topK = v);
+                  _save();
+                },
+              ),
+              CollapsibleDoubleSetting(
+                title: 'Min-P',
+                value: _minP,
+                min: 0.0,
+                max: 1.0,
+                divisions: 20,
+                zeroLabel: '不限制',
+                helper: '过滤概率低于「最高概率 × Min-P」的候选词。默认 0.00。',
+                onChanged: (double v) {
+                  setState(() => _minP = v);
+                  _save();
+                },
+              ),
+              CollapsibleDoubleSetting(
+                title: '重复惩罚 (Repetition Penalty)',
+                value: _repetitionPenalty,
+                min: 1.0,
+                max: 2.0,
+                divisions: 20,
+                helper: '直接降低已出现词的生成概率。1.00 为无惩罚，常用 1.05~1.20。',
+                onChanged: (double v) {
+                  setState(() => _repetitionPenalty = v);
+                  _save();
+                },
+              ),
+              CollapsibleDoubleSetting(
+                title: '重复惩罚斜率 (Slope)',
+                value: _repetitionPenaltySlope,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                decimals: 1,
+                zeroLabel: '平权',
+                helper: '距离越近的重复词惩罚越重。默认 0.0。',
+                onChanged: (double v) {
+                  setState(() => _repetitionPenaltySlope = v);
+                  _save();
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );

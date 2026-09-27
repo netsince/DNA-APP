@@ -7,9 +7,19 @@ import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/utils/id_utils.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_section.dart';
 import 'model_sampler_settings_page.dart';
 
 /// 模型预设编辑全屏页面（添加 / 修改）。
+///
+/// **关于「规矩 1」的说明**:本页是 **表单编辑页**(`Form` + 校验 + 保存回写),
+/// 不是「设置项堆叠」—— 设置项之间靠 `TextFormField` 的 label 与校验反馈
+/// 建立语义,强行拆成一个个可折叠项反而会破坏表单的填写节奏。
+///
+/// 因此这里只做两件事:
+/// * 卡片外观统一收敛到 [SettingSection](消除手写 `Card > Padding > Column` 的
+///   圆角/描边/内边距魔数);
+/// * 两条 25 字长提示按**规矩 3** 压到 20 字以内。
 class ModelEditPage extends StatefulWidget {
   const ModelEditPage({
     super.key,
@@ -266,7 +276,6 @@ class _ModelEditPageState extends State<ModelEditPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final ts = theme.textTheme;
     final providers = widget.controller.settings.providers;
     final currentProvider = _findCurrentProvider();
     final isDeepSeek = currentProvider.providerType == 'deepseek';
@@ -285,218 +294,183 @@ class _ModelEditPageState extends State<ModelEditPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: AppInsets.page,
           children: <Widget>[
             // ===== 1. 模型基本信息 =====
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    FitText('模型预设信息',
-                        style: ts.titleMedium
-                            ?.copyWith(fontWeight: AppWeight.medium)),
-                    const SizedBox(height: 16),
-
-                    // 模型别名
-                    TextFormField(
-                      controller: _aliasCtrl,
-                      enabled: !_isDefault,
-                      decoration: InputDecoration(
-                        labelText: '模型别名',
-                        hintText: '例如 GPT-4o 常用 / 思考模型',
-                        border: const OutlineInputBorder(),
-                        helperText: _isDefault ? '默认模型别名固定为“默认”，不可修改' : null,
-                      ),
-                      validator: (value) {
-                        if (_isDefault) return null;
-                        final v = (value ?? '').trim();
-                        if (v.isEmpty) return '请输入模型别名';
-                        final exists = widget.controller.settings.models
-                            .any((m) => m.alias == v && m.id != widget.existingConfig?.id);
-                        if (exists) return '该别名已被使用，请换一个';
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // 所属服务商
-                    DropdownButtonFormField<String>(
-                      value: _selectedProviderId,
-                      decoration: const InputDecoration(
-                        labelText: '归属服务商',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: providers.map((p) {
-                        return DropdownMenuItem<String>(
-                          value: p.id,
-                          child: FitText('${p.alias} (${p.providerType})'),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val == null) return;
-                        setState(() => _selectedProviderId = val);
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Model Name
-                    TextFormField(
-                      controller: _modelNameCtrl,
-                      decoration: InputDecoration(
-                        labelText: '模型名称 (Model ID)',
-                        hintText: '例如 gpt-4o / deepseek-chat',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          tooltip: '从服务商 API 获取模型列表',
-                          icon: _fetchingModels
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.refresh_rounded),
-                          onPressed: _fetchingModels ? null : _fetchOnlineModels,
-                        ),
-                      ),
-                      validator: (value) {
-                        final v = (value ?? '').trim();
-                        if (v.isEmpty) return '请输入模型名称';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: _fetchingModels ? null : _fetchOnlineModels,
-                        icon: const Icon(Icons.download_rounded, size: 16),
-                        label: const FitText('从服务商拉取模型列表'),
-                      ),
-                    ),
-                  ],
+            SettingSection(
+              icon: Icons.badge_outlined,
+              title: '模型预设信息',
+              description: '这个预设怎么称呼、走哪家服务。',
+              children: <Widget>[
+                // 模型别名
+                TextFormField(
+                  controller: _aliasCtrl,
+                  enabled: !_isDefault,
+                  decoration: InputDecoration(
+                    labelText: '模型别名',
+                    hintText: '例如 GPT-4o 常用 / 思考模型',
+                    border: const OutlineInputBorder(),
+                    helperText: _isDefault ? '默认模型别名固定为“默认”，不可修改' : null,
+                  ),
+                  validator: (value) {
+                    if (_isDefault) return null;
+                    final v = (value ?? '').trim();
+                    if (v.isEmpty) return '请输入模型别名';
+                    final exists = widget.controller.settings.models
+                        .any((m) => m.alias == v && m.id != widget.existingConfig?.id);
+                    if (exists) return '该别名已被使用，请换一个';
+                    return null;
+                  },
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 16),
+                AppSpacing.hLg,
 
-            // ===== 2. DeepSeek 深度思考（严格仅在服务商为 DeepSeek 时展示） =====
-            if (isDeepSeek) ...<Widget>[
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                      color: cs.outlineVariant.withValues(alpha: 0.5)),
+                // 所属服务商
+                DropdownButtonFormField<String>(
+                  value: _selectedProviderId,
+                  decoration: const InputDecoration(
+                    labelText: '归属服务商',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: providers.map((p) {
+                    return DropdownMenuItem<String>(
+                      value: p.id,
+                      child: FitText('${p.alias} (${p.providerType})'),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setState(() => _selectedProviderId = val);
+                  },
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      FitText('DeepSeek 深度思考模式',
-                          style: ts.titleMedium
-                              ?.copyWith(fontWeight: AppWeight.medium)),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const FitText('启用思考模式 (Reasoning)'),
-                        subtitle: const FitText('开启后模型将在回复前展开深度思考过程'),
-                        value: _deepseekThinkingEnabled,
-                        onChanged: (v) {
-                          setState(() => _deepseekThinkingEnabled = v);
-                        },
-                      ),
-                      if (_deepseekThinkingEnabled) ...[
-                        const SizedBox(height: 8),
-                        FitText('思考强度',
-                            style: ts.bodyMedium
-                                ?.copyWith(fontWeight: AppWeight.medium)),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            for (final String effort in const <String>['low', 'high', 'max'])
-                              ChoiceChip(
-                                label: FitText(switch (effort) {
-                                  'low' => '低',
-                                  'high' => '高',
-                                  _ => '最高',
-                                }),
-                                selected: _deepseekThinkingEffort == effort,
-                                onSelected: (_) {
-                                  setState(() => _deepseekThinkingEffort = effort);
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ],
+
+                AppSpacing.hLg,
+
+                // Model Name
+                TextFormField(
+                  controller: _modelNameCtrl,
+                  decoration: InputDecoration(
+                    labelText: '模型名称 (Model ID)',
+                    hintText: '例如 gpt-4o / deepseek-chat',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: '从服务商 API 获取模型列表',
+                      icon: _fetchingModels
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded),
+                      onPressed: _fetchingModels ? null : _fetchOnlineModels,
+                    ),
+                  ),
+                  validator: (value) {
+                    final v = (value ?? '').trim();
+                    if (v.isEmpty) return '请输入模型名称';
+                    return null;
+                  },
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _fetchingModels ? null : _fetchOnlineModels,
+                    icon: const Icon(Icons.download_rounded, size: AppSize.iconInline),
+                    label: const FitText('从服务商拉取模型列表'),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ===== 3. 专属采样参数微调（完整复用） =====
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    FitText('专属采样参数',
-                        style: ts.titleMedium
-                            ?.copyWith(fontWeight: AppWeight.medium)),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const FitText('为该模型启用专属采样配置'),
-                      subtitle: FitText(
-                        _customSamplingEnabled
-                            ? '已启用：将覆盖全局采样参数'
-                            : '已关闭：将直接继承全局默认采样设置',
-                      ),
-                      value: _customSamplingEnabled,
-                      onChanged: (v) {
-                        setState(() => _customSamplingEnabled = v);
-                      },
-                    ),
-                    if (_customSamplingEnabled) ...[
-                      const Divider(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.tune_rounded, color: cs.primary),
-                        title: const FitText('微调模型采样参数'),
-                        subtitle: Text(
-                          '温度: ${(_temperature ?? 0.7).toStringAsFixed(2)} • 核采样: ${(_topP ?? 1.0).toStringAsFixed(2)}',
-                          style: TextStyle(
-                              fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _openSamplerSettings,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              ],
             ),
 
-            const SizedBox(height: 24),
+            // ===== 2. DeepSeek 深度思考（严格仅在服务商为 DeepSeek 时展示） =====
+            if (isDeepSeek)
+              SettingSection(
+                icon: Icons.psychology_outlined,
+                title: 'DeepSeek 深度思考模式',
+                description: '开启后模型先推理再回答。',
+                children: <Widget>[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const FitText('启用思考模式 (Reasoning)'),
+                    value: _deepseekThinkingEnabled,
+                    onChanged: (v) {
+                      setState(() => _deepseekThinkingEnabled = v);
+                    },
+                  ),
+                  if (_deepseekThinkingEnabled) ...<Widget>[
+                    AppSpacing.hSm,
+                    FitText(
+                      '思考强度',
+                      style: AppTextStyles.body(theme)
+                          .copyWith(fontWeight: AppWeight.medium),
+                    ),
+                    AppSpacing.hXs,
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: <Widget>[
+                        for (final String effort in const <String>['low', 'high', 'max'])
+                          ChoiceChip(
+                            label: FitText(switch (effort) {
+                              'low' => '低',
+                              'high' => '高',
+                              _ => '最高',
+                            }),
+                            selected: _deepseekThinkingEffort == effort,
+                            onSelected: (_) {
+                              setState(() => _deepseekThinkingEffort = effort);
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+
+            // ===== 3. 专属采样参数微调（完整复用） =====
+            SettingSection(
+              icon: Icons.tune_outlined,
+              title: '专属采样参数',
+              description: '只为这个模型单独调参。',
+              children: <Widget>[
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const FitText('为该模型启用专属采样配置'),
+                  subtitle: FitText(
+                    _customSamplingEnabled ? '已启用：覆盖全局设置' : '已关闭：继承全局设置',
+                  ),
+                  value: _customSamplingEnabled,
+                  onChanged: (v) {
+                    setState(() => _customSamplingEnabled = v);
+                  },
+                ),
+                if (_customSamplingEnabled) ...<Widget>[
+                  const Divider(),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.tune_rounded, color: cs.primary),
+                    title: const FitText('微调模型采样参数'),
+                    subtitle: FitText(
+                      '温度 ${(_temperature ?? 0.7).toStringAsFixed(2)}'
+                      ' • 核采样 ${(_topP ?? 1.0).toStringAsFixed(2)}',
+                      style: AppTextStyles.caption(theme)
+                          .copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openSamplerSettings,
+                  ),
+                ],
+              ],
+            ),
+
+            AppSpacing.hXl,
 
             FilledButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.check),
               label: FitText(_isEditing ? '保存修改' : '确认添加'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
               ),
             ),
           ],

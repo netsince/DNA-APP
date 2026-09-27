@@ -96,6 +96,9 @@ abstract final class AppSpacing {
   /// 纵向 [xl]。
   static const Widget hXl = SizedBox(height: xl);
 
+  /// 横向 [xs]。
+  static const Widget wXs = SizedBox(width: xs);
+
   /// 横向 [sm]。
   static const Widget wSm = SizedBox(width: sm);
 

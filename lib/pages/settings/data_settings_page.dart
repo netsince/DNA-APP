@@ -19,6 +19,7 @@ import '../../utils/dialogs.dart';
 import '../../utils/ui_feedback.dart';
 import '../../widgets/conversation_export_import_dialogs.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_section.dart';
 
 class DataSettingsPage extends StatefulWidget {
   const DataSettingsPage({super.key, required this.controller});
@@ -235,146 +236,104 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
-
     return Scaffold(
-      appBar: AppBar(title: const FitText('数据管理')),
+      appBar: AppBar(title: const FitText('备份与还原')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 1. 每日自动备份 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.backup_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('每日自动备份', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '每天首次进入应用时自动备份至设备公共目录（滚动保留最近 5 天），卸载应用亦不丢失。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('开启每日静默自动备份'),
-                    subtitle: kIsWeb
-                        ? const FitText('当前平台不支持（Web 无本地文件系统）')
-                        : const FitText('后台自动执行，全程无弹窗打扰'),
-                    value: _autoBackup,
-                    onChanged: kIsWeb
-                        ? null
-                        : (v) {
-                            setState(() => _autoBackup = v);
-                            _saveAutoBackup(v);
-                          },
-                  ),
-                ],
+          // ===== 1. 自动备份 =====
+          SettingSection(
+            icon: Icons.backup_outlined,
+            title: '自动备份',
+            description: '每天自动存一份，保留最近 5 天。',
+            children: <Widget>[
+              SettingSwitch(
+                title: '开启每日自动备份',
+                subtitle: kIsWeb ? '当前平台不支持' : '后台静默执行，不打扰你。',
+                value: _autoBackup,
+                enabled: !kIsWeb,
+                onChanged: (bool v) {
+                  setState(() => _autoBackup = v);
+                  _saveAutoBackup(v);
+                },
               ),
-            ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 2. 全量数据备份与还原 (ZIP) =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // ===== 2. 全量备份 =====
+          SettingSection(
+            icon: Icons.archive_outlined,
+            title: '全量备份',
+            description: '打包成一个文件，换设备时用它迁移。',
+            children: <Widget>[
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.archive_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('全量数据备份与还原 (ZIP)', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
+                  FilledButton.tonalIcon(
+                    onPressed: _exporting || _importing ? null : _exportAll,
+                    icon: _exporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_outlined),
+                    label: FitText(_exporting ? '导出中…' : '导出全部数据'),
                   ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '将全部角色、世界设定与对话记录打包为单文件，支持跨设备迁移与完整还原。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: <Widget>[
-                      FilledButton.tonalIcon(
-                        onPressed: _exporting || _importing ? null : _exportAll,
-                        icon: _exporting
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.download_outlined),
-                        label: FitText(_exporting ? '导出中...' : '导出全量备份 ZIP'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _exporting || _importing ? null : _importAll,
-                        icon: _importing
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.upload_file_outlined),
-                        label: FitText(_importing ? '导入中...' : '从 ZIP 恢复数据'),
-                      ),
-                    ],
+                  OutlinedButton.icon(
+                    onPressed: _exporting || _importing ? null : _importAll,
+                    icon: _importing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_file_outlined),
+                    label: FitText(_importing ? '导入中…' : '从备份恢复'),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 3. 单项对话导出与导入 (JSON) =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // ===== 3. 单场对话 =====
+          SettingSection(
+            icon: Icons.forum_outlined,
+            title: '单场对话',
+            description: '只导出某一场对话，方便单独分享。',
+            children: <Widget>[
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.forum_outlined, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('单项对话导出与导入 (JSON)', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
+                  FilledButton.tonalIcon(
+                    onPressed:
+                        _exportingConv || _importingConv ? null : _exportConv,
+                    icon: _exportingConv
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_outlined),
+                    label: FitText(_exportingConv ? '导出中…' : '导出指定对话'),
                   ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '选择单场对话导出为 JSON 文件（可内嵌角色卡）或单独导入，方便单剧本分享。',
-                    style: ts.bodySmall?.copyWith(color: cs.outline),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: <Widget>[
-                      FilledButton.tonalIcon(
-                        onPressed: _exportingConv || _importingConv ? null : _exportConv,
-                        icon: _exportingConv
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.download_outlined),
-                        label: FitText(_exportingConv ? '导出中...' : '导出指定对话'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _exportingConv || _importingConv ? null : _importConv,
-                        icon: _importingConv
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.upload_file_outlined),
-                        label: FitText(_importingConv ? '导入中...' : '从 JSON 导入对话'),
-                      ),
-                    ],
+                  OutlinedButton.icon(
+                    onPressed:
+                        _exportingConv || _importingConv ? null : _importConv,
+                    icon: _importingConv
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_file_outlined),
+                    label: FitText(_importingConv ? '导入中…' : '导入对话'),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ],
       ),

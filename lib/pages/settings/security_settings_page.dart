@@ -62,7 +62,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           SettingSection(
             icon: Icons.fingerprint,
             title: '生物识别与密码保护',
-            description: '使用指纹、面容或系统锁屏密码保护应用隐私。',
+            description: '用指纹、面容或锁屏密码保护隐私。',
             children: <Widget>[
               if (!_authAvailable)
                 SettingHint(
@@ -82,7 +82,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 ),
                 SettingSwitch(
                   title: '查看归档需验证',
-                  subtitle: '访问已归档的角色、世界或对话列表时验证身份',
+                  subtitle: '访问归档内容前先验证身份',
                   value: _authForArchive,
                   onChanged: (bool v) {
                     setState(() => _authForArchive = v);
@@ -97,7 +97,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           SettingSection(
             icon: Icons.security_outlined,
             title: '防误触保护',
-            description: '防止误删角色、世界设定或聊天记录等重要数据。',
+            description: '避免误删角色、世界或聊天记录。',
             children: <Widget>[
               SettingSwitch(
                 title: '删除前需输入名称确认',

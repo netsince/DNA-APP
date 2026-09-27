@@ -163,12 +163,23 @@ class _AboutPageState extends State<AboutPage> {
                   // ===== 3. 官方站点与社区 =====
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: AppInsets.card,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('官方支持与社区', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Icon(Icons.forum_outlined,
+                                  size: AppSize.iconCard,
+                                  color: cs.primary),
+                              AppSpacing.wSm,
+                              Expanded(
+                                child: FitText('官方支持与社区',
+                                    style: AppTextStyles.sectionTitle(theme)),
+                              ),
+                            ],
+                          ),
+                          AppSpacing.hSm,
                           _LinkRow(
                             icon: Icons.language,
                             title: '官方网站',
@@ -206,12 +217,23 @@ class _AboutPageState extends State<AboutPage> {
                   // ===== 4. 开源与许可证 =====
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: AppInsets.card,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('开源与许可证', style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                          const SizedBox(height: 4),
+                          Row(
+                            children: <Widget>[
+                              Icon(Icons.balance_outlined,
+                                  size: AppSize.iconCard,
+                                  color: cs.primary),
+                              AppSpacing.wSm,
+                              Expanded(
+                                child: FitText('开源与许可证',
+                                    style: AppTextStyles.sectionTitle(theme)),
+                              ),
+                            ],
+                          ),
+                          AppSpacing.hXs,
                           FitText(
                             '源代码采用 netSince 项目公开许可证 (nSPPL)，美术与标志资源采用 CC BY-NC-ND 4.0，'
                             '内置字体思源黑体采用 SIL Open Font License 1.1。',

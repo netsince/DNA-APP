@@ -5,6 +5,9 @@ import 'fit_text.dart';
 
 /// 设置分组卡片(设计规范 5.3)。
 ///
+/// **视觉零变化重构**(2026-09):内部所有间距/圆角改用 [AppSpacing] /
+/// [AppRadius] 令牌,取值与重构前**逐个一致**,仅去掉散落的魔数。
+///
 /// 统一「一个设置分组 = 一张卡片」的视觉语序:
 /// ```
 /// [Icon(20, primary)] + [标题 titleMedium w700]
@@ -60,7 +63,7 @@ class SettingSection extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: AppInsets.card,
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -98,11 +101,18 @@ class SettingSection extends StatelessWidget {
 /// 设置开关项。
 ///
 /// 统一列表项内边距,避免各页手写 `SwitchListTile` + `contentPadding`。
+///
+/// **说明文字的两种位置**(见 `SETTINGS_AUDIT.md` 规矩 3):
+/// * [subtitle] —— 一句话价值(短),单独一行放在标题下方;
+/// * [description] —— 更短的补充(≤ 10 字,如「仅本条」「不推荐」),
+///   右对齐到开关左侧的同一行。这样开关行**仍然只占一行高度**,
+///   不会因为一句短说明把列表撑成双行。
 class SettingSwitch extends StatelessWidget {
   const SettingSwitch({
     super.key,
     required this.title,
     this.subtitle,
+    this.description,
     required this.value,
     required this.onChanged,
     this.enabled = true,
@@ -110,16 +120,38 @@ class SettingSwitch extends StatelessWidget {
 
   final String title;
   final String? subtitle;
+
+  /// 行内短说明(右对齐,与开关同一行)。
+  final String? description;
+
   final bool value;
   final ValueChanged<bool>? onChanged;
   final bool enabled;
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: FitText(title),
       subtitle: subtitle == null ? null : FitText(subtitle!),
+      secondary: description == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                AppSpacing.wSm,
+                Flexible(
+                  child: FitText(
+                    description!,
+                    textAlign: TextAlign.right,
+                    style: AppTextStyles.caption(Theme.of(context))
+                        .copyWith(color: cs.outline),
+                  ),
+                ),
+              ],
+            ),
       value: value,
       onChanged: enabled ? onChanged : null,
     );
@@ -160,7 +192,11 @@ class SettingTile extends StatelessWidget {
                 color: cs.primaryContainer.withValues(alpha: AppAlpha.half),
                 borderRadius: AppRadius.xsAll,
               ),
-              child: Icon(icon, color: cs.onPrimaryContainer, size: 22),
+              child: Icon(
+                icon,
+                color: cs.onPrimaryContainer,
+                size: AppSize.iconCard,
+              ),
             ),
       title: FitText(title),
       subtitle: subtitle == null ? null : FitText(subtitle!),
@@ -194,10 +230,13 @@ class SettingHint extends StatelessWidget {
         children: <Widget>[
           if (icon != null) ...<Widget>[
             Icon(icon, size: AppSize.iconInline, color: effective),
-            const SizedBox(width: AppSpacing.xs),
+            AppSpacing.wSm,
           ],
           Expanded(
-            child: FitText(text, style: TextStyle(color: effective, fontSize: AppFontSize.caption)),
+            child: FitText(
+              text,
+              style: TextStyle(color: effective, fontSize: AppFontSize.caption),
+            ),
           ),
         ],
       ),
