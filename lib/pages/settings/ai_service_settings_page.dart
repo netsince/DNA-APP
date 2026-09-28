@@ -10,23 +10,27 @@ import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
 import 'ai_service/advanced_view.dart';
 import 'ai_service/contract.dart';
-import 'ai_service/quick_switch_sheet.dart';
 import 'ai_service/simple_view.dart';
-import 'sampler_settings_page.dart';
+import 'ai_service_more_page.dart';
 
 /// 设置 → AI 服务主页。
 ///
-/// 支持「新手简易模式」（单页直接操作默认项）与「完整模式」
-/// （分层的服务商 / 模型预设管理路由）。
+/// ## 页面分工
+///
+/// * **精简模式**主页:服务商选择、Base URL / API Key、连接检测、
+///   模型列表 —— 只放「把模型接通并用起来」需要的东西;
+/// * **完整模式**主页:**平铺的模型快速切换列表**(不再有卡片和弹窗);
+/// * **右上角 `⋮`** → [AiServiceMorePage]:分栏页,精简模式只有「其他」,
+///   完整模式有「模型 / 服务商 / 其他」。简易模式开关与全局采样参数
+///   都收在「其他」栏里。
 ///
 /// ## 本文件只做装配
 ///
-/// 页面状态（两个输入框控制器、连接检测、模型列表）与全部业务逻辑
-/// 都留在这里；两个分支的**视图**分别委托给:
+/// 页面状态(两个输入框控制器、连接检测、模型列表)与全部业务逻辑
+/// 都留在这里;两个分支的**视图**分别委托给:
 ///
-/// * `ai_service/simple_view.dart` —— 精简模式(服务商 / 连接 / 模型 / 思考);
-/// * `ai_service/advanced_view.dart` —— 完整模式的三个入口;
-/// * `ai_service/quick_switch_sheet.dart` —— 快速切换模型弹窗;
+/// * `ai_service/simple_view.dart` —— 精简模式视图;
+/// * `ai_service/advanced_view.dart` —— 完整模式的平铺模型列表;
 /// * `ai_service/contract.dart` —— 子组件接收的参数与回调契约。
 ///
 /// ## 为什么用「契约对象」而不是散装参数
@@ -204,109 +208,42 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         onSaveModel: _saveModel,
         onSelectProvider: _selectProvider,
         onAddCustomModel: _addCustomModel,
-        onShowQuickSwitch: () =>
-            showQuickSwitchModelSheet(context, widget.controller),
         onResetValues: _initValues,
       );
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppBar(title: const FitText('AI 服务')),
+      appBar: AppBar(
+        title: const FitText('AI 服务'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            tooltip: '更多设置',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    AiServiceMorePage(controller: widget.controller),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: AnimatedBuilder(
         animation: widget.controller,
         builder: (BuildContext context, Widget? _) {
           final bool isSimple = widget.controller.settings.simpleModelMode;
 
-          return ListView(
-            padding: AppInsets.page,
-            children: <Widget>[
-              // ===== 模式切换 =====
-              _modeSwitch(cs, isSimple),
-
-              // ===== 分支 A：新手简易模式 =====
-              // ===== 分支 B：完整模式 =====
-              if (isSimple)
-                AiServiceSimpleView(contract: _contract)
-              else
-                AiServiceAdvancedView(contract: _contract),
-
-              // ===== 采样参数入口 =====
-              //
-              // 两种模式都显示(仅标题随模式变化),所以它**不属于任何一个分支**,
-              // 由主页统一渲染 —— 原实现即如此,拆分时不要把它挪进某个分支。
-              AppSpacing.hMd,
-              _samplerEntry(cs, isSimple),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  /// 「采样参数」入口。两种模式都显示,仅标题不同。
-  Widget _samplerEntry(ColorScheme cs, bool isSimple) {
-    return Card(
-      elevation: AppElevation.flat,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.mdAll,
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: AppInsets.tile,
-          decoration: BoxDecoration(
-            color: cs.primaryContainer.withValues(alpha: 0.6),
-            borderRadius: AppRadius.smAll,
-          ),
-          child: Icon(Icons.tune, color: cs.primary),
-        ),
-        title: FitText(isSimple ? '采样参数微调' : '全局默认采样参数'),
-        subtitle: const FitText('含场景预设与采样、防复读等高级参数'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) =>
-                SamplerSettingsPage(controller: widget.controller),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 顶部「新手简易模式」开关。
-  Widget _modeSwitch(ColorScheme cs, bool isSimple) {
-    return Card(
-      elevation: AppElevation.flat,
-      color: cs.secondaryContainer.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.mdAll,
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      margin: EdgeInsets.only(bottom: AppSpacing.lg),
-      child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        title: const FitText('新手简易模式'),
-        subtitle: Text(
-          isSimple
-              ? '已开启：仅操作默认模型与服务商，界面清爽聚焦'
-              : '已关闭：开启多服务商与多模型预设列表管理',
-          style: TextStyle(
-            fontSize: AppFontSize.caption,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        value: isSimple,
-        onChanged: (bool value) async {
-          await widget.controller.toggleSimpleModelMode(value);
-          if (!mounted) return;
-          if (value) {
-            setState(_initValues);
-          }
+          // 精简模式:连接参数 + 模型选择(输入框需要滚动)。
+          // 完整模式:平铺的模型快速切换列表(自身就是 ListView)。
+          return isSimple
+              ? ListView(
+                  padding: AppInsets.page,
+                  children: <Widget>[
+                    AiServiceSimpleView(contract: _contract),
+                  ],
+                )
+              : AiServiceAdvancedView(contract: _contract);
         },
       ),
     );

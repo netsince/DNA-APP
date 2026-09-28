@@ -2,6 +2,7 @@ import 'package:dna/models/conversation.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
+import 'package:dna/pages/settings/ai_service_more_page.dart';
 import 'package:dna/pages/settings/ai_service_settings_page.dart';
 import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
@@ -12,18 +13,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// AI 服务页的**渲染契约测试**。
+/// AI 服务页 + 「⋮」分栏页的**渲染契约测试**。
 ///
-/// 背景:上一次把该页拆成多文件时,精简模式分支渲染出来的页面
-/// **一个输入框都没有**(TextField=0),而 baseUrlController /
-/// apiKeyController 作为参数传进去却从未使用 —— 用户切到精简模式后
-/// 页面上只剩模式开关,所有配置项消失。
+/// 背景:本页曾被拆坏过一次 —— 精简模式渲染出来一个输入框都没有,
+/// 而 `flutter analyze` 干净、行数正常、组件调用次数也对,
+/// 只是**渲染结果为空**。静态手段查不出来,所以这里真正渲染并断言。
 ///
-/// 静态分析(flutter analyze)与正则统计都发现不了这种缺陷:
-/// 代码能编译、行数正常、组件调用次数也对,只是**渲染结果为空**。
-/// 因此这里真正把页面渲染出来,逐个断言配置项必须存在。
-///
-/// **本文件是拆分重构的安全网**:任何拆分只要弄丢控件,这里就会红。
+/// 重构后结构:
+/// * 主页:精简模式 = 连接参数 + 模型选择;完整模式 = 平铺模型列表;
+/// * 右上角 `⋮` = [AiServiceMorePage],精简模式只有「其他」tab、
+///   完整模式有「模型 / 服务商 / 其他」;
+/// * 简易模式开关与全局采样参数都在「其他」tab 里。
 class FakeHiveService extends HiveService {
   @override
   Future<void> init() async {}
@@ -34,13 +34,12 @@ class FakeHiveService extends HiveService {
   @override
   Future<List<World>> getWorlds() async => <World>[];
   @override
-  Future<List<Conversation>> getConversations() async =>
-      <Conversation>[];
+  Future<List<Conversation>> getConversations() async => <Conversation>[];
 }
 
 /// FitText extends Text,find.text 会重复命中;只匹配内层真实 Text。
-Finder findText(String s) => find.byWidgetPredicate(
-    (Widget w) => w is Text && w.data == s);
+Finder findText(String s) =>
+    find.byWidgetPredicate((Widget w) => w is Text && w.data == s);
 
 void main() {
   Future<AppController> boot() async {
@@ -55,115 +54,160 @@ void main() {
     return c;
   }
 
-  Future<void> pumpPage(WidgetTester t, AppController c) async {
-    await t.pumpWidget(MaterialApp(
-      home: AiServiceSettingsPage(controller: c),
-    ));
+  Future<void> pumpHome(WidgetTester t, AppController c) async {
+    await t.pumpWidget(MaterialApp(home: AiServiceSettingsPage(controller: c)));
     await t.pumpAndSettle();
   }
 
-  group('AI 服务页渲染契约', () {
-    testWidgets('精简模式：配置项必须齐全(TextField 不能为 0)', (WidgetTester t) async {
+  Future<void> pumpMore(WidgetTester t, AppController c) async {
+    await t.pumpWidget(MaterialApp(home: AiServiceMorePage(controller: c)));
+    await t.pumpAndSettle();
+  }
+
+  group('AI 服务主页', () {
+    testWidgets('精简模式：Base URL / API Key 输入框必须存在', (WidgetTester t) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(true);
-      await pumpPage(t, c);
+      await pumpHome(t, c);
 
-      // 这是上次事故的核心断言:输入框数量必须 > 0。
       final int fields = find.byType(TextField).evaluate().length;
       expect(fields, greaterThan(0),
-          reason: '精简模式必须至少渲染 Base URL / API Key 输入框,'
-              '上次拆分后此处为 0,导致页面只剩模式开关');
-
-      // 服务商选择 + 连接检测按钮必须存在。
+          reason: '精简模式必须渲染连接参数输入框;'
+              '此前拆分事故中此处为 0,页面只剩模式开关');
       expect(findText('服务商选择'), findsWidgets);
       expect(findText('检测连接'), findsWidgets);
     });
 
-    testWidgets('精简模式：Base URL 与 API Key 标签在渲染树中', (WidgetTester t) async {
+    testWidgets('精简模式：不再显示模式开关与采样入口', (WidgetTester t) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(true);
-      await pumpPage(t, c);
+      await pumpHome(t, c);
 
-      final Iterable<Element> labels = find.byType(TextField).evaluate();
-      expect(labels.length, greaterThanOrEqualTo(1));
-      // API Key 输入框的 labelText 必然渲染。
-      expect(findText('API Key'), findsWidgets);
+      expect(findText('新手简易模式'), findsNothing,
+          reason: '模式开关已移到 ⋮ → 其他');
+      expect(findText('采样参数微调'), findsNothing,
+          reason: '采样参数已移到 ⋮ → 其他');
     });
 
-    testWidgets('完整模式：同样渲染配置项与两个管理入口', (WidgetTester t) async {
+    testWidgets('完整模式：平铺模型列表,且不再有快速切换按钮', (WidgetTester t) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(false);
-      await pumpPage(t, c);
+      await pumpHome(t, c);
 
-      expect(findText('当前生效模型'), findsWidgets);
-      expect(findText('服务商管理'), findsWidgets);
-      expect(findText('模型预设管理'), findsWidgets);
+      expect(findText('快速切换'), findsNothing,
+          reason: '模型已平铺,不再需要快速切换入口');
+      expect(find.byType(ListTile), findsWidgets,
+          reason: '模型应以列表项平铺渲染');
     });
 
-    testWidgets('采样参数入口在两种模式下都存在(仅标题不同)', (WidgetTester t) async {
+    testWidgets('完整模式：管理入口已移走', (WidgetTester t) async {
       final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpHome(t, c);
 
-      // 该入口在页面底部,默认 800x600 视口下位于折叠线以下,
-      // 而 ListView 懒加载不会构建视口外的子项 —— 先滚到底再断言。
-      Future<void> scrollToBottom() async {
-        final Finder sv = find.byType(Scrollable);
-        if (sv.evaluate().isNotEmpty) {
-          await t.drag(sv.first, const Offset(0, -600));
-          await t.pumpAndSettle();
-        }
-      }
+      expect(findText('服务商管理'), findsNothing);
+      expect(findText('模型预设管理'), findsNothing);
+    });
 
+    testWidgets('右上角必须有「⋮」入口', (WidgetTester t) async {
+      final AppController c = await boot();
       await c.toggleSimpleModelMode(true);
-      await pumpPage(t, c);
-      await scrollToBottom();
-      expect(findText('采样参数微调'), findsWidgets,
-          reason: '精简模式下采样入口标题应为「采样参数微调」');
-
-      await c.toggleSimpleModelMode(false);
-      await t.pumpAndSettle();
-      await scrollToBottom();
-      expect(findText('全局默认采样参数'), findsWidgets,
-          reason: '完整模式下采样入口标题应为「全局默认采样参数」');
+      await pumpHome(t, c);
+      expect(find.byIcon(Icons.more_vert), findsWidgets);
     });
+  });
 
-    testWidgets('动态统计文案完整(服务商数 / 模型预设数)', (WidgetTester t) async {
+  group('⋮ 分栏页', () {
+    testWidgets('精简模式：只有「其他」,没有分栏栏', (WidgetTester t) async {
       final AppController c = await boot();
-      await c.toggleSimpleModelMode(false);
-      await pumpPage(t, c);
+      await c.toggleSimpleModelMode(true);
+      await pumpMore(t, c);
 
-      // 服务商管理入口必须显示「已配置 N 个服务商」。
-      final Iterable<String> subs = find
-          .byWidgetPredicate((Widget w) => w is Text && w.data != null)
-          .evaluate()
-          .map((Element e) => (e.widget as Text).data!)
-          .where((String s) => s.startsWith('已配置'));
-      expect(subs, isNotEmpty, reason: '管理入口的动态统计文案不能丢');
-      expect(subs.any((String s) => s.contains('个服务商')), isTrue);
-      expect(subs.any((String s) => s.contains('个模型预设')), isTrue);
-    });
-
-    testWidgets('两种模式都渲染模式开关本身', (WidgetTester t) async {
-      final AppController c = await boot();
-      await pumpPage(t, c);
+      expect(findText('其他'), findsNothing, reason: '只有一栏时不显示 TabBar');
+      expect(find.byType(TabBar), findsNothing);
+      // 「其他」栏的两样东西必须都在。
       expect(findText('新手简易模式'), findsWidgets);
-      expect(find.byType(SwitchListTile), findsWidgets);
+      expect(findText('全局默认采样参数'), findsWidgets);
     });
 
-    testWidgets('切换模式后配置项不丢(回归上次事故)', (WidgetTester t) async {
+    testWidgets('完整模式：三个分栏齐全', (WidgetTester t) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(false);
-      await pumpPage(t, c);
+      await pumpMore(t, c);
 
-      final int advancedFields = find.byType(TextField).evaluate().length;
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(findText('模型'), findsWidgets);
+      expect(findText('服务商'), findsWidgets);
+      expect(findText('其他'), findsWidgets);
+    });
 
-      // 切到精简模式。
-      await c.toggleSimpleModelMode(true);
+    testWidgets('完整模式：切到「其他」栏能看到开关与采样', (WidgetTester t) async {
+      final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpMore(t, c);
+
+      await t.tap(findText('其他').last);
       await t.pumpAndSettle();
 
-      final int simpleFields = find.byType(TextField).evaluate().length;
-      expect(simpleFields + advancedFields, greaterThan(0),
-          reason: '两种模式合计必须至少有一个输入框;'
-              '若为 0 说明配置项整体丢失');
+      expect(findText('新手简易模式'), findsWidgets,
+          reason: '完整模式也必须能切回简易模式,否则进去就出不来');
+      expect(findText('全局默认采样参数'), findsWidgets,
+          reason: '完整模式也必须能调采样参数');
+    });
+
+    testWidgets('完整模式：模型栏渲染列表,服务商栏渲染卡片', (WidgetTester t) async {
+      final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpMore(t, c);
+
+      // 第一栏是模型列表。
+      expect(find.byType(ListView), findsWidgets);
+
+      // 切到服务商栏。
+      await t.tap(findText('服务商').last);
+      await t.pumpAndSettle();
+      expect(find.byType(ListView), findsWidgets);
+    });
+
+    testWidgets('其他栏的开关能真正切换模式', (WidgetTester t) async {
+      final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpMore(t, c);
+
+      await t.tap(findText('其他').last);
+      await t.pumpAndSettle();
+
+      await t.tap(find.byType(Switch).first);
+      await t.pumpAndSettle();
+
+      expect(c.settings.simpleModelMode, isTrue,
+          reason: '开关必须真的写入设置');
+    });
+
+    testWidgets('在 ⋮ 里改模式后,返回主页立刻生效', (WidgetTester t) async {
+      final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpHome(t, c);
+
+      // 完整模式主页应无输入框。
+      expect(find.byType(TextField).evaluate().length, 0);
+
+      // 进入 ⋮ → 其他 → 打开简易模式。
+      await t.tap(find.byIcon(Icons.more_vert));
+      await t.pumpAndSettle();
+      await t.tap(findText('其他').last);
+      await t.pumpAndSettle();
+      await t.tap(find.byType(Switch).first);
+      await t.pumpAndSettle();
+
+      // 返回主页。
+      await t.pageBack();
+      await t.pumpAndSettle();
+
+      // 主页必须已经切成精简模式(出现输入框)。
+      expect(find.byType(TextField).evaluate().length, greaterThan(0),
+          reason: '主页用 AnimatedBuilder 监听 controller,'
+              'toggleSimpleModelMode 会 notifyListeners,返回后应立刻反映新模式');
     });
   });
 }

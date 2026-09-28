@@ -36,7 +36,6 @@ class AiServicePageContract {
     required this.onSaveModel,
     required this.onSelectProvider,
     required this.onAddCustomModel,
-    required this.onShowQuickSwitch,
     required this.onResetValues,
   });
 
@@ -78,7 +77,6 @@ class AiServicePageContract {
   final Future<void> Function() onSaveModel;
   final Future<void> Function(LlmProvider provider) onSelectProvider;
   final Future<void> Function() onAddCustomModel;
-  final VoidCallback onShowQuickSwitch;
 
   /// 重新从设置装载两个输入框(切换模式时调用)。
   final VoidCallback onResetValues;
