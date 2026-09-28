@@ -184,6 +184,39 @@ void main() {
           reason: '开关必须真的写入设置');
     });
 
+    testWidgets('在「其他」栏切换简易模式后,分栏栏立刻反映(无需退出重进)',
+        (WidgetTester t) async {
+      final AppController c = await boot();
+      await c.toggleSimpleModelMode(false);
+      await pumpMore(t, c);
+
+      // 完整模式:三栏 + TabBar。
+      expect(find.byType(TabBar), findsOneWidget);
+
+      // 切到「其他」栏,打开简易模式。
+      await t.tap(findText('其他').last);
+      await t.pumpAndSettle();
+      await t.tap(find.byType(Switch).first);
+      await t.pumpAndSettle();
+
+      // 不退出本页 —— TabBar 必须当场消失,且直接显示「其他」栏内容。
+      expect(c.settings.simpleModelMode, isTrue);
+      expect(find.byType(TabBar), findsNothing,
+          reason: '切到精简模式后 TabBar 应当场消失,'
+              '用户不必退出页面再进来');
+      expect(findText('新手简易模式'), findsWidgets,
+          reason: '精简模式下应当场显示「其他」栏内容');
+
+      // 再切回完整模式,三栏要回来,且停在「其他」栏。
+      await t.tap(find.byType(Switch).first);
+      await t.pumpAndSettle();
+      expect(find.byType(TabBar), findsOneWidget,
+          reason: '切回完整模式后三栏应当场恢复');
+      expect(findText('新手简易模式'), findsWidgets,
+          reason: '恢复后应仍停在「其他」栏(索引钉在 2),'
+              '而不是跳到「模型」栏导致内容与标题对不上');
+    });
+
     testWidgets('在 ⋮ 里改模式后,返回主页立刻生效', (WidgetTester t) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(false);

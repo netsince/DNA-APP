@@ -30,18 +30,21 @@ class AiServiceMorePage extends StatefulWidget {
 
 class _AiServiceMorePageState extends State<AiServiceMorePage>
     with SingleTickerProviderStateMixin {
+  /// 分栏控制器固定为 3 栏(完整模式的最大值)。
+  ///
+  /// **不能按模式动态改变长度**:`TabController.length` 是不可变的,
+  /// 长度变化必须重建控制器,而重建会让正在显示的 `TabBarView` 抛索引越界。
+  /// 因此这里始终建 3 栏,靠 `_visibleTabCount` 决定**显示**几栏。
   late final TabController _tabs;
 
-  /// 进入页面时的模式。本页内切换模式时**不重建**分栏结构,
-  /// 否则正在看的 tab 会突然消失、索引越界。
-  /// 改动在返回上一页后由主页的 AnimatedBuilder 生效。
-  late final bool _simpleAtEntry;
+  /// 当前模式下可见的分栏数:精简模式 1(只有「其他」),完整模式 3。
+  int get _visibleTabCount =>
+      widget.controller.settings.simpleModelMode ? 1 : 3;
 
   @override
   void initState() {
     super.initState();
-    _simpleAtEntry = widget.controller.settings.simpleModelMode;
-    _tabs = TabController(length: _tabCount, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -50,50 +53,68 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
     super.dispose();
   }
 
-  /// 精简模式只有「其他」;完整模式有「模型 / 服务商 / 其他」。
-  int get _tabCount => _simpleAtEntry ? 1 : 3;
+  /// 精简模式只有「其他」一栏时,把 tab 索引钉在「其他」(index 2)。
+  ///
+  /// 否则从「模型」栏切到精简模式后,索引仍停在 0,
+  /// 而界面此时只显示「其他」栏 → 内容与标题对不上。
+  void _syncTabIndexToMode() {
+    final int want = _visibleTabCount == 1 ? 2 : _tabs.index;
+    if (_tabs.index != want) {
+      _tabs.index = want;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const FitText('AI 服务设置'),
-        bottom: _tabCount > 1
-            ? TabBar(
-                controller: _tabs,
-                tabs: const <Widget>[
-                  Tab(text: '模型'),
-                  Tab(text: '服务商'),
-                  Tab(text: '其他'),
-                ],
-              )
-            : null,
-      ),
-      body: _tabCount == 1
-          ? _otherTab()
-          : TabBarView(
-              controller: _tabs,
-              children: <Widget>[
-                ModelListBody(controller: widget.controller),
-                ProviderListBody(controller: widget.controller),
-                _otherTab(),
-              ],
-            ),
-      // 「添加」按钮跟随分栏:模型栏加模型,服务商栏加服务商,其他栏不加。
-      floatingActionButton: _tabCount == 1
-          ? null
-          : AnimatedBuilder(
-              animation: _tabs,
-              builder: (BuildContext context, Widget? _) {
-                if (_tabs.index == 0) {
-                  return AddModelFab(controller: widget.controller);
-                }
-                if (_tabs.index == 1) {
-                  return AddProviderFab(controller: widget.controller);
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+    // 监听 controller:在「其他」栏切换简易模式后,分栏栏与本页结构
+    // 必须**立刻**跟着变,而不是等用户退出去再进来。
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (BuildContext context, Widget? _) {
+        final int visible = _visibleTabCount;
+        _syncTabIndexToMode();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const FitText('AI 服务设置'),
+            bottom: visible > 1
+                ? TabBar(
+                    controller: _tabs,
+                    tabs: const <Widget>[
+                      Tab(text: '模型'),
+                      Tab(text: '服务商'),
+                      Tab(text: '其他'),
+                    ],
+                  )
+                : null,
+          ),
+          body: visible == 1
+              ? _otherTab()
+              : TabBarView(
+                  controller: _tabs,
+                  children: <Widget>[
+                    ModelListBody(controller: widget.controller),
+                    ProviderListBody(controller: widget.controller),
+                    _otherTab(),
+                  ],
+                ),
+          // 「添加」按钮跟随分栏:模型栏加模型,服务商栏加服务商,其他栏不加。
+          floatingActionButton: visible == 1
+              ? null
+              : AnimatedBuilder(
+                  animation: _tabs,
+                  builder: (BuildContext context, Widget? _) {
+                    if (_tabs.index == 0) {
+                      return AddModelFab(controller: widget.controller);
+                    }
+                    if (_tabs.index == 1) {
+                      return AddProviderFab(controller: widget.controller);
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+        );
+      },
     );
   }
 
