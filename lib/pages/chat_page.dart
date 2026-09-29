@@ -653,15 +653,87 @@ class _ChatConversationViewState extends State<ChatConversationView>
 
     final bool isExtendBehind = useImageBg || halfScreenChat;
 
-    return Scaffold(
+    // 背景层与前景分开:背景铺满整宽(侧栏浮层底下也要有角色立绘),
+    // 而 Scaffold 整体按侧栏宽度内缩 —— 于是它的所有"家具"(底部提示条、
+    // 悬浮按钮、底部弹层)都跟着让位,不会被侧栏压住。
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(child: ColoredBox(color: colorScheme.surface)),
+        if (useImageBg)
+          Positioned.fill(
+            child: _isGroup
+                ? _buildGroupBackground(useLandscape)
+                : (() {
+                    final String bg = bgPath!;
+                    final ImageProvider? image = _getCachedImage(bg);
+                    if (image == null) return const SizedBox.shrink();
+                    // GIF 动态背景：支持暂停第一帧 / 继续播放（状态随会话）。
+                    // 静态立绘走普通 Image。
+                    return AnimatedBackground(
+                      image: image,
+                      path: bg,
+                      animate: _conversation.bgmAnimated,
+                    );
+                  })(),
+          ),
+        if (useImageBg)
+          Positioned.fill(
+            child: Builder(
+              builder: (BuildContext context) {
+                final double baseAlpha =
+                    widget.controller.settings.chatMaskStrength / 100.0;
+                final Color maskColor = colorScheme.surface.withValues(
+                  alpha: baseAlpha,
+                );
+                final Color softMaskColor = colorScheme.surface.withValues(
+                  alpha: baseAlpha * 0.20,
+                );
+                final Color halfMaskColor = colorScheme.surface.withValues(
+                  alpha: baseAlpha * 0.60,
+                );
+                final Color clearColor = colorScheme.surface.withValues(
+                  alpha: 0.0,
+                );
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeInOutCubic,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isHalfScreenActive
+                          ? <Color>[
+                              clearColor,
+                              clearColor,
+                              softMaskColor,
+                              halfMaskColor,
+                              maskColor,
+                            ]
+                          : <Color>[
+                              maskColor,
+                              maskColor,
+                              maskColor,
+                              maskColor,
+                              maskColor,
+                            ],
+                      stops: const <double>[0.0, 0.32, 0.44, 0.60, 1.0],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        Positioned.fill(
+          left: widget.contentLeftInset,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: isExtendBehind,
       appBar: PreferredSize(
         preferredSize: _immersiveUiHidden
             ? Size.zero
             : const Size.fromHeight(kToolbarHeight),
-        child: Padding(
-          padding: EdgeInsets.only(left: widget.contentLeftInset),
-          child: AnimatedOpacity(
+        child: AnimatedOpacity(
           opacity: _immersiveUiHidden ? 0.0 : 1.0,
           duration: const Duration(milliseconds: 200),
           child: _immersiveUiHidden
@@ -701,7 +773,6 @@ class _ChatConversationViewState extends State<ChatConversationView>
                             : '群聊')
                       : null,
                 ),
-          ),
         ),
       ),
       body: GestureDetector(
@@ -715,76 +786,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
         },
         child: Stack(
           children: <Widget>[
-            if (useImageBg)
-              Positioned.fill(
-                child: _isGroup
-                    ? _buildGroupBackground(useLandscape)
-                    : (() {
-                        final String bg = bgPath!;
-                        final ImageProvider? image = _getCachedImage(bg);
-                        if (image == null) return const SizedBox.shrink();
-                        // GIF 动态背景：支持暂停第一帧 / 继续播放（状态随会话）。
-                        // 静态立绘走普通 Image。
-                        return AnimatedBackground(
-                          image: image,
-                          path: bg,
-                          animate: _conversation.bgmAnimated,
-                        );
-                      })(),
-              ),
-            if (useImageBg)
-              Positioned.fill(
-                child: Builder(
-                  builder: (BuildContext context) {
-                    final double baseAlpha =
-                        widget.controller.settings.chatMaskStrength / 100.0;
-                    final Color maskColor = colorScheme.surface.withValues(
-                      alpha: baseAlpha,
-                    );
-                    final Color softMaskColor = colorScheme.surface.withValues(
-                      alpha: baseAlpha * 0.20,
-                    );
-                    final Color halfMaskColor = colorScheme.surface.withValues(
-                      alpha: baseAlpha * 0.60,
-                    );
-                    final Color clearColor = colorScheme.surface.withValues(
-                      alpha: 0.0,
-                    );
-
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 320),
-                      curve: Curves.easeInOutCubic,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: isHalfScreenActive
-                              ? <Color>[
-                                  clearColor,
-                                  clearColor,
-                                  softMaskColor,
-                                  halfMaskColor,
-                                  maskColor,
-                                ]
-                              : <Color>[
-                                  maskColor,
-                                  maskColor,
-                                  maskColor,
-                                  maskColor,
-                                  maskColor,
-                                ],
-                          stops: const <double>[0.0, 0.32, 0.44, 0.60, 1.0],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
             SafeArea(
               top: isExtendBehind && !_immersiveUiHidden,
               bottom: false,
-              // 内容整体右移,给侧栏浮层让位(背景不受影响)。
-              minimum: EdgeInsets.only(left: widget.contentLeftInset),
               child: Column(
                 children: <Widget>[
                   if (!_immersiveUiHidden)
@@ -1072,6 +1076,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
           ],
         ),
       ),
+          ),
+        ),
+      ],
     );
   }
 }

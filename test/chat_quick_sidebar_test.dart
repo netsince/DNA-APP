@@ -643,5 +643,36 @@ void main() {
         findsOneWidget,
       );
     });
+    testWidgets('底部提示不会被侧栏遮挡(Scaffold 的"家具"一起内缩)', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      final Rect rail = tester.getRect(find.byType(ChatQuickSidebar));
+      expect(rail.width, closeTo(kChatSidebarFullWidth, 0.5));
+
+      // 弹一条底部提示(应用里到处都在用这条路径)
+      ScaffoldMessenger.of(
+        tester.element(find.byType(ChatConversationView)),
+      ).showSnackBar(const SnackBar(content: Text('测试提示')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final Rect snack = tester.getRect(find.byType(SnackBar));
+      expect(
+        snack.left,
+        greaterThanOrEqualTo(rail.right - 0.5),
+        reason: '提示条的左缘落在侧栏底下了 —— 会被侧栏压住',
+      );
+      expect(snack.width, lessThanOrEqualTo(1400 - rail.width + 0.5));
+    });
   });
 }
