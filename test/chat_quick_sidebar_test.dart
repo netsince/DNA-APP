@@ -9,6 +9,7 @@ import 'package:dna/services/openai_service.dart';
 import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
 import 'package:dna/state/app_controller.dart';
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/ta_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -255,6 +256,9 @@ void main() {
                   controller: controller,
                   currentConversationId: currentId,
                   onSelectConversation: selected.add,
+                  width: collapsed
+                      ? AppSize.chatSidebarHandle
+                      : kChatSidebarFullWidth,
                   collapsed: collapsed,
                   onToggleCollapsed: onToggle ?? () {},
                 ),
@@ -334,17 +338,23 @@ void main() {
       );
 
       Color rowColor(String label) {
-        final Finder material = find
-            .ancestor(of: find.byTooltip(label), matching: find.byType(Material))
+        final Finder container = find
+            .ancestor(
+              of: find.byTooltip(label),
+              matching: find.byType(AnimatedContainer),
+            )
             .first;
-        return tester.widget<Material>(material).color ?? Colors.transparent;
+        final Decoration? decoration = tester
+            .widget<AnimatedContainer>(container)
+            .decoration;
+        return (decoration as BoxDecoration?)?.color ?? Colors.transparent;
       }
 
       expect(rowColor('初遇'), isNot(Colors.transparent), reason: '当前聊天应高亮');
       expect(rowColor('今天天气真…'), Colors.transparent, reason: '非当前聊天不该高亮');
     });
 
-    testWidgets('收起后两列消失,把手仍在(可再展开)', (WidgetTester tester) async {
+    testWidgets('收起后只剩把手宽,把手仍在(可再展开)', (WidgetTester tester) async {
       final AppController c = await boot();
       bool toggled = false;
       await pumpSidebar(
@@ -356,8 +366,11 @@ void main() {
         onToggle: () => toggled = true,
       );
 
-      expect(find.byTooltip('爱丽丝'), findsNothing);
-      expect(find.byTooltip('初遇'), findsNothing);
+      // 收起 = 只剩把手宽(内容被 ClipRect 裁掉,是"滑出去"而不是移除)
+      expect(
+        tester.getSize(find.byType(ChatQuickSidebar)).width,
+        AppSize.chatSidebarHandle,
+      );
       final Finder handle = find.byTooltip('展开快速切换栏');
       expect(handle, findsOneWidget);
 
@@ -397,7 +410,7 @@ void main() {
     /// 不用 pumpAndSettle:聊天页里有光标闪烁等持续动画,settle 会超时。
     Future<void> settle(WidgetTester tester) async {
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 400));
     }
 
     String currentId(WidgetTester tester) => tester
@@ -476,6 +489,159 @@ void main() {
       await settle(tester);
 
       expect(find.byType(ChatQuickSidebar), findsNothing);
+    });
+  });
+  group('折叠状态与动画', () {
+    Future<AppController> boot() async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AppController c = AppController(
+        settingsService: SettingsService(),
+        openAiService: OpenAiService(),
+        taService: TaService(),
+        hiveService: _FakeHive(
+          tas: <TA>[_ta('taA', '爱丽丝'), _ta('taB', '鲍勃')],
+          conversations: <Conversation>[
+            _conv(
+              id: 'c1',
+              taId: 'taA',
+              note: '初遇',
+              messages: <ConversationMessage>[_msg('user', '你好', 1)],
+            ),
+            _conv(
+              id: 'c3',
+              taId: 'taB',
+              messages: <ConversationMessage>[_msg('user', '在吗', 3)],
+            ),
+          ],
+        ),
+      );
+      await c.initialize();
+      return c;
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    double sidebarWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(ChatQuickSidebar)).width;
+
+    testWidgets('进入页面时按上次的折叠状态就位(不需要手动点一下)', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      await c.saveChatQuickSidebarCollapsed(true);
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      expect(find.byType(ChatQuickSidebar), findsOneWidget);
+      expect(sidebarWidth(tester), AppSize.chatSidebarHandle);
+    });
+
+    testWidgets('点把手:有动画地展开,并把状态写回设置', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await c.saveChatQuickSidebarCollapsed(true);
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+      expect(sidebarWidth(tester), AppSize.chatSidebarHandle);
+
+      await tester.tap(find.byTooltip('展开快速切换栏'));
+      await tester.pump(); // 动画开始
+      await tester.pump(const Duration(milliseconds: 100)); // 动画中段
+
+      // 中段宽度介于"收起"与"展开"之间 ⇒ 是动画,不是硬切
+      final double mid = sidebarWidth(tester);
+      expect(mid, greaterThan(AppSize.chatSidebarHandle));
+      expect(mid, lessThan(kChatSidebarFullWidth));
+
+      await settle(tester);
+      expect(sidebarWidth(tester), closeTo(kChatSidebarFullWidth, 0.5));
+      expect(c.settings.chatQuickSidebarCollapsed, isFalse);
+    });
+
+    testWidgets('换会话时信息页淡入淡出(切换过程中新旧并存)', (WidgetTester tester) async {
+      final AppController c = await boot();
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+      expect(find.byType(ChatConversationView), findsOneWidget);
+
+      await tester.tap(find.byTooltip('鲍勃'));
+      await settle(tester);
+      await tester.tap(find.byTooltip('在吗'));
+      await tester.pump(); // 切换开始
+      await tester.pump(const Duration(milliseconds: 80));
+
+      // 淡入淡出中:旧会话视图尚未移除,与新的一起在场
+      expect(find.byType(ChatConversationView), findsNWidgets(2));
+
+      await settle(tester);
+      expect(find.byType(ChatConversationView), findsOneWidget);
+    });
+
+    testWidgets('侧栏是磨砂浮层:底下有模糊,且不在会话切换器里(切换时不跟着闪)', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      // 模糊层(透出底下的角色立绘)
+      expect(
+        find.descendant(
+          of: find.byType(ChatQuickSidebar),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsOneWidget,
+      );
+      // 会话视图被包在切换器里(所以切换有淡入淡出),
+      // 而侧栏在切换器**外面**(所以它不会跟着闪)。
+      expect(
+        find.ancestor(
+          of: find.byType(ChatConversationView),
+          matching: find.byType(AnimatedSwitcher),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: find.byType(ChatQuickSidebar),
+          matching: find.byType(AnimatedSwitcher),
+        ),
+        findsNothing,
+      );
+      // 侧栏内部另有一个切换器:换角色时右列整列淡入淡出。
+      expect(
+        find.descendant(
+          of: find.byType(ChatQuickSidebar),
+          matching: find.byType(AnimatedSwitcher),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

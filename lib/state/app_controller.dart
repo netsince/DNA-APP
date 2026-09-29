@@ -493,9 +493,15 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
-  Future<void> saveChatQuickSidebar(bool value) async {
-    _settings = _settings.copyWith(chatQuickSidebar: value);
+  /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
+  Future<void> saveChatQuickSidebar(bool value) async {
+    _settings = _settings.copyWith(chatQuickSidebar: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+  /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
+  Future<void> saveChatQuickSidebarCollapsed(bool value) async {
+    _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }

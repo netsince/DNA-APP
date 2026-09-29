@@ -1,5 +1,12 @@
 part of '../../chat_page.dart';
 
+/// 侧栏展开时的总宽度:把手 + 角色列 + 分隔线 + 聊天列。
+const double kChatSidebarFullWidth =
+    AppSize.chatSidebarHandle +
+    AppSize.chatSidebarAvatarColumn +
+    1 +
+    AppSize.chatSidebarListWidth;
+
 /// 侧栏里一条聊天的「注释」文案。
 ///
 /// 规则(与用户确认):**备注优先**;没有备注就用该会话里**最后一条
@@ -27,7 +34,8 @@ String chatSidebarAnnotation(Conversation conversation) {
   return '新对话';
 }
 
-/// 聊天页左侧的**快速切换侧栏**(横屏宽窗口)。
+/// 聊天页左侧的**快速切换侧栏**(横屏宽窗口),以磨砂浮层的形式盖在
+/// 聊天视图之上。
 ///
 /// 两级选择:
 /// * 左列 = 角色 1:1 头像,按「我家」的自定义顺序排列,**只列有
@@ -35,14 +43,25 @@ String chatSidebarAnnotation(Conversation conversation) {
 /// * 右列 = 该角色的聊天(注释 = 备注,或最后一条用户消息前 5 字),
 ///   点它才真正切换会话。
 ///
-/// 两列各自独立滚动,行高固定,所以"滚动到当前项"可以直接按索引算
-/// 偏移,不依赖条目是否已经构建(列表长时也不会定位失败)。
+/// ## 为什么是浮层而不是并排的一列
+///
+/// 浮层盖在**全宽的聊天视图**上,于是角色背景立绘会一直铺到侧栏底下,
+/// 侧栏用「半透明 + 高斯模糊」把它虚化透出来 —— 与气泡透出背景是
+/// 同一套设计语言,不会出现一块和背景无关的死板色块。
+/// 聊天内容则按侧栏宽度整体内缩(见 `ChatConversationView.contentLeftInset`),
+/// 所以浮层不会压住消息。
+///
+/// ## 收起/展开
+///
+/// 宽度由外层动画驱动([width]):内部内容始终保持满宽,由 [ClipRect]
+/// 裁掉右侧 —— 收起时两列是"滑出去"的,不是瞬间消失。
 class ChatQuickSidebar extends StatefulWidget {
   const ChatQuickSidebar({
     super.key,
     required this.controller,
     required this.currentConversationId,
     required this.onSelectConversation,
+    required this.width,
     required this.collapsed,
     required this.onToggleCollapsed,
   });
@@ -55,7 +74,10 @@ class ChatQuickSidebar extends StatefulWidget {
   /// 点右列某条聊天:交给外层**原地换会话**。
   final ValueChanged<String> onSelectConversation;
 
-  /// 收起状态由外层持有:切换会话时不会丢。
+  /// 动画宽度(收起时 = 把手宽度)。
+  final double width;
+
+  /// 是否处于收起状态(决定把手箭头方向与提示)。
   final bool collapsed;
 
   final VoidCallback onToggleCollapsed;
@@ -210,33 +232,58 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
-    return ListenableBuilder(
-      listenable: widget.controller,
-      builder: (BuildContext context, Widget? _) {
-        final List<TA> characters = _characters();
-        final String? taId = _effectiveTaId(characters);
-        final List<Conversation> chats = _chatsOf(taId);
-        return Material(
-          color: colorScheme.surfaceContainerLow,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildHandle(context),
-              if (!widget.collapsed) ...<Widget>[
-                SizedBox(
-                  width: AppSize.chatSidebarAvatarColumn,
-                  child: _buildCharacters(context, characters, taId),
+    return SizedBox(
+      width: widget.width,
+      child: ClipRect(
+        // 磨砂:虚化盖在下方的角色背景立绘。
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          // Material 提供水波纹的"材质"面:侧栏是浮层,外面不一定有
+          // Material 祖先(InkWell 会直接报错),所以自己带一个;
+          // 底色用半透明,配合上面的模糊透出底下的角色立绘。
+          child: Material(
+            color: colorScheme.surface.withValues(alpha: 0.72),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
                 ),
-                const VerticalDivider(width: 1),
-                SizedBox(
-                  width: AppSize.chatSidebarListWidth,
-                  child: _buildChats(context, chats, taId),
+              ),
+              // 内容保持满宽、靠左对齐:宽度收窄时右侧被裁掉 ⇒ 两列"滑出去"。
+              child: OverflowBox(
+                alignment: Alignment.centerLeft,
+                minWidth: kChatSidebarFullWidth,
+                maxWidth: kChatSidebarFullWidth,
+                child: ListenableBuilder(
+                  listenable: widget.controller,
+                  builder: (BuildContext context, Widget? _) {
+                    final List<TA> characters = _characters();
+                    final String? taId = _effectiveTaId(characters);
+                    final List<Conversation> chats = _chatsOf(taId);
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        _buildHandle(context),
+                        SizedBox(
+                          width: AppSize.chatSidebarAvatarColumn,
+                          child: _buildCharacters(context, characters, taId),
+                        ),
+                        const VerticalDivider(width: 1),
+                        SizedBox(
+                          width: AppSize.chatSidebarListWidth,
+                          child: _buildChats(context, chats, taId),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -253,8 +300,11 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
             iconSize: 18,
             visualDensity: VisualDensity.compact,
             onPressed: widget.onToggleCollapsed,
-            icon: Icon(
-              widget.collapsed ? Icons.chevron_right : Icons.chevron_left,
+            icon: AnimatedRotation(
+              turns: widget.collapsed ? 0.5 : 0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: const Icon(Icons.chevron_left),
             ),
           ),
         ),
@@ -288,7 +338,9 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
               borderRadius: BorderRadius.circular(10),
               // 点角色只换右列内容,不切聊天(两级选择的第一步)。
               onTap: () => setState(() => _selectedTaId = ta.id),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
@@ -314,14 +366,39 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
     List<Conversation> chats,
     String? taId,
   ) {
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
-    final TextTheme textTheme = Theme.of(context).textTheme;
     if (taId == null) {
       return _buildHint(context, '选择一个角色');
     }
     if (chats.isEmpty) {
       return _buildHint(context, '这个角色还没有聊天');
     }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.08, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      // 换角色时整列淡入淡出,而不是硬切。
+      child: KeyedSubtree(
+        key: ValueKey<String>(taId),
+        child: _buildChatList(context, chats),
+      ),
+    );
+  }
+
+  Widget _buildChatList(BuildContext context, List<Conversation> chats) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return ListView.builder(
       controller: _chatScroll,
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -333,9 +410,15 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
         final String label = chatSidebarAnnotation(conversation);
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          child: Material(
-            color: current ? colorScheme.primaryContainer : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: current
+                  ? colorScheme.primaryContainer
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () => widget.onSelectConversation(conversation.id),

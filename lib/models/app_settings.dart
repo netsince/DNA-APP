@@ -27,6 +27,7 @@ class AppSettings {
     required this.showSplashAnimation,
     required this.showBottomNav,
     required this.chatQuickSidebar,
+    required this.chatQuickSidebarCollapsed,
     this.updateCheckEnabled = true,
     this.showTokenDashboard = false,
     this.enableForking = false,
@@ -103,6 +104,7 @@ class AppSettings {
       showSplashAnimation: true,
       showBottomNav: false,
       chatQuickSidebar: true,
+      chatQuickSidebarCollapsed: false,
       showTokenDashboard: false,
       enableForking: false,
       enableCommandMacros: true,
@@ -198,6 +200,9 @@ class AppSettings {
 
   /// 横屏宽窗口的聊天页是否显示「快速切换侧栏」。
   final bool chatQuickSidebar;
+
+  /// 快速切换侧栏是否处于收起状态(记住用户上次的选择)。
+  final bool chatQuickSidebarCollapsed;
 
   /// 是否在聊天界面显示上下文 Token 实时仪表盘（当前上下文占用 vs 预算）。
   /// 默认关闭，可在「外观与体验」中开启。
@@ -384,6 +389,7 @@ class AppSettings {
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
       'chatQuickSidebar': chatQuickSidebar,
+      'chatQuickSidebarCollapsed': chatQuickSidebarCollapsed,
       'showTokenDashboard': showTokenDashboard,
       'enableForking': enableForking,
       'enableCommandMacros': enableCommandMacros,
@@ -468,6 +474,8 @@ class AppSettings {
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
+      chatQuickSidebarCollapsed:
+          (json['chatQuickSidebarCollapsed'] as bool?) ?? false,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       enableForking: (json['enableForking'] as bool?) ?? false,
       enableCommandMacros: (json['enableCommandMacros'] as bool?) ?? true,
@@ -574,6 +582,7 @@ class AppSettings {
     bool? updateCheckEnabled,
     bool? showBottomNav,
     bool? chatQuickSidebar,
+    bool? chatQuickSidebarCollapsed,
     bool? showTokenDashboard,
     bool? enableForking,
     bool? enableCommandMacros,
@@ -647,6 +656,8 @@ class AppSettings {
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       chatQuickSidebar: chatQuickSidebar ?? this.chatQuickSidebar,
+      chatQuickSidebarCollapsed:
+          chatQuickSidebarCollapsed ?? this.chatQuickSidebarCollapsed,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       enableForking: enableForking ?? this.enableForking,
       enableCommandMacros: enableCommandMacros ?? this.enableCommandMacros,

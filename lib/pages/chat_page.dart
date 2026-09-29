@@ -97,8 +97,15 @@ class _ChatPageState extends State<ChatPage> {
   /// 当前展示的会话:侧栏切换只改它。
   late String _conversationId = widget.conversationId;
 
-  /// 侧栏收起状态(切换会话时不丢)。
-  bool _sidebarCollapsed = false;
+  /// 侧栏收起状态:初值取自设置(**记住上次的折叠/展开**),
+  /// 切换会话时不丢,点把手时写回设置。
+  late bool _sidebarCollapsed =
+      widget.controller.settings.chatQuickSidebarCollapsed;
+
+  void _toggleSidebar() {
+    setState(() => _sidebarCollapsed = !_sidebarCollapsed);
+    widget.controller.saveChatQuickSidebarCollapsed(_sidebarCollapsed);
+  }
 
   @override
   void didUpdateWidget(ChatPage oldWidget) {
@@ -135,31 +142,56 @@ class _ChatPageState extends State<ChatPage> {
     final bool showSidebar =
         landscape && wideEnough && widget.controller.settings.chatQuickSidebar;
 
-    final Widget view = ChatConversationView(
-      key: ValueKey<String>(_conversationId),
-      controller: widget.controller,
-      conversationId: _conversationId,
-      isGroup: _isGroupConversation,
-    );
+    // 收起/展开是**一条动画**驱动的:它同时决定侧栏浮层的宽度与聊天
+    // 内容的内缩量,所以两列是滑出去/滑进来的,内容也跟着让位,
+    // 不会一边跳一边不动。初值直接取目标值 ⇒ 进入页面时按上次的
+    // 折叠状态就位,不会先展开再收起。
+    final double targetInset = !showSidebar
+        ? 0
+        : (_sidebarCollapsed
+              ? AppSize.chatSidebarHandle
+              : kChatSidebarFullWidth);
 
-    if (!showSidebar) {
-      return view;
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        ChatQuickSidebar(
-          controller: widget.controller,
-          currentConversationId: _conversationId,
-          onSelectConversation: _openConversation,
-          collapsed: _sidebarCollapsed,
-          onToggleCollapsed: () =>
-              setState(() => _sidebarCollapsed = !_sidebarCollapsed),
-        ),
-        const VerticalDivider(width: 1),
-        Expanded(child: view),
-      ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: targetInset),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      builder: (BuildContext context, double inset, Widget? _) {
+        return Stack(
+          children: <Widget>[
+            Positioned.fill(
+              // 换会话:整页淡入淡出。侧栏是**浮层**、不在这个切换器里,
+              // 所以切换时它稳稳留在原地,不会跟着闪。
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: ChatConversationView(
+                  key: ValueKey<String>(_conversationId),
+                  controller: widget.controller,
+                  conversationId: _conversationId,
+                  isGroup: _isGroupConversation,
+                  contentLeftInset: inset,
+                ),
+              ),
+            ),
+            if (showSidebar)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: ChatQuickSidebar(
+                  controller: widget.controller,
+                  currentConversationId: _conversationId,
+                  onSelectConversation: _openConversation,
+                  width: inset,
+                  collapsed: _sidebarCollapsed,
+                  onToggleCollapsed: _toggleSidebar,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -169,11 +201,17 @@ class ChatConversationView extends StatefulWidget {
     required this.controller,
     required this.conversationId,
     this.isGroup = false,
+    this.contentLeftInset = 0,
   });
 
   final AppController controller;
   final String conversationId;
   final bool isGroup;
+
+  /// 左侧留给「快速切换侧栏」的宽度:标题栏与聊天内容整体右移这么多,
+  /// 但**背景立绘仍然铺满整宽** —— 于是侧栏浮层底下也是这张立绘,
+  /// 磨砂透出来就与聊天区连成一片。
+  final double contentLeftInset;
 
   @override
   State<ChatConversationView> createState() => _ChatConversationViewState();
@@ -621,7 +659,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
         preferredSize: _immersiveUiHidden
             ? Size.zero
             : const Size.fromHeight(kToolbarHeight),
-        child: AnimatedOpacity(
+        child: Padding(
+          padding: EdgeInsets.only(left: widget.contentLeftInset),
+          child: AnimatedOpacity(
           opacity: _immersiveUiHidden ? 0.0 : 1.0,
           duration: const Duration(milliseconds: 200),
           child: _immersiveUiHidden
@@ -661,6 +701,7 @@ class _ChatConversationViewState extends State<ChatConversationView>
                             : '群聊')
                       : null,
                 ),
+          ),
         ),
       ),
       body: GestureDetector(
@@ -742,6 +783,8 @@ class _ChatConversationViewState extends State<ChatConversationView>
             SafeArea(
               top: isExtendBehind && !_immersiveUiHidden,
               bottom: false,
+              // 内容整体右移,给侧栏浮层让位(背景不受影响)。
+              minimum: EdgeInsets.only(left: widget.contentLeftInset),
               child: Column(
                 children: <Widget>[
                   if (!_immersiveUiHidden)
