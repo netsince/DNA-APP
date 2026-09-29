@@ -61,6 +61,22 @@ part 'chat/actions/chat_actions_inspiration.dart';
 part 'chat/actions/chat_actions_snapshots.dart';
 part 'chat/actions/chat_actions_summary_ui.dart';
 
+/// 聊天页。
+///
+/// 横屏、窗口够宽且设置里开启时,左侧带一条**快速切换侧栏**
+/// (左列角色 1:1 头像 → 右列该角色的聊天);窄窗口/竖屏只有会话视图,
+/// 与改造前完全一致。
+///
+/// ## 「原地换会话」是怎么做到的
+///
+/// 侧栏切换只改 [_conversationId],会话视图带 `ValueKey(会话 id)`:
+/// id 一变,旧 State 走正常 dispose、新 State 正常 init —— **不新增
+/// 路由、没有页面转场动画**,视觉上就是消息区顺滑换掉。
+///
+/// 这样切换时需要重置的东西(消息键、强调色重新取色、滚动位置、
+/// 搜索状态、在途摘要、TTS 播放)全部沿用既有的 init/dispose 逻辑,
+/// 不必另写一套"重新初始化",也就不会漏字段。代价是旧 State 被销毁:
+/// 输入框草稿会丢、在途生成会被取消(与"退出聊天页再进来"一致)。
 class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
@@ -77,7 +93,93 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage>
+class _ChatPageState extends State<ChatPage> {
+  /// 当前展示的会话:侧栏切换只改它。
+  late String _conversationId = widget.conversationId;
+
+  /// 侧栏收起状态(切换会话时不丢)。
+  bool _sidebarCollapsed = false;
+
+  @override
+  void didUpdateWidget(ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversationId != widget.conversationId) {
+      _conversationId = widget.conversationId;
+    }
+  }
+
+  void _openConversation(String id) {
+    if (id == _conversationId) {
+      return;
+    }
+    setState(() => _conversationId = id);
+  }
+
+  /// 以当前会话为准判断是不是群聊:侧栏只能切到 1:1,若沿用打开时的
+  /// isGroup 会带着"群聊"标记渲染 1:1 会话。
+  bool get _isGroupConversation {
+    for (final Conversation conversation in widget.controller.conversations) {
+      if (conversation.id == _conversationId) {
+        return conversation.isGroup;
+      }
+    }
+    return widget.isGroup;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool landscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool wideEnough =
+        MediaQuery.sizeOf(context).width >= AppSize.chatSidebarMinWidth;
+    final bool showSidebar =
+        landscape && wideEnough && widget.controller.settings.chatQuickSidebar;
+
+    final Widget view = ChatConversationView(
+      key: ValueKey<String>(_conversationId),
+      controller: widget.controller,
+      conversationId: _conversationId,
+      isGroup: _isGroupConversation,
+    );
+
+    if (!showSidebar) {
+      return view;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        ChatQuickSidebar(
+          controller: widget.controller,
+          currentConversationId: _conversationId,
+          onSelectConversation: _openConversation,
+          collapsed: _sidebarCollapsed,
+          onToggleCollapsed: () =>
+              setState(() => _sidebarCollapsed = !_sidebarCollapsed),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: view),
+      ],
+    );
+  }
+}
+class ChatConversationView extends StatefulWidget {
+  const ChatConversationView({
+    super.key,
+    required this.controller,
+    required this.conversationId,
+    this.isGroup = false,
+  });
+
+  final AppController controller;
+  final String conversationId;
+  final bool isGroup;
+
+  @override
+  State<ChatConversationView> createState() => _ChatConversationViewState();
+}
+
+class _ChatConversationViewState extends State<ChatConversationView>
     with
         WidgetsBindingObserver,
         ChatStateMixin,

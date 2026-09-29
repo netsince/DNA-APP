@@ -366,4 +366,116 @@ void main() {
       expect(toggled, isTrue);
     });
   });
+  group('聊天页接入(原地换会话)', () {
+    Future<AppController> boot() async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AppController c = AppController(
+        settingsService: SettingsService(),
+        openAiService: OpenAiService(),
+        taService: TaService(),
+        hiveService: _FakeHive(
+          tas: <TA>[_ta('taA', '爱丽丝'), _ta('taB', '鲍勃')],
+          conversations: <Conversation>[
+            _conv(
+              id: 'c1',
+              taId: 'taA',
+              note: '初遇',
+              messages: <ConversationMessage>[_msg('user', '你好', 1)],
+            ),
+            _conv(
+              id: 'c3',
+              taId: 'taB',
+              messages: <ConversationMessage>[_msg('user', '在吗', 3)],
+            ),
+          ],
+        ),
+      );
+      await c.initialize();
+      return c;
+    }
+
+    /// 不用 pumpAndSettle:聊天页里有光标闪烁等持续动画,settle 会超时。
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    String currentId(WidgetTester tester) => tester
+        .widget<ChatConversationView>(find.byType(ChatConversationView))
+        .conversationId;
+
+    testWidgets('宽窗口:侧栏可见;两级点击后原地换会话(不新增路由)', (WidgetTester tester) async {
+      final AppController c = await boot();
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      expect(find.byType(ChatQuickSidebar), findsOneWidget);
+      expect(currentId(tester), 'c1');
+      final State shellState = tester.state(find.byType(ChatPage));
+      final State viewStateBefore = tester.state(
+        find.byType(ChatConversationView),
+      );
+
+      // 第一步:点鲍勃(只换右列)
+      await tester.tap(find.byTooltip('鲍勃'));
+      await settle(tester);
+      expect(currentId(tester), 'c1', reason: '点角色不该切会话');
+      expect(find.byTooltip('在吗'), findsOneWidget);
+
+      // 第二步:点聊天 → 原地换会话
+      await tester.tap(find.byTooltip('在吗'));
+      await settle(tester);
+
+      expect(currentId(tester), 'c3');
+      // 壳的 State 没变 ⇒ 没有新路由、没有重建整页
+      expect(
+        identical(tester.state(find.byType(ChatPage)), shellState),
+        isTrue,
+        reason: '换会话不该重建聊天页(那会堆路由)',
+      );
+      // 会话视图的 State 换了 ⇒ 该重置的状态确实重置了
+      expect(
+        identical(tester.state(find.byType(ChatConversationView)), viewStateBefore),
+        isFalse,
+        reason: '会话视图应随会话 id 重建,避免残留上一会话的状态',
+      );
+      expect(find.byType(ChatConversationView), findsOneWidget);
+    });
+
+    testWidgets('窄窗口(竖屏):不显示侧栏', (WidgetTester tester) async {
+      final AppController c = await boot();
+      tester.view.physicalSize = const Size(600, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      expect(find.byType(ChatQuickSidebar), findsNothing);
+      expect(find.byType(ChatConversationView), findsOneWidget);
+    });
+
+    testWidgets('设置里关掉:宽窗口也不显示侧栏', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await c.saveChatQuickSidebar(false);
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
+      );
+      await settle(tester);
+
+      expect(find.byType(ChatQuickSidebar), findsNothing);
+    });
+  });
 }
