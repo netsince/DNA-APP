@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../pages/home_page.dart';
-import '../pages/group_home_page.dart';
-import '../pages/identity_page.dart';
-import '../pages/my_home_page.dart';
-import '../pages/settings_page.dart';
-import '../pages/world_page.dart';
 import '../pages/search_page.dart';
 import '../state/app_controller.dart';
+import 'app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-enum AppSection { home, groupChats, myHome, identity, world, settings }
+export 'app_section.dart' show AppSection;
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -27,34 +22,18 @@ class AppDrawer extends StatelessWidget {
   final bool persistent;
 
   void _navigate(BuildContext context, AppSection target) {
+    // 同栏目:仅收抽屉,不切换。
     if (target == current) {
       if (!persistent) Navigator.of(context).pop();
       return;
     }
-    final Widget page;
-    switch (target) {
-      case AppSection.home:
-        page = HomePage(controller: controller);
-        break;
-      case AppSection.groupChats:
-        page = GroupHomePage(controller: controller);
-        break;
-      case AppSection.myHome:
-        page = MyHomePage(controller: controller);
-        break;
-      case AppSection.identity:
-        page = IdentityPage(controller: controller);
-        break;
-      case AppSection.world:
-        page = WorldPage(controller: controller);
-        break;
-      case AppSection.settings:
-        page = SettingsPage(controller: controller);
-        break;
-    }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (BuildContext context) => page),
-    );
+    // 栏目切换 = fade-through。先 pop(抽屉开始滑出),紧接着 push
+    // 切换路由(旧页淡出 → 新页浮起):同一帧启动,两段动画并行,
+    // 不再"先收抽屉、再整页横推"两段等待。
+    // 顺序不能反:pop 弹的是页面路由上的抽屉 LocalHistory,
+    // 若先 push,pop 会命中新路由。
+    if (!persistent) Navigator.of(context).pop();
+    sectionNavigate(context, controller, target, current: current);
   }
 
   @override

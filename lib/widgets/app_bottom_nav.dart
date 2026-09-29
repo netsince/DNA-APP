@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../pages/group_home_page.dart';
-import '../pages/home_page.dart';
-import '../pages/identity_page.dart';
-import '../pages/my_home_page.dart';
-import '../pages/settings_page.dart';
-import '../pages/world_page.dart';
 import '../state/app_controller.dart';
-import 'app_drawer.dart';
+import 'app_section.dart';
 
 /// 底部导航栏实际承载的栏目（主页 / 群聊 / 我家 / 世界）。
 /// 注意：AppSection 枚举里 identity(3)、settings(5) 不在底栏中，
@@ -21,37 +15,18 @@ const List<AppSection> _bottomSections = <AppSection>[
   AppSection.world,
 ];
 
-Widget _buildSectionPage(AppSection target, AppController controller) {
-  switch (target) {
-    case AppSection.home:
-      return HomePage(controller: controller);
-    case AppSection.groupChats:
-      return GroupHomePage(controller: controller);
-    case AppSection.myHome:
-      return MyHomePage(controller: controller);
-    case AppSection.identity:
-      return IdentityPage(controller: controller);
-    case AppSection.world:
-      return WorldPage(controller: controller);
-    case AppSection.settings:
-      return SettingsPage(controller: controller);
-  }
-}
-
-/// 在四个主页面之间切换（与抽屉导航行为一致，使用 pushReplacement）。
+/// 在四个主页面之间切换（fade-through 转场,与抽屉导航一致）。
 void navigateToSection(
   BuildContext context,
   AppController controller,
   AppSection target, {
   required AppSection current,
 }) {
-  if (target == current) {
-    return;
-  }
-  Navigator.of(context).pushReplacement(
-    MaterialPageRoute<void>(
-      builder: (BuildContext context) => _buildSectionPage(target, controller),
-    ),
+  sectionNavigate(
+    context,
+    controller,
+    target,
+    current: current,
   );
 }
 

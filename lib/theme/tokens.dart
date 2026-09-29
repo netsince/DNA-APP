@@ -384,6 +384,20 @@ abstract final class AppMotion {
 
   /// 退出场:离场比进场略快,减少等待感。
   static const Curve exit = Curves.easeInCubic;
+
+  /// 栏目切换(抽屉 / 底栏顶级目的地之间的 fade-through)。
+  ///
+  /// 比 [medium] 略短:切换是高频操作,要轻快不抢戏。
+  static const Duration section = Duration(milliseconds: 250);
+
+  /// fade-through 三阶段分界(M3 规范:淡出 0-0.3 / 全空 0.3-0.35 /
+  /// 淡入 + 缩放 0.35-1)。
+  static const double fadeOutEnd = 0.30;
+  static const double fadeInStart = 0.35;
+
+  /// fade-through 专用缓动:淡出用 exit(更快消失),
+  /// 淡入用 standard(浮起更稳)。
+  static const Curve fadeThrough = Curves.easeOutCubic;
 }
 
 /// 阴影令牌(全局唯一来源)。
