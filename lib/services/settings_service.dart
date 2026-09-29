@@ -52,6 +52,7 @@ class SettingsService {
   static const String _showMessageContinueKey = 'show_message_continue';
   static const String _enterToSendKey = 'enter_to_send';
   static const String _showBottomNavKey = 'show_bottom_nav';
+  static const String _chatQuickSidebarKey = 'chat_quick_sidebar';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
   static const String _chatBubbleOpacityKey = 'chat_bubble_opacity';
   static const String _halfScreenChatKey = 'half_screen_chat';
@@ -156,6 +157,7 @@ class SettingsService {
       showMessageContinue: prefs.getBool(_showMessageContinueKey) ?? true,
       enterToSend: prefs.getBool(_enterToSendKey) ?? true,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
+      chatQuickSidebar: prefs.getBool(_chatQuickSidebarKey) ?? true,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
       chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
       chatBubbleOpacity: prefs.getInt(_chatBubbleOpacityKey) ?? 100,
@@ -281,6 +283,7 @@ class SettingsService {
     await prefs.setBool(_showMessageContinueKey, settings.showMessageContinue);
     await prefs.setBool(_enterToSendKey, settings.enterToSend);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
+    await prefs.setBool(_chatQuickSidebarKey, settings.chatQuickSidebar);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
     await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
     await prefs.setInt(_chatBubbleOpacityKey, settings.chatBubbleOpacity);

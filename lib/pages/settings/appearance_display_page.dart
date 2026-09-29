@@ -35,6 +35,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   // ---- 应用与启动 ----
   bool _showSplash = true;
   bool _showBottomNav = false;
+  bool _chatQuickSidebar = true;
   bool _showTokenDashboard = false;
   String _iconKey = 'default';
   final bool _iconSupported = AppIconService.isSupported || kIsWeb;
@@ -59,6 +60,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
 
     _showSplash = s.showSplashAnimation;
     _showBottomNav = s.showBottomNav;
+    _chatQuickSidebar = s.chatQuickSidebar;
     _showTokenDashboard = s.showTokenDashboard;
     _iconKey = s.appIcon;
 
@@ -391,6 +393,15 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 onChanged: (bool v) {
                   setState(() => _showBottomNav = v);
                   widget.controller.saveShowBottomNav(v);
+                },
+              ),
+              SettingSwitch(
+                title: '聊天快速切换栏',
+                subtitle: '横屏聊天时左侧显示角色与聊天快捷列表。',
+                value: _chatQuickSidebar,
+                onChanged: (bool v) {
+                  setState(() => _chatQuickSidebar = v);
+                  widget.controller.saveChatQuickSidebar(v);
                 },
               ),
               SettingSwitch(

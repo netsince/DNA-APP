@@ -493,6 +493,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
+  Future<void> saveChatQuickSidebar(bool value) async {
+    _settings = _settings.copyWith(chatQuickSidebar: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「启动时检查更新」开关。
   ///
   /// 关掉后启动不再请求 GitHub API;「关于」页的手动检查不受影响。

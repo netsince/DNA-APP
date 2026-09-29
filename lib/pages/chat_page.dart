@@ -45,8 +45,11 @@ import 'chat/ui/widgets/animated_background.dart';
 import 'chat/ui/widgets/chat_input_bar.dart';
 import 'chat/ui/widgets/chat_message_list.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../theme/tokens.dart';
+import '../widgets/ta_avatar.dart';
 
 part 'chat/state/chat_state_mixin.dart';
+part 'chat/ui/chat_quick_sidebar.dart';
 part 'chat/ui/chat_ui_helpers.dart';
 part 'chat/ui/chat_search.dart';
 part 'chat/builders/chat_payload_builders.dart';

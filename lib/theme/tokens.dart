@@ -356,6 +356,20 @@ abstract final class AppSize {
 
   /// 小图标块背景尺寸。
   static const double iconBox = 40;
+
+  /// 聊天「快速切换侧栏」(横屏宽窗口)。
+  ///
+  /// 结构:把手(收起/展开) | 角色 1:1 头像列 | 分隔线 | 该角色的聊天列。
+  static const double chatSidebarHandle = 28;
+  static const double chatSidebarAvatarColumn = 56;
+  static const double chatSidebarListWidth = 176;
+
+  /// 侧栏行高(固定行高:滚动定位按索引算偏移,不依赖已构建的条目)。
+  static const double chatSidebarAvatarExtent = 56;
+  static const double chatSidebarChatExtent = 44;
+
+  /// 低于这个窗口宽度就不显示侧栏(避免把消息区挤扁)。
+  static const double chatSidebarMinWidth = 1000;
 }
 
 /// 颜色令牌(仅限无法从 `ColorScheme` 取得的固定色)。

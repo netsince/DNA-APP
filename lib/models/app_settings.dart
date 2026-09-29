@@ -26,6 +26,7 @@ class AppSettings {
     required this.autoBackup,
     required this.showSplashAnimation,
     required this.showBottomNav,
+    required this.chatQuickSidebar,
     this.updateCheckEnabled = true,
     this.showTokenDashboard = false,
     this.enableForking = false,
@@ -101,6 +102,7 @@ class AppSettings {
       autoBackup: true,
       showSplashAnimation: true,
       showBottomNav: false,
+      chatQuickSidebar: true,
       showTokenDashboard: false,
       enableForking: false,
       enableCommandMacros: true,
@@ -193,6 +195,9 @@ class AppSettings {
 
   /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
   final bool showBottomNav;
+
+  /// 横屏宽窗口的聊天页是否显示「快速切换侧栏」。
+  final bool chatQuickSidebar;
 
   /// 是否在聊天界面显示上下文 Token 实时仪表盘（当前上下文占用 vs 预算）。
   /// 默认关闭，可在「外观与体验」中开启。
@@ -378,6 +383,7 @@ class AppSettings {
       'showSplashAnimation': showSplashAnimation,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
+      'chatQuickSidebar': chatQuickSidebar,
       'showTokenDashboard': showTokenDashboard,
       'enableForking': enableForking,
       'enableCommandMacros': enableCommandMacros,
@@ -461,6 +467,7 @@ class AppSettings {
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
+      chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       enableForking: (json['enableForking'] as bool?) ?? false,
       enableCommandMacros: (json['enableCommandMacros'] as bool?) ?? true,
@@ -566,6 +573,7 @@ class AppSettings {
     bool? showSplashAnimation,
     bool? updateCheckEnabled,
     bool? showBottomNav,
+    bool? chatQuickSidebar,
     bool? showTokenDashboard,
     bool? enableForking,
     bool? enableCommandMacros,
@@ -638,6 +646,7 @@ class AppSettings {
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
+      chatQuickSidebar: chatQuickSidebar ?? this.chatQuickSidebar,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       enableForking: enableForking ?? this.enableForking,
       enableCommandMacros: enableCommandMacros ?? this.enableCommandMacros,
