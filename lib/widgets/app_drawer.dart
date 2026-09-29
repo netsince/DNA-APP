@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/search_page.dart';
 import '../state/app_controller.dart';
+import 'app_container.dart';
 import 'app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -70,18 +71,23 @@ class AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.search_outlined),
-            title: const FitText('搜索'),
-            onTap: () {
-              if (!persistent) Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) =>
-                      SearchPage(controller: controller),
+          // 搜索是独立界面(不是栏目):从侧边栏这一行**容器变换**
+          // 长出搜索页,关闭时缩回原位——与卡片、右上角按钮同一族
+          // 动效。抽屉模式下先收抽屉再起飞(两段动画同帧并行)。
+          AppContainer<bool>(
+            // 点击由 ListTile 自己发起(保留水波纹),容器不抢手势。
+            tappable: false,
+            closedBuilder: (BuildContext context, VoidCallback open) =>
+                ListTile(
+                  leading: const Icon(Icons.search_outlined),
+                  title: const FitText('搜索'),
+                  onTap: () {
+                    if (!persistent) Navigator.of(context).pop();
+                    open();
+                  },
                 ),
-              );
-            },
+            openBuilder: (BuildContext context, VoidCallback close) =>
+                SearchPage(controller: controller),
           ),
           ListTile(
             leading: const Icon(Icons.home_outlined),

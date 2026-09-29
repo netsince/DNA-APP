@@ -7,10 +7,13 @@ import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/pages/conversation_create_page.dart';
+import 'package:dna/pages/search_page.dart';
 import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
 import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
+import 'package:dna/widgets/app_container.dart';
+import 'package:dna/widgets/app_drawer.dart';
 import 'package:dna/widgets/app_icon_flight.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -327,5 +330,39 @@ void main() {
     // 图标回到原处,且原位按钮的位置与尺寸分毫未动。
     expect(tester.getCenter(plus), sourceCenter);
     expect(tester.getSize(plus), sourceSize);
+  });
+
+  testWidgets('侧边栏搜索:从那一行容器变换长出搜索页,关闭后缩回', (WidgetTester tester) async {
+    final AppController c = await boot();
+    // 横屏:侧边栏常驻,搜索项一直可见(不必开抽屉)。
+    tester.view.physicalSize = const Size(1200, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 搜索项被容器变换包住:源容器就是侧边栏里那一行。
+    final Finder searchItem = find.descendant(
+      of: find.byType(AppDrawer),
+      matching: findText('搜索'),
+    );
+    expect(searchItem, findsOneWidget);
+    expect(
+      find.ancestor(of: searchItem, matching: find.byType(AppContainer<bool>)),
+      findsOneWidget,
+    );
+
+    // 起飞:长出搜索页(独立界面,不是栏目,所以不走胶片滑动)。
+    await tester.tap(searchItem);
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchPage), findsOneWidget);
+
+    // 关闭:缩回侧边栏那一行。
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchPage), findsNothing);
+    expect(searchItem, findsOneWidget);
+    // 侧边栏本身没被换掉(栏目壳的框架不动)。
+    expect(find.byType(AppDrawer), findsOneWidget);
   });
 }
