@@ -384,9 +384,10 @@ class ChatMessageList extends StatelessWidget {
                     '字数 $charCount / Token $tokenCount',
                     contrastBackground: bubbleColor,
                     style: textTheme.bodySmall?.copyWith(
-                      color: FitText.isLightBackground(bubbleColor, colorScheme.surface)
-                          ? const Color(0xFF49454F)
-                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: FitText.inkFor(
+                        bubbleColor,
+                        colorScheme.surface,
+                      ).withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -727,22 +728,37 @@ TextSpan _buildHighlightedText(
   Color highlightColor, {
   Color? bubbleColor,
 }) {
-  final TextStyle base = DefaultTextStyle.of(context).style.copyWith(height: AppLineHeight.body);
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
   final bool isLightBg = bubbleColor != null
       ? FitText.isLightBackground(bubbleColor, colorScheme.surface)
       : Theme.of(context).brightness == Brightness.light;
 
-  final Color dialogueColor = colorScheme.onSurface;
+  // 气泡底色来自角色卡取色,可能非常亮(甚至接近纯白),也可能很深。
+  // 之前正文写死 colorScheme.onSurface:深色模式 + 亮色气泡就是
+  // 「白底白字」,浅色模式 + 深色气泡则是「黑底黑字」,两种情况都
+  // 看不清。这里按气泡明暗取墨色(半透明气泡先与页面底色合成),
+  // 保证正文、旁白、括号注释三个层次都能反色。
+  final Color ink = FitText.inkFor(
+    bubbleColor ?? colorScheme.surface,
+    colorScheme.surface,
+  );
 
-  final Color narrationColor = colorScheme.onSurface.withValues(
+  // base 是所有派生样式的源头(代码块、搜索高亮、根 span 都从它
+  // copyWith)。**必须在这里就带上墨色**:否则那些没有显式指定颜色
+  // 的片段会继承主题色 —— 亮色气泡 + 深色主题时就是「白字配白底」。
+  final TextStyle base = DefaultTextStyle.of(context).style.copyWith(
+    height: AppLineHeight.body,
+    color: ink,
+  );
+
+  final Color dialogueColor = ink;
+
+  final Color narrationColor = ink.withValues(
     alpha: isLightBg ? 0.88 : 0.82,
   );
 
-  final Color parenColor = isLightBg
-      ? colorScheme.onSurfaceVariant
-      : colorScheme.onSurfaceVariant.withValues(alpha: 0.65);
+  final Color parenColor = ink.withValues(alpha: isLightBg ? 0.72 : 0.65);
 
   final TextStyle dialogueStyle = base.copyWith(
     fontWeight: AppWeight.medium,

@@ -380,6 +380,13 @@ abstract final class AppColors {
   /// (如从角色卡提取的亮色气泡)上时,即使在深色模式下也必须使用深色字,
   /// 否则会出现"白字配白底"看不清的问题。
   static const Color inkOnLight = Color(0xFF1D1B20);
+
+  /// 深色背景上的浅色墨字(用于 [FitText] 对比度自适应)。
+  ///
+  /// 语义为「Material 3 深色主题的 onSurface」:当文字落在深色背景
+  /// (如浅色主题下取到的深色气泡)上时,必须使用浅色字,否则会出现
+  /// "黑字配黑底"。与 [inkOnLight] 配对,保证两个方向都能反色。
+  static const Color inkOnDark = Color(0xFFE6E1E5);
 }
 
 /// 动效令牌(全局唯一来源)。

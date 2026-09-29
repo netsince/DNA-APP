@@ -63,14 +63,44 @@ class FitText extends Text {
     Color? lightColor,
   }) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool isLight = isLightBackground(bgColor, cs.surface);
-    if (isLight) {
+    if (inkFor(bgColor, cs.surface) == AppColors.inkOnLight) {
       // 浅色/高亮背景上必须用深色墨字(即使当前是深色主题),
       // 否则会出现「白字配白底」看不清的问题。
       return darkColor ?? AppColors.inkOnLight;
-    } else {
-      return lightColor ?? cs.onSurface;
     }
+    // 深色背景上必须用浅色墨字(即使当前是浅色主题):
+    // 取色可能给出很深的颜色,浅色主题的 onSurface 是深色字,
+    // 落在深色气泡上同样看不清。
+    return lightColor ?? AppColors.inkOnDark;
+  }
+
+  /// 背景上的前景墨色:在深浅两种墨里挑**对比度更高**的那个。
+  ///
+  /// 刻意不用固定的明暗阈值。气泡是半透明的:50% 白叠在深色页面上
+  /// 得到的是中灰(亮度约 0.25),按"亮度 > 0.42 才算亮底"会判成深色
+  /// 底、给出浅色字,对比度只有 2.7;按对比度取优会选深色字(4.8)。
+  ///
+  /// [background] 允许半透明(气泡会透出后面的背景),此时先与
+  /// [surfaceColor] 合成再比较。供 `RichText` 这类不能用 [FitText]
+  /// 包裹的场景复用。
+  static Color inkFor(Color background, [Color? surfaceColor]) {
+    final Color effective = surfaceColor != null
+        ? compositeOver(background, surfaceColor)
+        : background;
+    final double withLightInk = _contrastRatio(AppColors.inkOnLight, effective);
+    final double withDarkInk = _contrastRatio(AppColors.inkOnDark, effective);
+    return withLightInk >= withDarkInk
+        ? AppColors.inkOnLight
+        : AppColors.inkOnDark;
+  }
+
+  /// WCAG 相对对比度(仅用于挑选前景墨色)。
+  static double _contrastRatio(Color a, Color b) {
+    final double la = a.computeLuminance();
+    final double lb = b.computeLuminance();
+    final double hi = la > lb ? la : lb;
+    final double lo = la > lb ? lb : la;
+    return (hi + 0.05) / (lo + 0.05);
   }
 
   @override
@@ -78,13 +108,13 @@ class FitText extends Text {
     TextStyle? effectiveStyle = style;
     if (contrastBackground != null) {
       final Color autoColor = contrastColor(contrastBackground!, context);
-      effectiveStyle = (effectiveStyle ?? DefaultTextStyle.of(context).style).copyWith(
-        color: autoColor,
-      );
+      effectiveStyle = (effectiveStyle ?? DefaultTextStyle.of(context).style)
+          .copyWith(color: autoColor);
     }
 
     final String? text = data;
-    final bool isShort = text != null && text.characters.length < _shortThreshold;
+    final bool isShort =
+        text != null && text.characters.length < _shortThreshold;
     final bool canWrap = softWrap ?? true;
 
     Widget result = Text(
