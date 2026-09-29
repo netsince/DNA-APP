@@ -39,6 +39,7 @@ SectionPageData settingsSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.settings,
+    contentMaxWidth: AppSize.settingsMaxWidth,
     appBar: (BuildContext context) => AppBar(title: const FitText('设置')),
     body: (BuildContext context) =>
         SettingsBody(controller: controller, scrollOffset: _scrollOffset),

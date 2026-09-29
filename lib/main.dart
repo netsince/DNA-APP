@@ -183,6 +183,13 @@ class _DnaAppState extends State<DnaApp> {
       colorScheme: cs,
       useMaterial3: true,
       fontFamily: AppFont.family,
+
+      // 桌面端:控件按鼠标操作收紧一档(触屏保持标准密度)。
+      // 桌面上指针比手指精确得多,标准密度的行高与内边距偏松,
+      // 一屏能看的内容太少。
+      visualDensity: PlatformCapabilities.isDesktop
+          ? VisualDensity.compact
+          : VisualDensity.standard,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),

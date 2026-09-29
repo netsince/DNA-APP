@@ -322,8 +322,15 @@ abstract final class AppSize {
   /// 最小触摸目标。
   static const double touchTarget = 48;
 
-  /// 聊天内容区最大宽度。
+  /// 聊天内容区最大宽度(气泡/系统消息)。
   static const double contentMaxWidth = 520;
+
+  /// 列表/正文内容列最大宽度。
+  ///
+  /// 桌面宽窗口下列表若通栏铺开,单行会横跨整个屏幕(头像贴最左、
+  /// 操作贴最右),读起来很散。超过这个宽度就**居中收窄成一列**:
+  /// 标题栏、内容、悬浮按钮都对齐到这一列,窗口再宽也不会拉散。
+  static const double listMaxWidth = 760;
 
   /// 设置页内容最大宽度。
   static const double settingsMaxWidth = 900;

@@ -15,4 +15,17 @@ abstract class PlatformCapabilities {
 
   /// 生物识别 / 设备凭证认证（local_auth）。
   static bool get biometricAuthSupported => !kIsWeb;
+
+  /// 桌面端（Windows / macOS / Linux）。
+  ///
+  /// 用于按桌面习惯调整布局与密度:桌面用鼠标指针、屏幕更宽,
+  /// 控件可以更紧凑、内容列可以限宽居中。
+  static bool get isDesktop {
+    if (kIsWeb) {
+      return false;
+    }
+    return defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+  }
 }

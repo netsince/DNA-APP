@@ -7,6 +7,7 @@ import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/pages/conversation_create_page.dart';
+import 'package:dna/pages/home/home_widgets.dart';
 import 'package:dna/pages/search_page.dart';
 import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
@@ -364,5 +365,53 @@ void main() {
     expect(searchItem, findsOneWidget);
     // 侧边栏本身没被换掉(栏目壳的框架不动)。
     expect(find.byType(AppDrawer), findsOneWidget);
+  });
+
+  testWidgets('桌面宽窗口:内容列居中收窄,标题栏/内容/悬浮按钮对齐同一列', (WidgetTester tester) async {
+    final AppController c = await boot();
+    // 1600×900 横屏:内容区 = 1600 - 侧边栏 260 - 分隔线 1 = 1339,
+    // 超过内容列 760 ⇒ 两侧各留 (1339-760)/2 = 289.5。
+    const double windowWidth = 1600;
+    const double contentArea = windowWidth - 260 - 1;
+    const double inset = (contentArea - AppSize.listMaxWidth) / 2;
+
+    tester.view.physicalSize = const Size(windowWidth, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 标题栏被收到内容列宽度,且左缘落在内容列起点。
+    final Rect bar = tester.getRect(find.byType(AppBar));
+    expect(bar.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(bar.left, closeTo(260 + 1 + inset, 1.0));
+
+    // 内容区与标题栏同宽同位置 ⇒ 两者对齐同一条内容列。
+    final Rect body = tester.getRect(find.byType(ConversationListBody));
+    expect(body.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(body.left, closeTo(bar.left, 1.0));
+
+    // 悬浮按钮贴内容列右缘(不是窗口最右边)。
+    tester
+        .state<AppSectionShellState>(find.byType(AppSectionShell))
+        .navigateTo(AppSection.identity);
+    await tester.pumpAndSettle();
+    final Rect fab = tester.getRect(find.byType(FloatingActionButton));
+    expect(fab.right, closeTo(bar.right - 16, 1.0));
+  });
+
+  testWidgets('窄窗口(竖屏):不加留白,内容铺满', (WidgetTester tester) async {
+    final AppController c = await boot();
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 600 < 内容列 760 ⇒ 不留白,标题栏与内容都是整窗宽。
+    final Rect bar = tester.getRect(find.byType(AppBar));
+    expect(bar.width, closeTo(600, 1.0));
+    final Rect body = tester.getRect(find.byType(ConversationListBody));
+    expect(body.width, closeTo(600, 1.0));
   });
 }

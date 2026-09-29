@@ -13,6 +13,7 @@ import '../utils/message_processor.dart';
 import '../utils/api_guard.dart';
 import '../utils/dialogs.dart';
 import '../utils/ui_feedback.dart';
+import '../widgets/app_content_frame.dart';
 import '../models/conversation.dart';
 import '../models/app_settings.dart';
 import '../models/quick_reply.dart';
@@ -118,7 +119,9 @@ class _ChatPageState extends State<ChatPage>
       timestamp: DateTime.now().millisecondsSinceEpoch,
       speakerTaId: ta.id,
     );
-    _conversation = _conversation.copyWith(messages: <ConversationMessage>[opening]);
+    _conversation = _conversation.copyWith(
+      messages: <ConversationMessage>[opening],
+    );
     await widget.controller.upsertConversation(_conversation);
     if (!mounted) {
       return;
@@ -224,7 +227,9 @@ class _ChatPageState extends State<ChatPage>
 
   Widget _buildGroupBackground(bool useLandscape) {
     final TA? speaker = _lastAssistantSpeaker();
-    final String? path = useLandscape ? speaker?.images['landscape'] : speaker?.images['portrait'];
+    final String? path = useLandscape
+        ? speaker?.images['landscape']
+        : speaker?.images['portrait'];
     final ImageProvider? image = path != null ? _getCachedImage(path) : null;
     final bool hasImage = image != null;
 
@@ -262,7 +267,9 @@ class _ChatPageState extends State<ChatPage>
       return;
     }
     final List<TA> allTas = widget.controller.activeTas;
-    final List<TA> candidates = allTas.where((TA t) => !_memberTaIds.contains(t.id)).toList();
+    final List<TA> candidates = allTas
+        .where((TA t) => !_memberTaIds.contains(t.id))
+        .toList();
     if (candidates.isEmpty) {
       if (!mounted) {
         return;
@@ -277,49 +284,56 @@ class _ChatPageState extends State<ChatPage>
         return Theme(
           data: _accentTheme,
           child: StatefulBuilder(
-            builder: (BuildContext context, void Function(void Function()) setDialogState) {
-              return AlertDialog(
-                title: const FitText('添加群成员'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: candidates.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final TA ta = candidates[index];
-                    final bool checked = selected.contains(ta.id);
-                    return CheckboxListTile(
-                      value: checked,
-                      onChanged: (bool? value) {
-                        setDialogState(() {
-                          if (value == true) {
-                            selected.add(ta.id);
-                          } else {
-                            selected.remove(ta.id);
-                          }
-                        });
-                      },
-                      title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                    );
-                  },
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const FitText('取消'),
-                ),
-                FilledButton(
-                  onPressed: selected.isEmpty ? null : () => Navigator.of(context).pop(selected.toList()),
-                  child: const FitText('添加'),
-                ),
-              ],
-            );
-          },
-        ),
-      );
-    },
-  );
+            builder:
+                (
+                  BuildContext context,
+                  void Function(void Function()) setDialogState,
+                ) {
+                  return AlertDialog(
+                    title: const FitText('添加群成员'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: candidates.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final TA ta = candidates[index];
+                          final bool checked = selected.contains(ta.id);
+                          return CheckboxListTile(
+                            value: checked,
+                            onChanged: (bool? value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  selected.add(ta.id);
+                                } else {
+                                  selected.remove(ta.id);
+                                }
+                              });
+                            },
+                            title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
+                          );
+                        },
+                      ),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const FitText('取消'),
+                      ),
+                      FilledButton(
+                        onPressed: selected.isEmpty
+                            ? null
+                            : () =>
+                                  Navigator.of(context).pop(selected.toList()),
+                        child: const FitText('添加'),
+                      ),
+                    ],
+                  );
+                },
+          ),
+        );
+      },
+    );
     if (updated == null || updated.isEmpty) {
       return;
     }
@@ -343,12 +357,13 @@ class _ChatPageState extends State<ChatPage>
     if (options == null || !mounted) {
       return;
     }
-    final ExportImportResult<ConversationExportResult> result =
-        await widget.controller.exportConversationsById(
-      <String>[_conversation.id],
-      includeCharacterCards: options.includeCharacterCards,
-      format: options.format,
-    );
+    final ExportImportResult<ConversationExportResult> result = await widget
+        .controller
+        .exportConversationsById(
+          <String>[_conversation.id],
+          includeCharacterCards: options.includeCharacterCards,
+          format: options.format,
+        );
     if (!mounted) {
       return;
     }
@@ -359,7 +374,8 @@ class _ChatPageState extends State<ChatPage>
     await handleExportResult(context, result.data!);
   }
 
-  ImageProvider? _avatarForTa(TA ta) {    final String? path = ta.images['square'];
+  ImageProvider? _avatarForTa(TA ta) {
+    final String? path = ta.images['square'];
     if (path == null || path.isEmpty) {
       return null;
     }
@@ -372,7 +388,11 @@ class _ChatPageState extends State<ChatPage>
     return ta == null ? null : _avatarForTa(ta);
   }
 
-  Widget _buildSpeakerBar(Color primaryContainer, Color surfaceContainerHighest, TextTheme textTheme) {
+  Widget _buildSpeakerBar(
+    Color primaryContainer,
+    Color surfaceContainerHighest,
+    TextTheme textTheme,
+  ) {
     if (!_isGroup) {
       return const SizedBox.shrink();
     }
@@ -385,7 +405,9 @@ class _ChatPageState extends State<ChatPage>
       decoration: BoxDecoration(
         color: surfaceContainerHighest,
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
       ),
       child: Row(
@@ -463,8 +485,7 @@ class _ChatPageState extends State<ChatPage>
     final double bubbleOpacity =
         widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
     // 用户气泡保持偏淡层次（基准 0.5），并随滑块线性变化，0 时完全透明。
-    final Color userBubble =
-        schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
+    final Color userBubble = schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
     final Color assistantBubble = colorScheme.surfaceContainerHighest
         .withValues(alpha: bubbleOpacity);
     // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。
@@ -476,19 +497,25 @@ class _ChatPageState extends State<ChatPage>
         halfScreenChat && (!dynamicHalfScreen || !_dynamicIsFullScreen);
 
     final bool useLandscape = screenSize.width >= screenSize.height;
-    final String? bgPath = useLandscape ? ta?.images['landscape'] : ta?.images['portrait'];
-    final bool useImageBg = _conversation.backgroundMode == 'image' &&
+    final String? bgPath = useLandscape
+        ? ta?.images['landscape']
+        : ta?.images['portrait'];
+    final bool useImageBg =
+        _conversation.backgroundMode == 'image' &&
         ((_isGroup) || (bgPath != null && bgPath.isNotEmpty));
     final String searchQuery = _searchController.text.trim();
-    final List<int> searchMatches =
-        _searching && searchQuery.isNotEmpty ? _computeSearchMatches(searchQuery) : <int>[];
+    final List<int> searchMatches = _searching && searchQuery.isNotEmpty
+        ? _computeSearchMatches(searchQuery)
+        : <int>[];
 
     final bool isExtendBehind = useImageBg || halfScreenChat;
 
     return Scaffold(
       extendBodyBehindAppBar: isExtendBehind,
       appBar: PreferredSize(
-        preferredSize: _immersiveUiHidden ? Size.zero : const Size.fromHeight(kToolbarHeight),
+        preferredSize: _immersiveUiHidden
+            ? Size.zero
+            : const Size.fromHeight(kToolbarHeight),
         child: AnimatedOpacity(
           opacity: _immersiveUiHidden ? 0.0 : 1.0,
           duration: const Duration(milliseconds: 200),
@@ -517,13 +544,16 @@ class _ChatPageState extends State<ChatPage>
                   showTokenCounts: _showTokenCounts,
                   onRangeSummary: _summarizeRecentRange,
                   onForceSummary: _forceSummaryPrompt,
-                  onToggleTokens: () => setState(() => _showTokenCounts = !_showTokenCounts),
+                  onToggleTokens: () =>
+                      setState(() => _showTokenCounts = !_showTokenCounts),
                   onManageSnapshots: _manageSnapshots,
                   onExport: _exportCurrentConversation,
                   backgroundMode: _conversation.backgroundMode,
                   ta: ta,
                   titleOverride: _isGroup
-                      ? (_conversation.groupName.trim().isNotEmpty ? _conversation.groupName.trim() : '群聊')
+                      ? (_conversation.groupName.trim().isNotEmpty
+                            ? _conversation.groupName.trim()
+                            : '群聊')
                       : null,
                 ),
         ),
@@ -562,14 +592,18 @@ class _ChatPageState extends State<ChatPage>
                   builder: (BuildContext context) {
                     final double baseAlpha =
                         widget.controller.settings.chatMaskStrength / 100.0;
-                    final Color maskColor =
-                        colorScheme.surface.withValues(alpha: baseAlpha);
-                    final Color softMaskColor =
-                        colorScheme.surface.withValues(alpha: baseAlpha * 0.20);
-                    final Color halfMaskColor =
-                        colorScheme.surface.withValues(alpha: baseAlpha * 0.60);
-                    final Color clearColor =
-                        colorScheme.surface.withValues(alpha: 0.0);
+                    final Color maskColor = colorScheme.surface.withValues(
+                      alpha: baseAlpha,
+                    );
+                    final Color softMaskColor = colorScheme.surface.withValues(
+                      alpha: baseAlpha * 0.20,
+                    );
+                    final Color halfMaskColor = colorScheme.surface.withValues(
+                      alpha: baseAlpha * 0.60,
+                    );
+                    final Color clearColor = colorScheme.surface.withValues(
+                      alpha: 0.0,
+                    );
 
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 320),
@@ -606,7 +640,11 @@ class _ChatPageState extends State<ChatPage>
               child: Column(
                 children: <Widget>[
                   if (!_immersiveUiHidden)
-                    _buildSpeakerBar(colorScheme.primaryContainer, colorScheme.surfaceContainerHighest, textTheme),
+                    _buildSpeakerBar(
+                      colorScheme.primaryContainer,
+                      colorScheme.surfaceContainerHighest,
+                      textTheme,
+                    ),
                   Expanded(
                     child: Listener(
                       onPointerSignal: (PointerSignalEvent event) {
@@ -632,20 +670,21 @@ class _ChatPageState extends State<ChatPage>
                           if (halfScreenChat)
                             AnimatedCrossFade(
                               firstChild: SizedBox(
-                                height: (screenSize.height - kToolbarHeight - 120) * 0.45,
+                                height:
+                                    (screenSize.height - kToolbarHeight - 120) *
+                                    0.45,
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () {
                                     setState(() {
                                       _immersiveUiHidden = !_immersiveUiHidden;
                                       if (_immersiveUiHidden) {
-                                        FocusManager.instance.primaryFocus?.unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
                                       }
                                     });
                                   },
-                                  child: Container(
-                                    color: Colors.transparent,
-                                  ),
+                                  child: Container(color: Colors.transparent),
                                 ),
                               ),
                               secondChild: const SizedBox.shrink(),
@@ -657,49 +696,70 @@ class _ChatPageState extends State<ChatPage>
                             ),
                           Expanded(
                             child: NotificationListener<ScrollNotification>(
-                              onNotification: (ScrollNotification notification) {
-                                if (!dynamicHalfScreen) {
-                                  return false;
-                                }
-                                final ScrollMetrics metrics = notification.metrics;
-                                final bool isNearBottom =
-                                    metrics.pixels >= metrics.maxScrollExtent - 24;
+                              onNotification:
+                                  (ScrollNotification notification) {
+                                    if (!dynamicHalfScreen) {
+                                      return false;
+                                    }
+                                    final ScrollMetrics metrics =
+                                        notification.metrics;
+                                    final bool isNearBottom =
+                                        metrics.pixels >=
+                                        metrics.maxScrollExtent - 24;
 
-                                if (isNearBottom) {
-                                  // 滚动到达底部：自动收敛为半屏
-                                  if (_dynamicIsFullScreen) {
-                                    setState(() => _dynamicIsFullScreen = false);
-                                  }
-                                } else if (notification is ScrollUpdateNotification) {
-                                  final double? delta = notification.scrollDelta;
-                                  if (delta != null) {
-                                    if (delta < -3) {
-                                      // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
-                                      if (!_dynamicIsFullScreen && metrics.pixels > 16) {
-                                        setState(() => _dynamicIsFullScreen = true);
-                                      }
-                                    } else if (delta > 3) {
-                                      // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
+                                    if (isNearBottom) {
+                                      // 滚动到达底部：自动收敛为半屏
                                       if (_dynamicIsFullScreen) {
-                                        setState(() => _dynamicIsFullScreen = false);
+                                        setState(
+                                          () => _dynamicIsFullScreen = false,
+                                        );
+                                      }
+                                    } else if (notification
+                                        is ScrollUpdateNotification) {
+                                      final double? delta =
+                                          notification.scrollDelta;
+                                      if (delta != null) {
+                                        if (delta < -3) {
+                                          // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
+                                          if (!_dynamicIsFullScreen &&
+                                              metrics.pixels > 16) {
+                                            setState(
+                                              () => _dynamicIsFullScreen = true,
+                                            );
+                                          }
+                                        } else if (delta > 3) {
+                                          // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
+                                          if (_dynamicIsFullScreen) {
+                                            setState(
+                                              () =>
+                                                  _dynamicIsFullScreen = false,
+                                            );
+                                          }
+                                        }
+                                      }
+                                    } else if (notification
+                                        is UserScrollNotification) {
+                                      if (notification.direction ==
+                                          ScrollDirection.forward) {
+                                        // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
+                                        if (!_dynamicIsFullScreen &&
+                                            metrics.pixels > 16) {
+                                          setState(
+                                            () => _dynamicIsFullScreen = true,
+                                          );
+                                        }
+                                      } else if (notification.direction ==
+                                          ScrollDirection.reverse) {
+                                        // 触摸手势从下往上滑动（向最新消息方向回滚）：中途即刻收敛为半屏
+                                        if (_dynamicIsFullScreen) {
+                                          setState(
+                                            () => _dynamicIsFullScreen = false,
+                                          );
+                                        }
                                       }
                                     }
-                                  }
-                                } else if (notification is UserScrollNotification) {
-                                  if (notification.direction == ScrollDirection.forward) {
-                                    // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
-                                    if (!_dynamicIsFullScreen && metrics.pixels > 16) {
-                                      setState(() => _dynamicIsFullScreen = true);
-                                    }
-                                  } else if (notification.direction == ScrollDirection.reverse) {
-                                    // 触摸手势从下往上滑动（向最新消息方向回滚）：中途即刻收敛为半屏
-                                    if (_dynamicIsFullScreen) {
-                                      setState(() => _dynamicIsFullScreen = false);
-                                    }
-                                  }
-                                }
-                                return false;
-                              },
+                                    return false;
+                                  },
                               child: ShaderMask(
                                 shaderCallback: (Rect bounds) => LinearGradient(
                                   begin: Alignment.topCenter,
@@ -715,55 +775,74 @@ class _ChatPageState extends State<ChatPage>
                                       : const <double>[0.0, 0.03, 0.97, 1.0],
                                 ).createShader(bounds),
                                 blendMode: BlendMode.dstIn,
-                                child: ChatMessageList(
-                                  conversation: _conversation,
-                                  scrollController: _scrollController,
-                                  messageKeys: _messageKeys,
-                                  userBubble: userBubble,
-                                  assistantBubble: assistantBubble,
-                                  showTokenCounts: _showTokenCounts,
-                                  searchQuery: searchQuery,
-                                  thoughtsByMessageId: _thoughtsByMessageId,
-                                  tokenCountForMessage: _tokenCountCallback.call,
-                                  summaryById: _summaryById,
-                                  onStartSummary: _startSummaryFromPrompt,
-                                  onDismissSummary: _dismissSummaryPrompt,
-                                  onShowMessageMenu: _showMessageMenu,
-                                  summaryInProgress: _summaryInProgress,
-                                  showSpeakerLabels: _isGroup,
-                                  taNameForId: (String? id) =>
-                                      widget.controller.getTaById(id ?? '')?.name,
-                                  visibleThoughtMessageIds:
-                                      _visibleThoughtMessageIds,
-                                  ttsEnabled: widget.controller.settings.ttsEnabled,
-                                  ttsGlobalSeed:
-                                      widget.controller.settings.ttsGlobalSeed,
-                                  voiceSeedForTa: (String? id) => widget.controller
-                                      .getTaById(id ?? '')
-                                      ?.voiceSeed,
-                                  ttsQuoteOnly:
-                                      widget.controller.settings.ttsQuoteOnly,
-                                  showMessageAvatar:
-                                      widget.controller.settings.showMessageAvatar,
-                                  showMessageRetry:
-                                      widget.controller.settings.showMessageRetry,
-                                  showMessageCopy:
-                                      widget.controller.settings.showMessageCopy,
-                                  showMessageContinue: widget
-                                      .controller.settings.showMessageContinue,
-                                  avatarForMessage: _avatarForSpeakerTa,
-                                  onRetryMessage: _retryLastAssistant,
-                                  onCopyMessage: (String text) {
-                                    Clipboard.setData(ClipboardData(text: text));
-                                    if (mounted) {
-                                      showSnack(
-                                        context,
-                                        '已复制到剪贴板',
-                                        behavior: SnackBarBehavior.floating,
+                                child: AppContentFrame(
+                                  child: ChatMessageList(
+                                    conversation: _conversation,
+                                    scrollController: _scrollController,
+                                    messageKeys: _messageKeys,
+                                    userBubble: userBubble,
+                                    assistantBubble: assistantBubble,
+                                    showTokenCounts: _showTokenCounts,
+                                    searchQuery: searchQuery,
+                                    thoughtsByMessageId: _thoughtsByMessageId,
+                                    tokenCountForMessage:
+                                        _tokenCountCallback.call,
+                                    summaryById: _summaryById,
+                                    onStartSummary: _startSummaryFromPrompt,
+                                    onDismissSummary: _dismissSummaryPrompt,
+                                    onShowMessageMenu: _showMessageMenu,
+                                    summaryInProgress: _summaryInProgress,
+                                    showSpeakerLabels: _isGroup,
+                                    taNameForId: (String? id) => widget
+                                        .controller
+                                        .getTaById(id ?? '')
+                                        ?.name,
+                                    visibleThoughtMessageIds:
+                                        _visibleThoughtMessageIds,
+                                    ttsEnabled:
+                                        widget.controller.settings.ttsEnabled,
+                                    ttsGlobalSeed: widget
+                                        .controller
+                                        .settings
+                                        .ttsGlobalSeed,
+                                    voiceSeedForTa: (String? id) => widget
+                                        .controller
+                                        .getTaById(id ?? '')
+                                        ?.voiceSeed,
+                                    ttsQuoteOnly:
+                                        widget.controller.settings.ttsQuoteOnly,
+                                    showMessageAvatar: widget
+                                        .controller
+                                        .settings
+                                        .showMessageAvatar,
+                                    showMessageRetry: widget
+                                        .controller
+                                        .settings
+                                        .showMessageRetry,
+                                    showMessageCopy: widget
+                                        .controller
+                                        .settings
+                                        .showMessageCopy,
+                                    showMessageContinue: widget
+                                        .controller
+                                        .settings
+                                        .showMessageContinue,
+                                    avatarForMessage: _avatarForSpeakerTa,
+                                    onRetryMessage: _retryLastAssistant,
+                                    onCopyMessage: (String text) {
+                                      Clipboard.setData(
+                                        ClipboardData(text: text),
                                       );
-                                    }
-                                  },
-                                  onContinueMessage: _continueFromContext,
+                                      if (mounted) {
+                                        showSnack(
+                                          context,
+                                          '已复制到剪贴板',
+                                          behavior: SnackBarBehavior.floating,
+                                        );
+                                      }
+                                    },
+                                    onContinueMessage: _continueFromContext,
+                                  ),
                                 ),
                               ),
                             ),
@@ -774,11 +853,17 @@ class _ChatPageState extends State<ChatPage>
                   ),
                   if (_sending)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: assistantBubble,
                             borderRadius: BorderRadius.circular(16),
@@ -788,43 +873,50 @@ class _ChatPageState extends State<ChatPage>
                       ),
                     ),
                   if (_summaryInProgress)
-                    _SummaryProgressBar(
-                      onCancel: _cancelSummary,
-                      color: colorScheme.surfaceContainerHigh,
-                      borderColor: colorScheme.outlineVariant,
+                    AppContentFrame(
+                      child: _SummaryProgressBar(
+                        onCancel: _cancelSummary,
+                        color: colorScheme.surfaceContainerHigh,
+                        borderColor: colorScheme.outlineVariant,
+                      ),
                     ),
-                  AnimatedCrossFade(
-                    firstChild: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (widget.controller.settings.showTokenDashboard)
-                          _TokenDashboard(
-                            usedTokens: _countContextTokens(),
-                            budgetTokens: widget.controller.settings.maxContextTokens,
-                            accent: schemeColor,
+                  AppContentFrame(
+                    child: AnimatedCrossFade(
+                      firstChild: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          if (widget.controller.settings.showTokenDashboard)
+                            _TokenDashboard(
+                              usedTokens: _countContextTokens(),
+                              budgetTokens:
+                                  widget.controller.settings.maxContextTokens,
+                              accent: schemeColor,
+                            ),
+                          Theme(
+                            data: _accentTheme,
+                            child: ChatInputBar(
+                              controller: widget.controller,
+                              inputController: _inputController,
+                              inputFocusNode: _inputFocusNode,
+                              sending: _sending,
+                              inspirationInProgress: _inspirationInProgress,
+                              onSend: _send,
+                              onStopGeneration: requestStopGeneration,
+                              onStartInspiration: _startInspiration,
+                              quickReplies:
+                                  widget.controller.settings.quickReplies,
+                              onQuickReply: _handleQuickReply,
+                              halfScreen: isExtendBehind,
+                            ),
                           ),
-                        Theme(
-                          data: _accentTheme,
-                          child: ChatInputBar(
-                            controller: widget.controller,
-                            inputController: _inputController,
-                            inputFocusNode: _inputFocusNode,
-                            sending: _sending,
-                            inspirationInProgress: _inspirationInProgress,
-                            onSend: _send,
-                            onStopGeneration: requestStopGeneration,
-                            onStartInspiration: _startInspiration,
-                            quickReplies: widget.controller.settings.quickReplies,
-                            onQuickReply: _handleQuickReply,
-                            halfScreen: isExtendBehind,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      secondChild: const SizedBox.shrink(),
+                      crossFadeState: _immersiveUiHidden
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 200),
                     ),
-                    secondChild: const SizedBox.shrink(),
-                    crossFadeState:
-                        _immersiveUiHidden ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                    duration: const Duration(milliseconds: 200),
                   ),
                 ],
               ),
@@ -868,10 +960,7 @@ Future<Color?> _extractDominantColor(String ref) async {
 
 // 缓存 token 计数回调
 class _TokenCountCallback {
-  _TokenCountCallback({
-    required this.counter,
-    required this.getModel,
-  });
+  _TokenCountCallback({required this.counter, required this.getModel});
 
   final ChatTokenCounter counter;
   final String Function() getModel;
@@ -923,10 +1012,9 @@ class _TokenDashboard extends StatelessWidget {
                   budgetTokens > 0
                       ? '上下文 $usedTokens / $budgetTokens Tokens'
                       : '上下文 $usedTokens Tokens（未设预算）',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
             ],
@@ -981,10 +1069,7 @@ class _SummaryProgressBar extends StatelessWidget {
               const SizedBox(width: 4),
               const FitText('正在生成摘要...'),
               const SizedBox(width: 8),
-              TextButton(
-                onPressed: onCancel,
-                child: const FitText('停止'),
-              ),
+              TextButton(onPressed: onCancel, child: const FitText('停止')),
             ],
           ),
         ),

@@ -54,6 +54,7 @@ class SectionPageData {
     required this.body,
     this.fab,
     this.showArchived,
+    this.contentMaxWidth = AppSize.listMaxWidth,
   });
 
   final AppSection section;
@@ -73,6 +74,12 @@ class SectionPageData {
   /// 归档视图开关:标题栏动作与内容区共用一份状态。
   /// 无归档概念的栏目(身份/设置)为 null。
   final ValueNotifier<bool>? showArchived;
+
+  /// 内容列最大宽度。窗口比它宽时**居中收窄成一列**,窄窗口自动铺满。
+  ///
+  /// 标题栏、内容区、悬浮按钮共用这一份宽度 ⇒ 三者对齐同一条
+  /// 内容列边缘,不会出现"标题贴最左、内容在中间"的错位。
+  final double contentMaxWidth;
 }
 
 /// 进行中的一次栏目飞行:起点、终点、轴与顺序表。
@@ -300,33 +307,65 @@ class AppSectionShellState extends State<AppSectionShell>
   }
 
   /// 悬浮按钮:只换不滑;飞行中随进度淡入。
-  Widget? _buildFab(BuildContext context) {
+  ///
+  /// 按内容列留白内缩右缘 ⇒ 宽窗口下按钮不会孤零零贴在窗口最右边,
+  /// 而是贴在内容列右下角(与列表右缘对齐)。
+  Widget? _buildFab(BuildContext context, double inset) {
     final WidgetBuilder? fab = _data(_current)!.fab;
     if (fab == null) {
       return null;
     }
     final Widget child = fab(context);
+    final Widget placed = inset > 0
+        ? Padding(
+            padding: EdgeInsets.only(right: inset),
+            child: child,
+          )
+        : child;
     if (_flight == null) {
-      return child;
+      return placed;
     }
     return AnimatedBuilder(
       animation: _drive,
       builder: (BuildContext context, Widget? _) => Opacity(
         opacity: AppMotion.travel.transform(_drive.value),
-        child: child,
+        child: placed,
       ),
     );
+  }
+
+  /// 内容列左右留白:窗口(减去常驻侧边栏)比内容列宽时居中收窄。
+  ///
+  /// 标题栏、内容区、悬浮按钮都用这一份留白 ⇒ 三者对齐到同一条
+  /// 内容列边缘。窄窗口算出来为负,取 0(铺满,与手机端一致)。
+  double _contentInset(BuildContext context, bool landscape) {
+    final double area =
+        MediaQuery.sizeOf(context).width -
+        (landscape ? widget.drawerWidth + 1 : 0);
+    final double inset = (area - _data(_current)!.contentMaxWidth) / 2;
+    return inset > 0 ? inset : 0;
   }
 
   @override
   Widget build(BuildContext context) {
     final bool landscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final double inset = _contentInset(context, landscape);
     final Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _appBarSlot(),
-        Expanded(child: _film(context)),
+        // 标题栏:背景与页面同色,按内容列内缩 ⇒ 标题与右侧动作
+        // 都对齐到内容列边缘(视觉上仍是通栏的栏,只是内容对齐了)。
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: inset),
+          child: _appBarSlot(),
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: inset),
+            child: _film(context),
+          ),
+        ),
       ],
     );
 
@@ -347,7 +386,7 @@ class AppSectionShellState extends State<AppSectionShell>
             Expanded(child: content),
           ],
         ),
-        floatingActionButton: _buildFab(context),
+        floatingActionButton: _buildFab(context, inset),
       );
     }
 
@@ -361,7 +400,7 @@ class AppSectionShellState extends State<AppSectionShell>
       bottomNavigationBar: widget.controller.settings.showBottomNav
           ? AppBottomNav(controller: widget.controller, current: _current)
           : null,
-      floatingActionButton: _buildFab(context),
+      floatingActionButton: _buildFab(context, inset),
     );
   }
 }
