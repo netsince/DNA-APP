@@ -259,7 +259,7 @@ void main() {
     expect(barEnd.selectedIndex, 3);
   });
 
-  testWidgets('右上角按钮:图标原样飞到屏幕中央,然后页面出现;关闭后飞回原位', (WidgetTester tester) async {
+  testWidgets('右上角按钮:方块放大成整页、图标原样飞到中央;关闭后各自缩回', (WidgetTester tester) async {
     final AppController c = await boot();
     // 竖屏窗口:与真实使用一致(标题栏 + 底栏)。
     tester.view.physicalSize = const Size(600, 1000);
@@ -270,38 +270,53 @@ void main() {
 
     final Finder plus = find.byTooltip('新建会话');
     final Offset sourceCenter = tester.getCenter(plus);
-
-    // 起飞:图标从点击处飞向屏幕中央。
-    await tester.tap(plus);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 120)); // 飞行中段
-
-    final Finder flying = find.byKey(kAppBarIconFlightKey);
-    expect(flying, findsOneWidget);
-    // **尺寸不变**:就是点下去时那颗图标的大小(24),
-    // 不是被放大成整页的按钮框。
-    expect(tester.getSize(flying), const Size(24, 24));
-    // 而且确实在移动:已经离开原位、朝着屏幕中央去。
-    final Offset midCenter = tester.getCenter(flying);
+    final Size sourceSize = tester.getSize(plus);
     final Offset screenCenter = Offset(
       tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
       tester.view.physicalSize.height / tester.view.devicePixelRatio / 2,
     );
+
+    // 起飞。
+    await tester.tap(plus);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100)); // 飞行前段
+
+    final Finder block = find.byKey(kAppBarBlockFlightKey);
+    final Finder flying = find.byKey(kAppBarIconFlightKey);
+    expect(block, findsOneWidget);
+    expect(flying, findsOneWidget);
+
+    // 方块在放大:已经比按钮本身大了(48×48 → 铺向整屏)。
+    final Size blockEarly = tester.getSize(block);
+    expect(blockEarly.width, greaterThan(sourceSize.width));
+    expect(blockEarly.height, greaterThan(sourceSize.height));
+
+    // 图标**没有被放大**:还是点击时那颗的大小;且确实在移动。
+    expect(tester.getSize(flying), const Size(24, 24));
+    final Offset midCenter = tester.getCenter(flying);
     expect((midCenter - sourceCenter).distance, greaterThan(1));
     expect(
       (midCenter - screenCenter).distance,
       lessThan((sourceCenter - screenCenter).distance),
     );
 
+    await tester.pump(const Duration(milliseconds: 150)); // 继续飞
+    // 方块继续长大(证明是"放大过程",不是一次到位)。
+    final Size blockLate = tester.getSize(block);
+    expect(blockLate.width, greaterThan(blockEarly.width));
+    expect(blockLate.height, greaterThan(blockEarly.height));
+    expect(tester.getSize(flying), const Size(24, 24));
+
     await tester.pumpAndSettle();
-    // 落定:图标飞完,页面出现。
+    // 落定:方块退场(页面自己铺底),图标飞完,页面出现。
+    expect(find.byKey(kAppBarBlockFlightKey), findsNothing);
     expect(find.byKey(kAppBarIconFlightKey), findsNothing);
     expect(find.byType(ConversationCreatePage), findsOneWidget);
 
-    // 关闭:页面隐去,同一个图标飞回原位。
+    // 关闭:图标飞回原位。
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 100));
     final Finder flyingBack = find.byKey(kAppBarIconFlightKey);
     expect(flyingBack, findsOneWidget);
     expect(tester.getSize(flyingBack), const Size(24, 24));
@@ -309,7 +324,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ConversationCreatePage), findsNothing);
     expect(findText('消息'), findsOneWidget);
-    // 图标回到原处:与原位图标的位置一致。
+    // 图标回到原处,且原位按钮的位置与尺寸分毫未动。
     expect(tester.getCenter(plus), sourceCenter);
+    expect(tester.getSize(plus), sourceSize);
   });
 }

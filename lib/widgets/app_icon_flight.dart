@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -7,27 +9,41 @@ const ValueKey<String> kAppBarIconFlightKey = ValueKey<String>(
   'appbar-icon-flight',
 );
 
+/// 放大中的方块在 widget 树里的 key(测试据此量它的尺寸)。
+const ValueKey<String> kAppBarBlockFlightKey = ValueKey<String>(
+  'appbar-block-flight',
+);
+
 /// 图标飞行的相位(占整段时长的比例)。
 ///
-/// * 位移:0 → [_kTravelEnd],图标从点击处平移到屏幕中央;
-/// * 页面:后段淡入 —— 图标先到位,页面再显形;
-/// * 图标淡出:与页面淡入交叠,页面实心后图标已经消失,
-///   不会出现"图标压在页面上"的残影。
+/// * 方块:0 → [_kTravelEnd] 从按钮大小长到整屏(页面"材料"本身);
+/// * 图标:同一段里从点击处平移到屏幕中央,**尺寸始终不变**;
+/// * 页面内容:后段淡入 —— 方块先铺满,内容再显形;
+/// * 图标淡出:与内容淡入交叠,页面实心后图标已消失,不留残影。
 const double _kTravelEnd = 0.60;
 const double _kPageFadeStart = 0.60;
 const double _kPageFadeEnd = 0.90;
 const double _kIconFadeStart = 0.75;
 const double _kIconFadeEnd = 0.92;
 
-/// 右上角图标按钮:**图标原样飞到屏幕中央,然后页面出现**;
-/// 返回时页面隐去、同一个图标飞回原位。
+/// 右上角图标按钮:**方块长大成整页,图标自己飞到屏幕中央**。
 ///
-/// ## 与容器变换([AppContainer])的区别
+/// ## 两件事同时发生
 ///
-/// 容器变换把"关闭态容器"整块放大成整页(卡片 → 详情页很合适),
-/// 但用在标题栏图标上会把那颗 24px 的图标一路撑到全屏,很怪。
-/// 这里只做**平移**:图标尺寸全程不变(就是点下去时的大小),
-/// 飞到屏幕中央后淡出,页面随即淡入。
+/// 1. **方块放大**:以按钮的位置和大小(48×48 方块、小圆角)为起点,
+///    一路长到铺满整屏(圆角同步收到 0)——页面背景不是"淡入"的,
+///    而是从按钮那里长出来的;
+/// 2. **图标平移**:那颗图标**保持点击时的大小不变**(24px),
+///    从右上角滑到屏幕中央;方块铺满后,页面内容淡入、图标淡出。
+///
+/// 返回时同一段动画反向播放:内容隐去 → 方块缩回按钮大小 →
+/// 图标从中央滑回原位。
+///
+/// ## 为什么不直接用容器变换([AppContainer])
+///
+/// 容器变换把"关闭态容器"整块(含其中的图标)放大,图标会跟着
+/// 一路撑大到全屏,很怪。这里把**载体(方块)与图标拆开**:
+/// 方块负责长大,图标只负责位移。
 ///
 /// ## 用在哪
 ///
@@ -46,8 +62,8 @@ class AppBarIconAction<T extends Object?> extends StatefulWidget {
   final String tooltip;
   final IconData icon;
 
-  /// 目标页。飞行前段页面透明度为 0(透出原页,图标在其上飞过),
-  /// 后段淡入。
+  /// 目标页。飞行前段内容透明度为 0(此时只有方块在长大),
+  /// 后段随方块铺满淡入。
   final WidgetBuilder pageBuilder;
 
   /// 目标页关闭时回传的结果(约定:页面内是否发生了修改)。
@@ -70,7 +86,8 @@ class _AppBarIconActionState<T> extends State<AppBarIconAction<T>> {
     if (box == null) {
       return;
     }
-    final Offset sourceCenter = box.localToGlobal(box.size.center(Offset.zero));
+    // 方块与图标的共同起点:按钮自身的矩形。
+    final Rect sourceRect = box.localToGlobal(Offset.zero) & box.size;
     final IconThemeData iconTheme = IconTheme.of(context);
     final ThemeData theme = Theme.of(context);
     final Color iconColor =
@@ -82,7 +99,7 @@ class _AppBarIconActionState<T> extends State<AppBarIconAction<T>> {
         icon: widget.icon,
         iconSize: iconTheme.size ?? 24,
         iconColor: iconColor,
-        sourceCenter: sourceCenter,
+        sourceRect: sourceRect,
         pageBuilder: widget.pageBuilder,
       ),
     );
@@ -105,7 +122,7 @@ class _AppBarIconActionState<T> extends State<AppBarIconAction<T>> {
   }
 }
 
-/// 图标飞行路由:透明路由,原页始终可见,图标在其上平移。
+/// 图标飞行路由:透明路由,原页始终可见,方块在其上长大、图标在其上平移。
 ///
 /// 与容器变换一样是 `opaque: false`(飞行中要透出原页),
 /// 页面由自己的 Scaffold 铺底,所以落定后不会看到下面的内容。
@@ -114,7 +131,7 @@ class _IconFlightRoute<T> extends PageRouteBuilder<T> {
     required this.icon,
     required this.iconSize,
     required this.iconColor,
-    required this.sourceCenter,
+    required this.sourceRect,
     required WidgetBuilder pageBuilder,
   }) : super(
          transitionDuration: AppMotion.transform,
@@ -133,8 +150,8 @@ class _IconFlightRoute<T> extends PageRouteBuilder<T> {
   final double iconSize;
   final Color iconColor;
 
-  /// 图标起点(点击时那颗图标的屏幕坐标中心)。
-  final Offset sourceCenter;
+  /// 方块与图标的起点(点击时按钮的屏幕矩形)。
+  final Rect sourceRect;
 
   @override
   Widget buildTransitions(
@@ -144,20 +161,32 @@ class _IconFlightRoute<T> extends PageRouteBuilder<T> {
     Widget child,
   ) {
     final Size screen = MediaQuery.sizeOf(context);
-    final Offset targetCenter = Offset(screen.width / 2, screen.height / 2);
+    final Rect targetRect = Offset.zero & screen;
+    final ThemeData theme = Theme.of(context);
+    // 方块颜色 = 页面背景:方块长成整屏时与页面本身无缝衔接。
+    final Color blockColor = theme.scaffoldBackgroundColor;
 
     return AnimatedBuilder(
       animation: animation,
       builder: (BuildContext context, Widget? _) {
         final double t = animation.value;
 
-        // 位移:恒定尺寸,只算中心点。用与栏目切换同一条
+        // 一条进度同时驱动两层:方块从按钮矩形长到整屏,
+        // 图标从按钮中心平移到屏幕中央。用与栏目切换同一条
         // 非线性曲线(慢起—掠过—长收),全应用动感一致。
         final double travel = (t / _kTravelEnd).clamp(0.0, 1.0);
-        final Offset center = Offset.lerp(
-          sourceCenter,
-          targetCenter,
-          AppMotion.travel.transform(travel),
+        final double eased = AppMotion.travel.transform(travel);
+
+        final Rect blockRect = Rect.lerp(sourceRect, targetRect, eased)!;
+        final double blockRadius = lerpDouble(
+          AppRadius.sm,
+          0,
+          eased,
+        )!.clamp(0.0, AppRadius.sm);
+        final Offset iconCenter = Offset.lerp(
+          sourceRect.center,
+          targetRect.center,
+          eased,
         )!;
 
         final double pageOpacity =
@@ -173,14 +202,31 @@ class _IconFlightRoute<T> extends PageRouteBuilder<T> {
         return Stack(
           clipBehavior: Clip.none,
           children: <Widget>[
+            // 1. 放大中的方块(页面"材料"):页面内容铺满后即撤掉,
+            //    不必整页生命周期都挂一块无用的底色。
+            if (pageOpacity < 1.0)
+              Positioned.fromRect(
+                key: kAppBarBlockFlightKey,
+                rect: blockRect,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: blockColor,
+                      borderRadius: BorderRadius.circular(blockRadius),
+                    ),
+                  ),
+                ),
+              ),
+            // 2. 页面内容:方块铺满后淡入。
             Positioned.fill(
               child: Opacity(opacity: pageOpacity, child: child),
             ),
+            // 3. 图标:尺寸恒定,只做位移。
             if (iconOpacity > 0)
               Positioned(
                 key: kAppBarIconFlightKey,
-                left: center.dx - iconSize / 2,
-                top: center.dy - iconSize / 2,
+                left: iconCenter.dx - iconSize / 2,
+                top: iconCenter.dy - iconSize / 2,
                 width: iconSize,
                 height: iconSize,
                 child: IgnorePointer(
