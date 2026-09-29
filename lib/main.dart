@@ -19,6 +19,7 @@ import 'services/web_utils.dart';
 import 'state/app_controller.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
+import 'services/startup_update_check.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 Future<void> main() async {
@@ -388,6 +389,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         widget.controller.settings.requireAuthForApp;
     _showSplash = widget.controller.settings.showSplashAnimation;
     widget.controller.addListener(_onControllerChanged);
+    // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
+    // 放在首帧之后发起，不阻塞启动。
+    StartupUpdateCheck.schedule(context, widget.controller);
     // 网页版每次打开页面（冷启动/刷新）只弹一次预览提示。
     if (kIsWeb && !_webNoticeShown) {
       _webNoticeShown = true;

@@ -493,6 +493,15 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「启动时检查更新」开关。
+  ///
+  /// 关掉后启动不再请求 GitHub API;「关于」页的手动检查不受影响。
+  Future<void> saveUpdateCheckEnabled(bool value) async {
+    _settings = _settings.copyWith(updateCheckEnabled: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「上下文 Token 实时仪表盘」开关。
   Future<void> saveShowTokenDashboard(bool value) async {
     _settings = _settings.copyWith(showTokenDashboard: value);
