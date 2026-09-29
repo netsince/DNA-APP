@@ -127,6 +127,25 @@ void main() {
       expect(isRemoteNewer('0.2.1+3', 'v0.3.0'), isTrue);
     });
 
+    test('0.1.22 vs 0.2.1 —— 必须按【数字】比较,不能按字符串', () {
+      // 这是最容易写错的一类:把分段当字符串比,
+      // "22" > "1" 会得出「0.1.22 更新」的错误结论。
+      // 正确的数字比较:0=0, 1<2 -> 本地 0.1.22 更旧 -> 需要升级。
+      expect(parseVersion('0.1.22').parts, <int>[0, 1, 22]);
+      expect(parseVersion('0.2.1').parts, <int>[0, 2, 1]);
+
+      expect(isRemoteNewer('0.1.22', 'v0.2.1'), isTrue,
+          reason: '0.1.22 低于 0.2.1(第二位 1<2),应提示升级');
+
+      // 反向:本地更高时不能提示。
+      expect(isRemoteNewer('0.2.1', 'v0.1.22'), isFalse);
+
+      // 同级多位数:0.1.9 < 0.1.10(字符串比较会判反)。
+      expect(isRemoteNewer('0.1.9', 'v0.1.10'), isTrue);
+      // 反过来:0.1.22 > 0.1.9(第三位 22>9),本地更新 -> 不提示。
+      expect(isRemoteNewer('0.1.22', 'v0.1.9'), isFalse);
+    });
+
     test('任何一侧解析失败 -> 不提示(不误报)', () {
       expect(isRemoteNewer('0.2.1', 'latest'), isFalse);
       expect(isRemoteNewer('abc', '1.0.0'), isFalse);
