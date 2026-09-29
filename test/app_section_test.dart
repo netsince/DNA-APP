@@ -94,20 +94,20 @@ void main() {
     expect(pageAt(1), findsNothing);
     expect(pageAt(3), findsNothing);
 
-    // t=0.15 → 缓动约 0.40 → 已滑约 1.2 步:
-    // 起点页出局(-1.2),栏目1(-0.2)与栏目2(+0.8)在场,
-    // 目标页栏目3(+1.8)尚未挂载。
-    controller.value = 0.15;
+    // t=0.06 → 缓动约 0.49(前段陡:小进度已滑近半程)→ 已滑约 1.46 步:
+    // 起点页出局(-1.46),栏目1(-0.46)与栏目2(+0.54)在场,
+    // 目标页栏目3(+1.54)尚未挂载。
+    controller.value = 0.06;
     await tester.pump();
     expect(pageAt(0), findsNothing);
     expect(pageAt(1), findsOneWidget);
     expect(pageAt(2), findsOneWidget);
     expect(pageAt(3), findsNothing);
 
-    // t=0.5 → 缓动约 0.88 → 已滑约 2.6 步:
-    // 栏目2(-0.6)与目标页(+0.4)在场,栏目1 已出局,
-    // 栏目4(+1.4)永不出场。
-    controller.value = 0.5;
+    // t=0.16 → 缓动约 0.73 → 已滑约 2.18 步:
+    // 栏目2(-0.18)与目标页(+0.82)在场,栏目1 已出局(-1.18),
+    // 栏目4(+1.82)永不出场。
+    controller.value = 0.16;
     await tester.pump();
     expect(pageAt(1), findsNothing);
     expect(pageAt(2), findsOneWidget);
@@ -132,9 +132,9 @@ void main() {
       toIndex: 3,
     );
 
-    // t=0.5 → 已滑约 2.6 步:我家(-0.6)在视口掠过,
-    // 世界(+0.4)进入中;主页(-1.6 反方向)与世界之外无任何页。
-    controller.value = 0.5;
+    // t=0.09 → 缓动约 0.58 → 已滑约 1.16 步:我家(-0.16)在视口
+    // 掠过,世界(+0.84)进入中;主页(-1.16 反方向)出局。
+    controller.value = 0.09;
     await tester.pump();
     expect(pageAt(2), findsOneWidget);
     expect(pageAt(3), findsOneWidget);

@@ -407,8 +407,13 @@ abstract final class AppMotion {
   /// 淡入用 standard(浮起更稳)。
   static const Curve fadeThrough = Curves.easeOutCubic;
 
-  /// 滑动胶片缓动:先快后缓(快出、长收),掠过的栏目可辨又不拖沓。
-  static const Curve travel = Curves.easeOutCubic;
+  /// 滑动胶片缓动(非线性):慢起—加速掠过—减速落位。
+  ///
+  /// M3「emphasized」进出曲线:起步先蓄力,途经栏目高速掠过,
+  /// 接近目标栏目前长尾收住——长距离滑行(如首页 → 世界)的速度
+  /// 起伏明显,没有匀速的机械感。无过冲(不越过落点),胶片
+  /// ±1 步挂载窗口不需要为回弹留余量。
+  static const Curve travel = Cubic(0.05, 0.7, 0.1, 1.0);
 }
 
 /// 阴影令牌(全局唯一来源)。
