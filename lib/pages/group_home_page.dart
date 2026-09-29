@@ -43,10 +43,12 @@ SectionPageData groupHomeSection(AppController controller) {
               archived ? Icons.forum_outlined : Icons.archive_outlined,
             ),
           ),
-          IconButton(
+          // 新建群聊页:从图标位置放大,返回时缩回。
+          AppBarIconAction<bool>(
             tooltip: '新建群聊',
-            onPressed: () => createGroup(context),
-            icon: const Icon(Icons.add),
+            icon: Icons.add,
+            pageBuilder: (BuildContext context) =>
+                GroupCreatePage(controller: controller),
           ),
         ],
       ),

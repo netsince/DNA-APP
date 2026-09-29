@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/platform_capabilities.dart';
 import '../utils/ui_feedback.dart';
+import '../widgets/app_container.dart';
 import '../widgets/app_section.dart';
 import 'conversation_create_page.dart';
 import 'search_page.dart';
@@ -47,14 +48,6 @@ SectionPageData homeSection(AppController controller) {
     );
   }
 
-  void openSearch(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => SearchPage(controller: controller),
-      ),
-    );
-  }
-
   return SectionPageData(
     section: AppSection.home,
     showArchived: showArchived,
@@ -63,10 +56,12 @@ SectionPageData homeSection(AppController controller) {
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(
         title: FitText(archived ? '归档' : '消息'),
         actions: <Widget>[
-          IconButton(
+          // 搜索页 / 新建会话页:从图标位置放大,返回时缩回。
+          AppBarIconAction<bool>(
             tooltip: '搜索',
-            onPressed: () => openSearch(context),
-            icon: const Icon(Icons.search_outlined),
+            icon: Icons.search_outlined,
+            pageBuilder: (BuildContext context) =>
+                SearchPage(controller: controller),
           ),
           IconButton(
             tooltip: archived ? '查看消息' : '查看归档',
@@ -75,10 +70,11 @@ SectionPageData homeSection(AppController controller) {
               archived ? Icons.chat_bubble_outline : Icons.archive_outlined,
             ),
           ),
-          IconButton(
+          AppBarIconAction<bool>(
             tooltip: '新建会话',
-            onPressed: () => createConversation(context),
-            icon: const Icon(Icons.add),
+            icon: Icons.add,
+            pageBuilder: (BuildContext context) =>
+                ConversationCreatePage(controller: controller),
           ),
         ],
       ),

@@ -24,10 +24,12 @@ SectionPageData identitySection(AppController controller) {
     appBar: (BuildContext context) => AppBar(
       title: const FitText('身份'),
       actions: <Widget>[
-        IconButton(
+        // 新建身份页:从图标位置放大,返回时缩回。
+        AppBarIconAction<bool>(
           tooltip: '创建身份',
-          onPressed: () => createIdentity(context),
-          icon: const Icon(Icons.add),
+          icon: Icons.add,
+          pageBuilder: (BuildContext context) =>
+              IdentityEditorPage(controller: controller),
         ),
       ],
     ),

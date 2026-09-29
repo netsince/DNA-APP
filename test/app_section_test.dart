@@ -6,10 +6,12 @@ import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/pages/conversation_create_page.dart';
 import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
 import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
+import 'package:dna/widgets/app_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -76,10 +78,23 @@ class FakeHiveService extends HiveService {
 /// FitText 是 Text 子类且内部再包一层 Text,谓词须排除 FitText
 /// 本身,只匹配内层真实 Text(否则 '消息' 恒命中 2 个)。
 Finder findText(String s) => find.byWidgetPredicate(
-      (Widget w) => w is Text && w.data == s && w is! FitText,
-    );
+  (Widget w) => w is Text && w.data == s && w is! FitText,
+);
 
 void main() {
+  /// 轻量引导:假 Hive + 真实设置/服务。
+  Future<AppController> boot() async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppController c = AppController(
+      settingsService: SettingsService(),
+      openAiService: OpenAiService(),
+      taService: TaService(),
+      hiveService: FakeHiveService(),
+    );
+    await c.initialize();
+    return c;
+  }
+
   testWidgets('纵向飞行 首页(0)→世界(3):途经页逐个掠过,远端页不挂载', (WidgetTester tester) async {
     final AnimationController controller = await pumpFlight(
       tester,
@@ -199,14 +214,7 @@ void main() {
   });
 
   testWidgets('栏目壳:框架(底栏/标题栏)不动,内容区滑到目标栏目', (WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final AppController c = AppController(
-      settingsService: SettingsService(),
-      openAiService: OpenAiService(),
-      taService: TaService(),
-      hiveService: FakeHiveService(),
-    );
-    await c.initialize();
+    final AppController c = await boot();
     // 打开底栏(默认关闭),验证框架固定 + 横向飞行。
     await c.saveShowBottomNav(true);
 
@@ -219,19 +227,22 @@ void main() {
 
     // 初始:首页标题 + 底栏,底栏第一项选中。
     expect(findText('消息'), findsOneWidget);
-    final NavigationBar bar =
-        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    final NavigationBar bar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
     expect(bar.selectedIndex, 0);
 
     // 底栏点「世界」:横向飞行(底栏顺序:主页0 → 群聊1 → 我家2 → 世界3)。
-    tester.state<AppSectionShellState>(find.byType(AppSectionShell))
+    tester
+        .state<AppSectionShellState>(find.byType(AppSectionShell))
         .navigateTo(AppSection.world, axis: Axis.horizontal);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150)); // 飞行中段
 
     // 框架不动:底栏仍然在场,选中项立即切到目标(位置固定的证据)。
-    final NavigationBar barMid =
-        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    final NavigationBar barMid = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
     expect(barMid.selectedIndex, 3);
     expect(find.byType(NavigationBar), findsOneWidget);
     // 标题栏槽位已切到目标栏目(旧标题消失;
@@ -242,8 +253,44 @@ void main() {
     // 落定:只剩世界内容,旧标题仍不在场。
     expect(findText('消息'), findsNothing);
     expect(findText('世界归档'), findsNothing);
-    final NavigationBar barEnd =
-        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    final NavigationBar barEnd = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
     expect(barEnd.selectedIndex, 3);
+  });
+
+  testWidgets('右上角按钮:从图标位置放大为页面,关闭后缩回原位', (WidgetTester tester) async {
+    final AppController c = await boot();
+    // 竖屏窗口:与真实使用一致(标题栏 + 底栏)。
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 右上角动作是**容器变换**而不是 MaterialPageRoute:
+    // 关闭态圆形、底色 = AppBar 背景(静止时隐形)、
+    // 点击由 IconButton 自己发起(容器不抢手势)。
+    final Finder plus = find.byTooltip('新建会话');
+    final AppContainer<bool> action = tester.widget<AppContainer<bool>>(
+      find.ancestor(of: plus, matching: find.byType(AppContainer<bool>)),
+    );
+    expect(action.closedShape, isA<CircleBorder>());
+    expect(action.tappable, isFalse);
+    final ColorScheme cs = Theme.of(
+      tester.element(find.byType(AppSectionShell)),
+    ).colorScheme;
+    expect(action.closedColor, cs.surface);
+
+    // 起飞:容器从图标位置放大成页面。
+    await tester.tap(plus);
+    await tester.pumpAndSettle();
+    expect(find.byType(ConversationCreatePage), findsOneWidget);
+
+    // 关闭:缩回图标原位,回到首页。
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConversationCreatePage), findsNothing);
+    expect(findText('消息'), findsOneWidget);
   });
 }

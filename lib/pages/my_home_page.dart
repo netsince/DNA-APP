@@ -40,10 +40,12 @@ SectionPageData myHomeSection(AppController controller) {
             ),
           ),
           if (!archived)
-            IconButton(
+            // 新建TA页:从图标位置放大,返回时缩回。
+            AppBarIconAction<bool>(
               tooltip: '创建TA',
-              onPressed: () => createTa(context),
-              icon: const Icon(Icons.add),
+              icon: Icons.add,
+              pageBuilder: (BuildContext context) =>
+                  TaEditorPage(controller: controller),
             ),
         ],
       ),

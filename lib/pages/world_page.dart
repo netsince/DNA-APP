@@ -40,10 +40,12 @@ SectionPageData worldSection(AppController controller) {
             ),
           ),
           if (!archived)
-            IconButton(
+            // 新建世界页:从图标位置放大,返回时缩回。
+            AppBarIconAction<bool>(
               tooltip: '创建世界',
-              onPressed: () => createWorld(context),
-              icon: const Icon(Icons.add),
+              icon: Icons.add,
+              pageBuilder: (BuildContext context) =>
+                  WorldEditorPage(controller: controller),
             ),
         ],
       ),
