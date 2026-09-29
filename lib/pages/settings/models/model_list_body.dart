@@ -5,6 +5,7 @@ import 'package:dna/models/llm_model_config.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_container.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import 'model_edit_page.dart';
@@ -105,21 +106,28 @@ class ModelListBody extends StatelessWidget {
               orElse: () => LlmProviderConfig.defaultConfig(),
             );
 
-            return Card(
-              elevation: AppElevation.flat,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.mdAll,
-                side: BorderSide(
-                  color: isActive
-                      ? cs.primary
-                      : cs.outlineVariant.withValues(alpha: 0.5),
-                  width: isActive ? 1.5 : 1.0,
+            // 容器变换:整卡是源容器,点卡片任意处起飞;
+            // Radio/编辑/删除仍在卡片内,各自点击不触发飞行。
+            return AppContainer<bool>(
+              closedBuilder: (BuildContext context, VoidCallback open) =>
+                  Card(
+                elevation: AppElevation.flat,
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.mdAll,
+                  side: BorderSide(
+                    color: isActive
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: 0.5),
+                    width: isActive ? 1.5 : 1.0,
+                  ),
                 ),
-              ),
-              color: isActive
-                  ? cs.primaryContainer.withValues(alpha: 0.2)
-                  : null,
-              child: Padding(
+                color: isActive
+                    ? cs.primaryContainer.withValues(alpha: 0.2)
+                    : null,
+                margin: EdgeInsets.zero,
+                child: InkWell(
+                  onTap: open,
+                  child: Padding(
                 padding: AppInsets.card,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,6 +238,13 @@ class ModelListBody extends StatelessWidget {
                   ],
                 ),
               ),
+              ),
+              ),
+              openBuilder: (BuildContext context, VoidCallback close) =>
+                  ModelEditPage(
+                controller: controller,
+                existingConfig: m,
+              ),
             );
           },
         );
@@ -262,14 +277,17 @@ class AddModelFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ModelEditPage(controller: controller),
-        ),
+    // FAB 即源容器:胶囊按钮放大为整页编辑器。
+    return AppContainer<bool>(
+      closedShape: const StadiumBorder(),
+      closedBuilder: (BuildContext context, VoidCallback open) =>
+          FloatingActionButton.extended(
+        onPressed: open,
+        icon: const Icon(Icons.add),
+        label: const FitText('添加模型预设'),
       ),
-      icon: const Icon(Icons.add),
-      label: const FitText('添加模型预设'),
+      openBuilder: (BuildContext context, VoidCallback close) =>
+          ModelEditPage(controller: controller),
     );
   }
 }

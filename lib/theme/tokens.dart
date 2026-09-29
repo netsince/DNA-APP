@@ -202,12 +202,11 @@ abstract final class AppTextStyles {
       );
 
   /// 大标题(启动页、空状态)。24px / Medium。
-  static TextStyle headline(ThemeData t) =>
-      t.textTheme.headlineSmall!.copyWith(
-        fontSize: AppFontSize.headline,
-        fontWeight: AppWeight.medium,
-        height: AppLineHeight.title,
-      );
+  static TextStyle headline(ThemeData t) => t.textTheme.headlineSmall!.copyWith(
+    fontSize: AppFontSize.headline,
+    fontWeight: AppWeight.medium,
+    height: AppLineHeight.title,
+  );
 
   /// 正文。14px。
   static TextStyle body(ThemeData t) =>
@@ -273,17 +272,11 @@ abstract final class AppBorder {
 
   /// 卡片形状:圆角 [AppRadius.md] + 细描边。
   static RoundedRectangleBorder cardShape(ColorScheme cs) =>
-      RoundedRectangleBorder(
-        borderRadius: AppRadius.mdAll,
-        side: card(cs),
-      );
+      RoundedRectangleBorder(borderRadius: AppRadius.mdAll, side: card(cs));
 
   /// 次级卡片形状:圆角 [AppRadius.sm] + 细描边。
   static RoundedRectangleBorder secondaryShape(ColorScheme cs) =>
-      RoundedRectangleBorder(
-        borderRadius: AppRadius.smAll,
-        side: card(cs),
-      );
+      RoundedRectangleBorder(borderRadius: AppRadius.smAll, side: card(cs));
 
   /// 分割线缩进(与列表项图标对齐)。
   static const double dividerIndent = 56;
@@ -367,6 +360,30 @@ abstract final class AppColors {
   /// (如从角色卡提取的亮色气泡)上时,即使在深色模式下也必须使用深色字,
   /// 否则会出现"白字配白底"看不清的问题。
   static const Color inkOnLight = Color(0xFF1D1B20);
+}
+
+/// 动效令牌(全局唯一来源)。
+///
+/// Material 3 规范的 Emphasized 缓动与三档时长:
+/// 小元素用短时长,整页容器变换用长时长。
+abstract final class AppMotion {
+  /// 微交互:开关、着色、小尺寸变化。
+  static const Duration fast = Duration(milliseconds: 200);
+
+  /// 中等过渡:卡片展开、面板滑入。
+  static const Duration medium = Duration(milliseconds: 300);
+
+  /// 容器变换:小容器放大为整页(或反向)。
+  static const Duration transform = Duration(milliseconds: 450);
+
+  /// 强调缓动:大多数过渡的默认曲线(加速段快、收尾柔和)。
+  static const Curve emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
+
+  /// 标准缓动:对称的温和过渡。
+  static const Curve standard = Curves.easeInOutCubicEmphasized;
+
+  /// 退出场:离场比进场略快,减少等待感。
+  static const Curve exit = Curves.easeInCubic;
 }
 
 /// 阴影令牌(全局唯一来源)。

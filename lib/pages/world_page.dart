@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_container.dart';
 import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
@@ -30,7 +31,8 @@ class _WorldPageState extends State<WorldPage> {
   void _createWorld() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => WorldEditorPage(controller: widget.controller),
+        builder: (BuildContext context) =>
+            WorldEditorPage(controller: widget.controller),
       ),
     );
   }
@@ -46,7 +48,9 @@ class _WorldPageState extends State<WorldPage> {
           IconButton(
             tooltip: _showArchived ? '查看世界' : '查看归档',
             onPressed: _toggleArchived,
-            icon: Icon(_showArchived ? Icons.public_outlined : Icons.archive_outlined),
+            icon: Icon(
+              _showArchived ? Icons.public_outlined : Icons.archive_outlined,
+            ),
           ),
           if (!_showArchived)
             IconButton(
@@ -62,12 +66,22 @@ class _WorldPageState extends State<WorldPage> {
         onCreateWorld: _createWorld,
       ),
       bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(controller: widget.controller, current: AppSection.world)
+          ? AppBottomNav(
+              controller: widget.controller,
+              current: AppSection.world,
+            )
           : null,
       floatingActionButton: !_showArchived
-          ? FloatingActionButton(
-              onPressed: _createWorld,
-              child: const Icon(Icons.add),
+          // FAB 即源容器:圆形按钮放大为整页编辑器。
+          ? AppContainer<bool>(
+              closedShape: const CircleBorder(),
+              closedBuilder: (BuildContext context, VoidCallback open) =>
+                  FloatingActionButton(
+                    onPressed: open,
+                    child: const Icon(Icons.add),
+                  ),
+              openBuilder: (BuildContext context, VoidCallback close) =>
+                  WorldEditorPage(controller: widget.controller),
             )
           : null,
     );
@@ -108,7 +122,8 @@ class _WorldListBody extends StatelessWidget {
           padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: worlds.length,
-          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
+          onReorder: (int oldIndex, int newIndex) async {
+            // ignore: deprecated_member_use
             await controller.reorderWorlds(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {
@@ -126,135 +141,129 @@ class _WorldListBody extends StatelessWidget {
 }
 
 class _WorldItem extends StatelessWidget {
-  const _WorldItem({
-    super.key,
-    required this.controller,
-    required this.world,
-  });
+  const _WorldItem({super.key, required this.controller, required this.world});
 
   final AppController controller;
   final World world;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => WorldEditorPage(
-                controller: controller,
-                world: world,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const CircleAvatar(child: Icon(Icons.public_outlined)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    FitText(world.name.isEmpty ? '未命名世界' : world.name),
-                    const SizedBox(height: 4),
-                    FitText(
-                      world.summary.isEmpty ? '暂无简介' : world.summary,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (world.tags.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: world.tags
-                            .map((String tag) => Chip(label: FitText(tag)))
-                            .toList(),
+    // OpenContainer 不吃 cardTheme 外边距:手动补偿原 Card 底边距。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: AppContainer<bool>(
+        closedBuilder: (BuildContext context, VoidCallback open) => InkWell(
+          onTap: open,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const CircleAvatar(child: Icon(Icons.public_outlined)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      FitText(world.name.isEmpty ? '未命名世界' : world.name),
+                      const SizedBox(height: 4),
+                      FitText(
+                        world.summary.isEmpty ? '暂无简介' : world.summary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              ReorderableDragStartListener(
-                index: world.archived ? -1 : 0,
-                child: const Icon(Icons.drag_handle),
-              ),
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                tooltip: '更多操作',
-                onSelected: (String value) async {
-                  if (value == 'archive') {
-                    await controller.setWorldArchived(
-                      id: world.id,
-                      archived: true,
-                    );
-                  } else if (value == 'unarchive') {
-                    await controller.setWorldArchived(
-                      id: world.id,
-                      archived: false,
-                    );
-                  } else if (value == 'delete') {
-                    if (!context.mounted) return;
-                    await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(
-                        builder: (BuildContext context) => DeleteConfirmPage(
-                          controller: controller,
-                          title: '删除世界',
-                          entityName: world.name,
-                          validNames: <String>[world.name],
-                          promptHint: '请完整输入世界名「${world.name}」以确认删除',
-                          contentBuilder: (BuildContext ctx) =>
-                              buildWorldPreviewSections(ctx, world),
-                          onDelete: () =>
-                              controller.deleteWorldWithBackup(world.id),
-                          requireName: controller.settings.requireNameToDelete,
+                      if (world.tags.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: world.tags
+                              .map((String tag) => Chip(label: FitText(tag)))
+                              .toList(),
                         ),
-                      ),
-                    );
-                  }
-                },
-                itemBuilder: (BuildContext context) {
-                  if (world.archived) {
+                      ],
+                    ],
+                  ),
+                ),
+                ReorderableDragStartListener(
+                  index: world.archived ? -1 : 0,
+                  child: const Icon(Icons.drag_handle),
+                ),
+                const SizedBox(width: 8),
+                PopupMenuButton<String>(
+                  tooltip: '更多操作',
+                  onSelected: (String value) async {
+                    if (value == 'archive') {
+                      await controller.setWorldArchived(
+                        id: world.id,
+                        archived: true,
+                      );
+                    } else if (value == 'unarchive') {
+                      await controller.setWorldArchived(
+                        id: world.id,
+                        archived: false,
+                      );
+                    } else if (value == 'delete') {
+                      if (!context.mounted) return;
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute<bool>(
+                          builder: (BuildContext context) => DeleteConfirmPage(
+                            controller: controller,
+                            title: '删除世界',
+                            entityName: world.name,
+                            validNames: <String>[world.name],
+                            promptHint: '请完整输入世界名「${world.name}」以确认删除',
+                            contentBuilder: (BuildContext ctx) =>
+                                buildWorldPreviewSections(ctx, world),
+                            onDelete: () =>
+                                controller.deleteWorldWithBackup(world.id),
+                            requireName:
+                                controller.settings.requireNameToDelete,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    if (world.archived) {
+                      return <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'unarchive',
+                          child: ListTile(
+                            leading: Icon(Icons.unarchive_outlined),
+                            title: FitText('恢复'),
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline),
+                            title: FitText('删除'),
+                          ),
+                        ),
+                      ];
+                    }
                     return <PopupMenuEntry<String>>[
                       const PopupMenuItem<String>(
-                        value: 'unarchive',
+                        value: 'archive',
                         child: ListTile(
-                          leading: Icon(Icons.unarchive_outlined),
-                          title: FitText('恢复'),
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: FitText('删除'),
+                          leading: Icon(Icons.archive_outlined),
+                          title: FitText('归档'),
                         ),
                       ),
                     ];
-                  }
-                  return <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'archive',
-                      child: ListTile(
-                        leading: Icon(Icons.archive_outlined),
-                        title: FitText('归档'),
-                      ),
-                    ),
-                  ];
-                },
-                child: const Icon(Icons.more_vert),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right),
-            ],
+                  },
+                  child: const Icon(Icons.more_vert),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
+        openBuilder: (BuildContext context, VoidCallback close) =>
+            WorldEditorPage(controller: controller, world: world),
       ),
     );
   }

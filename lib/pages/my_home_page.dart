@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/ta.dart';
 import '../services/image_storage.dart';
 import '../state/app_controller.dart';
+import '../theme/tokens.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_container.dart';
 import '../widgets/app_drawer.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
-import '../theme/tokens.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -31,7 +32,8 @@ class _MyHomePageState extends State<MyHomePage> {
   void _createTa() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => TaEditorPage(controller: widget.controller),
+        builder: (BuildContext context) =>
+            TaEditorPage(controller: widget.controller),
       ),
     );
   }
@@ -47,7 +49,9 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
             tooltip: _showArchived ? '查看TA' : '查看归档',
             onPressed: _toggleArchived,
-            icon: Icon(_showArchived ? Icons.people_outline : Icons.archive_outlined),
+            icon: Icon(
+              _showArchived ? Icons.people_outline : Icons.archive_outlined,
+            ),
           ),
           if (!_showArchived)
             IconButton(
@@ -63,12 +67,22 @@ class _MyHomePageState extends State<MyHomePage> {
         onCreateTa: _createTa,
       ),
       bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(controller: widget.controller, current: AppSection.myHome)
+          ? AppBottomNav(
+              controller: widget.controller,
+              current: AppSection.myHome,
+            )
           : null,
       floatingActionButton: !_showArchived
-          ? FloatingActionButton(
-              onPressed: _createTa,
-              child: const Icon(Icons.add),
+          // FAB 即源容器:圆形按钮放大为整页编辑器。
+          ? AppContainer<bool>(
+              closedShape: const CircleBorder(),
+              closedBuilder: (BuildContext context, VoidCallback open) =>
+                  FloatingActionButton(
+                    onPressed: open,
+                    child: const Icon(Icons.add),
+                  ),
+              openBuilder: (BuildContext context, VoidCallback close) =>
+                  TaEditorPage(controller: widget.controller),
             )
           : null,
     );
@@ -112,7 +126,8 @@ class _TaListBody extends StatelessWidget {
           padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: tas.length,
-          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
+          onReorder: (int oldIndex, int newIndex) async {
+            // ignore: deprecated_member_use
             await controller.reorderTas(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {
@@ -144,150 +159,150 @@ class _TaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ImageProvider? squareProvider =
-        ImageStorage.instance.providerFor(ta, 'square');
+    final ImageProvider? squareProvider = ImageStorage.instance.providerFor(
+      ta,
+      'square',
+    );
     final bool hasImage = squareProvider != null;
 
-    return Card(
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => TaEditorPage(
-                controller: controller,
-                ta: ta,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              hasImage
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image(
-                        // 限制图片解码大小，避免内存问题
-                        image: ResizeImage.resizeIfNeeded(
-                          128,
-                          128,
-                          squareProvider,
+    // OpenContainer 不吃 cardTheme 外边距:手动补偿原 Card 底边距。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: AppContainer<bool>(
+        closedBuilder: (BuildContext context, VoidCallback open) => InkWell(
+          onTap: open,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                hasImage
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image(
+                          // 限制图片解码大小，避免内存问题
+                          image: ResizeImage.resizeIfNeeded(
+                            128,
+                            128,
+                            squareProvider,
+                          ),
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
                         ),
-                        width: 64,
-                        height: 64,
-                        fit: BoxFit.cover,
+                      )
+                    : const CircleAvatar(
+                        radius: 32,
+                        child: Icon(Icons.person_outline),
                       ),
-                    )
-                  : const CircleAvatar(
-                      radius: 32,
-                      child: Icon(Icons.person_outline),
-                    ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                    const SizedBox(height: 4),
-                    FitText(
-                      ta.intro.isEmpty ? '暂无介绍' : ta.intro,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (ta.tags.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: ta.tags
-                            .map((String tag) => Chip(label: FitText(tag)))
-                            .toList(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
+                      const SizedBox(height: 4),
+                      FitText(
+                        ta.intro.isEmpty ? '暂无介绍' : ta.intro,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      if (ta.tags.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: ta.tags
+                              .map((String tag) => Chip(label: FitText(tag)))
+                              .toList(),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              ReorderableDragStartListener(
-                index: ta.archived ? -1 : 0,
-                child: const Icon(Icons.drag_handle),
-              ),
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                tooltip: '更多操作',
-                onSelected: (String value) async {
-                  if (value == 'archive') {
-                    await controller.setTaArchived(
-                      id: ta.id,
-                      archived: true,
-                    );
-                  } else if (value == 'unarchive') {
-                    await controller.setTaArchived(
-                      id: ta.id,
-                      archived: false,
-                    );
-                  } else if (value == 'delete') {
-                    if (!context.mounted) {
-                      return;
+                ReorderableDragStartListener(
+                  index: ta.archived ? -1 : 0,
+                  child: const Icon(Icons.drag_handle),
+                ),
+                const SizedBox(width: 8),
+                PopupMenuButton<String>(
+                  tooltip: '更多操作',
+                  onSelected: (String value) async {
+                    if (value == 'archive') {
+                      await controller.setTaArchived(id: ta.id, archived: true);
+                    } else if (value == 'unarchive') {
+                      await controller.setTaArchived(
+                        id: ta.id,
+                        archived: false,
+                      );
+                    } else if (value == 'delete') {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      final bool? deleted = await Navigator.of(context)
+                          .push<bool>(
+                            MaterialPageRoute<bool>(
+                              builder: (BuildContext context) =>
+                                  DeleteConfirmPage(
+                                    controller: controller,
+                                    title: '删除角色',
+                                    entityName: ta.name,
+                                    validNames: <String>[ta.name],
+                                    promptHint: '请完整输入角色名「${ta.name}」以确认删除',
+                                    contentBuilder: (BuildContext ctx) =>
+                                        buildTaPreviewSections(ctx, ta),
+                                    onDelete: () =>
+                                        controller.deleteTaWithBackup(ta.id),
+                                    requireName:
+                                        controller.settings.requireNameToDelete,
+                                  ),
+                            ),
+                          );
+                      if (deleted == true && context.mounted) {
+                        // 删除页已自行提示，这里无需额外操作。
+                      }
                     }
-                    final bool? deleted = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(
-                        builder: (BuildContext context) => DeleteConfirmPage(
-                          controller: controller,
-                          title: '删除角色',
-                          entityName: ta.name,
-                          validNames: <String>[ta.name],
-                          promptHint: '请完整输入角色名「${ta.name}」以确认删除',
-                          contentBuilder: (BuildContext ctx) =>
-                              buildTaPreviewSections(ctx, ta),
-                          onDelete: () => controller.deleteTaWithBackup(ta.id),
-                          requireName: controller.settings.requireNameToDelete,
+                  },
+                  itemBuilder: (BuildContext context) {
+                    if (ta.archived) {
+                      return <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'unarchive',
+                          child: ListTile(
+                            leading: Icon(Icons.unarchive_outlined),
+                            title: FitText('恢复'),
+                          ),
                         ),
-                      ),
-                    );
-                    if (deleted == true && context.mounted) {
-                      // 删除页已自行提示，这里无需额外操作。
+                        const PopupMenuDivider(),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline),
+                            title: FitText('删除'),
+                          ),
+                        ),
+                      ];
                     }
-                  }
-                },
-                itemBuilder: (BuildContext context) {
-                  if (ta.archived) {
                     return <PopupMenuEntry<String>>[
                       const PopupMenuItem<String>(
-                        value: 'unarchive',
+                        value: 'archive',
                         child: ListTile(
-                          leading: Icon(Icons.unarchive_outlined),
-                          title: FitText('恢复'),
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: FitText('删除'),
+                          leading: Icon(Icons.archive_outlined),
+                          title: FitText('归档'),
                         ),
                       ),
                     ];
-                  }
-                  return <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'archive',
-                      child: ListTile(
-                        leading: Icon(Icons.archive_outlined),
-                        title: FitText('归档'),
-                      ),
-                    ),
-                  ];
-                },
-                child: const Icon(Icons.more_vert),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right),
-            ],
+                  },
+                  child: const Icon(Icons.more_vert),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
+        openBuilder: (BuildContext context, VoidCallback close) =>
+            TaEditorPage(controller: controller, ta: ta),
       ),
     );
   }

@@ -4,7 +4,9 @@ import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
+import '../theme/tokens.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_container.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
@@ -158,12 +160,16 @@ class _GroupItem extends StatelessWidget {
         ? '成员：${members.length}'
         : '成员：${members.length} · 世界：${world.name}';
 
-    return Card(
-      child: ListTile(
-        leading: GroupAvatar(tas: members, size: 44),
-        title: FitText(title),
-        subtitle: FitText(subtitle),
-        trailing: Row(
+    // OpenContainer 不吃 cardTheme 外边距:手动补偿原 Card 底边距。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: AppContainer<bool>(
+        closedBuilder: (BuildContext context, VoidCallback open) => ListTile(
+          leading: GroupAvatar(tas: members, size: 44),
+          title: FitText(title),
+          subtitle: FitText(subtitle),
+          onTap: open,
+          trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             if (group.pinned) ...<Widget>[
@@ -297,18 +303,13 @@ class _GroupItem extends StatelessWidget {
         ),
         ],
       ),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (BuildContext context) => ChatPage(
-              controller: controller,
-              conversationId: group.id,
-              isGroup: true,
-            ),
-          ),
-        );
-      },
+      ),
+      openBuilder: (BuildContext context, VoidCallback close) => ChatPage(
+        controller: controller,
+        conversationId: group.id,
+        isGroup: true,
+      ),
     ),
-  );
+    );
   }
 }

@@ -8,6 +8,7 @@ import '../models/ta.dart';
 import '../models/world.dart';
 import '../services/search_service.dart';
 import '../state/app_controller.dart';
+import '../widgets/app_container.dart';
 import 'chat_page.dart';
 import 'ta_editor_page.dart';
 import 'world_editor_page.dart';
@@ -170,6 +171,7 @@ class _SearchPageState extends State<SearchPage> {
                   items: items,
                   onTap: _open,
                   leadingBuilder: _leading,
+                  controller: widget.controller,
                 );
               },
             ),
@@ -183,12 +185,14 @@ class _ResultSection extends StatelessWidget {
     required this.items,
     required this.onTap,
     required this.leadingBuilder,
+    required this.controller,
   });
 
   final SearchResultKind kind;
   final List<SearchResult> items;
   final void Function(SearchResult) onTap;
   final Widget Function(SearchResultKind) leadingBuilder;
+  final AppController controller;
 
   String get _title {
     switch (kind) {
@@ -213,18 +217,68 @@ class _ResultSection extends StatelessWidget {
           child: FitText(
             '$_title（${items.length}）',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         ...items.map((SearchResult item) {
-          return ListTile(
-            leading: leadingBuilder(kind),
-            title: FitText(item.title),
-            subtitle: item.snippet != null
-                ? FitText(item.snippet!, maxLines: 2, overflow: TextOverflow.ellipsis)
-                : FitText(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-            onTap: () => onTap(item),
+          // 四种结果 → 四种目标页:用带守卫的容器变换。
+          // closed 侧 ListTile 保留原有 onTap 守卫(目标不存在则不开),
+          // 校验通过后才调 open 起飞。
+          return AppContainer<bool>(
+            tappable: false,
+            closedBuilder: (BuildContext context, VoidCallback open) =>
+                ListTile(
+                  leading: leadingBuilder(kind),
+                  title: FitText(item.title),
+                  subtitle: item.snippet != null
+                      ? FitText(
+                          item.snippet!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : FitText(
+                          item.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                  onTap: () {
+                    // 守卫:目标不存在时不开飞行,退回原 push 逻辑给出反馈。
+                    final bool exists = switch (item.kind) {
+                      SearchResultKind.ta =>
+                        controller.getTaById(item.taId ?? '') != null,
+                      SearchResultKind.world =>
+                        controller.getWorldById(item.worldId) != null,
+                      SearchResultKind.conversation ||
+                      SearchResultKind.message => item.conversationId != null,
+                    };
+                    if (!exists) {
+                      onTap(item);
+                      return;
+                    }
+                    open();
+                  },
+                ),
+            openBuilder: (BuildContext context, VoidCallback close) {
+              switch (item.kind) {
+                case SearchResultKind.ta:
+                  return TaEditorPage(
+                    controller: controller,
+                    ta: controller.getTaById(item.taId!)!,
+                  );
+                case SearchResultKind.world:
+                  return WorldEditorPage(
+                    controller: controller,
+                    world: controller.getWorldById(item.worldId!)!,
+                  );
+                case SearchResultKind.conversation:
+                case SearchResultKind.message:
+                  return ChatPage(
+                    controller: controller,
+                    conversationId: item.conversationId!,
+                  );
+              }
+            },
           );
         }),
         const Divider(),

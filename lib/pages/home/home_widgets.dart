@@ -5,6 +5,8 @@ import '../../models/ta.dart';
 import '../../models/world.dart';
 import '../../services/image_storage.dart';
 import '../../state/app_controller.dart';
+import '../../theme/tokens.dart';
+import '../../widgets/app_container.dart';
 import '../../widgets/group_avatar.dart';
 import '../chat_page.dart';
 import '../conversation_edit_page.dart';
@@ -148,11 +150,15 @@ class _ConversationItem extends StatelessWidget {
       );
     }
 
-    return Card(
-      child: ListTile(
+    // OpenContainer 不吃 cardTheme 的外边距:手动补偿原 Card 的底边距。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: AppContainer<bool>(
+        closedBuilder: (BuildContext context, VoidCallback open) => ListTile(
         leading: leading,
         title: FitText(title),
         subtitle: FitText(subtitle),
+        onTap: open,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -292,16 +298,11 @@ class _ConversationItem extends StatelessWidget {
             const Icon(Icons.chevron_right),
           ],
         ),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => ChatPage(
-                controller: controller,
-                conversationId: conversation.id,
-              ),
-            ),
-          );
-        },
+      ),
+      openBuilder: (BuildContext context, VoidCallback close) => ChatPage(
+        controller: controller,
+          conversationId: conversation.id,
+        ),
       ),
     );
   }

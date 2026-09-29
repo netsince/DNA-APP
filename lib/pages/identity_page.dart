@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/user_identity.dart';
 import '../state/app_controller.dart';
+import '../theme/tokens.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/app_container.dart';
 import '../widgets/app_drawer.dart';
 import 'identity_editor_page.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -46,12 +48,23 @@ class _IdentityPageState extends State<IdentityPage> {
         onCreateIdentity: _createIdentity,
       ),
       bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(controller: widget.controller, current: AppSection.identity)
+          ? AppBottomNav(
+              controller: widget.controller,
+              current: AppSection.identity,
+            )
           : null,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createIdentity,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton:
+          // FAB 即源容器:圆形按钮放大为整页编辑器。
+          AppContainer<bool>(
+            closedShape: const CircleBorder(),
+            closedBuilder: (BuildContext context, VoidCallback open) =>
+                FloatingActionButton(
+                  onPressed: open,
+                  child: const Icon(Icons.add),
+                ),
+            openBuilder: (BuildContext context, VoidCallback close) =>
+                IdentityEditorPage(controller: widget.controller),
+          ),
     );
   }
 }
@@ -118,54 +131,54 @@ class _IdentityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => IdentityEditorPage(
-                controller: controller,
-                identity: identity,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const CircleAvatar(child: Icon(Icons.person_outline)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    FitText(identity.name.isEmpty ? '未命名身份' : identity.name),
-                    const SizedBox(height: 4),
-                    FitText(
-                      identity.persona.isEmpty ? '暂无设定' : identity.persona,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (identity.intro.isNotEmpty) ...<Widget>[
+    // OpenContainer 不吃 cardTheme 外边距:手动补偿原 Card 底边距。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: AppContainer<bool>(
+        closedBuilder: (BuildContext context, VoidCallback open) => InkWell(
+          onTap: open,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const CircleAvatar(child: Icon(Icons.person_outline)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      FitText(identity.name.isEmpty ? '未命名身份' : identity.name),
                       const SizedBox(height: 4),
                       FitText(
-                        identity.intro,
-                        maxLines: 1,
+                        identity.persona.isEmpty ? '暂无设定' : identity.persona,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
                       ),
+                      if (identity.intro.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 4),
+                        FitText(
+                          identity.intro,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
+        openBuilder: (BuildContext context, VoidCallback close) =>
+            IdentityEditorPage(controller: controller, identity: identity),
       ),
     );
   }

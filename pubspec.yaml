@@ -64,6 +64,7 @@ dependencies:
   audioplayers: ^6.7.1
   crypto: ^3.0.7
   package_info_plus: ^9.0.1
+  animations: ^2.2.0
 
 dev_dependencies:
   flutter_test:
