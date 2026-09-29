@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../models/ta.dart';
 import '../../services/conversation_export_import_service.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -31,7 +33,7 @@ Future<List<CharacterImportDecision>?> showCharacterResolutionDialog({
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    FitText(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    FitText(name, style: const TextStyle(fontWeight: AppWeight.medium)),
                     RadioGroup<String>(
                       groupValue: modeById[n.originalTaId]!,
                       onChanged: (v) => setSB(() => modeById[n.originalTaId] = v!),

@@ -156,7 +156,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                   children: <Widget>[
                     FitText('服务商基本信息',
                         style: ts.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                            ?.copyWith(fontWeight: AppWeight.medium)),
                     const SizedBox(height: 16),
 
                     // 别名
@@ -266,7 +266,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                   children: <Widget>[
                     FitText('连接检测',
                         style: ts.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                            ?.copyWith(fontWeight: AppWeight.medium)),
                     const SizedBox(height: 8),
                     FitText(
                       '测试当前填写的 Base URL 与 API Key 是否能成功连通服务商。',

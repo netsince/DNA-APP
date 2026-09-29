@@ -1,13 +1,21 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_section.dart';
 import 'quick_replies_page.dart';
 
 /// 对话与策略 → 回复与发送。
 ///
-/// 控制回车键行为、输入辅助、灵感附带摘要、重说策略与快速回复。
+/// **本次改造**(见 `SETTINGS_AUDIT.md`):
+/// * 3 处手写 `Card > Padding > Column` 样板 → `SettingSection` 组件族;
+/// * 每个分组标题带图标(规矩 4);
+/// * 2 条超长提示(41 字 / 38 字)压到 10 字以内:
+///   说明从 `subtitle` 移到开关右侧的 `description`,开关行仍是单行;
+/// * 回车键行为保留单选项,多行详细说明(补充键位/连续发送)移到 `SettingHint`。
 class ConversationSendPage extends StatefulWidget {
   const ConversationSendPage({super.key, required this.controller});
   final AppController controller;
@@ -35,122 +43,109 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
+    final s = widget.controller.settings;
 
     return Scaffold(
       appBar: AppBar(title: const FitText('回复与发送')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 键盘与输入辅助 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('键盘与输入辅助', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  FitText('回车键按键行为', style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  RadioGroup<String>(
-                    groupValue: widget.controller.settings.enterToSend ? 'send' : 'newline',
-                    onChanged: (String? v) {
-                      if (v == null) return;
-                      setState(() {});
-                      widget.controller.saveEnterToSend(v == 'send');
-                    },
-                    child: Column(
-                      children: const <Widget>[
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          value: 'send',
-                          title: FitText('回车发送，Shift + 回车换行'),
-                        ),
-                        RadioListTile<String>(
-                          contentPadding: EdgeInsets.zero,
-                          value: 'newline',
-                          title: FitText('回车换行，Shift + 回车发送'),
-                        ),
-                      ],
+          // ===== 1. 键盘与输入辅助 =====
+          SettingSection(
+            icon: Icons.keyboard_outlined,
+            title: '键盘与输入辅助',
+            description: '回车键做什么，输入栏有哪些快捷按钮。',
+            children: <Widget>[
+              FitText('回车键按键行为', style: AppTextStyles.body(Theme.of(context))),
+              AppSpacing.hXs,
+              RadioGroup<String>(
+                groupValue: s.enterToSend ? 'send' : 'newline',
+                onChanged: (String? v) {
+                  if (v == null) return;
+                  setState(() {});
+                  widget.controller.saveEnterToSend(v == 'send');
+                },
+                child: Column(
+                  children: const <Widget>[
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      value: 'send',
+                      title: FitText('回车发送，Shift + 回车换行'),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('输入栏显示括号快捷键'),
-                    subtitle: const FitText('在输入框旁放置「（）」按钮，一键插入括号并聚焦中间，方便撰写动作与神态描写。'),
-                    value: widget.controller.settings.showParenButton,
-                    onChanged: (v) {
-                      setState(() {});
-                      widget.controller.saveShowParenButton(v);
-                    },
-                  ),
-                ],
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      value: 'newline',
+                      title: FitText('回车换行，Shift + 回车发送'),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              SettingHint(
+                '补充：长按发送按钮可以连续发送多条。',
+                icon: Icons.info_outline,
+              ),
+              SettingSwitch(
+                title: '括号快捷键',
+                description: '只影响输入栏',
+                value: s.showParenButton,
+                onChanged: (bool v) {
+                  setState(() {});
+                  widget.controller.saveShowParenButton(v);
+                },
+              ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 灵感与重试 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('请求与灵感策略', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('灵感建议附带最近摘要'),
-                    subtitle: const FitText('生成灵感候选项时一并携带剧情摘要，建议更贴合上下文（默认关闭以节省 Token）。'),
-                    value: _inspireSummary,
-                    onChanged: (v) {
-                      setState(() => _inspireSummary = v);
-                      _saveInspire();
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const FitText('重说请求按顺序单次执行'),
-                    subtitle: const FitText('开启后重说会按顺序单次排队发起，关闭则并发请求 3 次。'),
-                    value: _retrySeq,
-                    onChanged: (v) {
-                      setState(() => _retrySeq = v);
-                      _saveRetry();
-                    },
-                  ),
-                ],
+          // ===== 2. 请求与灵感策略 =====
+          SettingSection(
+            icon: Icons.auto_awesome_outlined,
+            title: '请求与灵感策略',
+            description: '重说怎么发，灵感建议要不要参考剧情。',
+            children: <Widget>[
+              SettingSwitch(
+                title: '灵感附带最近摘要',
+                description: '更贴合上下文',
+                value: _inspireSummary,
+                onChanged: (bool v) {
+                  setState(() => _inspireSummary = v);
+                  _saveInspire();
+                },
               ),
-            ),
+              SettingSwitch(
+                title: '重说按顺序单次发起',
+                description: '减轻服务压力',
+                value: _retrySeq,
+                onChanged: (bool v) {
+                  setState(() => _retrySeq = v);
+                  _saveRetry();
+                },
+              ),
+              SettingHint(
+                '关闭「重说按顺序单次发起」时，会同时并发请求 3 次。',
+                icon: Icons.info_outline,
+              ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
-          // ===== 快捷短语 =====
-          Card(
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Icon(Icons.bolt, color: cs.primary),
-              title: const FitText('快速回复管理'),
-              subtitle: const FitText('自定义聊天输入栏上方展示的常用一键发送短语。'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (BuildContext context) =>
-                        QuickRepliesPage(controller: widget.controller),
-                  ),
-                );
-              },
-            ),
+          // ===== 3. 快速回复 =====
+          SettingSection(
+            icon: Icons.bolt_outlined,
+            title: '快速回复',
+            description: '输入栏上方的常用短句按钮。',
+            children: <Widget>[
+              SettingTile(
+                title: '管理快速回复',
+                subtitle: '添加、编辑或删除常用短句。',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext context) =>
+                          QuickRepliesPage(controller: widget.controller),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

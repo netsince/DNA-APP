@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -262,7 +264,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
           children: <Widget>[
             FitText(
               widget.promptHint,
-              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: tt.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -370,7 +372,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
                       _pressing ? '$_remainingSeconds' : '长按',
                       style: TextStyle(
                         color: cs.error,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: AppWeight.medium,
                       ),
                     ),
                   ],

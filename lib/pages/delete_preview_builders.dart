@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
@@ -112,7 +114,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
                     children: <Widget>[
                       FitText('我：${turn.user}',
                           style: tt.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600)),
+                              ?.copyWith(fontWeight: AppWeight.medium)),
                       const SizedBox(height: 4),
                       FitText('TA：${turn.assistant}', style: tt.bodyMedium),
                     ],
@@ -198,7 +200,7 @@ List<Widget> buildWorldPreviewSections(BuildContext context, World world) {
                     children: <Widget>[
                       FitText(entry.name,
                           style: tt.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600)),
+                              ?.copyWith(fontWeight: AppWeight.medium)),
                       const SizedBox(height: 4),
                       FitText(entry.description, style: tt.bodyMedium),
                     ],
@@ -281,7 +283,7 @@ List<Widget> buildConversationPreviewSections(
                           : (conv.isGroup
                               ? speakerName(m.speakerTaId)
                               : 'TA'),
-                      style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: tt.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
                     ),
                     const SizedBox(height: 4),
                     FitText(m.text.isEmpty ? '（空）' : m.text,

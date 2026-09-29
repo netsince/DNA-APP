@@ -53,15 +53,16 @@
 | 19 | `group_create_page` | L2 | 群聊创建 | 选成员 + 群设定 | 234 |
 | 20 | `group_edit_page` | L2 | 群聊编辑 | 同上 | 205 |
 | 21 | `ai_service_settings_page` | L3 | AI 服务 | 简易/高级双模式 | 799 |
-| 22 | `conversation_settings_page` | L3 | 对话与策略入口 | 4 子页导航 | 99 |
-| 23 | `conversation_prompt_strategy_page` | L4 | 提示词策略 | 推进/沉浸策略 + 字数 | 308 |
-| 24 | `conversation_summary_page` | L4 | 摘要与上下文 | 摘要阈值/Token 预算/世界书 | 276 |
-| 25 | `conversation_send_page` | L4 | 回复与发送 | 回车/括号键/灵感/快速回复 | 162 |
-| 26 | `conversation_advanced_page` | L4 | 消息与高级 | 删除/分叉/宏/正则 | 134 |
-| 27 | `appearance_settings_page` | L3 | 外观入口 | 3 子页导航 | 91 |
-| 28 | `appearance_theme_page` | L4 | 主题与颜色 | 明暗模式 + 强调色 | 192 |
-| 29 | `appearance_app_page` | L4 | 应用与启动 | 图标/开场动画/底栏/仪表盘 | 183 |
-| 30 | `appearance_chat_page` | L4 | 聊天界面 | 气泡/遮罩/半屏/快捷按钮 | 267 |
+| 22 | ~~`conversation_settings_page`~~ | — | **已删除**(跳板页) | 入口上提到设置主页 | 0 |
+| 23 | `conversation_prompt_strategy_page` | L3 | 提示词策略 | 推进/沉浸策略 + 字数 | 308 |
+| 24 | `conversation_summary_page` | L3 | 剧情摘要与上下文 | 摘要阈值/Token 预算/世界书 | 276 |
+| 25 | `conversation_send_page` | L3 | 回复与发送 | 回车/括号键/灵感/快速回复 | 162 |
+| 26 | `conversation_advanced_page` | L3 | 消息与高级 | 删除/分叉/宏/正则 | 134 |
+| 27 | ~~`appearance_settings_page`~~ | — | **已删除**(跳板页) | 入口上提到设置主页 | 0 |
+| 28 | `appearance_display_page` | L3 | 界面与显示 | 明暗/强调色/气泡/半屏/启动/图标 | 533 |
+| 29 | ~~`appearance_theme_page`~~ | — | **已并入 #28** | — | 0 |
+| 30 | ~~`appearance_app_page`~~ | — | **已并入 #28** | — | 0 |
+| 31 | ~~`appearance_chat_page`~~ | — | **已并入 #28** | — | 0 |
 | 31 | `app_icon_page` | L4 | 换图标 | 大图预览 + 即时切换 | 166 |
 | 32 | `security_settings_page` | L3 | 安全与隐私 | 生物识别 + 删除防误触 | 163 |
 | 33 | `tts_settings_page` | L3 | 端侧语音合成 | 开关/朗读/Seed/模型/缓存 | 479 |
@@ -242,7 +243,29 @@ L6  模型专属采样                  model_sampler_settings
 
 ## 3. 排版规范
 
-**已落地**:37 处硬编码 `fontSize` 全部收敛为 `AppFontSize` 令牌(残余 0),并重写 `textTheme` 完成语义重映射。
+**已落地**:37 处硬编码 `fontSize` 全部收敛为 `AppFontSize` 令牌(残余 0);重写 `textTheme` 完成语义重映射;**内置思源黑体**,全项目 108 处 `w600`/`w700`/`bold` 收敛为 `AppWeight.medium`。
+
+### 3.0 字体:内置思源黑体(Source Han Sans / Noto Sans SC)
+
+**决定**:字体文件**进仓库**,随各平台安装包分发(APK / Exe / Linux / macOS / iOS / Web)。
+
+| 项 | 值 |
+|---|---|
+| 字体族 | `SourceHanSans`(见 `AppFont.family`) |
+| 字重 | Regular **400** + Medium **500**(仅此两档,**真实字重**) |
+| 体积 | 约 **15.9 MB**(2 × 7.95 MB) |
+| 授权 | **SIL Open Font License 1.1**(可自由商用与再分发),全文见 `LICENSE-OFL.txt` |
+| 文件 | `assets/fonts/SourceHanSansSC-Regular.otf`、`assets/fonts/SourceHanSansSC-Medium.otf` |
+
+**为什么必须内置**(此前"零字体"状态引发的三个渲染问题):
+
+| 问题 | 根因 | 内置后 |
+|---|---|---|
+| 中英混排**大小不一、高低不齐** | 无 `fontFamily` 时拉丁走 `Segoe UI`、中文走 `Microsoft YaHei`,两套字体的 x-height 与基线不同,**同一行文字用到两种字体** | 中西文字形同属一套,基线天然对齐 |
+| **假粗**(同一屏粗细不一) | 微软雅黑**只有 Regular/Bold,没有 Medium**;项目 45 处 `w600` 被渲染器不一致地映射成 w400 或 w700 | 400/500 都是真实字重,渲染确定 |
+| **跨平台割裂** | Android 无雅黑,各平台回退结果不同 | 所有平台同一套字形 |
+
+> 微软雅黑**不可打包分发**(授权仅限 Windows 系统内使用),这也是"指定系统中文字体"方案在 Android 上走不通的原因。
 
 ### 3.1 字号阶(`AppFontSize`,6 档)
 
@@ -264,28 +287,52 @@ L6  模型专属采样                  model_sampler_settings
 
 项目**不再直接沿用 Material 默认字号**,`ThemeData.textTheme` 在 `main.dart` 中按上表重映射:
 
-| 槽位 | 字号 | 字重 | 用途 |
-|---|---|---|---|
-| `headlineMedium` | 24 | w600 | 大标题 |
-| `headlineSmall` | 20 | w600 | 页面标题(侧边栏品牌名、OOBE) |
-| `titleLarge` | **16** | w600 | 卡片分区标题(原为 22,是"字号过大"主因) |
-| `titleMedium` | 16 | w600 | 对话框 / 列表标题 |
-| `titleSmall` | 14 | w600 | 强调正文 |
-| `bodyLarge` | 16 | w400 | 大号正文(输入框) |
-| `bodyMedium` | 14 | w400 | 正文(默认) |
-| `bodySmall` | 12 | w400 | 说明文字 |
-| `labelLarge` | 14 | w500 | 按钮文字 |
-| `labelMedium` | 12 | w500 | 次要标签 |
-| `labelSmall` | 11 | w500 | 极小标注 |
+| 槽位 | 字号 | 字重 | 行高 | 用途 |
+|---|---|---|---|---|
+| `headlineMedium` | 24 | Medium | 1.35 | 大标题 |
+| `headlineSmall` | 20 | Medium | 1.35 | 页面标题(侧边栏品牌名、OOBE) |
+| `titleLarge` | **16** | Medium | 1.35 | 卡片分区标题(原为 22,是"字号过大"主因) |
+| `titleMedium` | 16 | Medium | 1.35 | 对话框 / 列表标题 |
+| `titleSmall` | 14 | Medium | 1.35 | 强调正文 |
+| `bodyLarge` | 16 | Regular | 1.55 | 大号正文(输入框) |
+| `bodyMedium` | 14 | Regular | 1.55 | 正文(默认) |
+| `bodySmall` | 12 | Regular | 1.55 | 说明文字 |
+| `labelLarge` | 14 | Medium | 1.35 | 按钮文字 |
+| `labelMedium` | 12 | Medium | 1.35 | 次要标签 |
+| `labelSmall` | 11 | Medium | 1.35 | 极小标注 |
+
+### 3.2.1 字重令牌(`AppWeight`)
+
+内置思源黑体**只有 400 / 500 两个真实字重**,因此:
+
+| 令牌 | 值 | 用途 |
+|---|---|---|
+| `AppWeight.regular` | `w400` | 正文、说明文字(默认) |
+| `AppWeight.medium` | `w500` | 标题、选中项等轻度强调 |
+
+> **禁止使用 `w600` / `w700` / `bold`** —— 会触发 Flutter 的**合成加粗**(对字形人为描边),
+> 中文小字号下笔画会粘连发糊。需要强调时改用**字号 + 颜色**区分。
+> 当前全项目 `FontWeight.w600/w700/bold` 使用数为 **0**。
+
+### 3.2.2 行高令牌(`AppLineHeight`)
+
+| 令牌 | 值 | 用途 |
+|---|---|---|
+| `AppLineHeight.title` | 1.35 | 标题、标签(紧凑) |
+| `AppLineHeight.body` | 1.55 | 正文、说明(中文比英文需要更多呼吸) |
+| `AppLineHeight.reading` | 1.70 | 长文阅读(消息正文、许可证全文) |
+
+> 此前项目**完全未定义 `height`**,导致行距由系统字体的默认度量决定(Segoe UI ≈1.33 / 雅黑 ≈1.40),
+> 页面里还散落 `1.45` / `1.5` / `1.55` 三种手写值。现已统一。
 
 ### 3.3 语义化样式快捷方式(`AppTextStyles`)
 
 业务代码优先使用具名样式,避免"同一视觉层级在不同页面用到不同 `textTheme` 级别":
 
 ```dart
-AppTextStyles.sectionTitle(theme)  // 卡片分区标题 16/w600
-AppTextStyles.pageTitle(theme)     // 页面标题 20/w600
-AppTextStyles.headline(theme)      // 大标题 24/w600
+AppTextStyles.sectionTitle(theme)  // 卡片分区标题 16/Medium/1.35
+AppTextStyles.pageTitle(theme)     // 页面标题 20/Medium/1.35
+AppTextStyles.headline(theme)      // 大标题 24/Medium/1.35
 AppTextStyles.body(theme)          // 正文 14
 AppTextStyles.caption(theme)       // 说明文字 12
 AppTextStyles.tiny(theme)          // 极小标注 11
@@ -294,9 +341,10 @@ AppTextStyles.tiny(theme)          // 极小标注 11
 **规则**
 1. **禁止 `fontSize:` 硬编码**(当前残余 **0**),一律使用 `AppFontSize` 令牌或 `textTheme`。
 2. `AppFontSize.tiny`(11px)**仅用于**"看一眼就够"的辅助信息,正文与说明文字禁止使用。
-3. 正文行高统一 `height: 1.45`(消息气泡已在用)。
-4. **字体**:本项目**不引入品牌字体**,保持系统默认(不注册 `fontFamily`)。
-5. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
+3. 行高统一使用 `AppLineHeight` 令牌,禁止手写 `height: 1.x`(当前残余 **0**)。
+4. **字体**:内置**思源黑体**(`AppFont.family`),不依赖系统字体。详见 §3.0。
+5. **字重**:只用 `AppWeight.regular` / `AppWeight.medium`,禁止 `w600`/`w700`/`bold`。详见 §3.2.1。
+6. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
 
 ---
 
@@ -421,18 +469,49 @@ AppTextStyles.tiny(theme)          // 极小标注 11
 |---|---|
 | **L0** | 启动 / 认证 / 引导 —— 无导航 |
 | **L1** | 6 个资产中心 —— 底部导航(4 项)+ 抽屉(6 项) |
-| **L2** | 功能页、编辑页、设置分类入口 —— `← 返回` |
+| **L2** | 功能页、编辑页 —— `← 返回` |
 | **L3** | 设置主项 —— `← 返回` |
 | **L4** | 设置子项 / 二级管理 —— `← 返回` |
-| **L5~L6** | 实体编辑、模型采样 —— `← 返回` |
 | **模态** | 弹窗 / 底部抽屉(词条编辑、导出选项) |
 
 **规则**
-1. **字段级不再单独开页**;一个设置页承载同一主题的全部字段。
-2. **底部导航与抽屉不得功能重叠**:抽屉只保留低频入口(identity、settings 及各资产中心的跳转)。
-3. **新增功能优先并入既有 L3 页面,不新开页面**。
-   - 反例:`bgm_settings_page` 应并入 `tts_settings_page`(同属"语音与多模态")。
-4. **层级目标**:常规设置路径 **不超过 L4**。当前 `sampler_settings`(#45)与 `model_sampler_settings`(#50)功能重复,规范要求 `#45` 作为默认项、`#50` 作为模型覆盖,并在 UI 上明确标注继承关系。
+1. **禁止「跳板页」**:一个页面若**自己不含任何设置项、只列入口**,即为跳板页,必须删除 ——
+   它的入口应上提到上一级。跳板页让用户连续两屏看到几乎相同的列表,是最典型的"心智负担"来源。
+   - 已执行:删除 `conversation_settings_page`(99 行)、`appearance_settings_page`(91 行)。
+2. **字段级不再单独开页**;一个设置页承载同一主题的全部字段。
+3. **按「用户任务」分组,不按「技术模块」分组**。
+   - 反例:把「背景音乐」挂在「语音与多模态」下 —— 音乐与语音无关,它属于"让角色更像我想要的"。
+   - 反例:用「与」连接的分组名(「视觉与安全」「系统与数据」)通常说明该分组未想清楚。
+4. **底部导航与抽屉不得功能重叠**:抽屉只保留低频入口。
+5. **新增功能优先并入既有 L3 页面,不新开页面**。
+6. **层级目标**:常规设置路径**不超过 L4**。
+   - 本次重构前最深处为 **6 层**(设置 → AI服务 → 高级模式 → 模型列表 → 模型编辑 → 采样);
+   - 重构后设置主页入口**全部直达 L3**,常规路径为 **2~3 层**。
+
+### 6.1 设置主页分组(已落地:7 组 / 12 入口)
+
+按用户意图组织,而非技术模块:
+
+| # | 分组 | 入口 | 用户视角 |
+|---|---|---|---|
+| 1 | **AI 接入** | AI 服务与模型 | 用哪个 AI |
+| 2 | **对话风格** | 提示词策略、回复与发送 | AI 怎么说话 |
+| 3 | **记忆与上下文** | 剧情摘要与上下文 | AI 记得多久 |
+| 4 | **角色语音** | 语音合成与背景音乐、语音输入 | 让角色开口说话 |
+| 5 | **界面与显示** | 外观与聊天界面 | 界面长什么样 |
+| 6 | **数据与安全** | 备份与还原、安全与隐私、消息与高级 | 我的数据 |
+| 7 | **关于** | 版本与开源、开发者选项 | 版本与调试 |
+
+**入口行设计要点**(参考 Operit 的 `CompactSettingsItem`):
+* **裸图标**,不使用 38×38 色块 —— 色块视觉重量过大,同屏多个显得吵;
+* 副标题 **`maxLines: 1` 强制单行** —— 用代码约束文案长度,顺带压矮行高;
+* 内边距 `AppInsets.tile`(h16,垂直 0);
+* **每个入口必须有副标题**,不允许只有标题的裸入口(已有测试保护)。
+
+### 6.2 滚动位置保持
+
+设置主页内容超过一屏,从子页返回时**必须停在原滚动位置**,不得跳回顶部。
+实现方式:静态 `ValueNotifier<double>` 记住偏移量,重建时作为 `initialScrollOffset`。
 
 ---
 

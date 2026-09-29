@@ -2,168 +2,208 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
+import '../theme/tokens.dart';
 import '../utils/platform_capabilities.dart';
 import '../widgets/app_drawer.dart';
 import 'settings/advanced_settings_page.dart';
 import 'settings/ai_service_settings_page.dart';
-import 'settings/appearance_settings_page.dart';
-import 'settings/conversation_settings_page.dart';
-import 'settings/voice_input_settings_page.dart';
-import 'settings/tts_settings_page.dart';
+import 'settings/appearance_display_page.dart';
+import 'settings/conversation_advanced_page.dart';
+import 'settings/conversation_prompt_strategy_page.dart';
+import 'settings/conversation_send_page.dart';
+import 'settings/conversation_summary_page.dart';
 import 'settings/data_settings_page.dart';
 import 'settings/security_settings_page.dart';
+import 'settings/tts_settings_page.dart';
+import 'settings/voice_input_settings_page.dart';
 import 'settings/about_page.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-/// 设置主页面。
+/// 设置主页。
 ///
-/// 结构化模块分组：
-/// 1. 核心 AI 与对话策略
-/// 2. 视觉外观与安全隐私
-/// 3. 语音与多模态交互
-/// 4. 系统数据与关于
+/// **组织原则:按「用户想干什么」分组,而不是按技术模块分组。**
+///
+/// 本次重构(参见 DESIGN_SPEC.md 设置页章节):
+/// * 删除 `conversation_settings_page` / `appearance_settings_page` 两个
+///   「只列入口、自己不含任何设置项」的跳板页,所有入口直达最终页面;
+/// * 导航深度从最多 6 层压到 4 层;
+/// * 副标题一律**单行**,用 `maxLines: 1` 强制约束文案长度。
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, required this.controller});
 
   final AppController controller;
 
+  /// 跨页面保留的滚动位置。
+  ///
+  /// 从子页返回时回到原来的位置,而不是跳回顶部 —— 主页有 7 个分组,
+  /// 内容超过一屏,跳回顶部会让用户重新滚一遍。
+  static final ValueNotifier<double> _scrollOffset =
+      ValueNotifier<double>(0);
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
     return AppScaffold(
       controller: controller,
       current: AppSection.settings,
       appBar: AppBar(title: const FitText('设置')),
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w =
+              constraints.maxWidth > AppSize.settingsMaxWidth
+                  ? AppSize.settingsMaxWidth
+                  : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: _SettingsScrollBody(
+                initialOffset: _scrollOffset.value,
+                onOffsetChanged: (double v) => _scrollOffset.value = v,
                 children: <Widget>[
-                  // ===== 1. 核心 AI 与对话策略 =====
-                  _SectionHeader(title: '核心 AI 与对话', icon: Icons.psychology_outlined),
-                  Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        _MenuItem(
-                          icon: Icons.memory,
-                          title: 'AI 服务与模型',
-                          subtitle: '服务商切换、Base URL、API Key 与生效模型',
-                          onTap: () => _push(context, AiServiceSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.chat_bubble_outline,
-                          title: '对话与策略',
-                          subtitle: '提示词策略、剧情摘要、上下文预算、回复模式与正则清洗',
-                          onTap: () => _push(context, ConversationSettingsPage(controller: controller)),
-                        ),
-                      ],
-                    ),
+                  // ===== 1. AI 接入 =====
+                  _Group(
+                    title: 'AI 接入',
+                    icon: Icons.memory,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.smart_toy_outlined,
+                        title: 'AI 服务与模型',
+                        subtitle: '用哪个 AI、接口地址与密钥',
+                        onTap: () => _push(
+                            context,
+                            AiServiceSettingsPage(controller: controller)),
+                      ),
+                    ],
                   ),
 
-                  // ===== 2. 视觉外观与安全隐私 =====
-                  _SectionHeader(title: '视觉与安全', icon: Icons.palette_outlined),
-                  Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        _MenuItem(
-                          icon: Icons.color_lens_outlined,
-                          title: '外观与体验',
-                          subtitle: '明暗主题、专属强调色、桌面图标、启动动画与聊天气泡',
-                          onTap: () => _push(context, AppearanceSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.security_outlined,
-                          title: '安全与隐私',
-                          subtitle: '应用锁生物识别验证、实体删除防误触保护',
-                          onTap: () => _push(context, SecuritySettingsPage(controller: controller)),
-                        ),
-                      ],
-                    ),
+                  // ===== 2. 对话风格 =====
+                  _Group(
+                    title: '对话风格',
+                    icon: Icons.chat_bubble_outline,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.tune,
+                        title: '提示词策略',
+                        subtitle: 'AI 扮演的性格、语气与回复长度',
+                        onTap: () => _push(
+                            context,
+                            PromptStrategyPage(controller: controller)),
+                      ),
+                      _Entry(
+                        icon: Icons.send_outlined,
+                        title: '回复与发送',
+                        subtitle: '回车键行为、灵感生成与快速回复',
+                        onTap: () => _push(
+                            context,
+                            ConversationSendPage(controller: controller)),
+                      ),
+                    ],
                   ),
 
-                  // ===== 3. 语音与多模态交互 =====
-                  _SectionHeader(title: '语音与多模态', icon: Icons.mic_none_outlined),
-                  Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        _MenuItem(
-                          icon: Icons.record_voice_over_outlined,
-                          title: '语音合成与背景音乐',
-                          subtitle: '本地角色朗读、台词过滤、全局音色 Seed、音频缓存与角色背景音乐',
-                          enabled: PlatformCapabilities.ttsSupported,
-                          onTap: () => _push(context, TtsSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.mic_outlined,
-                          title: '离线语音输入 (ASR)',
-                          subtitle: '麦克风语音转文字、本地离线识别模型管理',
-                          enabled: PlatformCapabilities.voiceInputSupported,
-                          onTap: () => _push(context, VoiceInputSettingsPage(controller: controller)),
-                        ),
-                      ],
-                    ),
+                  // ===== 3. 记忆与上下文 =====
+                  _Group(
+                    title: '记忆与上下文',
+                    icon: Icons.psychology_outlined,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.history_edu_outlined,
+                        title: '剧情摘要与上下文',
+                        subtitle: 'AI 记得多久、世界书怎么生效',
+                        onTap: () => _push(
+                            context,
+                            ConversationSummaryPage(controller: controller)),
+                      ),
+                    ],
                   ),
 
-                  // ===== 4. 系统数据与关于 =====
-                  _SectionHeader(title: '系统与数据', icon: Icons.folder_outlined),
-                  Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        _MenuItem(
-                          icon: Icons.storage_outlined,
-                          title: '数据管理',
-                          subtitle: '每日自动备份、ZIP 全量备份还原、JSON 单对话导出',
-                          onTap: () => _push(context, DataSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.terminal_outlined,
-                          title: '高级命令系统',
-                          subtitle: '开发者指令与高级调试控制台',
-                          onTap: () => _push(context, AdvancedSettingsPage(controller: controller)),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        _MenuItem(
-                          icon: Icons.info_outline,
-                          title: '关于与开源',
-                          subtitle: '版本信息、项目成员、社区链接与开源许可证',
-                          onTap: () => _push(context, const AboutPage()),
-                        ),
-                      ],
-                    ),
+                  // ===== 4. 角色语音 =====
+                  _Group(
+                    title: '角色语音',
+                    icon: Icons.record_voice_over_outlined,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.volume_up_outlined,
+                        title: '语音合成与背景音乐',
+                        subtitle: '让角色开口说话，或自带背景音乐',
+                        enabled: PlatformCapabilities.ttsSupported,
+                        onTap: () => _push(
+                            context, TtsSettingsPage(controller: controller)),
+                      ),
+                      _Entry(
+                        icon: Icons.mic_none_outlined,
+                        title: '语音输入',
+                        subtitle: '用说话代替打字',
+                        enabled: PlatformCapabilities.voiceInputSupported,
+                        onTap: () => _push(context,
+                            VoiceInputSettingsPage(controller: controller)),
+                      ),
+                    ],
+                  ),
+
+                  // ===== 5. 界面与显示 =====
+                  _Group(
+                    title: '界面与显示',
+                    icon: Icons.palette_outlined,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.dashboard_customize_outlined,
+                        title: '外观与聊天界面',
+                        subtitle: '明暗主题、强调色、气泡与半屏模式',
+                        onTap: () => _push(
+                            context,
+                            AppearanceDisplayPage(controller: controller)),
+                      ),
+                    ],
+                  ),
+
+                  // ===== 6. 数据与安全 =====
+                  _Group(
+                    title: '数据与安全',
+                    icon: Icons.shield_outlined,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.storage_outlined,
+                        title: '备份与还原',
+                        subtitle: '定期备份、换设备时迁移',
+                        onTap: () => _push(
+                            context, DataSettingsPage(controller: controller)),
+                      ),
+                      _Entry(
+                        icon: Icons.lock_outline,
+                        title: '安全与隐私',
+                        subtitle: '应用锁、删除前的二次确认',
+                        onTap: () => _push(context,
+                            SecuritySettingsPage(controller: controller)),
+                      ),
+                      _Entry(
+                        icon: Icons.cleaning_services_outlined,
+                        title: '消息与高级',
+                        subtitle: '删除单条消息、剧情分叉、文本清洗',
+                        onTap: () => _push(context,
+                            ConversationAdvancedPage(controller: controller)),
+                      ),
+                    ],
+                  ),
+
+                  // ===== 7. 关于 =====
+                  _Group(
+                    title: '关于',
+                    icon: Icons.info_outline,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.info_outline,
+                        title: '版本与开源',
+                        subtitle: '版本信息、项目成员与开源许可',
+                        onTap: () =>
+                            _push(context, const AboutPage()),
+                      ),
+                      _Entry(
+                        icon: Icons.terminal_outlined,
+                        title: '开发者选项',
+                        subtitle: '命令控制台与调试工具',
+                        onTap: () => _push(context,
+                            AdvancedSettingsPage(controller: controller)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -179,39 +219,109 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.icon});
+/// 可保留滚动位置的列表体。
+class _SettingsScrollBody extends StatefulWidget {
+  const _SettingsScrollBody({
+    required this.initialOffset,
+    required this.onOffsetChanged,
+    required this.children,
+  });
 
-  final String title;
-  final IconData icon;
+  final double initialOffset;
+  final ValueChanged<double> onOffsetChanged;
+  final List<Widget> children;
+
+  @override
+  State<_SettingsScrollBody> createState() => _SettingsScrollBodyState();
+}
+
+class _SettingsScrollBodyState extends State<_SettingsScrollBody> {
+  late final ScrollController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // 还原上次离开时的位置(有上限保护:内容变短时不越界)。
+    _ctrl = ScrollController(initialScrollOffset: widget.initialOffset);
+    _ctrl.addListener(() => widget.onOffsetChanged(_ctrl.offset));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final ts = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 18, color: cs.primary),
-          const SizedBox(width: 4),
-          FitText(
-            title,
-            style: ts.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: cs.primary,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
+    return ListView(
+      controller: _ctrl,
+      padding: AppInsets.page,
+      children: widget.children,
     );
   }
 }
 
-class _MenuItem extends StatelessWidget {
-  const _MenuItem({
+/// 一个设置分组:标题 + 一张卡片。
+class _Group extends StatelessWidget {
+  const _Group({
+    required this.title,
+    required this.icon,
+    required this.entries,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_Entry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme ts = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(
+            left: AppSpacing.xs,
+            bottom: AppSpacing.sm,
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: AppSize.iconCard, color: cs.primary),
+              AppSpacing.wSm,
+              Expanded(
+                child: FitText(
+                  title,
+                  style: ts.labelLarge?.copyWith(
+                    fontWeight: AppWeight.medium,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Card(
+          child: Column(
+            children: <Widget>[
+              for (int i = 0; i < entries.length; i++) ...<Widget>[
+                if (i > 0) Divider(height: 1, indent: AppSize.iconInline * 3),
+                _EntryTile(entry: entries[i]),
+              ],
+            ],
+          ),
+        ),
+        AppSpacing.hLg,
+      ],
+    );
+  }
+}
+
+/// 一个设置入口的数据。
+class _Entry {
+  const _Entry({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -224,49 +334,55 @@ class _MenuItem extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final bool enabled;
+}
+
+/// 设置入口行。
+///
+/// 设计要点(参考 Operit 的 `CompactSettingsItem`):
+/// * **裸图标**,不用 38×38 色块 —— 色块视觉重量过大,一屏多个会显得吵;
+/// * 副标题 **`maxLines: 1`** 强制单行,用代码逼着文案写短;
+/// * 内边距收紧,一屏能看到更多入口。
+class _EntryTile extends StatelessWidget {
+  const _EntryTile({required this.entry});
+
+  final _Entry entry;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme ts = Theme.of(context).textTheme;
+    final bool on = entry.enabled;
 
     return ListTile(
-      enabled: enabled,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: enabled
-              ? cs.primaryContainer.withValues(alpha: 0.6)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: enabled ? cs.onPrimaryContainer : cs.outline,
-        ),
+      enabled: on,
+      contentPadding: AppInsets.tile,
+      leading: Icon(
+        entry.icon,
+        size: AppSize.iconCard,
+        color: on ? cs.primary : cs.outline,
       ),
       title: FitText(
-        title,
+        entry.title,
         style: ts.bodyLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: enabled ? null : cs.outline,
+          fontWeight: AppWeight.medium,
+          color: on ? null : cs.outline,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
       subtitle: FitText(
-        subtitle,
+        entry.subtitle,
         style: ts.bodySmall?.copyWith(
-          color: enabled ? cs.onSurfaceVariant : cs.outline,
+          color: on ? cs.onSurfaceVariant : cs.outline,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: enabled ? cs.onSurfaceVariant : cs.outline.withValues(alpha: 0.5),
+        color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: 0.5),
       ),
-      onTap: enabled ? onTap : null,
+      onTap: on ? entry.onTap : null,
     );
   }
 }

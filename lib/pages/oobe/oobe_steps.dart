@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../../services/llm_provider.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -133,7 +135,7 @@ class ApiStep extends StatelessWidget {
           children: <Widget>[
             FitText('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            FitText('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            FitText('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

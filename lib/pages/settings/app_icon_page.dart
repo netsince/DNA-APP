@@ -153,7 +153,7 @@ class _IconCard extends StatelessWidget {
                     option.label,
                     style: TextStyle(
                       fontSize: AppFontSize.subtitle,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppWeight.medium,
                       color: enabled ? null : cs.outline,
                     ),
                   ),

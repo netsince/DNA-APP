@@ -16,6 +16,7 @@ class _LicenseDoc {
 const List<_LicenseDoc> _kLicenseDocs = <_LicenseDoc>[
   _LicenseDoc(title: '源代码许可证 (nSPPL)', file: 'LICENSE-nSPPL'),
   _LicenseDoc(title: '美术资源许可证 (CC BY-NC-ND 4.0)', file: 'LICENSE-CC'),
+  _LicenseDoc(title: '内置字体思源黑体 (SIL OFL 1.1)', file: 'LICENSE-OFL.txt'),
 ];
 
 /// 许可证全文页：编译时将 LICENSE 文件随应用打包，运行时读取并展示全文。
@@ -82,7 +83,7 @@ class _LicensePageState extends State<LicensePage> {
       padding: const EdgeInsets.all(16),
       child: SelectableText(
         text,
-        style: const TextStyle(fontSize: AppFontSize.caption, height: 1.5),
+        style: const TextStyle(fontSize: AppFontSize.caption, height: AppLineHeight.reading),
       ),
     );
   }

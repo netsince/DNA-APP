@@ -6,9 +6,22 @@ import 'package:dna/theme/tokens.dart';
 import '../../models/quick_reply.dart';
 import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
+import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/setting_section.dart';
 
 /// 快速回复管理页：新增 / 编辑 / 删除聊天输入栏上方的一键发送按钮。
+///
+/// **本次改造**(见 `SETTINGS_AUDIT.md`):
+/// * 顶部引导卡片改写为 `SettingSection`(带图标分组标题 + 短说明),
+///   `subtitle` 不再承载 52 字长文案 —— 用法说明移到 `SettingHint`;
+/// * 顶部引导卡片的 52 字长说明 → 短句 + 逐条宏变量说明;
+/// * 首页空状态改用 `AppEmptyState` 组件(消除手写
+///   `Container > Column > Icon + Text` 样板);
+/// * 列表项卡片样板改用令牌(圆角/间距/透明度),语义不变。
+///
+/// **不套 `SettingSection` 的部分**:下方是「快速回复短语」列表(可增删改、
+/// 可拖动排序的**条目集合**),不是设置项堆叠,按规矩 1 的豁免说明保留列表结构。
 class QuickRepliesPage extends StatefulWidget {
   const QuickRepliesPage({super.key, required this.controller});
 
@@ -85,7 +98,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.hMd,
                 TextField(
                   controller: messageCtrl,
                   maxLines: 4,
@@ -96,7 +109,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.hMd,
                 TextField(
                   controller: groupCtrl,
                   decoration: const InputDecoration(
@@ -143,9 +156,8 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final ts = theme.textTheme;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -159,110 +171,92 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: AppInsets.page,
         children: <Widget>[
-          // ===== 顶部引导卡片 =====
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.bolt, color: cs.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('一键快速回复', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '在聊天输入栏上方展示快捷操作按钮，点击即发送指定句式。\n'
-                    '支持动态占位变量：\n'
-                    '• {{char}}：自动替换为当前角色名\n'
-                    '• {{user}}：自动替换为我的身份昵称\n'
-                    '• {{random 选项A|选项B}}：随机挑选一个词条发送\n'
-                    '• {{newline}}：换行',
-                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
-                  ),
-                ],
+          // ===== 用法说明(不再用手写卡片样板) =====
+          SettingSection(
+            icon: Icons.bolt_outlined,
+            title: '什么是一键快速回复',
+            description: '点一下按钮，就把整句话发出去。',
+            children: <Widget>[
+              SettingHint(
+                '{{char}} 当前角色名 · {{user}} 你的昵称 · '
+                '{{random 甲|乙}} 随机二选一 · {{newline}} 换行',
+                icon: Icons.help_outline,
               ),
-            ),
+            ],
           ),
 
-          const SizedBox(height: 16),
-
+          // ===== 短语列表（条目集合，非设置项堆叠）=====
           if (_items.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: <Widget>[
-                  Icon(Icons.flash_on_outlined, size: 40, color: cs.outline),
-                  const SizedBox(height: 8),
-                  const FitText('暂无快速回复短语'),
-                  const SizedBox(height: 4),
-                  FitText('点击右上角【+】或下方按钮添加常用快捷发送语句', style: ts.bodySmall?.copyWith(color: cs.outline)),
-                  const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    onPressed: _add,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('新增快速回复'),
-                  ),
-                ],
-              ),
+            AppEmptyState(
+              icon: Icons.flash_on_outlined,
+              title: '还没有快速回复',
+              description: '添加常用短句，聊天时点一下就发送。',
+              actionLabel: '新增快速回复',
+              actionIcon: Icons.add,
+              onAction: _add,
             )
           else
             Column(
               children: _items.map((QuickReply qr) {
                 return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
-                  ),
+                  elevation: AppElevation.flat,
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  shape: AppBorder.secondaryShape(cs),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding: AppInsets.group,
                     leading: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppSpacing.sm),
                       decoration: BoxDecoration(
-                        color: cs.primaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(8),
+                        color: cs.primaryContainer
+                            .withValues(alpha: AppAlpha.half),
+                        borderRadius: AppRadius.xsAll,
                       ),
-                      child: Icon(Icons.bolt, color: cs.onPrimaryContainer, size: 18),
+                      child: Icon(
+                        Icons.bolt,
+                        color: cs.onPrimaryContainer,
+                        size: AppSize.iconInline,
+                      ),
                     ),
                     title: Row(
                       children: <Widget>[
-                        FitText(qr.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        FitText(
+                          qr.label,
+                          style: const TextStyle(
+                            fontWeight: AppWeight.medium,
+                          ),
+                        ),
                         if ((qr.group ?? '').isNotEmpty) ...<Widget>[
-                          const SizedBox(width: 8),
+                          AppSpacing.wSm,
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: AppSpacing.xxs,
+                            ),
                             decoration: BoxDecoration(
                               color: cs.secondaryContainer,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: AppRadius.xsAll,
                             ),
                             child: FitText(
                               qr.group!,
-                              style: TextStyle(fontSize: AppFontSize.tiny, color: cs.onSecondaryContainer),
+                              style: TextStyle(
+                                fontSize: AppFontSize.tiny,
+                                color: cs.onSecondaryContainer,
+                              ),
                             ),
                           ),
                         ],
                       ],
                     ),
                     subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: FitText(
                         qr.message,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        style: AppTextStyles.caption(theme)
+                            .copyWith(color: cs.onSurfaceVariant),
                       ),
                     ),
                     trailing: Row(

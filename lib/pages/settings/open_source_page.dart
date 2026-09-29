@@ -320,7 +320,7 @@ class _OpenSourcePageState extends State<OpenSourcePage> {
                           Expanded(
                             child: FitText(
                               '共 ${_kOssItems.length + 1} 个第三方组件',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontWeight: AppWeight.medium),
                             ),
                           ),
                         ],
@@ -394,7 +394,7 @@ class _OssTile extends StatelessWidget {
                         child: FitText(
                           item.name,
                           style: TextStyle(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: AppWeight.medium,
                             color: enabled ? null : cs.outline,
                           ),
                         ),

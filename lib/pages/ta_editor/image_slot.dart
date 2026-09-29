@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/services/image_storage.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -88,7 +90,7 @@ class ImageSlot extends StatelessWidget {
             FitText(
               title,
               style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: AppWeight.medium,
               ),
               textAlign: TextAlign.center,
             ),

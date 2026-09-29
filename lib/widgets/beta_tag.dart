@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import 'fit_text.dart';
 
 /// 「测试版」标签，标记尚处于测试阶段的功能入口标题。
@@ -20,7 +22,7 @@ class BetaTag extends StatelessWidget {
         '测试版',
         style: theme.textTheme.labelSmall?.copyWith(
           color: cs.onTertiaryContainer,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppWeight.medium,
         ),
       ),
     );

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 
+import '../../services/update_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'update_dialog.dart';
+import 'update_settings_page.dart';
 
 class AdvancedSettingsPage extends StatefulWidget {
   const AdvancedSettingsPage({super.key, required this.controller});
@@ -33,6 +36,26 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
       showSnack(context, '数据已清除。');
       return;
     }
+
+    // 进入「更新设置」页(开关启动时检查更新)。
+    if (cmd == 'setupdatepage') {
+      _cmdCtrl.clear();
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => UpdateSettingsPage(controller: widget.controller),
+        ),
+      );
+      return;
+    }
+
+    // 手动构造一个假更新(999.999.999 / 日志「测试」),用来预览更新窗口。
+    if (cmd == 'tryupdate') {
+      _cmdCtrl.clear();
+      final UpdateInfo info = debugUpdateInfo(DateTime.now());
+      await showUpdateDialog(context, info);
+      return;
+    }
+
     showSnack(context, '未知指令或指令不匹配。');
   }
 
@@ -58,7 +81,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                   children: <Widget>[
                     Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
                     const SizedBox(width: 8),
-                    FitText('危险操作', style: TextStyle(fontWeight: FontWeight.w600, color: cs.error, fontSize: AppFontSize.subtitle)),
+                    FitText('危险操作', style: TextStyle(fontWeight: AppWeight.medium, color: cs.error, fontSize: AppFontSize.subtitle)),
                   ],
                 ),
                 const SizedBox(height: 12),

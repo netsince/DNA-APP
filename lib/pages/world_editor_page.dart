@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../models/world.dart';
 import '../services/export_file_utils.dart';
 import '../services/world_export_import_service.dart';
@@ -389,7 +391,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     children: <Widget>[
                       Icon(Icons.public, color: theme.colorScheme.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('世界核心设定', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('世界核心设定', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -487,7 +489,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                 children: <Widget>[
                   Icon(Icons.library_books_outlined, color: theme.colorScheme.primary, size: 20),
                   const SizedBox(width: 8),
-                  FitText('动态词条库', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  FitText('动态词条库', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -499,7 +501,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                       '${_entries.length}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: AppWeight.medium,
                       ),
                     ),
                   ),
@@ -627,7 +629,7 @@ class _WorldEntryCard extends StatelessWidget {
                   Expanded(
                     child: FitText(
                       entry.name.isEmpty ? '未命名词条' : entry.name,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
                     ),
                   ),
                   IconButton(
@@ -882,7 +884,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
             children: <Widget>[
               FitText(
                 isEditing ? '编辑词条' : '新建词条',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium),
               ),
               IconButton(
                 icon: const Icon(Icons.close),

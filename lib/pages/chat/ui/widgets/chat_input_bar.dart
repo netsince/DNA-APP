@@ -325,7 +325,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       onPressed: _insertParens,
       icon: const Text(
         '（）',
-        style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
       ),
     );
   }
@@ -825,7 +825,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       qr.label.isEmpty ? '回复' : qr.label,
                       style: TextStyle(
                         fontSize: AppFontSize.caption,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: AppWeight.medium,
                         color: cs.onSurface,
                       ),
                     ),

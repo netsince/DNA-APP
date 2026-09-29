@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
 import '../state/app_controller.dart';
@@ -95,7 +97,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                         FitText(
                           '对话风格说明',
                           style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: AppWeight.medium,
                             color: theme.colorScheme.primary,
                           ),
                         ),
@@ -132,7 +134,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
                     children: <Widget>[
                       FitText(
                         '范例第 ${turnIndex + 1} 轮',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
                       ),
                       if (_turns.length > 1)
                         IconButton(

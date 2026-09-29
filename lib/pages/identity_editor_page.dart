@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 import '../models/user_identity.dart';
 import '../services/export_file_utils.dart';
 import '../services/identity_export_import_service.dart';
@@ -275,7 +277,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
                     children: <Widget>[
                       Icon(Icons.badge_outlined, color: theme.colorScheme.primary, size: 20),
                       const SizedBox(width: 8),
-                      FitText('我的身份信息', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      FitText('我的身份信息', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
                     ],
                   ),
                   const SizedBox(height: 4),

@@ -26,6 +26,7 @@ class AppSettings {
     required this.autoBackup,
     required this.showSplashAnimation,
     required this.showBottomNav,
+    this.updateCheckEnabled = true,
     this.showTokenDashboard = false,
     this.enableForking = false,
     this.enableCommandMacros = true,
@@ -184,6 +185,11 @@ class AppSettings {
   final bool autoBackup;
 
   final bool showSplashAnimation;
+
+  /// 是否在启动时自动检查更新。默认开启。
+  ///
+  /// 关闭后启动不再请求 GitHub API;「关于」页的手动「检查更新」不受影响。
+  final bool updateCheckEnabled;
 
   /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
   final bool showBottomNav;
@@ -370,6 +376,7 @@ class AppSettings {
       'allowDeleteMessage': allowDeleteMessage,
       'autoBackup': autoBackup,
       'showSplashAnimation': showSplashAnimation,
+      'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
       'showTokenDashboard': showTokenDashboard,
       'enableForking': enableForking,
@@ -452,6 +459,7 @@ class AppSettings {
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? false,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       enableForking: (json['enableForking'] as bool?) ?? false,
@@ -556,6 +564,7 @@ class AppSettings {
     bool? allowDeleteMessage,
     bool? autoBackup,
     bool? showSplashAnimation,
+    bool? updateCheckEnabled,
     bool? showBottomNav,
     bool? showTokenDashboard,
     bool? enableForking,
@@ -627,6 +636,7 @@ class AppSettings {
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       autoBackup: autoBackup ?? this.autoBackup,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+    updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       enableForking: enableForking ?? this.enableForking,

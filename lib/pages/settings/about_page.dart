@@ -1,12 +1,16 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+
+import 'package:dna/theme/tokens.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:dna/services/update_service.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'authors_page.dart';
 import 'license_page.dart' as dna_license;
 import 'open_source_page.dart';
+import 'update_dialog.dart';
 
 /// 应用信息：名称、版本、作者、官网等。
 abstract final class AppInfo {
@@ -32,11 +36,48 @@ class AboutPage extends StatefulWidget {
 
 class _AboutPageState extends State<AboutPage> {
   String _version = '';
+  bool _checking = false;
+
+  final UpdateService _updateService = UpdateService();
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+  }
+
+  /// 手动检查更新。用户主动触发,失败时明确告知。
+  Future<void> _checkUpdate() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    final UpdateCheckResult result = await _updateService.check();
+    if (!mounted) return;
+    setState(() => _checking = false);
+
+    switch (result) {
+      case UpdateAvailable(:final UpdateInfo info):
+        await showUpdateDialog(context, info);
+      case UpdateUpToDate():
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: FitText('已是最新版本。'),
+            duration: Duration(milliseconds: 1500),
+          ),
+        );
+      case UpdateCheckFailed(:final UpdateCheckError error):
+        final String why = switch (error) {
+          UpdateCheckError.network => '网络连接失败',
+          UpdateCheckError.http => '服务器返回异常',
+          UpdateCheckError.malformed => '返回数据无法识别',
+          UpdateCheckError.localVersionUnavailable => '读取本地版本号失败',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: FitText('获取更新失败：$why，可能不是最新版。'),
+            duration: const Duration(milliseconds: 2500),
+          ),
+        );
+    }
   }
 
   Future<void> _loadVersion() async {
@@ -101,7 +142,7 @@ class _AboutPageState extends State<AboutPage> {
                         const SizedBox(height: 12),
                         FitText(
                           AppInfo.name,
-                          style: ts.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: ts.headlineSmall?.copyWith(fontWeight: AppWeight.medium),
                         ),
                         const SizedBox(height: 2),
                         FitText(
@@ -119,7 +160,7 @@ class _AboutPageState extends State<AboutPage> {
                             _version.isEmpty ? '版本加载中…' : 'v$_version',
                             style: ts.labelMedium?.copyWith(
                               color: cs.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: AppWeight.medium,
                             ),
                           ),
                         ),
@@ -135,7 +176,37 @@ class _AboutPageState extends State<AboutPage> {
 
                   const SizedBox(height: 24),
 
-                  // ===== 2. 项目成员 =====
+                  // ===== 2. 检查更新 =====
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.system_update_alt,
+                            color: cs.onPrimaryContainer, size: 20),
+                      ),
+                      title: const FitText('检查更新'),
+                      subtitle: FitText(_checking
+                          ? '正在检查…'
+                          : '当前 v${_version.isEmpty ? "未知" : _version}'),
+                      trailing: _checking
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right),
+                      onTap: _checking ? null : _checkUpdate,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ===== 3. 项目成员 =====
                   Card(
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -158,15 +229,26 @@ class _AboutPageState extends State<AboutPage> {
 
                   const SizedBox(height: 16),
 
-                  // ===== 3. 官方站点与社区 =====
+                  // ===== 4. 官方站点与社区 =====
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: AppInsets.card,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('官方支持与社区', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Icon(Icons.forum_outlined,
+                                  size: AppSize.iconCard,
+                                  color: cs.primary),
+                              AppSpacing.wSm,
+                              Expanded(
+                                child: FitText('官方支持与社区',
+                                    style: AppTextStyles.sectionTitle(theme)),
+                              ),
+                            ],
+                          ),
+                          AppSpacing.hSm,
                           _LinkRow(
                             icon: Icons.language,
                             title: '官方网站',
@@ -204,14 +286,26 @@ class _AboutPageState extends State<AboutPage> {
                   // ===== 4. 开源与许可证 =====
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: AppInsets.card,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          FitText('开源与许可证', style: ts.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
+                          Row(
+                            children: <Widget>[
+                              Icon(Icons.balance_outlined,
+                                  size: AppSize.iconCard,
+                                  color: cs.primary),
+                              AppSpacing.wSm,
+                              Expanded(
+                                child: FitText('开源与许可证',
+                                    style: AppTextStyles.sectionTitle(theme)),
+                              ),
+                            ],
+                          ),
+                          AppSpacing.hXs,
                           FitText(
-                            '源代码采用 netSince 项目公开许可证 (nSPPL)，美术与标志资源采用 CC BY-NC-ND 4.0。',
+                            '源代码采用 netSince 项目公开许可证 (nSPPL)，美术与标志资源采用 CC BY-NC-ND 4.0，'
+                            '内置字体思源黑体采用 SIL Open Font License 1.1。',
                             style: ts.bodySmall?.copyWith(color: cs.outline),
                           ),
                           const SizedBox(height: 12),
@@ -274,7 +368,7 @@ class _LinkRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       dense: true,
       leading: Icon(icon, color: cs.primary, size: 20),
-      title: FitText(title, style: ts.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+      title: FitText(title, style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium)),
       subtitle: FitText(subtitle, style: ts.bodySmall?.copyWith(color: cs.primary)),
       trailing: const Icon(Icons.open_in_new, size: 16),
       onTap: onTap,
