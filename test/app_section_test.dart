@@ -11,7 +11,7 @@ import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
 import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
-import 'package:dna/widgets/app_container.dart';
+import 'package:dna/widgets/app_icon_flight.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -259,7 +259,7 @@ void main() {
     expect(barEnd.selectedIndex, 3);
   });
 
-  testWidgets('右上角按钮:从图标位置放大为页面,关闭后缩回原位', (WidgetTester tester) async {
+  testWidgets('右上角按钮:图标原样飞到屏幕中央,然后页面出现;关闭后飞回原位', (WidgetTester tester) async {
     final AppController c = await boot();
     // 竖屏窗口:与真实使用一致(标题栏 + 底栏)。
     tester.view.physicalSize = const Size(600, 1000);
@@ -268,29 +268,48 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
     await tester.pumpAndSettle();
 
-    // 右上角动作是**容器变换**而不是 MaterialPageRoute:
-    // 关闭态圆形、底色 = AppBar 背景(静止时隐形)、
-    // 点击由 IconButton 自己发起(容器不抢手势)。
     final Finder plus = find.byTooltip('新建会话');
-    final AppContainer<bool> action = tester.widget<AppContainer<bool>>(
-      find.ancestor(of: plus, matching: find.byType(AppContainer<bool>)),
-    );
-    expect(action.closedShape, isA<CircleBorder>());
-    expect(action.tappable, isFalse);
-    final ColorScheme cs = Theme.of(
-      tester.element(find.byType(AppSectionShell)),
-    ).colorScheme;
-    expect(action.closedColor, cs.surface);
+    final Offset sourceCenter = tester.getCenter(plus);
 
-    // 起飞:容器从图标位置放大成页面。
+    // 起飞:图标从点击处飞向屏幕中央。
     await tester.tap(plus);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120)); // 飞行中段
+
+    final Finder flying = find.byKey(kAppBarIconFlightKey);
+    expect(flying, findsOneWidget);
+    // **尺寸不变**:就是点下去时那颗图标的大小(24),
+    // 不是被放大成整页的按钮框。
+    expect(tester.getSize(flying), const Size(24, 24));
+    // 而且确实在移动:已经离开原位、朝着屏幕中央去。
+    final Offset midCenter = tester.getCenter(flying);
+    final Offset screenCenter = Offset(
+      tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      tester.view.physicalSize.height / tester.view.devicePixelRatio / 2,
+    );
+    expect((midCenter - sourceCenter).distance, greaterThan(1));
+    expect(
+      (midCenter - screenCenter).distance,
+      lessThan((sourceCenter - screenCenter).distance),
+    );
+
     await tester.pumpAndSettle();
+    // 落定:图标飞完,页面出现。
+    expect(find.byKey(kAppBarIconFlightKey), findsNothing);
     expect(find.byType(ConversationCreatePage), findsOneWidget);
 
-    // 关闭:缩回图标原位,回到首页。
+    // 关闭:页面隐去,同一个图标飞回原位。
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    final Finder flyingBack = find.byKey(kAppBarIconFlightKey);
+    expect(flyingBack, findsOneWidget);
+    expect(tester.getSize(flyingBack), const Size(24, 24));
+
     await tester.pumpAndSettle();
     expect(find.byType(ConversationCreatePage), findsNothing);
     expect(findText('消息'), findsOneWidget);
+    // 图标回到原处:与原位图标的位置一致。
+    expect(tester.getCenter(plus), sourceCenter);
   });
 }

@@ -6,6 +6,7 @@ import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_container.dart';
+import '../widgets/app_icon_flight.dart';
 import '../widgets/app_section.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';

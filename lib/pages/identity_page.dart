@@ -4,6 +4,7 @@ import '../models/user_identity.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_container.dart';
+import '../widgets/app_icon_flight.dart';
 import '../widgets/app_section.dart';
 import 'identity_editor_page.dart';
 import 'package:dna/widgets/fit_text.dart';

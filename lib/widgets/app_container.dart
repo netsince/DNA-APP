@@ -16,7 +16,7 @@ import 'package:dna/theme/tokens.dart';
 /// ## 为什么统一走这个封装
 ///
 /// * 时长 / 曲线 / 颜色从 [AppMotion] 与当前主题取,全应用一致;
-/// * 关闭态底色默认对齐卡片;源容器不是卡片时用 `closedColor`
+/// * 关闭态底色对齐卡片,飞行中不闪色;
 ///   指定(如 AppBar 图标按钮传标题栏背景色 ⇒ 静止隐形);
 /// * 泛型默认 `bool`,约定回传「页面内是否发生了修改」,
 ///   列表页据此决定是否刷新(与既有 `push().then()` 习惯对齐)。
@@ -32,7 +32,6 @@ class AppContainer<T extends Object?> extends StatelessWidget {
     required this.closedBuilder,
     required this.openBuilder,
     this.closedShape,
-    this.closedColor,
     this.duration,
     this.tappable = true,
     this.onClosed,
@@ -59,14 +58,6 @@ class AppContainer<T extends Object?> extends StatelessWidget {
   /// 关闭态形状(与卡片圆角一致,飞行中圆角从它插值到 0)。
   final ShapeBorder? closedShape;
 
-  /// 关闭态底色。默认对齐卡片([CardThemeData.color],回退
-  /// `surfaceContainerLow`)。
-  ///
-  /// **源容器不是卡片时**必须显式传:例如 AppBar 上的图标按钮,
-  /// 传 AppBar 背景色 —— 静止时容器完全隐形(与裸图标按钮外观
-  /// 一致),飞行中颜色也不跳变。
-  final Color? closedColor;
-
   /// 覆盖默认时长(一般不用传)。
   final Duration? duration;
 
@@ -91,9 +82,8 @@ class AppContainer<T extends Object?> extends StatelessWidget {
       transitionDuration: duration ?? AppMotion.transform,
       transitionType: ContainerTransitionType.fade,
       // 封闭态底色对齐 Card 默认(M3 = surfaceContainerLow);源容器
-      // 不是卡片时由 closedColor 指定(如 AppBar 背景,静止时隐形),
       // 飞行中途过渡到页面背景 surface,不闪白。
-      closedColor: closedColor ?? card.color ?? cs.surfaceContainerLow,
+      closedColor: card.color ?? cs.surfaceContainerLow,
       middleColor: cs.surface,
       openColor: cs.surface,
       closedElevation: card.elevation ?? 0,
@@ -106,65 +96,6 @@ class AppContainer<T extends Object?> extends StatelessWidget {
       openBuilder: openBuilder,
       tappable: tappable,
       onClosed: onClosed,
-    );
-  }
-}
-
-/// 右上角图标按钮:**从哪儿来,回哪儿去**。
-///
-/// 点图标放大成目标页,页面关闭时缩回图标原位——与列表卡片、
-/// 悬浮按钮共用同一套容器变换(时长/曲线/颜色全部来自 [AppMotion]
-/// 与主题,不会各页手感不一)。
-///
-/// ## 用在哪
-///
-/// AppBar 上「新建 / 搜索」这类**有明确源容器**的入口:
-/// `+` → 新建页、放大镜 → 搜索页。
-///
-/// **不要用在**:栏目切换(抽屉/底栏,那是胶片滑动)、
-/// 纯视图切换(如归档开关,原页不跳转)。
-///
-/// ## 静止外观
-///
-/// 关闭态底色取 AppBar 背景色,容器与标题栏同色 ⇒ 静止时完全
-/// 隐形,与改造前的裸 [IconButton] 逐像素一致;飞行开始时才
-/// 现形并放大。
-class AppBarIconAction<T extends Object?> extends StatelessWidget {
-  const AppBarIconAction({
-    super.key,
-    required this.tooltip,
-    required this.icon,
-    required this.pageBuilder,
-    this.onClosed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-
-  /// 目标页:飞行动画期间只画过渡色块,**动画结束后才真正 build**,
-  /// 目标页再重也不拖慢起飞。
-  final WidgetBuilder pageBuilder;
-
-  /// 目标页关闭时回传的结果(约定:页面内是否发生了修改)。
-  final void Function(T? result)? onClosed;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final Color barColor =
-        theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface;
-    return AppContainer<T>(
-      // 点击由 IconButton 自己发起(它自带水波纹与 tooltip),
-      // 容器不抢手势——否则两者会在手势竞技场里打架。
-      tappable: false,
-      closedShape: const CircleBorder(),
-      closedColor: barColor,
-      onClosed: onClosed,
-      closedBuilder: (BuildContext context, VoidCallback open) =>
-          IconButton(tooltip: tooltip, onPressed: open, icon: Icon(icon)),
-      openBuilder:
-          (BuildContext context, CloseContainerActionCallback<T> close) =>
-              pageBuilder(context),
     );
   }
 }

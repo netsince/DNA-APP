@@ -4,7 +4,7 @@ import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/platform_capabilities.dart';
 import '../utils/ui_feedback.dart';
-import '../widgets/app_container.dart';
+import '../widgets/app_icon_flight.dart';
 import '../widgets/app_section.dart';
 import 'conversation_create_page.dart';
 import 'search_page.dart';

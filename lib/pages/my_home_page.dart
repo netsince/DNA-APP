@@ -5,6 +5,7 @@ import '../services/image_storage.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_container.dart';
+import '../widgets/app_icon_flight.dart';
 import '../widgets/app_section.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
