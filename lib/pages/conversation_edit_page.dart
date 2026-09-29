@@ -6,6 +6,7 @@ import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 class ConversationEditPage extends StatefulWidget {
   const ConversationEditPage({
@@ -74,7 +75,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             child: Padding(
@@ -164,7 +165,7 @@ class _ConversationEditPageState extends State<ConversationEditPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
         label: const FitText('保存'),

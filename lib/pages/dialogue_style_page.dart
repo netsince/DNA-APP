@@ -8,6 +8,7 @@ import '../models/ta.dart';
 import '../state/app_controller.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 /// 角色对话风格（Few-shot 示例）配置页。
 class DialogueStylePage extends StatefulWidget {
@@ -73,7 +74,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
         ],
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: AppEditorLayout.bodyPadding(context),
         itemCount: _turns.length + 1,
         itemBuilder: (BuildContext context, int index) {
           if (index == 0) {
@@ -190,7 +191,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _addTurn,
         icon: const Icon(Icons.add),
         label: const FitText('添加对话范例'),

@@ -8,6 +8,7 @@ import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 class ConversationCreatePage extends StatefulWidget {
   const ConversationCreatePage({super.key, required this.controller});
@@ -88,7 +89,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             child: Padding(
@@ -203,7 +204,7 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _create,
         icon: const Icon(Icons.check),
         label: const FitText('创建会话'),

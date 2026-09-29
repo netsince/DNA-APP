@@ -341,6 +341,13 @@ abstract final class AppSize {
   /// 设置页内容最大宽度。
   static const double settingsMaxWidth = 900;
 
+  /// 编辑器(表单页)内容列最大宽度。
+  ///
+  /// 编辑器正文原来是通栏铺开:1600 宽的桌面上输入框会被拉到
+  /// 1500 多像素,标签在最左、内容在最右,读一行要横扫整屏,
+  /// 于是又空又"满"。收进这个宽度后,一行标签与输入都在视野内。
+  static const double editorMaxWidth = 720;
+
   /// 横屏侧边栏宽度。
   static const double drawerWidth = 260;
 

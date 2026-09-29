@@ -9,6 +9,7 @@ import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import '../widgets/group_avatar.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 class GroupCreatePage extends StatefulWidget {
   const GroupCreatePage({super.key, required this.controller});
@@ -91,7 +92,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             child: Padding(
@@ -234,7 +235,7 @@ class _GroupCreatePageState extends State<GroupCreatePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _create,
         icon: const Icon(Icons.check),
         label: const FitText('创建群聊'),

@@ -11,6 +11,7 @@ import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 /// 用户身份（User Persona）编辑页。
 class IdentityEditorPage extends StatefulWidget {
@@ -260,7 +261,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             elevation: 0,
@@ -312,7 +313,7 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
         label: const FitText('保存身份'),

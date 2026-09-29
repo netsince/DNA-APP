@@ -11,6 +11,7 @@ import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
 import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 /// 世界编辑与创建页面。
 ///
@@ -372,7 +373,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           // ===== 1. 世界核心信息卡片 =====
           Card(
@@ -575,7 +576,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
           const SizedBox(height: 24),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
         label: const FitText('保存世界'),

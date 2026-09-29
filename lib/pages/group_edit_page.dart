@@ -7,6 +7,7 @@ import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
 import '../widgets/group_avatar.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../widgets/app_editor_frame.dart';
 
 class GroupEditPage extends StatefulWidget {
   const GroupEditPage({
@@ -86,7 +87,7 @@ class _GroupEditPageState extends State<GroupEditPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             child: Padding(
@@ -205,7 +206,7 @@ class _GroupEditPageState extends State<GroupEditPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
         label: const FitText('保存'),

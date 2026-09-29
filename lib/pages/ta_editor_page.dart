@@ -25,6 +25,7 @@ import 'dialogue_style_page.dart';
 import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
+import '../widgets/app_editor_frame.dart';
 
 class TaEditorPage extends StatefulWidget {
   const TaEditorPage({super.key, required this.controller, this.ta});
@@ -511,7 +512,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
           Card(
             child: Padding(
@@ -811,7 +812,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.save_outlined),
         label: const FitText('保存TA'),
