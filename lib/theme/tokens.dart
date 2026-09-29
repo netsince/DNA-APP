@@ -385,19 +385,30 @@ abstract final class AppMotion {
   /// 退出场:离场比进场略快,减少等待感。
   static const Curve exit = Curves.easeInCubic;
 
-  /// 栏目切换(抽屉 / 底栏顶级目的地之间的 fade-through)。
+  /// 栏目切换(抽屉 / 底栏顶级目的地之间的滑动胶片)。
   ///
-  /// 比 [medium] 略短:切换是高频操作,要轻快不抢戏。
-  static const Duration section = Duration(milliseconds: 250);
+  /// 滑行时长随距离递增:首步 [sectionTravel],每多经过一个栏目
+  /// 加 [sectionTravelStep],封顶 [sectionTravelCap]。
+  static const Duration section = Duration(milliseconds: 300);
+  static const Duration sectionTravelStep = Duration(milliseconds: 90);
+  static const Duration sectionTravelCap = Duration(milliseconds: 600);
+
+  /// 滑行首步时长(相邻栏目,如底栏主页 → 群聊)。
+  ///
+  /// 与 [section] 同值;栏目切换令牌族的锚点。
+  static const Duration sectionTravel = Duration(milliseconds: 300);
 
   /// fade-through 三阶段分界(M3 规范:淡出 0-0.3 / 全空 0.3-0.35 /
-  /// 淡入 + 缩放 0.35-1)。
+  /// 淡入 + 缩放 0.35-1)。保留给可能回退或并行的淡换场景。
   static const double fadeOutEnd = 0.30;
   static const double fadeInStart = 0.35;
 
   /// fade-through 专用缓动:淡出用 exit(更快消失),
   /// 淡入用 standard(浮起更稳)。
   static const Curve fadeThrough = Curves.easeOutCubic;
+
+  /// 滑动胶片缓动:先快后缓(快出、长收),掠过的栏目可辨又不拖沓。
+  static const Curve travel = Curves.easeOutCubic;
 }
 
 /// 阴影令牌(全局唯一来源)。

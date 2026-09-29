@@ -15,7 +15,8 @@ const List<AppSection> _bottomSections = <AppSection>[
   AppSection.world,
 ];
 
-/// 在四个主页面之间切换（fade-through 转场,与抽屉导航一致）。
+/// 在四个主页面之间切换(滑动胶片,横向:按底栏顺序滑,
+/// 群聊 → 世界会掠过我家;与抽屉导航共用一套令牌)。
 void navigateToSection(
   BuildContext context,
   AppController controller,
@@ -27,6 +28,7 @@ void navigateToSection(
     controller,
     target,
     current: current,
+    axis: Axis.horizontal,
   );
 }
 

@@ -27,11 +27,11 @@ class AppDrawer extends StatelessWidget {
       if (!persistent) Navigator.of(context).pop();
       return;
     }
-    // 栏目切换 = fade-through。先 pop(抽屉开始滑出),紧接着 push
-    // 切换路由(旧页淡出 → 新页浮起):同一帧启动,两段动画并行,
-    // 不再"先收抽屉、再整页横推"两段等待。
-    // 顺序不能反:pop 弹的是页面路由上的抽屉 LocalHistory,
-    // 若先 push,pop 会命中新路由。
+    // 栏目切换 = 滑动胶片(纵向,按抽屉自上而下的顺序):
+    // 首页 → 世界会依次掠过群聊、我家、身份。
+    // 先 pop(抽屉开始滑出),紧接着 push(胶片起飞):
+    // 同一帧启动并行播放。顺序不能反:pop 弹的是页面路由上的
+    // 抽屉 LocalHistory,若先 push,pop 会命中新路由。
     if (!persistent) Navigator.of(context).pop();
     sectionNavigate(context, controller, target, current: current);
   }
