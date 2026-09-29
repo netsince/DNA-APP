@@ -4,106 +4,93 @@ import '../services/auth_service.dart';
 import '../state/app_controller.dart';
 import '../utils/platform_capabilities.dart';
 import '../utils/ui_feedback.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_section.dart';
 import 'conversation_create_page.dart';
 import 'search_page.dart';
 import 'home/home_widgets.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.controller});
+/// 首页(消息)栏目装配。
+///
+/// 状态(归档开关、生物验证通过标记)住在装配闭包里,随壳常驻:
+/// 标题栏动作与内容区通过同一份 [ValueNotifier] 联动。
+SectionPageData homeSection(AppController controller) {
+  final ValueNotifier<bool> showArchived = ValueNotifier<bool>(false);
+  bool archiveAuthPassed = false;
 
-  final AppController controller;
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  bool _showArchived = false;
-  bool _archiveAuthPassed = false;
-
-  Future<void> _toggleArchived() async {
-    final bool willShowArchived = !_showArchived;
+  Future<void> toggleArchived(BuildContext context) async {
+    final bool willShowArchived = !showArchived.value;
 
     // 如果要显示归档且需要验证（Web 端不支持生物识别，跳过验证）
     if (willShowArchived &&
         PlatformCapabilities.biometricAuthSupported &&
-        widget.controller.settings.requireAuthForArchive) {
-      if (!_archiveAuthPassed) {
-        final bool authenticated = await AuthService.authenticateForArchive();
-        if (!authenticated) {
-          if (mounted) {
-            showSnack(context, '验证失败，无法查看归档');
-          }
-          return;
+        controller.settings.requireAuthForArchive &&
+        !archiveAuthPassed) {
+      final bool authenticated = await AuthService.authenticateForArchive();
+      if (!authenticated) {
+        if (context.mounted) {
+          showSnack(context, '验证失败，无法查看归档');
         }
-        _archiveAuthPassed = true;
+        return;
       }
+      archiveAuthPassed = true;
     }
-
-    setState(() => _showArchived = willShowArchived);
+    showArchived.value = willShowArchived;
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 当离开归档页面时重置验证状态
-    if (!_showArchived) {
-      _archiveAuthPassed = false;
-    }
-  }
-
-  void _createConversation() {
+  void createConversation(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (BuildContext context) =>
-            ConversationCreatePage(controller: widget.controller),
+            ConversationCreatePage(controller: controller),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      controller: widget.controller,
-      current: AppSection.home,
-      appBar: AppBar(
-        title: FitText(_showArchived ? '归档' : '消息'),
+  void openSearch(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => SearchPage(controller: controller),
+      ),
+    );
+  }
+
+  return SectionPageData(
+    section: AppSection.home,
+    showArchived: showArchived,
+    appBar: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => AppBar(
+        title: FitText(archived ? '归档' : '消息'),
         actions: <Widget>[
           IconButton(
             tooltip: '搜索',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) =>
-                      SearchPage(controller: widget.controller),
-                ),
-              );
-            },
+            onPressed: () => openSearch(context),
             icon: const Icon(Icons.search_outlined),
           ),
           IconButton(
-            tooltip: _showArchived ? '查看消息' : '查看归档',
-            onPressed: _toggleArchived,
-            icon: Icon(_showArchived ? Icons.chat_bubble_outline : Icons.archive_outlined),
+            tooltip: archived ? '查看消息' : '查看归档',
+            onPressed: () => toggleArchived(context),
+            icon: Icon(
+              archived ? Icons.chat_bubble_outline : Icons.archive_outlined,
+            ),
           ),
           IconButton(
             tooltip: '新建会话',
-            onPressed: _createConversation,
+            onPressed: () => createConversation(context),
             icon: const Icon(Icons.add),
           ),
         ],
       ),
-      body: ConversationListBody(
-        controller: widget.controller,
-        showArchived: _showArchived,
-        onCreateConversation: _createConversation,
-      ),
-      bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(controller: widget.controller, current: AppSection.home)
-          : null,
-    );
-  }
+    ),
+    body: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) =>
+          ConversationListBody(
+            controller: controller,
+            showArchived: archived,
+            onCreateConversation: () => createConversation(context),
+          ),
+    ),
+  );
 }

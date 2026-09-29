@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/world.dart';
 import '../state/app_controller.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_container.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_section.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'world_editor_page.dart';
@@ -12,66 +11,55 @@ import '../theme/tokens.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-class WorldPage extends StatefulWidget {
-  const WorldPage({super.key, required this.controller});
+/// 世界栏目装配。
+SectionPageData worldSection(AppController controller) {
+  final ValueNotifier<bool> showArchived = ValueNotifier<bool>(false);
 
-  final AppController controller;
-
-  @override
-  State<WorldPage> createState() => _WorldPageState();
-}
-
-class _WorldPageState extends State<WorldPage> {
-  bool _showArchived = false;
-
-  void _toggleArchived() {
-    setState(() => _showArchived = !_showArchived);
-  }
-
-  void _createWorld() {
+  void createWorld(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (BuildContext context) =>
-            WorldEditorPage(controller: widget.controller),
+            WorldEditorPage(controller: controller),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      controller: widget.controller,
-      current: AppSection.world,
-      appBar: AppBar(
-        title: FitText(_showArchived ? '世界归档' : '世界'),
+  return SectionPageData(
+    section: AppSection.world,
+    showArchived: showArchived,
+    appBar: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => AppBar(
+        title: FitText(archived ? '世界归档' : '世界'),
         actions: <Widget>[
           IconButton(
-            tooltip: _showArchived ? '查看世界' : '查看归档',
-            onPressed: _toggleArchived,
+            tooltip: archived ? '查看世界' : '查看归档',
+            onPressed: () => showArchived.value = !archived,
             icon: Icon(
-              _showArchived ? Icons.public_outlined : Icons.archive_outlined,
+              archived ? Icons.public_outlined : Icons.archive_outlined,
             ),
           ),
-          if (!_showArchived)
+          if (!archived)
             IconButton(
               tooltip: '创建世界',
-              onPressed: _createWorld,
+              onPressed: () => createWorld(context),
               icon: const Icon(Icons.add),
             ),
         ],
       ),
-      body: _WorldListBody(
-        controller: widget.controller,
-        showArchived: _showArchived,
-        onCreateWorld: _createWorld,
-      ),
-      bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(
-              controller: widget.controller,
-              current: AppSection.world,
-            )
-          : null,
-      floatingActionButton: !_showArchived
+    ),
+    body: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) =>
+          WorldListBody(
+            controller: controller,
+            showArchived: archived,
+            onCreateWorld: () => createWorld(context),
+          ),
+    ),
+    fab: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => !archived
           // FAB 即源容器:圆形按钮放大为整页编辑器。
           ? AppContainer<bool>(
               closedShape: const CircleBorder(),
@@ -81,15 +69,16 @@ class _WorldPageState extends State<WorldPage> {
                     child: const Icon(Icons.add),
                   ),
               openBuilder: (BuildContext context, VoidCallback close) =>
-                  WorldEditorPage(controller: widget.controller),
+                  WorldEditorPage(controller: controller),
             )
-          : null,
-    );
-  }
+          : const SizedBox.shrink(),
+    ),
+  );
 }
 
-class _WorldListBody extends StatelessWidget {
-  const _WorldListBody({
+class WorldListBody extends StatelessWidget {
+  const WorldListBody({
+    super.key,
     required this.controller,
     required this.showArchived,
     required this.onCreateWorld,

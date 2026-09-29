@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../utils/platform_capabilities.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_section.dart';
 import 'settings/advanced_settings_page.dart';
 import 'settings/ai_service_settings_page.dart';
 import 'settings/appearance_display_page.dart';
@@ -28,8 +28,30 @@ import 'package:dna/widgets/fit_text.dart';
 ///   「只列入口、自己不含任何设置项」的跳板页,所有入口直达最终页面;
 /// * 导航深度从最多 6 层压到 4 层;
 /// * 副标题一律**单行**,用 `maxLines: 1` 强制约束文案长度。
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.controller});
+/// 设置栏目装配。
+///
+/// 滚动位置(跨子页面保留)住在装配闭包里,随壳常驻:
+/// 切去别的栏目再回来,位置还在。
+SectionPageData settingsSection(AppController controller) {
+  // 结构守护测试(settings_structure_test)以此名字断言"滚动位置保留"。
+  // ignore: no_leading_underscores_for_local_identifiers
+  final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
+
+  return SectionPageData(
+    section: AppSection.settings,
+    appBar: (BuildContext context) => AppBar(title: const FitText('设置')),
+    body: (BuildContext context) =>
+        SettingsBody(controller: controller, scrollOffset: _scrollOffset),
+  );
+}
+
+/// 设置内容体:居中限宽的可滚动分组列表。
+class SettingsBody extends StatelessWidget {
+  const SettingsBody({
+    super.key,
+    required this.controller,
+    required this.scrollOffset,
+  });
 
   final AppController controller;
 
@@ -37,185 +59,194 @@ class SettingsPage extends StatelessWidget {
   ///
   /// 从子页返回时回到原来的位置,而不是跳回顶部 —— 主页有 7 个分组,
   /// 内容超过一屏,跳回顶部会让用户重新滚一遍。
-  static final ValueNotifier<double> _scrollOffset =
-      ValueNotifier<double>(0);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      controller: controller,
-      current: AppSection.settings,
-      appBar: AppBar(title: const FitText('设置')),
-      body: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final double w =
-              constraints.maxWidth > AppSize.settingsMaxWidth
-                  ? AppSize.settingsMaxWidth
-                  : constraints.maxWidth;
-          return Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: w),
-              child: _SettingsScrollBody(
-                initialOffset: _scrollOffset.value,
-                onOffsetChanged: (double v) => _scrollOffset.value = v,
-                children: <Widget>[
-                  // ===== 1. AI 接入 =====
-                  _Group(
-                    title: 'AI 接入',
-                    icon: Icons.memory,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.smart_toy_outlined,
-                        title: 'AI 服务与模型',
-                        subtitle: '用哪个 AI、接口地址与密钥',
-                        onTap: () => _push(
-                            context,
-                            AiServiceSettingsPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 2. 对话风格 =====
-                  _Group(
-                    title: '对话风格',
-                    icon: Icons.chat_bubble_outline,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.tune,
-                        title: '提示词策略',
-                        subtitle: 'AI 扮演的性格、语气与回复长度',
-                        onTap: () => _push(
-                            context,
-                            PromptStrategyPage(controller: controller)),
-                      ),
-                      _Entry(
-                        icon: Icons.send_outlined,
-                        title: '回复与发送',
-                        subtitle: '回车键行为、灵感生成与快速回复',
-                        onTap: () => _push(
-                            context,
-                            ConversationSendPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 3. 记忆与上下文 =====
-                  _Group(
-                    title: '记忆与上下文',
-                    icon: Icons.psychology_outlined,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.history_edu_outlined,
-                        title: '剧情摘要与上下文',
-                        subtitle: 'AI 记得多久、世界书怎么生效',
-                        onTap: () => _push(
-                            context,
-                            ConversationSummaryPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 4. 角色语音 =====
-                  _Group(
-                    title: '角色语音',
-                    icon: Icons.record_voice_over_outlined,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.volume_up_outlined,
-                        title: '语音合成与背景音乐',
-                        subtitle: '让角色开口说话，或自带背景音乐',
-                        enabled: PlatformCapabilities.ttsSupported,
-                        onTap: () => _push(
-                            context, TtsSettingsPage(controller: controller)),
-                      ),
-                      _Entry(
-                        icon: Icons.mic_none_outlined,
-                        title: '语音输入',
-                        subtitle: '用说话代替打字',
-                        enabled: PlatformCapabilities.voiceInputSupported,
-                        onTap: () => _push(context,
-                            VoiceInputSettingsPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 5. 界面与显示 =====
-                  _Group(
-                    title: '界面与显示',
-                    icon: Icons.palette_outlined,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.dashboard_customize_outlined,
-                        title: '外观与聊天界面',
-                        subtitle: '明暗主题、强调色、气泡与半屏模式',
-                        onTap: () => _push(
-                            context,
-                            AppearanceDisplayPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 6. 数据与安全 =====
-                  _Group(
-                    title: '数据与安全',
-                    icon: Icons.shield_outlined,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.storage_outlined,
-                        title: '备份与还原',
-                        subtitle: '定期备份、换设备时迁移',
-                        onTap: () => _push(
-                            context, DataSettingsPage(controller: controller)),
-                      ),
-                      _Entry(
-                        icon: Icons.lock_outline,
-                        title: '安全与隐私',
-                        subtitle: '应用锁、删除前的二次确认',
-                        onTap: () => _push(context,
-                            SecuritySettingsPage(controller: controller)),
-                      ),
-                      _Entry(
-                        icon: Icons.cleaning_services_outlined,
-                        title: '消息与高级',
-                        subtitle: '删除单条消息、剧情分叉、文本清洗',
-                        onTap: () => _push(context,
-                            ConversationAdvancedPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-
-                  // ===== 7. 关于 =====
-                  _Group(
-                    title: '关于',
-                    icon: Icons.info_outline,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.info_outline,
-                        title: '版本与开源',
-                        subtitle: '版本信息、项目成员与开源许可',
-                        onTap: () =>
-                            _push(context, const AboutPage()),
-                      ),
-                      _Entry(
-                        icon: Icons.terminal_outlined,
-                        title: '开发者选项',
-                        subtitle: '命令控制台与调试工具',
-                        onTap: () => _push(context,
-                            AdvancedSettingsPage(controller: controller)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  final ValueNotifier<double> scrollOffset;
 
   void _push(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double w = constraints.maxWidth > AppSize.settingsMaxWidth
+            ? AppSize.settingsMaxWidth
+            : constraints.maxWidth;
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: w),
+            child: _SettingsScrollBody(
+              initialOffset: scrollOffset.value,
+              onOffsetChanged: (double v) => scrollOffset.value = v,
+              children: <Widget>[
+                // ===== 1. AI 接入 =====
+                _Group(
+                  title: 'AI 接入',
+                  icon: Icons.memory,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.smart_toy_outlined,
+                      title: 'AI 服务与模型',
+                      subtitle: '用哪个 AI、接口地址与密钥',
+                      onTap: () => _push(
+                        context,
+                        AiServiceSettingsPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 2. 对话风格 =====
+                _Group(
+                  title: '对话风格',
+                  icon: Icons.chat_bubble_outline,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.tune,
+                      title: '提示词策略',
+                      subtitle: 'AI 扮演的性格、语气与回复长度',
+                      onTap: () => _push(
+                        context,
+                        PromptStrategyPage(controller: controller),
+                      ),
+                    ),
+                    _Entry(
+                      icon: Icons.send_outlined,
+                      title: '回复与发送',
+                      subtitle: '回车键行为、灵感生成与快速回复',
+                      onTap: () => _push(
+                        context,
+                        ConversationSendPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 3. 记忆与上下文 =====
+                _Group(
+                  title: '记忆与上下文',
+                  icon: Icons.psychology_outlined,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.history_edu_outlined,
+                      title: '剧情摘要与上下文',
+                      subtitle: 'AI 记得多久、世界书怎么生效',
+                      onTap: () => _push(
+                        context,
+                        ConversationSummaryPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 4. 角色语音 =====
+                _Group(
+                  title: '角色语音',
+                  icon: Icons.record_voice_over_outlined,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.volume_up_outlined,
+                      title: '语音合成与背景音乐',
+                      subtitle: '让角色开口说话，或自带背景音乐',
+                      enabled: PlatformCapabilities.ttsSupported,
+                      onTap: () => _push(
+                        context,
+                        TtsSettingsPage(controller: controller),
+                      ),
+                    ),
+                    _Entry(
+                      icon: Icons.mic_none_outlined,
+                      title: '语音输入',
+                      subtitle: '用说话代替打字',
+                      enabled: PlatformCapabilities.voiceInputSupported,
+                      onTap: () => _push(
+                        context,
+                        VoiceInputSettingsPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 5. 界面与显示 =====
+                _Group(
+                  title: '界面与显示',
+                  icon: Icons.palette_outlined,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.dashboard_customize_outlined,
+                      title: '外观与聊天界面',
+                      subtitle: '明暗主题、强调色、气泡与半屏模式',
+                      onTap: () => _push(
+                        context,
+                        AppearanceDisplayPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 6. 数据与安全 =====
+                _Group(
+                  title: '数据与安全',
+                  icon: Icons.shield_outlined,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.storage_outlined,
+                      title: '备份与还原',
+                      subtitle: '定期备份、换设备时迁移',
+                      onTap: () => _push(
+                        context,
+                        DataSettingsPage(controller: controller),
+                      ),
+                    ),
+                    _Entry(
+                      icon: Icons.lock_outline,
+                      title: '安全与隐私',
+                      subtitle: '应用锁、删除前的二次确认',
+                      onTap: () => _push(
+                        context,
+                        SecuritySettingsPage(controller: controller),
+                      ),
+                    ),
+                    _Entry(
+                      icon: Icons.cleaning_services_outlined,
+                      title: '消息与高级',
+                      subtitle: '删除单条消息、剧情分叉、文本清洗',
+                      onTap: () => _push(
+                        context,
+                        ConversationAdvancedPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 7. 关于 =====
+                _Group(
+                  title: '关于',
+                  icon: Icons.info_outline,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.info_outline,
+                      title: '版本与开源',
+                      subtitle: '版本信息、项目成员与开源许可',
+                      onTap: () => _push(context, const AboutPage()),
+                    ),
+                    _Entry(
+                      icon: Icons.terminal_outlined,
+                      title: '开发者选项',
+                      subtitle: '命令控制台与调试工具',
+                      onTap: () => _push(
+                        context,
+                        AdvancedSettingsPage(controller: controller),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

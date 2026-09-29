@@ -6,7 +6,7 @@ import 'app_section.dart';
 /// 底部导航栏实际承载的栏目（主页 / 群聊 / 我家 / 世界）。
 /// 注意：AppSection 枚举里 identity(3)、settings(5) 不在底栏中，
 /// 因此**不能**用 `AppSection.values[index]` 直接映射 destination 的 index，
-/// 否则第 4 个 destination（世界）会错位映射到 identity，且 world 的 index(4)
+/// 否则第 4 个destination（世界）会错位映射到 identity，且 world 的 index(4)
 /// 会超出 destinations 数量导致 selectedIndex 越界崩溃。
 const List<AppSection> _bottomSections = <AppSection>[
   AppSection.home,
@@ -15,24 +15,10 @@ const List<AppSection> _bottomSections = <AppSection>[
   AppSection.world,
 ];
 
-/// 在四个主页面之间切换(滑动胶片,横向:按底栏顺序滑,
-/// 群聊 → 世界会掠过我家;与抽屉导航共用一套令牌)。
-void navigateToSection(
-  BuildContext context,
-  AppController controller,
-  AppSection target, {
-  required AppSection current,
-}) {
-  sectionNavigate(
-    context,
-    controller,
-    target,
-    current: current,
-    axis: Axis.horizontal,
-  );
-}
-
 /// 底部导航栏：主页 / 群聊 / 我家 / 世界。仅在开启「主页底部导航栏」时显示。
+///
+/// 位置固定在栏目壳上,不随切换滑动;点击后由壳在内容区滑胶片
+/// (横向:按底栏顺序滑,群聊 → 世界会掠过我家;与抽屉共用一套令牌)。
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
     super.key,
@@ -49,12 +35,9 @@ class AppBottomNav extends StatelessWidget {
       // 当前栏目不在底栏中（如身份/设置）时返回 -1，表示不选中任何项。
       selectedIndex: _bottomSections.indexOf(current),
       onDestinationSelected: (int index) {
-        navigateToSection(
+        AppSectionShell.maybeOf(
           context,
-          controller,
-          _bottomSections[index],
-          current: current,
-        );
+        )?.navigateTo(_bottomSections[index], axis: Axis.horizontal);
       },
       destinations: const <Widget>[
         NavigationDestination(

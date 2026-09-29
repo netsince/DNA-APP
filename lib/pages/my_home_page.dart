@@ -4,75 +4,61 @@ import '../models/ta.dart';
 import '../services/image_storage.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_container.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_section.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.controller});
+/// 我家栏目装配。
+SectionPageData myHomeSection(AppController controller) {
+  final ValueNotifier<bool> showArchived = ValueNotifier<bool>(false);
 
-  final AppController controller;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  bool _showArchived = false;
-
-  void _toggleArchived() {
-    setState(() => _showArchived = !_showArchived);
-  }
-
-  void _createTa() {
+  void createTa(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) =>
-            TaEditorPage(controller: widget.controller),
+        builder: (BuildContext context) => TaEditorPage(controller: controller),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      controller: widget.controller,
-      current: AppSection.myHome,
-      appBar: AppBar(
-        title: FitText(_showArchived ? 'TA归档' : '我家'),
+  return SectionPageData(
+    section: AppSection.myHome,
+    showArchived: showArchived,
+    appBar: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => AppBar(
+        title: FitText(archived ? 'TA归档' : '我家'),
         actions: <Widget>[
           IconButton(
-            tooltip: _showArchived ? '查看TA' : '查看归档',
-            onPressed: _toggleArchived,
+            tooltip: archived ? '查看TA' : '查看归档',
+            onPressed: () => showArchived.value = !archived,
             icon: Icon(
-              _showArchived ? Icons.people_outline : Icons.archive_outlined,
+              archived ? Icons.people_outline : Icons.archive_outlined,
             ),
           ),
-          if (!_showArchived)
+          if (!archived)
             IconButton(
               tooltip: '创建TA',
-              onPressed: _createTa,
+              onPressed: () => createTa(context),
               icon: const Icon(Icons.add),
             ),
         ],
       ),
-      body: _TaListBody(
-        controller: widget.controller,
-        showArchived: _showArchived,
-        onCreateTa: _createTa,
+    ),
+    body: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => TaListBody(
+        controller: controller,
+        showArchived: archived,
+        onCreateTa: () => createTa(context),
       ),
-      bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(
-              controller: widget.controller,
-              current: AppSection.myHome,
-            )
-          : null,
-      floatingActionButton: !_showArchived
+    ),
+    fab: (BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: showArchived,
+      builder: (BuildContext context, bool archived, Widget? _) => !archived
           // FAB 即源容器:圆形按钮放大为整页编辑器。
           ? AppContainer<bool>(
               closedShape: const CircleBorder(),
@@ -82,15 +68,16 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: const Icon(Icons.add),
                   ),
               openBuilder: (BuildContext context, VoidCallback close) =>
-                  TaEditorPage(controller: widget.controller),
+                  TaEditorPage(controller: controller),
             )
-          : null,
-    );
-  }
+          : const SizedBox.shrink(),
+    ),
+  );
 }
 
-class _TaListBody extends StatelessWidget {
-  const _TaListBody({
+class TaListBody extends StatelessWidget {
+  const TaListBody({
+    super.key,
     required this.controller,
     required this.showArchived,
     required this.onCreateTa,

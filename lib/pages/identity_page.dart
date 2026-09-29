@@ -3,74 +3,56 @@ import 'package:flutter/material.dart';
 import '../models/user_identity.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
-import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_container.dart';
-import '../widgets/app_drawer.dart';
+import '../widgets/app_section.dart';
 import 'identity_editor_page.dart';
 import 'package:dna/widgets/fit_text.dart';
 
-class IdentityPage extends StatefulWidget {
-  const IdentityPage({super.key, required this.controller});
-
-  final AppController controller;
-
-  @override
-  State<IdentityPage> createState() => _IdentityPageState();
-}
-
-class _IdentityPageState extends State<IdentityPage> {
-  void _createIdentity() {
+/// 身份栏目装配。
+SectionPageData identitySection(AppController controller) {
+  void createIdentity(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (BuildContext context) =>
-            IdentityEditorPage(controller: widget.controller),
+            IdentityEditorPage(controller: controller),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      controller: widget.controller,
-      current: AppSection.identity,
-      appBar: AppBar(
-        title: const FitText('身份'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: '创建身份',
-            onPressed: _createIdentity,
-            icon: const Icon(Icons.add),
-          ),
-        ],
-      ),
-      body: _IdentityListBody(
-        controller: widget.controller,
-        onCreateIdentity: _createIdentity,
-      ),
-      bottomNavigationBar: widget.controller.settings.showBottomNav
-          ? AppBottomNav(
-              controller: widget.controller,
-              current: AppSection.identity,
-            )
-          : null,
-      floatingActionButton:
-          // FAB 即源容器:圆形按钮放大为整页编辑器。
-          AppContainer<bool>(
-            closedShape: const CircleBorder(),
-            closedBuilder: (BuildContext context, VoidCallback open) =>
-                FloatingActionButton(
-                  onPressed: open,
-                  child: const Icon(Icons.add),
-                ),
-            openBuilder: (BuildContext context, VoidCallback close) =>
-                IdentityEditorPage(controller: widget.controller),
-          ),
-    );
-  }
+  return SectionPageData(
+    section: AppSection.identity,
+    appBar: (BuildContext context) => AppBar(
+      title: const FitText('身份'),
+      actions: <Widget>[
+        IconButton(
+          tooltip: '创建身份',
+          onPressed: () => createIdentity(context),
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    ),
+    body: (BuildContext context) => IdentityListBody(
+      controller: controller,
+      onCreateIdentity: () => createIdentity(context),
+    ),
+    fab: (BuildContext context) =>
+        // FAB 即源容器:圆形按钮放大为整页编辑器。
+        AppContainer<bool>(
+          closedShape: const CircleBorder(),
+          closedBuilder: (BuildContext context, VoidCallback open) =>
+              FloatingActionButton(
+                onPressed: open,
+                child: const Icon(Icons.add),
+              ),
+          openBuilder: (BuildContext context, VoidCallback close) =>
+              IdentityEditorPage(controller: controller),
+        ),
+  );
 }
 
-class _IdentityListBody extends StatelessWidget {
-  const _IdentityListBody({
+class IdentityListBody extends StatelessWidget {
+  const IdentityListBody({
+    super.key,
     required this.controller,
     required this.onCreateIdentity,
   });

@@ -6,9 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
 import 'pages/auth_page.dart';
-import 'pages/home_page.dart';
+import 'state/app_controller.dart';
+import 'theme/tokens.dart';
+import 'utils/platform_capabilities.dart';
 import 'pages/oobe_page.dart';
 import 'pages/splash_page.dart';
+import 'widgets/app_section.dart';
 import 'services/app_icon_service.dart';
 import 'services/auto_backup_service.dart';
 import 'services/openai_service.dart';
@@ -16,9 +19,6 @@ import 'services/settings_service.dart';
 import 'services/ta_service.dart';
 import 'services/web_font_loader.dart';
 import 'services/web_utils.dart';
-import 'state/app_controller.dart';
-import 'theme/tokens.dart';
-import 'utils/platform_capabilities.dart';
 import 'services/startup_update_check.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -40,9 +40,11 @@ Future<void> main() async {
         unawaited(AutoBackupService.maybeBackup(controller));
       } else {
         // Web：应用已保存的浏览器标签页图标，并异步加载中文字体。
-        unawaited(setBrowserFavicon(
-          AppIconService.optionForKey(controller.settings.appIcon).assetPath,
-        ));
+        unawaited(
+          setBrowserFavicon(
+            AppIconService.optionForKey(controller.settings.appIcon).assetPath,
+          ),
+        );
         unawaited(WebFontLoader.load());
       }
 
@@ -132,12 +134,14 @@ class _DnaAppState extends State<DnaApp> {
     // 自动：主界面跟随系统动态取色（Monet），取不到则用默认种子色。
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        final ColorScheme lightColorScheme = lightDynamic ??
+        final ColorScheme lightColorScheme =
+            lightDynamic ??
             ColorScheme.fromSeed(
               seedColor: DnaApp._fallbackSeed,
               brightness: Brightness.light,
             );
-        final ColorScheme darkColorScheme = darkDynamic ??
+        final ColorScheme darkColorScheme =
+            darkDynamic ??
             ColorScheme.fromSeed(
               seedColor: DnaApp._fallbackSeed,
               brightness: Brightness.dark,
@@ -148,7 +152,9 @@ class _DnaAppState extends State<DnaApp> {
   }
 
   Widget _buildMaterialApp(
-      ColorScheme lightColorScheme, ColorScheme darkColorScheme) {
+    ColorScheme lightColorScheme,
+    ColorScheme darkColorScheme,
+  ) {
     return MaterialApp(
       title: 'Duet Nurturing Ally',
       debugShowCheckedModeBanner: false,
@@ -204,9 +210,7 @@ class _DnaAppState extends State<DnaApp> {
 
       // 列表项:保持 Material 默认密度(此前 minVerticalPadding 被设为 8、
       // contentPadding 垂直设为 8,导致侧边栏等列表项间距翻倍、过于松散)。
-      listTileTheme: const ListTileThemeData(
-        contentPadding: AppInsets.tile,
-      ),
+      listTileTheme: const ListTileThemeData(contentPadding: AppInsets.tile),
 
       // 输入框:统一圆角与内边距,使用描边风格而非填充。
       inputDecorationTheme: InputDecorationTheme(
@@ -385,7 +389,8 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _showHome = widget.controller.settings.completedOobe;
     // Web 端不支持生物识别，强制关闭启动认证（否则无法进入应用）。
-    _requireAuth = PlatformCapabilities.biometricAuthSupported &&
+    _requireAuth =
+        PlatformCapabilities.biometricAuthSupported &&
         widget.controller.settings.requireAuthForApp;
     _showSplash = widget.controller.settings.showSplashAnimation;
     widget.controller.addListener(_onControllerChanged);
@@ -416,13 +421,18 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(Icons.info_outline,
-                      color: Theme.of(sheetContext).colorScheme.primary),
+                  Icon(
+                    Icons.info_outline,
+                    color: Theme.of(sheetContext).colorScheme.primary,
+                  ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: FitText(
                       '欢迎使用网页版（预览版）',
-                      style: TextStyle(fontSize: AppFontSize.subtitle, fontWeight: AppWeight.medium),
+                      style: TextStyle(
+                        fontSize: AppFontSize.subtitle,
+                        fontWeight: AppWeight.medium,
+                      ),
                     ),
                   ),
                 ],
@@ -431,7 +441,8 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
               const _WebNoticeItem(
                 icon: Icons.cloud_upload_outlined,
                 title: '请手动备份数据',
-                detail: '网页版数据保存在浏览器中，清理浏览器数据会导致数据丢失。建议在「设置 → 数据管理 → 导出全部数据」中定期手动备份。',
+                detail:
+                    '网页版数据保存在浏览器中，清理浏览器数据会导致数据丢失。建议在「设置 → 数据管理 → 导出全部数据」中定期手动备份。',
               ),
               const SizedBox(height: 12),
               const _WebNoticeItem(
@@ -469,8 +480,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('Lifecycle: $state, requireAuth: $_requireAuth, authPassed: $_authPassed, hasBeenPaused: $_hasBeenPaused');
-    
+    debugPrint(
+      'Lifecycle: $state, requireAuth: $_requireAuth, authPassed: $_authPassed, hasBeenPaused: $_hasBeenPaused',
+    );
+
     if (state == AppLifecycleState.paused) {
       // 记录进入后台的时间
       _pausedTime = DateTime.now();
@@ -479,9 +492,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.resumed) {
       // 只有真正从后台切回前台（之前执行过paused）才需要验证
       if (_hasBeenPaused && _requireAuth && _authPassed) {
-        debugPrint('Lifecycle: Resumed from background, checking if auth reset needed');
+        debugPrint(
+          'Lifecycle: Resumed from background, checking if auth reset needed',
+        );
         _hasBeenPaused = false;
-        
+
         // 只有在后台停留超过1秒才需要重新验证（避免快速切换）
         if (_pausedTime != null) {
           final Duration diff = DateTime.now().difference(_pausedTime!);
@@ -497,9 +512,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   void _onControllerChanged() {
     final bool newShowHome = widget.controller.settings.completedOobe;
-    final bool newRequireAuth = PlatformCapabilities.biometricAuthSupported &&
+    final bool newRequireAuth =
+        PlatformCapabilities.biometricAuthSupported &&
         widget.controller.settings.requireAuthForApp;
-    if ((newShowHome != _showHome || newRequireAuth != _requireAuth) && mounted) {
+    if ((newShowHome != _showHome || newRequireAuth != _requireAuth) &&
+        mounted) {
       setState(() {
         _showHome = newShowHome;
         _requireAuth = newRequireAuth;
@@ -534,10 +551,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeOut,
       transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
+        return FadeTransition(opacity: animation, child: child);
       },
       child: _showSplash
           ? SplashPage(
@@ -549,7 +563,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
               index: _showHome ? 1 : 0,
               children: <Widget>[
                 OobePage(controller: widget.controller),
-                HomePage(controller: widget.controller),
+                AppSectionShell(controller: widget.controller),
               ],
             ),
     );
@@ -580,11 +594,18 @@ class _WebNoticeItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              FitText(title,
-                  style: const TextStyle(fontWeight: AppWeight.medium)),
+              FitText(
+                title,
+                style: const TextStyle(fontWeight: AppWeight.medium),
+              ),
               const SizedBox(height: 2),
-              FitText(detail,
-                  style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant)),
+              FitText(
+                detail,
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),

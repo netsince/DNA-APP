@@ -1,16 +1,27 @@
+import 'package:dna/models/conversation.dart';
+import 'package:dna/models/ta.dart';
+import 'package:dna/models/user_identity.dart';
+import 'package:dna/models/world.dart';
+import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_section.dart';
+import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/services/hive_service.dart';
+import 'package:dna/services/openai_service.dart';
+import 'package:dna/services/settings_service.dart';
+import 'package:dna/services/ta_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 各栏目页的颜色(页面级 ColoredBox,查找与几何断言用)。
 Color pageColor(int i) => Color(0xFF000000 | (0x111111 * (i + 1)));
 
-/// 构造一个可驱动的飞行宿主:6 个假栏目页,
+/// 构造一个可驱动的飞行宿主:6 个假栏目页(body),
 /// 用 AnimationController 手动推进进度,断言各阶段视口里是谁。
 ///
-/// 方向约定(与实现一致):胶片向负方向滑——旧页从上/左退出,
-/// 新页从下/右进入(标准"下一页"走向)。
+/// 方向约定(与实现一致):胶片向负方向滑——旧内容从上/左退出,
+/// 新内容从下/右进入(标准"下一页"走向)。
 Future<AnimationController> pumpFlight(
   WidgetTester tester, {
   Axis axis = Axis.vertical,
@@ -31,18 +42,13 @@ Future<AnimationController> pumpFlight(
   ];
   await tester.pumpWidget(
     MaterialApp(
-      home: AnimatedBuilder(
+      home: sectionFlight(
         animation: controller,
-        builder: (BuildContext ctx, _) => AppSectionSwitcher.buildFlight(
-          context: ctx,
-          animation: controller,
-          axis: axis,
-          fromIndex: fromIndex,
-          toIndex: toIndex,
-          sections: sections,
-          pages: pages,
-          child: pages[toIndex],
-        ),
+        axis: axis,
+        fromIndex: fromIndex,
+        toIndex: toIndex,
+        sections: sections,
+        pages: pages,
       ),
     ),
   );
@@ -50,14 +56,36 @@ Future<AnimationController> pumpFlight(
 }
 
 Finder pageAt(int i) => find.byWidgetPredicate(
-      (Widget w) => w is ColoredBox && w.color == pageColor(i),
+  (Widget w) => w is ColoredBox && w.color == pageColor(i),
+);
+
+/// 与渲染测试共用的轻量引导:假 Hive,真实设置/服务。
+class FakeHiveService extends HiveService {
+  @override
+  Future<void> init() async {}
+  @override
+  Future<List<TA>> getTas() async => <TA>[];
+  @override
+  Future<List<UserIdentity>> getIdentities() async => <UserIdentity>[];
+  @override
+  Future<List<World>> getWorlds() async => <World>[];
+  @override
+  Future<List<Conversation>> getConversations() async => <Conversation>[];
+}
+
+/// FitText 是 Text 子类且内部再包一层 Text,谓词须排除 FitText
+/// 本身,只匹配内层真实 Text(否则 '消息' 恒命中 2 个)。
+Finder findText(String s) => find.byWidgetPredicate(
+      (Widget w) => w is Text && w.data == s && w is! FitText,
     );
 
 void main() {
-  testWidgets('纵向飞行 首页(0)→世界(3):途经页逐个掠过,远端页不挂载',
-      (WidgetTester tester) async {
-    final AnimationController controller =
-        await pumpFlight(tester, fromIndex: 0, toIndex: 3);
+  testWidgets('纵向飞行 首页(0)→世界(3):途经页逐个掠过,远端页不挂载', (WidgetTester tester) async {
+    final AnimationController controller = await pumpFlight(
+      tester,
+      fromIndex: 0,
+      toIndex: 3,
+    );
 
     // t=0:只有起点页在场。
     controller.value = 0;
@@ -96,8 +124,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('横向飞行 群聊(1)→世界(3):掠过我家(2),不经过主页(0)',
-      (WidgetTester tester) async {
+  testWidgets('横向飞行 群聊(1)→世界(3):掠过我家(2),不经过主页(0)', (WidgetTester tester) async {
     final AnimationController controller = await pumpFlight(
       tester,
       axis: Axis.horizontal,
@@ -122,8 +149,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('偏移几何:位移 = -缓动进度 × 视口,方向为负,无交叉轴分量',
-      (WidgetTester tester) async {
+  testWidgets('偏移几何:位移 = -缓动进度 × 视口,方向为负,无交叉轴分量', (WidgetTester tester) async {
     AnimationController controller = await pumpFlight(
       tester,
       axis: Axis.horizontal,
@@ -170,5 +196,54 @@ void main() {
     expect(sectionTravelDuration(2), const Duration(milliseconds: 390));
     expect(sectionTravelDuration(3), const Duration(milliseconds: 480));
     expect(sectionTravelDuration(10), AppMotion.sectionTravelCap);
+  });
+
+  testWidgets('栏目壳:框架(底栏/标题栏)不动,内容区滑到目标栏目', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppController c = AppController(
+      settingsService: SettingsService(),
+      openAiService: OpenAiService(),
+      taService: TaService(),
+      hiveService: FakeHiveService(),
+    );
+    await c.initialize();
+    // 打开底栏(默认关闭),验证框架固定 + 横向飞行。
+    await c.saveShowBottomNav(true);
+
+    // 竖屏窗口:走抽屉 + 底栏分支。
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 初始:首页标题 + 底栏,底栏第一项选中。
+    expect(findText('消息'), findsOneWidget);
+    final NavigationBar bar =
+        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(bar.selectedIndex, 0);
+
+    // 底栏点「世界」:横向飞行(底栏顺序:主页0 → 群聊1 → 我家2 → 世界3)。
+    tester.state<AppSectionShellState>(find.byType(AppSectionShell))
+        .navigateTo(AppSection.world, axis: Axis.horizontal);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150)); // 飞行中段
+
+    // 框架不动:底栏仍然在场,选中项立即切到目标(位置固定的证据)。
+    final NavigationBar barMid =
+        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(barMid.selectedIndex, 3);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    // 标题栏槽位已切到目标栏目(旧标题消失;
+    // 「世界」与底栏 label 重名,以「消息」清零为标题切换的证据)。
+    expect(findText('消息'), findsNothing);
+
+    await tester.pumpAndSettle();
+    // 落定:只剩世界内容,旧标题仍不在场。
+    expect(findText('消息'), findsNothing);
+    expect(findText('世界归档'), findsNothing);
+    final NavigationBar barEnd =
+        tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(barEnd.selectedIndex, 3);
   });
 }
