@@ -7,6 +7,7 @@ import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_container.dart';
 import '../widgets/app_icon_flight.dart';
+import '../widgets/app_responsive_wrap.dart';
 import '../widgets/app_section.dart';
 import '../widgets/group_avatar.dart';
 import 'chat_page.dart';
@@ -32,6 +33,8 @@ SectionPageData groupHomeSection(AppController controller) {
   return SectionPageData(
     section: AppSection.groupChats,
     showArchived: showArchived,
+    // 卡片列表:宽屏并排多列,内容列相应放宽。
+    contentMaxWidth: AppSize.cardGridMaxWidth,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(
@@ -112,9 +115,11 @@ class GroupListBody extends StatelessWidget {
           );
         }
 
-        return ListView.builder(
+        // 卡片列表:宽窗口并排多列(窄窗口自动回落单列)。
+        return AppResponsiveWrap(
           padding: const EdgeInsets.all(16),
           itemCount: visible.length,
+          minItemWidth: 340,
           itemBuilder: (BuildContext context, int index) {
             final Conversation group = visible[index];
             return _GroupItem(

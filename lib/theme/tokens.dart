@@ -332,6 +332,12 @@ abstract final class AppSize {
   /// 标题栏、内容、悬浮按钮都对齐到这一列,窗口再宽也不会拉散。
   static const double listMaxWidth = 760;
 
+  /// 卡片网格栏目的内容列最大宽度(群聊 / 身份)。
+  ///
+  /// 这两栏是卡片列表,宽屏下并排多列(见 `AppResponsiveWrap`),
+  /// 所以内容列比行式列表宽:够放 2~3 列卡片。
+  static const double cardGridMaxWidth = 1040;
+
   /// 设置页内容最大宽度。
   static const double settingsMaxWidth = 900;
 

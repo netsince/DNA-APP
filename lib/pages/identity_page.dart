@@ -5,6 +5,7 @@ import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_container.dart';
 import '../widgets/app_icon_flight.dart';
+import '../widgets/app_responsive_wrap.dart';
 import '../widgets/app_section.dart';
 import 'identity_editor_page.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -22,6 +23,8 @@ SectionPageData identitySection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.identity,
+    // 卡片列表:宽屏并排多列,内容列相应放宽。
+    contentMaxWidth: AppSize.cardGridMaxWidth,
     appBar: (BuildContext context) => AppBar(
       title: const FitText('身份'),
       actions: <Widget>[
@@ -87,9 +90,11 @@ class IdentityListBody extends StatelessWidget {
           );
         }
 
-        return ListView.builder(
+        // 卡片列表:宽窗口并排多列(窄窗口自动回落单列)。
+        return AppResponsiveWrap(
           padding: const EdgeInsets.all(16),
           itemCount: identities.length,
+          minItemWidth: 320,
           itemBuilder: (BuildContext context, int index) {
             final UserIdentity identity = identities[index];
             return _IdentityItem(

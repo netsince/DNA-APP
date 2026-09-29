@@ -396,8 +396,12 @@ void main() {
         .state<AppSectionShellState>(find.byType(AppSectionShell))
         .navigateTo(AppSection.identity);
     await tester.pumpAndSettle();
+    // 身份是卡片网格栏目:宽屏下内容列更宽(够并排多列卡片),
+    // 悬浮按钮跟着对齐这条更宽的内容列。
+    final Rect identityBar = tester.getRect(find.byType(AppBar));
+    expect(identityBar.width, closeTo(AppSize.cardGridMaxWidth, 1.0));
     final Rect fab = tester.getRect(find.byType(FloatingActionButton));
-    expect(fab.right, closeTo(bar.right - 16, 1.0));
+    expect(fab.right, closeTo(identityBar.right - 16, 1.0));
   });
 
   testWidgets('窄窗口(竖屏):不加留白,内容铺满', (WidgetTester tester) async {
