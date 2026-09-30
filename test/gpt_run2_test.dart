@@ -6,8 +6,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 
 void main() {
+  // 相对包根定位(测试的工作目录就是包根),不再写死绝对路径。
+  final String modelsDir = '${Directory.current.path}/modelwksps/models';
+  // 这是一条**跨语言数值校验**:拿 Python 侧 dump 出来的中间量,喂给 Dart
+  // 侧的 ONNX GPT 首步,比对 hidden。它需要本地调试产物,而 modelwksps/
+  // 被 .gitignore 忽略 —— 干净克隆上不存在,缺了就跳过。
+  final List<String> needed = <String>[
+    '_code_emb.bin',
+    '_code_attn.bin',
+    '_code_pos.bin',
+    '_code_hidden.bin',
+  ];
+  final bool hasFixtures = needed.every(
+    (String f) => File('$modelsDir/../$f').existsSync(),
+  );
+
   test('gpt run 标准创建输入', () {
-    const String modelsDir = 'd:/duetnurturingally/dna-client/modelwksps/models';
     final Float32List emb =
         File('$modelsDir/../_code_emb.bin').readAsBytesSync().buffer.asFloat32List();
     final Float32List attn =
@@ -63,5 +77,5 @@ void main() {
     // ignore: avoid_print
     print('maxDiff=$maxDiff');
     expect(maxDiff, lessThan(1e-3));
-  });
+  }, skip: hasFixtures ? null : '需要本地调试产物 modelwksps/_code_*.bin（该目录被 .gitignore 忽略）');
 }

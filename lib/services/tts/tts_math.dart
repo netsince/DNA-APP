@@ -143,8 +143,9 @@ double linalgNorm(Float32List v) {
 // ===========================================================================
 // 逆 STFT（复刻 chattts_onnx.numpy_istft）
 // ===========================================================================
-/// 输入 real/imag 均为 [n_fft, T]（单 batch）。n_fft 必须是 2 的幂。
-/// 返回 [T-1)*hop + win] 长度的波形（单声道）。
+/// 输入 real/imag 均为 [bins, T]（单 batch，bin 优先），
+/// bins = n_fft/2 + 1（rfft 约定）。n_fft 必须是 2 的幂。
+/// 返回 [(T-1)*hop + win - 2*pad] 长度的波形（单声道）。
 Float32List istft(
   List<double> realFlat,
   List<double> imagFlat,
@@ -153,10 +154,20 @@ Float32List istft(
   int win,
   int pad,
 ) {
-  // Vocos 输出的 real/imag 为 [n_fft/2, T]（bin 优先，numpy irfft 的输入），
-  // 与 numpy_istft 的 irfft(spec, n=n_fft) 一致：读 bins 0..half-1，Nyquist(=half) 置 0。
+  // Vocos 输出的 real/imag 是 **rfft 约定**:[bins, T](bin 优先),
+  // bins = n_fft/2 + 1 —— 与参考实现 numpy_istft 的
+  // `irfft(spec, n=n_fft, axis=1)` 一致(numpy 对 irfft 的输入长度有硬性
+  // 要求,必须是 n_fft/2+1,否则直接报错)。
+  //
+  // 这里必须用 bins(=513) 而不是 n_fft/2(=512) 算帧数:模型输出长度是
+  // bins*T,拿 512 去整除会在 T≥512 时多算出一帧(hop=256、24kHz 下约
+  // 5.5 秒),flat 索引 `k*t+fi` 整体错位 —— 长音频会直接变成噪声。
+  final int bins = nFft ~/ 2 + 1;
   final int half = nFft ~/ 2;
-  final int t = (realFlat.length ~/ half); // 帧数
+  final int t = realFlat.length ~/ bins; // 帧数
+  if (t <= 0) {
+    return Float32List(0);
+  }
   // window = hanning(win)
   final Float64List window = Float64List(win);
   for (int i = 0; i < win; i++) {
@@ -168,15 +179,13 @@ Float32List istft(
     // 构造全谱
     final List<double> re = List<double>.filled(nFft, 0);
     final List<double> im = List<double>.filled(nFft, 0);
-    // bin 0..half-1 来自输入
-    for (int k = 0; k < half; k++) {
+    // bin 0..bins-1(含 Nyquist)全部来自输入
+    for (int k = 0; k < bins; k++) {
       final int o = k * t + fi;
       re[k] = realFlat[o];
       im[k] = imagFlat[o];
     }
-    // bin = half (Nyquist) 置 0；负频率 = 共轭
-    re[half] = 0;
-    im[half] = 0;
+    // 负频率 = 共轭;Nyquist(bin half)不参与共轭,直接来自输入
     for (int k = 1; k < half; k++) {
       re[nFft - k] = re[k];
       im[nFft - k] = -im[k];
