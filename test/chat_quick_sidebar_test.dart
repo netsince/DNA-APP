@@ -10,6 +10,7 @@ import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/conversation_labels.dart';
 import 'package:dna/widgets/ta_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,7 +89,7 @@ void main() {
   group('注释规则', () {
     test('备注优先', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -102,7 +103,7 @@ void main() {
 
     test('无备注 → 最后一条用户消息前 5 字 + 省略号', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -115,7 +116,7 @@ void main() {
 
     test('不足 5 字不加省略号', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -128,7 +129,7 @@ void main() {
 
     test('取的是最后一条**用户**消息(AI 消息不算)', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -144,7 +145,7 @@ void main() {
 
     test('换行与连续空白压成单空格', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -157,7 +158,7 @@ void main() {
 
     test('没有任何用户消息 → 新对话', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',
@@ -170,7 +171,7 @@ void main() {
 
     test('只有空白的备注视为没有备注', () {
       expect(
-        chatSidebarAnnotation(
+        conversationLabel(
           _conv(
             id: 'c',
             taId: 't',

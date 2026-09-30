@@ -10,6 +10,7 @@ import '../widgets/app_section.dart';
 import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'ta_editor_page.dart';
+import 'ta_showcase_page.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -291,8 +292,10 @@ class _TaItem extends StatelessWidget {
             ),
           ),
         ),
+        // 点卡片先看展示页(点卡片的默认意图是「看看这是谁」),
+        // 编辑收在展示页右上角的小图标里。
         openBuilder: (BuildContext context, VoidCallback close) =>
-            TaEditorPage(controller: controller, ta: ta),
+            TaShowcasePage(controller: controller, taId: ta.id),
       ),
     );
   }
