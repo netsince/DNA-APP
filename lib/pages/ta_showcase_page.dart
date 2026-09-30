@@ -22,8 +22,15 @@ import 'ta_editor_page.dart';
 /// "改它",所以编辑收成右上角一个小图标、归档收进「⋮」,主按钮留给
 /// 「开始新聊天」。
 ///
-/// 布局:hero 大图 → 长条 tab(介绍 | 已有聊天) → 内容;
-/// 底部一个「开始新聊天」主按钮。
+/// ## 两种布局
+///
+/// * **宽窗口(电脑横屏)**:一分为二 —— 左边 hero 大图、右边信息栏
+///   (tab 在信息栏里)。单列铺满整屏在桌面上会又空又散。
+/// * **窄窗口(手机竖屏)**:hero 在上、信息在下,保持可折叠大图头图。
+///
+/// ## 切换动画
+///
+/// 「介绍 / 已有聊天」切换时,内容淡入 + 轻微横移(不是硬切)。
 ///
 /// 「已有聊天」与聊天页侧栏**共用同一套排序与文案**
 /// (见 utils/conversation_labels.dart):同一条聊天在两处长得一样。
@@ -38,6 +45,9 @@ class TaShowcasePage extends StatefulWidget {
 
   /// 用 id 而不是 TA 对象:编辑之后这一页要能显示最新数据。
   final String taId;
+
+  /// 宽于这个宽度就一分为二(与栏目内容列的阈值一致)。
+  static const double wideBreakpoint = 900;
 
   @override
   State<TaShowcasePage> createState() => _TaShowcasePageState();
@@ -61,24 +71,95 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
           widget.controller,
           ta.id,
         );
+        final bool wide =
+            MediaQuery.sizeOf(context).width >= TaShowcasePage.wideBreakpoint;
         return Scaffold(
-          body: CustomScrollView(
-            slivers: <Widget>[
-              _buildHero(context, ta),
-              SliverToBoxAdapter(child: _buildTabBar(context)),
-              ...(_tab == 0
-                  ? _buildIntroSlivers(context, ta)
-                  : _buildChatSlivers(context, chats)),
-            ],
-          ),
-          bottomNavigationBar: _buildStartChatBar(context, ta),
+          body: wide
+              ? _buildWide(context, ta, chats)
+              : _buildNarrow(context, ta, chats),
+          // 宽窗口把「开始新聊天」放在右栏底部,避免被拉到整屏最下面。
+          bottomNavigationBar: wide ? null : _buildStartChatBar(context, ta),
         );
       },
     );
   }
 
+  // ---------- 两种布局 ----------
+
+  /// 宽窗口:左 hero(竖版立绘优先)+ 右信息栏。
+  Widget _buildWide(BuildContext context, TA ta, List<Conversation> chats) {
+    final double width = MediaQuery.sizeOf(context).width;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SizedBox(
+          width: (width * 0.4).clamp(320.0, 520.0),
+          child: _buildHeroPane(context, ta),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildWideHeader(context, ta),
+              _buildTabBar(context),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildTabContent(context, ta, chats),
+                ),
+              ),
+              _buildStartChatBar(context, ta),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 窄窗口:hero 在上、信息在下(保留可折叠大图头图)。
+  Widget _buildNarrow(BuildContext context, TA ta, List<Conversation> chats) {
+    return CustomScrollView(
+      slivers: <Widget>[
+        _buildHero(context, ta),
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildTabBar(context),
+              _buildTabContent(context, ta, chats),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 宽窗口顶部一行:返回 + 编辑 + 更多。
+  Widget _buildWideHeader(BuildContext context, TA ta) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        children: <Widget>[
+          IconButton(
+            tooltip: '返回',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          const Spacer(),
+          IconButton(
+            tooltip: '编辑',
+            onPressed: () => _openEditor(context, ta),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          _buildMoreMenu(context, ta),
+        ],
+      ),
+    );
+  }
+
   // ---------- hero ----------
 
+  /// 窄窗口的可折叠头图。
   Widget _buildHero(BuildContext context, TA ta) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
@@ -97,31 +178,7 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
           onPressed: () => _openEditor(context, ta),
           icon: const Icon(Icons.edit_outlined),
         ),
-        PopupMenuButton<String>(
-          tooltip: '更多',
-          onSelected: (String value) => _onMenu(context, ta, value),
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-            PopupMenuItem<String>(
-              value: ta.archived ? 'unarchive' : 'archive',
-              child: ListTile(
-                leading: Icon(
-                  ta.archived
-                      ? Icons.unarchive_outlined
-                      : Icons.archive_outlined,
-                ),
-                title: FitText(ta.archived ? '取消归档' : '归档'),
-              ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem<String>(
-              value: 'delete',
-              child: ListTile(
-                leading: Icon(Icons.delete_outline),
-                title: FitText('删除'),
-              ),
-            ),
-          ],
-        ),
+        _buildMoreMenu(context, ta),
       ],
       flexibleSpace: FlexibleSpaceBar(
         title: FitText(
@@ -131,15 +188,7 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
         background: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            if (image != null)
-              Image(image: image, fit: BoxFit.cover)
-            else
-              ColoredBox(
-                color: cs.surfaceContainerHighest,
-                child: Center(
-                  child: TaAvatar(ta: ta, size: 96, borderRadius: 24),
-                ),
-              ),
+            _buildCover(context, ta, image),
             // 底部压一层渐变,保证标题与图标在任何立绘上都读得清。
             DecoratedBox(
               decoration: BoxDecoration(
@@ -158,6 +207,103 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 宽窗口的左栏:立绘铺满整栏,底部压渐变 + 名字/标签。
+  Widget _buildHeroPane(BuildContext context, TA ta) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final String? slot = TaCover.slotOf(ta, priority: TaCover.heroPriority);
+    final ImageProvider? image = slot == null
+        ? null
+        : ImageStorage.instance.providerFor(ta, slot);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        _buildCover(context, ta, image),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                cs.surface.withValues(alpha: 0.0),
+                cs.surface.withValues(alpha: 0.8),
+              ],
+              stops: const <double>[0.5, 1.0],
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                FitText(
+                  ta.name.trim().isEmpty ? '未命名TA' : ta.name,
+                  style: theme.textTheme.headlineSmall,
+                ),
+                if (ta.tags.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (final String tag in ta.tags)
+                        Chip(
+                          label: FitText(tag),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 立绘本体;没有图就用首字占位。
+  Widget _buildCover(BuildContext context, TA ta, ImageProvider? image) {
+    if (image != null) {
+      return Image(image: image, fit: BoxFit.cover);
+    }
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(child: TaAvatar(ta: ta, size: 112, borderRadius: 28)),
+    );
+  }
+
+  Widget _buildMoreMenu(BuildContext context, TA ta) {
+    return PopupMenuButton<String>(
+      tooltip: '更多',
+      onSelected: (String value) => _onMenu(context, ta, value),
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          value: ta.archived ? 'unarchive' : 'archive',
+          child: ListTile(
+            leading: Icon(
+              ta.archived ? Icons.unarchive_outlined : Icons.archive_outlined,
+            ),
+            title: FitText(ta.archived ? '取消归档' : '归档'),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline),
+            title: FitText('删除'),
+          ),
+        ),
+      ],
     );
   }
 
@@ -211,45 +357,79 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
     );
   }
 
+  /// tab 内容:切换时**淡入 + 轻微横移**,而不是硬切。
+  Widget _buildTabContent(
+    BuildContext context,
+    TA ta,
+    List<Conversation> chats,
+  ) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.04, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey<int>(_tab),
+        child: _tab == 0
+            ? _buildIntro(context, ta)
+            : _buildChats(context, chats),
+      ),
+    );
+  }
+
   // ---------- 介绍 ----------
 
-  List<Widget> _buildIntroSlivers(BuildContext context, TA ta) {
+  Widget _buildIntro(BuildContext context, TA ta) {
     final ThemeData theme = Theme.of(context);
-    return <Widget>[
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-        sliver: SliverList(
-          delegate: SliverChildListDelegate(<Widget>[
-            if (ta.tags.isNotEmpty) ...<Widget>[
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: <Widget>[
-                  for (final String tag in ta.tags)
-                    Chip(label: FitText(tag), visualDensity: VisualDensity.compact),
-                ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (ta.tags.isNotEmpty) ...<Widget>[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: <Widget>[
+                for (final String tag in ta.tags)
+                  Chip(
+                    label: FitText(tag),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+          ],
+          if (ta.gender.trim().isNotEmpty) _kv(context, '性别', ta.gender),
+          _section(context, '简介', ta.intro),
+          _section(context, '人设', ta.persona),
+          _section(context, '开场白', ta.opening),
+          _section(context, '作者备注', ta.authorNote ?? ''),
+          if (ta.dialogueStyle.isNotEmpty) ...<Widget>[
+            FitText(
+              '对话风格',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.primary,
               ),
-              const SizedBox(height: 18),
-            ],
-            if (ta.gender.trim().isNotEmpty)
-              _kv(context, '性别', ta.gender),
-            _section(context, '简介', ta.intro),
-            _section(context, '人设', ta.persona),
-            _section(context, '开场白', ta.opening),
-            _section(context, '作者备注', ta.authorNote ?? ''),
-            if (ta.dialogueStyle.isNotEmpty) ...<Widget>[
-              FitText(
-                '对话风格',
-                style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
-              ),
-              const SizedBox(height: 8),
-              for (final DialogueTurn turn in ta.dialogueStyle.take(3))
-                _dialogueSample(context, turn),
-            ],
-          ]),
-        ),
+            ),
+            const SizedBox(height: 8),
+            for (final DialogueTurn turn in ta.dialogueStyle.take(3))
+              _dialogueSample(context, turn),
+          ],
+        ],
       ),
-    ];
+    );
   }
 
   Widget _section(BuildContext context, String title, String body) {
@@ -338,51 +518,41 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
 
   // ---------- 已有聊天 ----------
 
-  List<Widget> _buildChatSlivers(
-    BuildContext context,
-    List<Conversation> chats,
-  ) {
+  Widget _buildChats(BuildContext context, List<Conversation> chats) {
     if (chats.isEmpty) {
-      return <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: FitText(
-                '还没有聊天记录，点下面的按钮开始吧。',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: FitText(
+            '还没有聊天记录，点下面的按钮开始吧。',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
             ),
           ),
         ),
-      ];
+      );
     }
     final ColorScheme cs = Theme.of(context).colorScheme;
-    return <Widget>[
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
-        sliver: SliverList.builder(
-          itemCount: chats.length,
-          itemBuilder: (BuildContext context, int index) {
-            final Conversation chat = chats[index];
-            final int count = chat.messages.length;
-            return ListTile(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
+      child: Column(
+        children: <Widget>[
+          for (final Conversation chat in chats)
+            ListTile(
               leading: Icon(
                 chat.pinned ? Icons.push_pin : Icons.chat_bubble_outline,
                 color: chat.pinned ? cs.primary : cs.onSurfaceVariant,
               ),
               title: FitText(conversationLabel(chat)),
-              subtitle: FitText(count == 0 ? '空会话' : '$count 条消息'),
+              subtitle: FitText(
+                chat.messages.isEmpty ? '空会话' : '${chat.messages.length} 条消息',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _openChat(context, chat),
-            );
-          },
-        ),
+            ),
+        ],
       ),
-    ];
+    );
   }
 
   // ---------- 底部主按钮 ----------
@@ -457,10 +627,8 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => ChatPage(
-          controller: widget.controller,
-          conversationId: id,
-        ),
+        builder: (BuildContext context) =>
+            ChatPage(controller: widget.controller, conversationId: id),
       ),
     );
   }

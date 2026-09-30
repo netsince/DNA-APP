@@ -32,11 +32,13 @@ abstract final class TaCover {
     landscape,
   ];
 
-  /// hero 优先级:横版名片 → 方图 → 竖图。
+  /// hero 优先级:竖版立绘 → 方图 → 横版名片。
+  ///
+  /// 竖版立绘天生适合当"人物大图"(手机壁纸比例),没有才退到方图/横图。
   static const List<String> heroPriority = <String>[
-    landscape,
-    square,
     portrait,
+    square,
+    landscape,
   ];
 
   /// 按优先级挑一个"确实有图"的槽位;一个都没有返回 null。

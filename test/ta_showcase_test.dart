@@ -12,6 +12,7 @@ import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/ta_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -118,8 +119,12 @@ void main() {
     return c;
   }
 
-  Future<void> pumpShowcase(WidgetTester tester, AppController c) async {
-    tester.view.physicalSize = const Size(600, 1200);
+  Future<void> pumpShowcase(
+    WidgetTester tester,
+    AppController c, {
+    Size size = const Size(600, 1200),
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -194,5 +199,39 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(c.conversations.length, before + 1);
     expect(find.byType(ChatConversationView), findsOneWidget);
+  });
+  testWidgets('宽窗口一分为二:hero 在左,信息栏在右', (WidgetTester tester) async {
+    final AppController c = await boot();
+    await pumpShowcase(tester, c, size: const Size(1400, 900));
+
+    // 右侧信息栏:tab 落在窗口右半边(窄窗口时它贴着左边)
+    final double tabLeft = tester.getRect(label('介绍')).left;
+    expect(tabLeft, greaterThan(1400 * 0.4), reason: '宽窗口应把信息栏放到右半边');
+
+    // 左栏是 hero(没有立绘时是首字占位),占据左侧 40%
+    final Rect heroAvatar = tester.getRect(find.byType(TaAvatar).first);
+    expect(heroAvatar.left, lessThan(1400 * 0.4));
+
+    // 窄窗口同一页仍是单列:tab 靠左
+    await pumpShowcase(tester, c, size: const Size(600, 1200));
+    expect(tester.getRect(label('介绍')).left, lessThan(300));
+  });
+
+  testWidgets('切换 tab 有过渡:过程中新旧内容短暂并存', (WidgetTester tester) async {
+    final AppController c = await boot();
+    await pumpShowcase(tester, c);
+    expect(label('来自北境的旅人。'), findsOneWidget); // 介绍内容
+
+    await tester.tap(label('已有聊天'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60)); // 过渡中段
+
+    // 淡入淡出进行中:介绍与聊天内容同时在场 ⇒ 是过渡而不是硬切
+    expect(label('来自北境的旅人。'), findsOneWidget);
+    expect(label('初遇'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(label('来自北境的旅人。'), findsNothing);
+    expect(label('初遇'), findsOneWidget);
   });
 }
