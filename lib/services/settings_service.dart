@@ -55,6 +55,7 @@ class SettingsService {
   static const String _chatQuickSidebarKey = 'chat_quick_sidebar';
   static const String _chatQuickSidebarCollapsedKey =
       'chat_quick_sidebar_collapsed';
+  static const String _chatSwipeSwitchKey = 'chat_swipe_switch';
   static const String _chatMaskStrengthKey = 'chat_mask_strength';
   static const String _chatBubbleOpacityKey = 'chat_bubble_opacity';
   static const String _halfScreenChatKey = 'half_screen_chat';
@@ -162,6 +163,7 @@ class SettingsService {
       chatQuickSidebar: prefs.getBool(_chatQuickSidebarKey) ?? true,
       chatQuickSidebarCollapsed:
           prefs.getBool(_chatQuickSidebarCollapsedKey) ?? false,
+      chatSwipeSwitch: prefs.getBool(_chatSwipeSwitchKey) ?? true,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
       chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
       chatBubbleOpacity: prefs.getInt(_chatBubbleOpacityKey) ?? 100,
@@ -292,6 +294,7 @@ class SettingsService {
       _chatQuickSidebarCollapsedKey,
       settings.chatQuickSidebarCollapsed,
     );
+    await prefs.setBool(_chatSwipeSwitchKey, settings.chatSwipeSwitch);
     await prefs.setBool(_autoBackupKey, settings.autoBackup);
     await prefs.setInt(_chatMaskStrengthKey, settings.chatMaskStrength);
     await prefs.setInt(_chatBubbleOpacityKey, settings.chatBubbleOpacity);

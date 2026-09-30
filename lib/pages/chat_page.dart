@@ -97,6 +97,17 @@ class _ChatPageState extends State<ChatPage> {
   /// 当前展示的会话:侧栏切换只改它。
   late String _conversationId = widget.conversationId;
 
+  /// 每个角色「固定」在哪个会话上:左右滑动切角色时用它,而不是每次
+  /// 都跳"最近活跃" —— 否则你正在看某个旧会话,滑走再滑回来会被
+  /// 传送到别的会话去。当前会话一变就更新它。
+  final Map<String, String> _fixedConversationByTa = <String, String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _rememberCurrentConversation();
+  }
+
   /// 侧栏收起状态:初值取自设置(**记住上次的折叠/展开**),
   /// 切换会话时不丢,点把手时写回设置。
   late bool _sidebarCollapsed =
@@ -112,6 +123,7 @@ class _ChatPageState extends State<ChatPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.conversationId != widget.conversationId) {
       _conversationId = widget.conversationId;
+      _rememberCurrentConversation();
     }
   }
 
@@ -119,18 +131,108 @@ class _ChatPageState extends State<ChatPage> {
     if (id == _conversationId) {
       return;
     }
-    setState(() => _conversationId = id);
+    setState(() {
+      _conversationId = id;
+      _rememberCurrentConversation();
+    });
   }
 
   /// 以当前会话为准判断是不是群聊:侧栏只能切到 1:1,若沿用打开时的
   /// isGroup 会带着"群聊"标记渲染 1:1 会话。
-  bool get _isGroupConversation {
+  bool get _isGroupConversation =>
+      _conversationById(_conversationId)?.isGroup ?? widget.isGroup;
+
+  void _rememberCurrentConversation() {
+    final Conversation? current = _conversationById(_conversationId);
+    if (current != null && !current.isGroup) {
+      _fixedConversationByTa[current.taId] = current.id;
+    }
+  }
+
+  Conversation? _conversationById(String id) {
     for (final Conversation conversation in widget.controller.conversations) {
-      if (conversation.id == _conversationId) {
-        return conversation.isGroup;
+      if (conversation.id == id) {
+        return conversation;
       }
     }
-    return widget.isGroup;
+    return null;
+  }
+
+  /// 参与左右滑动的角色:与桌面侧栏左列同构 —— 按「我家」顺序,
+  /// 只保留有非归档 1:1 会话的角色(群聊不参与)。
+  List<TA> _swipeCharacters() {
+    final Set<String> withChats = <String>{
+      for (final Conversation conversation in widget.controller.conversations)
+        if (!conversation.isGroup && !conversation.archived) conversation.taId,
+    };
+    return <TA>[
+      for (final TA ta in widget.controller.tas)
+        if (withChats.contains(ta.id)) ta,
+    ];
+  }
+
+  /// 该角色最近活跃的非归档 1:1 会话(只作兜底:没有"固定会话"时用)。
+  ///
+  /// 消息时间用的是真实发送时刻(毫秒);老数据可能缺这个字段而被
+  /// 反序列化成 0,所以这里用"最大值"比较,全为 0 时退化成列表顺序。
+  Conversation? _mostRecentConversationOf(String taId) {
+    Conversation? best;
+    int bestAt = -1;
+    for (final Conversation conversation in widget.controller.conversations) {
+      if (conversation.isGroup ||
+          conversation.archived ||
+          conversation.taId != taId) {
+        continue;
+      }
+      final int at = conversation.messages.isEmpty
+          ? 0
+          : conversation.messages.last.timestamp;
+      if (at > bestAt) {
+        bestAt = at;
+        best = conversation;
+      }
+    }
+    return best;
+  }
+
+  /// 该角色"固定"在哪个会话:优先用记住的那个(会话还在且没被归档),
+  /// 否则回退到最近活跃的那个。
+  String? _conversationForCharacter(String taId) {
+    final String? fixed = _fixedConversationByTa[taId];
+    if (fixed != null) {
+      final Conversation? conversation = _conversationById(fixed);
+      if (conversation != null && !conversation.archived) {
+        return fixed;
+      }
+    }
+    return _mostRecentConversationOf(taId)?.id;
+  }
+
+  /// 左右滑动切换角色:[direction] = 1 下一个,-1 上一个;到头绕回。
+  ///
+  /// 群聊不参与(在群聊里滑动不生效);只有一个角色时也没什么可切。
+  void _swipeCharacter(int direction) {
+    if (!widget.controller.settings.chatSwipeSwitch) {
+      return;
+    }
+    final Conversation? current = _conversationById(_conversationId);
+    if (current == null || current.isGroup) {
+      return;
+    }
+    final List<TA> characters = _swipeCharacters();
+    if (characters.length < 2) {
+      return;
+    }
+    final int index = characters.indexWhere((TA ta) => ta.id == current.taId);
+    if (index < 0) {
+      return;
+    }
+    final int count = characters.length;
+    final int target = ((index + direction) % count + count) % count;
+    final String? targetId = _conversationForCharacter(characters[target].id);
+    if (targetId != null) {
+      _openConversation(targetId);
+    }
   }
 
   @override
@@ -141,6 +243,7 @@ class _ChatPageState extends State<ChatPage> {
         MediaQuery.sizeOf(context).width >= AppSize.chatSidebarMinWidth;
     final bool showSidebar =
         landscape && wideEnough && widget.controller.settings.chatQuickSidebar;
+    final bool swipeEnabled = widget.controller.settings.chatSwipeSwitch;
 
     // 收起/展开是**一条动画**驱动的:它同时决定侧栏浮层的宽度与聊天
     // 内容的内缩量,所以两列是滑出去/滑进来的,内容也跟着让位,
@@ -172,6 +275,12 @@ class _ChatPageState extends State<ChatPage> {
                   conversationId: _conversationId,
                   isGroup: _isGroupConversation,
                   contentLeftInset: inset,
+                  onSwipeNext: swipeEnabled
+                      ? () => _swipeCharacter(1)
+                      : null,
+                  onSwipePrevious: swipeEnabled
+                      ? () => _swipeCharacter(-1)
+                      : null,
                 ),
               ),
             ),
@@ -202,6 +311,8 @@ class ChatConversationView extends StatefulWidget {
     required this.conversationId,
     this.isGroup = false,
     this.contentLeftInset = 0,
+    this.onSwipeNext,
+    this.onSwipePrevious,
   });
 
   final AppController controller;
@@ -212,6 +323,15 @@ class ChatConversationView extends StatefulWidget {
   /// 但**背景立绘仍然铺满整宽** —— 于是侧栏浮层底下也是这张立绘,
   /// 磨砂透出来就与聊天区连成一片。
   final double contentLeftInset;
+
+  /// 消息区左滑(下一个角色)。为空表示不启用左右滑动。
+  ///
+  /// 手势**只覆盖消息区**:标题栏与输入框不参与 —— 否则在输入框里
+  /// 横向拖动选字会被误判成"切换角色"。
+  final VoidCallback? onSwipeNext;
+
+  /// 消息区右滑(上一个角色)。
+  final VoidCallback? onSwipePrevious;
 
   @override
   State<ChatConversationView> createState() => _ChatConversationViewState();
@@ -614,6 +734,24 @@ class _ChatConversationViewState extends State<ChatConversationView>
     );
   }
 
+  /// 本次横向拖动的累计位移(正 = 向右)。
+  double _swipeDx = 0;
+
+  void _onSwipeStart(DragStartDetails details) => _swipeDx = 0;
+
+  void _onSwipeUpdate(DragUpdateDetails details) => _swipeDx += details.delta.dx;
+
+  void _onSwipeEnd(DragEndDetails details) {
+    // 用累计位移判定而不是速度:慢速长拖也应该生效,行为更可预期。
+    const double threshold = 64;
+    final double dx = _swipeDx;
+    _swipeDx = 0;
+    if (dx <= -threshold) {
+      widget.onSwipeNext?.call();
+    } else if (dx >= threshold) {
+      widget.onSwipePrevious?.call();
+    }
+  }
   @override
   Widget build(BuildContext context) {
     // 缓存 Theme 数据避免重复查找
@@ -798,8 +936,27 @@ class _ChatConversationViewState extends State<ChatConversationView>
                       textTheme,
                     ),
                   Expanded(
-                    child: Listener(
-                      onPointerSignal: (PointerSignalEvent event) {
+                    child: GestureDetector(
+                      // deferToChild:只有落在消息区(列表)上的拖动才算,
+                      // 手势不越界到输入框/标题栏。
+                      behavior: HitTestBehavior.deferToChild,
+                      onHorizontalDragStart:
+                          widget.onSwipeNext == null &&
+                              widget.onSwipePrevious == null
+                          ? null
+                          : _onSwipeStart,
+                      onHorizontalDragUpdate:
+                          widget.onSwipeNext == null &&
+                              widget.onSwipePrevious == null
+                          ? null
+                          : _onSwipeUpdate,
+                      onHorizontalDragEnd:
+                          widget.onSwipeNext == null &&
+                              widget.onSwipePrevious == null
+                          ? null
+                          : _onSwipeEnd,
+                      child: Listener(
+                        onPointerSignal: (PointerSignalEvent event) {
                         if (!dynamicHalfScreen) {
                           return;
                         }
@@ -1000,6 +1157,7 @@ class _ChatConversationViewState extends State<ChatConversationView>
                             ),
                           ),
                         ],
+                      ),
                       ),
                     ),
                   ),

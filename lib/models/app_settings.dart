@@ -28,6 +28,7 @@ class AppSettings {
     required this.showBottomNav,
     required this.chatQuickSidebar,
     required this.chatQuickSidebarCollapsed,
+    required this.chatSwipeSwitch,
     this.updateCheckEnabled = true,
     this.showTokenDashboard = false,
     this.enableForking = false,
@@ -105,6 +106,7 @@ class AppSettings {
       showBottomNav: false,
       chatQuickSidebar: true,
       chatQuickSidebarCollapsed: false,
+      chatSwipeSwitch: true,
       showTokenDashboard: false,
       enableForking: false,
       enableCommandMacros: true,
@@ -203,6 +205,9 @@ class AppSettings {
 
   /// 快速切换侧栏是否处于收起状态(记住用户上次的选择)。
   final bool chatQuickSidebarCollapsed;
+
+  /// 聊天页左右滑动是否切换角色(默认开)。
+  final bool chatSwipeSwitch;
 
   /// 是否在聊天界面显示上下文 Token 实时仪表盘（当前上下文占用 vs 预算）。
   /// 默认关闭，可在「外观与体验」中开启。
@@ -390,6 +395,7 @@ class AppSettings {
       'showBottomNav': showBottomNav,
       'chatQuickSidebar': chatQuickSidebar,
       'chatQuickSidebarCollapsed': chatQuickSidebarCollapsed,
+      'chatSwipeSwitch': chatSwipeSwitch,
       'showTokenDashboard': showTokenDashboard,
       'enableForking': enableForking,
       'enableCommandMacros': enableCommandMacros,
@@ -476,6 +482,7 @@ class AppSettings {
       chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
       chatQuickSidebarCollapsed:
           (json['chatQuickSidebarCollapsed'] as bool?) ?? false,
+      chatSwipeSwitch: (json['chatSwipeSwitch'] as bool?) ?? true,
       showTokenDashboard: (json['showTokenDashboard'] as bool?) ?? false,
       enableForking: (json['enableForking'] as bool?) ?? false,
       enableCommandMacros: (json['enableCommandMacros'] as bool?) ?? true,
@@ -583,6 +590,7 @@ class AppSettings {
     bool? showBottomNav,
     bool? chatQuickSidebar,
     bool? chatQuickSidebarCollapsed,
+    bool? chatSwipeSwitch,
     bool? showTokenDashboard,
     bool? enableForking,
     bool? enableCommandMacros,
@@ -658,6 +666,7 @@ class AppSettings {
       chatQuickSidebar: chatQuickSidebar ?? this.chatQuickSidebar,
       chatQuickSidebarCollapsed:
           chatQuickSidebarCollapsed ?? this.chatQuickSidebarCollapsed,
+      chatSwipeSwitch: chatSwipeSwitch ?? this.chatSwipeSwitch,
       showTokenDashboard: showTokenDashboard ?? this.showTokenDashboard,
       enableForking: enableForking ?? this.enableForking,
       enableCommandMacros: enableCommandMacros ?? this.enableCommandMacros,

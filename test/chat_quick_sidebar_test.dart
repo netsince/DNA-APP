@@ -35,6 +35,10 @@ class _FakeHive extends HiveService {
   Future<List<World>> getWorlds() async => <World>[];
   @override
   Future<List<Conversation>> getConversations() async => conversations;
+
+  // 渲染群聊时聊天页会补默认值并落盘;测试里没有 Hive,写成空实现。
+  @override
+  Future<void> upsertConversation(Conversation conversation) async {}
 }
 
 TA _ta(String id, String name) => TA(
@@ -634,14 +638,23 @@ void main() {
         ),
         findsNothing,
       );
-      // 侧栏内部另有一个切换器:换角色时右列整列淡入淡出。
-      expect(
+      // 换角色时右列整列淡入(单列表淡入:不保留旧列表,避免两个列表
+      // 共用同一个 ScrollController)。
+      await tester.tap(find.byTooltip('鲍勃'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final Iterable<Opacity> fading = tester.widgetList<Opacity>(
         find.descendant(
           of: find.byType(ChatQuickSidebar),
-          matching: find.byType(AnimatedSwitcher),
+          matching: find.byType(Opacity),
         ),
-        findsOneWidget,
       );
+      expect(
+        fading.any((Opacity o) => o.opacity > 0 && o.opacity < 1),
+        isTrue,
+        reason: '换角色应有淡入过渡,而不是硬切',
+      );
+      await settle(tester);
     });
     testWidgets('底部提示不会被侧栏遮挡(Scaffold 的"家具"一起内缩)', (
       WidgetTester tester,
@@ -673,6 +686,138 @@ void main() {
         reason: '提示条的左缘落在侧栏底下了 —— 会被侧栏压住',
       );
       expect(snack.width, lessThanOrEqualTo(1400 - rail.width + 0.5));
+    });
+  });
+  group('左右滑动切换角色', () {
+    /// 爱丽丝有两个会话:c1 较旧、c2 较新(用来验证"固定会话不漂移")。
+    Future<AppController> boot({bool swipe = true}) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AppController c = AppController(
+        settingsService: SettingsService(),
+        openAiService: OpenAiService(),
+        taService: TaService(),
+        hiveService: _FakeHive(
+          tas: <TA>[_ta('taA', '爱丽丝'), _ta('taB', '鲍勃')],
+          conversations: <Conversation>[
+            _conv(
+              id: 'c1',
+              taId: 'taA',
+              note: '初遇',
+              messages: <ConversationMessage>[_msg('user', '你好', 1000)],
+            ),
+            _conv(
+              id: 'c2',
+              taId: 'taA',
+              messages: <ConversationMessage>[_msg('user', '最近一句', 2000)],
+            ),
+            _conv(
+              id: 'c3',
+              taId: 'taB',
+              messages: <ConversationMessage>[_msg('user', '在吗', 3000)],
+            ),
+            // 群聊:不参与左右滑动
+            _conv(
+              id: 'g1',
+              taId: 'taA',
+              isGroup: true,
+              groupName: '三人行',
+              memberTaIds: <String>['taA'],
+              messages: <ConversationMessage>[_msg('user', '群里的消息', 4000)],
+            ),
+          ],
+        ),
+      );
+      await c.initialize();
+      if (!swipe) {
+        await c.saveChatSwipeSwitch(false);
+      }
+      return c;
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    String currentId(WidgetTester tester) => tester
+        .widget<ChatConversationView>(find.byType(ChatConversationView))
+        .conversationId;
+
+    Future<void> swipeBy(WidgetTester tester, double dx) async {
+      // 在聊天视图中心横向拖动 = 落在消息区(手势只覆盖消息区)
+      await tester.drag(find.byType(ChatConversationView), Offset(dx, 0));
+      await settle(tester);
+    }
+
+    Future<void> pump(
+      WidgetTester tester,
+      AppController c, {
+      required String conversationId,
+      bool isGroup = false,
+    }) async {
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChatPage(
+            controller: c,
+            conversationId: conversationId,
+            isGroup: isGroup,
+          ),
+        ),
+      );
+      await settle(tester);
+    }
+
+    testWidgets('左滑下一个角色、右滑回上一个,且**回到原会话不漂移**', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      // 从爱丽丝的**旧**会话进入(c2 才是她最近的)
+      await pump(tester, c, conversationId: 'c1');
+      expect(currentId(tester), 'c1');
+
+      await swipeBy(tester, -300); // 左滑 → 下一个角色
+      expect(currentId(tester), 'c3', reason: '应切到鲍勃的会话');
+
+      await swipeBy(tester, 300); // 右滑 → 上一个角色
+      expect(
+        currentId(tester),
+        'c1',
+        reason: '应回到刚才那个会话,而不是爱丽丝"最近"的 c2 —— 否则你正在看的会话会被换掉',
+      );
+    });
+
+    testWidgets('到头绕回:最后一个角色再左滑回到第一个', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'c3'); // 鲍勃(最后一个角色)
+
+      await swipeBy(tester, -300);
+      // 爱丽丝还没被访问过 ⇒ 兜底用她最近活跃的会话 c2
+      expect(currentId(tester), 'c2');
+
+      await swipeBy(tester, 300); // 第一个角色再右滑 ⇒ 绕回最后一个
+      expect(currentId(tester), 'c3');
+    });
+
+    testWidgets('设置里关掉后滑动不生效', (WidgetTester tester) async {
+      final AppController c = await boot(swipe: false);
+      await pump(tester, c, conversationId: 'c1');
+
+      await swipeBy(tester, -300);
+      expect(currentId(tester), 'c1');
+    });
+
+    testWidgets('群聊不参与左右滑动', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'g1', isGroup: true);
+      expect(currentId(tester), 'g1');
+
+      await swipeBy(tester, -300);
+      expect(currentId(tester), 'g1', reason: '群聊里滑动应无动作');
+      await swipeBy(tester, 300);
+      expect(currentId(tester), 'g1');
     });
   });
 }

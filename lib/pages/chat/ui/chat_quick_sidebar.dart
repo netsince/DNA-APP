@@ -372,27 +372,20 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
     if (chats.isEmpty) {
       return _buildHint(context, '这个角色还没有聊天');
     }
-    return AnimatedSwitcher(
+    // 换角色时整列淡入,而不是硬切。
+    //
+    // 这里刻意**不用** AnimatedSwitcher:交叉淡入淡出会让新旧两个列表
+    // 同时活着,而它们共用同一个 ScrollController —— Flutter 会直接
+    // 断言失败("attached to multiple scroll views")。用 key 重建 +
+    // 单列表淡入,只有一份列表在场。
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<String>(taId),
+      tween: Tween<double>(begin: 0, end: 1),
       duration: const Duration(milliseconds: 200),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.08, 0),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      // 换角色时整列淡入淡出,而不是硬切。
-      child: KeyedSubtree(
-        key: ValueKey<String>(taId),
-        child: _buildChatList(context, chats),
-      ),
+      curve: Curves.easeOutCubic,
+      builder: (BuildContext context, double t, Widget? child) =>
+          Opacity(opacity: t, child: child),
+      child: _buildChatList(context, chats),
     );
   }
 

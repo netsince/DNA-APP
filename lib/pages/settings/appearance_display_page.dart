@@ -36,6 +36,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   bool _showSplash = true;
   bool _showBottomNav = false;
   bool _chatQuickSidebar = true;
+  bool _chatSwipeSwitch = true;
   bool _showTokenDashboard = false;
   String _iconKey = 'default';
   final bool _iconSupported = AppIconService.isSupported || kIsWeb;
@@ -61,6 +62,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     _showSplash = s.showSplashAnimation;
     _showBottomNav = s.showBottomNav;
     _chatQuickSidebar = s.chatQuickSidebar;
+    _chatSwipeSwitch = s.chatSwipeSwitch;
     _showTokenDashboard = s.showTokenDashboard;
     _iconKey = s.appIcon;
 
@@ -402,6 +404,15 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 onChanged: (bool v) {
                   setState(() => _chatQuickSidebar = v);
                   widget.controller.saveChatQuickSidebar(v);
+                },
+              ),
+              SettingSwitch(
+                title: '左右滑动切换',
+                subtitle: '聊天时左右滑动切换角色。',
+                value: _chatSwipeSwitch,
+                onChanged: (bool v) {
+                  setState(() => _chatSwipeSwitch = v);
+                  widget.controller.saveChatSwipeSwitch(v);
                 },
               ),
               SettingSwitch(
