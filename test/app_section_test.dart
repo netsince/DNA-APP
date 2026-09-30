@@ -236,7 +236,7 @@ void main() {
     );
     expect(bar.selectedIndex, 0);
 
-    // 底栏点「世界」:横向飞行(底栏顺序:主页0 → 群聊1 → 我家2 → 世界3)。
+    // 底栏点「世界」:横向飞行(底栏顺序:主页0 → 群聊1 → 我家2 → 岛3 → 世界4)。
     tester
         .state<AppSectionShellState>(find.byType(AppSectionShell))
         .navigateTo(AppSection.world, axis: Axis.horizontal);
@@ -247,7 +247,7 @@ void main() {
     final NavigationBar barMid = tester.widget<NavigationBar>(
       find.byType(NavigationBar),
     );
-    expect(barMid.selectedIndex, 3);
+    expect(barMid.selectedIndex, 4);
     expect(find.byType(NavigationBar), findsOneWidget);
     // 标题栏槽位已切到目标栏目(旧标题消失;
     // 「世界」与底栏 label 重名,以「消息」清零为标题切换的证据)。
@@ -260,7 +260,19 @@ void main() {
     final NavigationBar barEnd = tester.widget<NavigationBar>(
       find.byType(NavigationBar),
     );
-    expect(barEnd.selectedIndex, 3);
+    expect(barEnd.selectedIndex, 4);
+
+    // 新增的「岛」栏目也能正常切过去(底栏第 4 项,索引 3)。
+    tester
+        .state<AppSectionShellState>(find.byType(AppSectionShell))
+        .navigateTo(AppSection.island, axis: Axis.horizontal);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .selectedIndex,
+      3,
+    );
   });
 
   testWidgets('右上角按钮:方块放大成整页、图标原样飞到中央;关闭后各自缩回', (WidgetTester tester) async {

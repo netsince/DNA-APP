@@ -9,15 +9,16 @@ import 'package:dna/widgets/section_assembly.dart';
 /// 主导航的栏目:抽屉与底部导航栏共用这一份定义。
 ///
 /// 枚举顺序即**抽屉自上而下**的顺序,也是纵向滑动的"胶片"顺序:
-/// 从首页滑到世界,会依次经过群聊、我家、身份。
-enum AppSection { home, groupChats, myHome, identity, world, settings }
+/// 从首页滑到世界,会依次经过群聊、我家、岛、身份。
+enum AppSection { home, groupChats, myHome, island, identity, world, settings }
 
-/// 底栏(横向)的滑动顺序:前四项与底栏一致;身份/设置不在底栏中,
+/// 底栏(横向)的滑动顺序:前五项与底栏一致;身份/设置不在底栏中,
 /// 追加在末尾——仅当从它们出发横向切换时才会作为端点或途经页。
 const List<AppSection> kHorizontalSectionOrder = <AppSection>[
   AppSection.home,
   AppSection.groupChats,
   AppSection.myHome,
+  AppSection.island,
   AppSection.world,
   AppSection.identity,
   AppSection.settings,

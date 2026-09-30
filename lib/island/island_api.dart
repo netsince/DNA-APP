@@ -15,6 +15,29 @@ class IslandApiException implements Exception {
   String toString() => message;
 }
 
+/// 一页卡片。字段与岛后端一致：`items` + `has_next`（还有 page/pages/total）。
+///
+/// 注意别和卡片详情页 Widget（`island_card_page.dart` 里的 `IslandCardPage`）
+/// 混了：这里是**分页数据**，名字多一个 s。
+class IslandCardsPage {
+  const IslandCardsPage({
+    required this.items,
+    required this.hasNext,
+    this.page = 1,
+    this.total = 0,
+  });
+
+  final List<Map<String, dynamic>> items;
+  final bool hasNext;
+  final int page;
+  final int total;
+
+  static const IslandCardsPage empty = IslandCardsPage(
+    items: <Map<String, dynamic>>[],
+    hasNext: false,
+  );
+}
+
 /// 岛（DNAISLAND 社区）的极简客户端。
 ///
 /// 只覆盖主项目真正需要的几件事：**登录、卡片详情、导出/导入、发布**，
@@ -111,24 +134,59 @@ class IslandApi {
   }
 
   /// 探索卡片（一页）。
-  Future<List<Map<String, dynamic>>> exploreCards({
+  ///
+  /// 参数与岛客户端保持一致：`page` + `sort`（hot/new），没有 `page_size`。
+  Future<IslandCardsPage> exploreCards({
     int page = 1,
-    int pageSize = 20,
+    String sort = 'hot',
+    String? tag,
   }) async {
-    final dynamic data = await _get(
-      '/api/v1/cards/explore?page=$page&page_size=$pageSize',
+    final Map<String, String> query = <String, String>{
+      'page': '$page',
+      'sort': sort,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+    };
+    return _pageOf(
+      await _get(
+        '/api/v1/cards/explore?${Uri(queryParameters: query).query}',
+      ),
     );
-    final dynamic raw = data is Map && data.containsKey('items')
-        ? data['items']
-        : data;
-    if (raw is! List) {
-      return <Map<String, dynamic>>[];
-    }
-    return <Map<String, dynamic>>[
-      for (final dynamic item in raw)
-        if (item is Map)
-          item.map((dynamic k, dynamic v) => MapEntry(k.toString(), v)),
-    ];
+  }
+
+  /// 搜索角色卡（一页）。
+  Future<IslandCardsPage> searchCards(
+    String query, {
+    int page = 1,
+    String sort = 'relevance',
+    String? tag,
+  }) async {
+    final Map<String, String> params = <String, String>{
+      'q': query,
+      'page': '$page',
+      'sort': sort,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+    };
+    return _pageOf(
+      await _get('/api/v1/cards/search?${Uri(queryParameters: params).query}'),
+    );
+  }
+
+  /// 拆岛的分页外壳：`{items, page, pages, total, has_next}`。
+  IslandCardsPage _pageOf(dynamic raw) {
+    final Map<String, dynamic> data = _asMap(raw);
+    final dynamic items = data['items'];
+    return IslandCardsPage(
+      items: items is List
+          ? <Map<String, dynamic>>[
+              for (final dynamic item in items)
+                if (item is Map)
+                  item.map((dynamic k, dynamic v) => MapEntry(k.toString(), v)),
+            ]
+          : <Map<String, dynamic>>[],
+      hasNext: data['has_next'] == true,
+      page: (data['page'] as num?)?.toInt() ?? 1,
+      total: (data['total'] as num?)?.toInt() ?? 0,
+    );
   }
 
   /// 卡片详情。
