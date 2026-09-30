@@ -845,6 +845,34 @@ void main() {
       final Rect rect = tester.getRect(find.byType(ChatConversationView));
       expect(rect.left, closeTo(0, 1.0));
     });
+    testWidgets('上下滚动不会误触发左右切换(纵向占优时把手势让给列表)', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'c1');
+
+      // 纵向占优,但横向漂移 80px —— 已经超过 64 的切换阈值。
+      // 修方向判定之前,这种"上下滑带点偏"会被抢成横滑并切换。
+      await tester.drag(
+        find.byType(ChatConversationView),
+        const Offset(80, -300),
+      );
+      await settle(tester);
+      expect(currentId(tester), 'c1', reason: '纵向滚动不该触发切换');
+    });
+
+    testWidgets('斜着滑但横向明显占优时仍能切换', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'c1');
+
+      // 横向明显占优(200 vs 40):应正常切换
+      await tester.drag(
+        find.byType(ChatConversationView),
+        const Offset(-200, 40),
+      );
+      await settle(tester);
+      expect(currentId(tester), 'c3');
+    });
 
     testWidgets('设置里关掉后滑动不生效', (WidgetTester tester) async {
       final AppController c = await boot(swipe: false);

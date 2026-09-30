@@ -523,6 +523,49 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 }
+/// 只在**横向明显占优**时才接受拖动的手势识别器。
+///
+/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
+/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
+/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
+/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
+/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
+///
+/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
+class _HorizontalDominantDragRecognizer
+    extends HorizontalDragGestureRecognizer {
+  _HorizontalDominantDragRecognizer({super.debugOwner});
+
+  /// 横向位移要达到纵向的多少倍才算横滑。
+  static const double _dominance = 1.6;
+
+  Offset _origin = Offset.zero;
+  bool _decided = false;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _origin = event.position;
+    _decided = false;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (!_decided && event is PointerMoveEvent) {
+      final Offset delta = event.position - _origin;
+      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
+        _decided = true; // 判定为横滑:开始交给父类累积并竞争
+      } else if (delta.dy.abs() > kTouchSlop) {
+        _decided = true; // 纵向已明确:退出,让列表滚
+        resolve(GestureDisposition.rejected);
+        return;
+      } else {
+        return; // 方向未明:先不参与
+      }
+    }
+    super.handleEvent(event);
+  }
+}
 class ChatConversationView extends StatefulWidget {
   const ChatConversationView({
     super.key,
@@ -1149,19 +1192,33 @@ class _ChatConversationViewState extends State<ChatConversationView>
                       textTheme,
                     ),
                   Expanded(
-                    child: GestureDetector(
-                      // deferToChild:只有落在消息区(列表)上的拖动才算,
-                      // 手势不越界到输入框/标题栏。
+                    // 用自定义识别器而不是 GestureDetector:必须"横向明显
+                    // 占优"才接管手势,否则上下滚动会被误判成左右切换。
+                    // deferToChild:只有落在消息区(列表)上的拖动才算。
+                    child: RawGestureDetector(
                       behavior: HitTestBehavior.deferToChild,
-                      onHorizontalDragStart: widget.onSwipeStart == null
-                          ? null
-                          : _onSwipeStart,
-                      onHorizontalDragUpdate: widget.onSwipeUpdate == null
-                          ? null
-                          : _onSwipeUpdate,
-                      onHorizontalDragEnd: widget.onSwipeEnd == null
-                          ? null
-                          : _onSwipeEnd,
+                      gestures: <Type, GestureRecognizerFactory>{
+                        _HorizontalDominantDragRecognizer:
+                            GestureRecognizerFactoryWithHandlers<
+                              _HorizontalDominantDragRecognizer
+                            >(
+                              () => _HorizontalDominantDragRecognizer(
+                                debugOwner: this,
+                              ),
+                              (_HorizontalDominantDragRecognizer instance) {
+                                instance
+                                  ..onStart = widget.onSwipeStart == null
+                                      ? null
+                                      : _onSwipeStart
+                                  ..onUpdate = widget.onSwipeUpdate == null
+                                      ? null
+                                      : _onSwipeUpdate
+                                  ..onEnd = widget.onSwipeEnd == null
+                                      ? null
+                                      : _onSwipeEnd;
+                              },
+                            ),
+                      },
                       child: Listener(
                         onPointerSignal: (PointerSignalEvent event) {
                         if (!dynamicHalfScreen) {
