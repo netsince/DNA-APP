@@ -142,7 +142,7 @@ class _IconFlightRoute<T> extends PageRouteBuilder<T> {
              (
                BuildContext context,
                Animation<double> _,
-               Animation<double> __,
+               Animation<double> _,
              ) => pageBuilder(context),
        );
 

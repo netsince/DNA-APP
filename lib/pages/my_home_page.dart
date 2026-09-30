@@ -218,8 +218,11 @@ class _TaListBodyState extends State<TaListBody> {
             padding: AppInsets.card,
             buildDefaultDragHandles: false,
             itemCount: tas.length,
+            // 这里刻意用旧的 onReorder:reorderTas 内部已经做了
+            // 「newIndex > oldIndex 时 -1」的调整,换成 onReorderItem
+            // (它会**预先**调整)就成了双重调整,顺序会错。
+            // ignore: deprecated_member_use
             onReorder: (int oldIndex, int newIndex) async {
-              // ignore: deprecated_member_use
               await widget.controller.reorderTas(oldIndex, newIndex);
             },
             itemBuilder: (BuildContext context, int index) => _ReorderRow(
