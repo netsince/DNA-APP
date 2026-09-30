@@ -100,11 +100,25 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
     return widget.validNames.contains(input);
   }
 
+  /// 长按期间换算滚动进度的"内容高度",在按住那一刻锁定。
+  ///
+  /// 不能每帧取当前 maxScrollExtent:预览图是异步加载的、键盘收放也会
+  /// 改变视口高度,这个值在长按期间会变 —— 按当前值换算,滚动位置就会
+  /// 来回跳,看起来正是用户反馈的「长按删除时画面抽搐」。
+  double? _progressSpan;
+
   void _onAnimTick() {
-    if (_scrollController.hasClients) {
-      final double max = _scrollController.position.maxScrollExtent;
-      _scrollController.jumpTo(_animController.value * max);
+    if (!_scrollController.hasClients) {
+      return;
     }
+    final ScrollPosition position = _scrollController.position;
+    final double span = _progressSpan ?? position.maxScrollExtent;
+    _scrollController.jumpTo(
+      (_animController.value * span).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
   }
 
   void _onAnimStatus(AnimationStatus status) {
@@ -118,36 +132,66 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
       return;
     }
     setState(() => _scrolling = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(0);
+    _beginConfirm();
+  }
+
+  /// 开始确认:收键盘 → 平滑回到顶部 → 锁定进度基准 → 起飞。
+  ///
+  /// 回顶部用动画而不是 jumpTo:按住瞬间硬跳一下,再叠上后面的自动
+  /// 滚动,观感就是"抽搐"。收键盘也是必须的 —— 键盘在长按期间收起会
+  /// 让视口高度变化,进度跟着跳。
+  void _beginConfirm() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
       }
+      if (_scrollController.position.pixels > 0) {
+        await _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      // 锁定基准:此后内容高度再变,进度也不跳。
+      _progressSpan = _scrollController.position.maxScrollExtent;
       _animController.forward(from: 0);
     });
   }
 
-  void _regret() {
+  /// 松开/反悔:停下并平滑回到顶部。
+  void _releaseConfirm({required bool scrolling}) {
     _animController.stop();
     _animController.reset();
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
+    _progressSpan = null;
     if (mounted) {
-      setState(() => _scrolling = false);
+      setState(() {
+        if (scrolling) {
+          _scrolling = false;
+        } else {
+          _pressing = false;
+        }
+      });
+    }
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels > 0) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
     }
   }
+
+  void _regret() => _releaseConfirm(scrolling: true);
 
   void _onPressDown() {
     if (_deleting) return;
     setState(() => _pressing = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(0);
-      }
-      _animController.forward(from: 0);
-    });
+    _beginConfirm();
   }
 
   void _onPressUp() {
@@ -155,14 +199,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
     if (_animController.status == AnimationStatus.completed) {
       return;
     }
-    _animController.stop();
-    _animController.reset();
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
-    if (mounted) {
-      setState(() => _pressing = false);
-    }
+    _releaseConfirm(scrolling: false);
   }
 
   Future<void> _doDelete() async {
