@@ -53,6 +53,18 @@ class IslandSession {
     await prefs.setString(_kBaseUrl, _baseUrl);
   }
 
+  /// 把卡片里的图片路径补成完整 URL。
+  ///
+  /// 卡片里的图片可能是完整 URL，也可能是服务端相对路径（`/uploads/...`），
+  /// 两种都要兜住。
+  static String absoluteUrl(String raw) {
+    final String value = raw.trim();
+    if (value.isEmpty || value.startsWith('http')) {
+      return value;
+    }
+    return value.startsWith('/') ? '$_baseUrl$value' : '$_baseUrl/$value';
+  }
+
   static Future<void> saveLogin({
     required String token,
     required String username,

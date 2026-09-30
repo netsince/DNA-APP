@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../island/island_import_entry.dart';
 import '../models/ta.dart';
 import '../services/image_storage.dart';
 import '../state/app_controller.dart';
@@ -37,6 +38,14 @@ SectionPageData myHomeSection(AppController controller) {
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(
         title: FitText(archived ? 'TA归档' : '我家'),
         actions: <Widget>[
+          if (!archived)
+            // 从岛导入角色卡:粘贴链接/ID → 卡片页 → 试聊或直接导入。
+            // 只依赖公开的卡片详情,没登录也能用。
+            IconButton(
+              tooltip: '从岛导入角色卡',
+              onPressed: () => openIslandCardImport(context, controller),
+              icon: const Icon(Icons.travel_explore_outlined),
+            ),
           IconButton(
             tooltip: archived ? '查看TA' : '查看归档',
             onPressed: () => showArchived.value = !archived,

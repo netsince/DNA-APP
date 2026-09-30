@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../island/island_api.dart';
+import '../island/island_bridge.dart';
+import '../island/island_login_dialog.dart';
+import '../island/island_session.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
@@ -293,6 +297,13 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
               ta.archived ? Icons.unarchive_outlined : Icons.archive_outlined,
             ),
             title: FitText(ta.archived ? '取消归档' : '归档'),
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'publish_island',
+          child: ListTile(
+            leading: Icon(Icons.upload_outlined),
+            title: FitText('发布到岛'),
           ),
         ),
         const PopupMenuDivider(),
@@ -633,7 +644,51 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
     );
   }
 
+  /// 「发布到岛」：把这张 TA 发到 DNAISLAND 社区。
+  ///
+  /// **本地为主**：没登录就先弹登录框（其余功能都不受影响）；发布结果
+  /// 如实反馈 —— 走审核的站点会回 `pending`，不能骗用户说"已发布"。
+  Future<void> _publishToIsland(BuildContext context, TA ta) async {
+    if (!IslandSession.isLoggedIn) {
+      final bool ok = await showIslandLoginDialog(context);
+      if (!ok || !context.mounted) {
+        return;
+      }
+    }
+    final IslandApi api = IslandApi();
+    try {
+      final ({String id, String status}) result = await IslandBridge.publishTa(
+        api: api,
+        ta: ta,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: FitText(
+            result.status == 'approved' || result.status == 'published'
+                ? '已发布到岛'
+                : '已提交，等待审核',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: FitText('发布失败：$e')));
+      }
+    } finally {
+      api.dispose();
+    }
+  }
+
   Future<void> _onMenu(BuildContext context, TA ta, String value) async {
+    if (value == 'publish_island') {
+      await _publishToIsland(context, ta);
+      return;
+    }
     if (value == 'archive') {
       await widget.controller.setTaArchived(id: ta.id, archived: true);
       return;
