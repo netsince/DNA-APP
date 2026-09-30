@@ -601,7 +601,7 @@ void main() {
       expect(find.byType(ChatConversationView), findsOneWidget);
     });
 
-    testWidgets('侧栏是磨砂浮层:底下有模糊,且不在会话切换器里(切换时不跟着闪)', (
+    testWidgets('侧栏是磨砂浮层:底下有模糊,且换会话时原地不动', (
       WidgetTester tester,
     ) async {
       final AppController c = await boot();
@@ -622,25 +622,24 @@ void main() {
         ),
         findsOneWidget,
       );
-      // 会话视图被包在切换器里(所以切换有淡入淡出),
-      // 而侧栏在切换器**外面**(所以它不会跟着闪)。
-      expect(
-        find.ancestor(
-          of: find.byType(ChatConversationView),
-          matching: find.byType(AnimatedSwitcher),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.ancestor(
-          of: find.byType(ChatQuickSidebar),
-          matching: find.byType(AnimatedSwitcher),
-        ),
-        findsNothing,
-      );
-      // 换角色时右列整列淡入(单列表淡入:不保留旧列表,避免两个列表
-      // 共用同一个 ScrollController)。
+      // 换会话时侧栏**原地不动**:退场动画只作用在会话视图那一层,
+      // 侧栏是同级浮层,不会跟着滑/闪。
+      final Rect railBefore = tester.getRect(find.byType(ChatQuickSidebar));
       await tester.tap(find.byTooltip('鲍勃'));
+      await settle(tester);
+      await tester.tap(find.byTooltip('在吗'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80)); // 退场动画中
+      expect(find.byType(ChatQuickSidebar), findsOneWidget);
+      expect(tester.getRect(find.byType(ChatQuickSidebar)), railBefore);
+      // 退场中:旧会话还在(滑出/淡出),新会话已在下面就位
+      expect(find.byType(ChatConversationView), findsNWidgets(2));
+      await settle(tester);
+      expect(find.byType(ChatConversationView), findsOneWidget);
+      // 换角色时右列整列淡入(单列表淡入:不保留旧列表,避免两个列表
+      // 共用同一个 ScrollController)。此时当前会话已是鲍勃的,
+      // 点爱丽丝验证右列切换。
+      await tester.tap(find.byTooltip('爱丽丝'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
       final Iterable<Opacity> fading = tester.widgetList<Opacity>(
@@ -799,6 +798,52 @@ void main() {
 
       await swipeBy(tester, 300); // 第一个角色再右滑 ⇒ 绕回最后一个
       expect(currentId(tester), 'c3');
+    });
+    testWidgets('跟手翻页:拖动时当前页跟着手指走,并露出下一个角色的预览', (
+      WidgetTester tester,
+    ) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'c1');
+      expect(currentId(tester), 'c1');
+
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(find.byType(ChatConversationView)),
+      );
+      // 分两步:识别器接受拖动的那一次 move 不产生 update(真实手指
+      // 同样有约 18px 死区),所以先走一个 slop 再走主体。
+      await gesture.moveBy(const Offset(-20, 0));
+      await gesture.moveBy(const Offset(-100, 0));
+      await tester.pump();
+
+      // 当前页跟着手指左移(不是"松手才动")
+      final Rect moved = tester.getRect(find.byType(ChatConversationView));
+      expect(moved.left, lessThan(0), reason: '当前页应跟手平移');
+      // 旁边露出下一个角色(鲍勃)的预览
+      expect(find.text('鲍勃'), findsWidgets, reason: '应露出下一页预览');
+
+      // 松手 → 滑出旧页并完成切换
+      await gesture.up();
+      await settle(tester);
+      expect(currentId(tester), 'c3');
+    });
+
+    testWidgets('拖不够阈值:弹回原位,不切换', (WidgetTester tester) async {
+      final AppController c = await boot();
+      await pump(tester, c, conversationId: 'c1');
+
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(find.byType(ChatConversationView)),
+      );
+      await gesture.moveBy(const Offset(-20, 0)); // 让识别器接受拖动
+      await gesture.moveBy(const Offset(-30, 0)); // 累计 -30,小于 64 阈值
+      await tester.pump();
+      await gesture.up();
+      await settle(tester);
+
+      expect(currentId(tester), 'c1', reason: '没拖够应弹回,不切换');
+      // 弹回后回到原位
+      final Rect rect = tester.getRect(find.byType(ChatConversationView));
+      expect(rect.left, closeTo(0, 1.0));
     });
 
     testWidgets('设置里关掉后滑动不生效', (WidgetTester tester) async {

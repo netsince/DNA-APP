@@ -93,8 +93,26 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
-  /// 当前展示的会话:侧栏切换只改它。
+/// 左右滑动退场方式。
+enum _OutgoingMode {
+  /// 跟手翻页:旧页按手指方向滑出去。
+  slide,
+
+  /// 侧栏/列表切换:旧页淡出。
+  fade,
+}
+
+/// 左右滑动的目标:角色 + 该角色"固定"的那个会话。
+class _SwipeTarget {
+  const _SwipeTarget({required this.ta, required this.conversationId});
+
+  final TA ta;
+  final String conversationId;
+}
+
+class _ChatPageState extends State<ChatPage>
+    with SingleTickerProviderStateMixin {
+  /// 当前展示的会话。
   late String _conversationId = widget.conversationId;
 
   /// 每个角色「固定」在哪个会话上:左右滑动切角色时用它,而不是每次
@@ -102,16 +120,49 @@ class _ChatPageState extends State<ChatPage> {
   /// 传送到别的会话去。当前会话一变就更新它。
   final Map<String, String> _fixedConversationByTa = <String, String>{};
 
+  /// 会话视图的 GlobalKey:退场时旧视图要**换位置**(从当前槽位挪到
+  /// 退场层)但仍然保留 State —— 否则滑出去的途中会闪成空白。
+  final Map<String, GlobalKey> _viewKeys = <String, GlobalKey>{};
+
+  /// 侧栏收起状态:初值取自设置(**记住上次的折叠/展开**),
+  /// 切换会话时不丢,点把手时写回设置。
+  late bool _sidebarCollapsed =
+      widget.controller.settings.chatQuickSidebarCollapsed;
+
+  /// 最近一次布局算出的侧栏宽度(构建退场视图时需要)。
+  double _lastInset = 0;
+
+  // ---- 左右滑动(跟手翻页)----
+
+  /// 手指拖动中的实时位移(负 = 向左滑 = 下一个角色)。
+  double _dragDx = 0;
+
+  /// 拖动中露出的"下一页"预览(为空表示不显示)。
+  _SwipeTarget? _peekTarget;
+
+  /// 提交切换时:旧会话视图留在上层做退场动画。
+  Widget? _outgoingView;
+  _OutgoingMode _outgoingMode = _OutgoingMode.slide;
+
+  /// 退场/回弹动画。
+  late final AnimationController _settleAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
+  double _animFrom = 0;
+  double _animTo = 0;
+
   @override
   void initState() {
     super.initState();
     _rememberCurrentConversation();
   }
 
-  /// 侧栏收起状态:初值取自设置(**记住上次的折叠/展开**),
-  /// 切换会话时不丢,点把手时写回设置。
-  late bool _sidebarCollapsed =
-      widget.controller.settings.chatQuickSidebarCollapsed;
+  @override
+  void dispose() {
+    _settleAnim.dispose();
+    super.dispose();
+  }
 
   void _toggleSidebar() {
     setState(() => _sidebarCollapsed = !_sidebarCollapsed);
@@ -127,20 +178,126 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  GlobalKey _viewKey(String conversationId) => _viewKeys.putIfAbsent(
+    conversationId,
+    () => GlobalKey(debugLabel: 'chat-view-$conversationId'),
+  );
+
+  /// 侧栏/列表点进来的切换:旧页淡出。
   void _openConversation(String id) {
+    _switchConversation(id, mode: _OutgoingMode.fade);
+  }
+
+  /// 切换会话:新会话立刻在下面就位,旧会话留在上层做退场动画。
+  void _switchConversation(
+    String id, {
+    required _OutgoingMode mode,
+    double from = 0,
+    double? to,
+  }) {
     if (id == _conversationId) {
       return;
     }
+    final Widget outgoing = _buildView(_conversationId, _lastInset);
+    final double width = MediaQuery.sizeOf(context).width;
     setState(() {
+      _outgoingView = outgoing;
+      _outgoingMode = mode;
       _conversationId = id;
       _rememberCurrentConversation();
+      _peekTarget = null;
+    });
+    _settle(
+      from: mode == _OutgoingMode.fade ? 0 : from,
+      to: to ?? (mode == _OutgoingMode.fade ? 1 : -width),
+      onDone: () => setState(() {
+        _outgoingView = null;
+        _dragDx = 0;
+      }),
+    );
+  }
+
+  void _settle({
+    required double from,
+    required double to,
+    required VoidCallback onDone,
+  }) {
+    _animFrom = from;
+    _animTo = to;
+    _settleAnim.forward(from: 0).whenComplete(() {
+      if (mounted) {
+        onDone();
+      }
     });
   }
 
-  /// 以当前会话为准判断是不是群聊:侧栏只能切到 1:1,若沿用打开时的
+  /// 当前动画进度(0~1,已缓动)。
+  double get _settleT => Curves.easeOutCubic.transform(_settleAnim.value);
+
+  bool get _swipeEnabled => widget.controller.settings.chatSwipeSwitch;
+
+  // ---- 滑动回调(由聊天视图的消息区转发过来)----
+
+  void _onSwipeStart() {
+    if (!_swipeEnabled) {
+      return;
+    }
+    _settleAnim.stop();
+    setState(() {
+      _dragDx = 0;
+      _peekTarget = null;
+    });
+  }
+
+  void _onSwipeUpdate(double dx) {
+    if (!_swipeEnabled) {
+      return;
+    }
+    setState(() {
+      _dragDx += dx;
+      // 拖动中就露出"下一页"是谁,松手前心里有数。
+      _peekTarget = _swipeTarget(dx < 0 ? 1 : -1);
+    });
+  }
+
+  void _onSwipeEnd() {
+    if (!_swipeEnabled) {
+      return;
+    }
+    const double threshold = 64;
+    final double dx = _dragDx;
+    final int direction = dx <= -threshold ? 1 : (dx >= threshold ? -1 : 0);
+    final _SwipeTarget? target = direction == 0
+        ? null
+        : _swipeTarget(direction);
+    if (target == null) {
+      // 不够阈值(或没有可切的角色):弹回原位。
+      _settle(
+        from: dx,
+        to: 0,
+        onDone: () => setState(() {
+          _dragDx = 0;
+          _peekTarget = null;
+        }),
+      );
+      return;
+    }
+    final double width = MediaQuery.sizeOf(context).width;
+    _switchConversation(
+      target.conversationId,
+      mode: _OutgoingMode.slide,
+      from: dx,
+      to: direction > 0 ? -width : width,
+    );
+  }
+
+  // ---- 数据 ----
+
+  /// 以会话为准判断是不是群聊:侧栏只能切到 1:1,若沿用打开时的
   /// isGroup 会带着"群聊"标记渲染 1:1 会话。
-  bool get _isGroupConversation =>
-      _conversationById(_conversationId)?.isGroup ?? widget.isGroup;
+  bool _isGroupOf(String conversationId) =>
+      _conversationById(conversationId)?.isGroup ??
+      (conversationId == widget.conversationId && widget.isGroup);
 
   void _rememberCurrentConversation() {
     final Conversation? current = _conversationById(_conversationId);
@@ -174,7 +331,7 @@ class _ChatPageState extends State<ChatPage> {
   /// 该角色最近活跃的非归档 1:1 会话(只作兜底:没有"固定会话"时用)。
   ///
   /// 消息时间用的是真实发送时刻(毫秒);老数据可能缺这个字段而被
-  /// 反序列化成 0,所以这里用"最大值"比较,全为 0 时退化成列表顺序。
+  /// 反序列化成 0,所以这里取"最大值",全为 0 时退化成列表顺序。
   Conversation? _mostRecentConversationOf(String taId) {
     Conversation? best;
     int bestAt = -1;
@@ -208,31 +365,80 @@ class _ChatPageState extends State<ChatPage> {
     return _mostRecentConversationOf(taId)?.id;
   }
 
-  /// 左右滑动切换角色:[direction] = 1 下一个,-1 上一个;到头绕回。
+  /// 相对当前角色偏移 [direction] 的目标(1 下一个 / -1 上一个,到头绕回)。
   ///
-  /// 群聊不参与(在群聊里滑动不生效);只有一个角色时也没什么可切。
-  void _swipeCharacter(int direction) {
-    if (!widget.controller.settings.chatSwipeSwitch) {
-      return;
-    }
+  /// 群聊不参与(在群聊里滑动拿不到目标 ⇒ 无动作);只有一个角色时
+  /// 也没什么可切。
+  _SwipeTarget? _swipeTarget(int direction) {
     final Conversation? current = _conversationById(_conversationId);
     if (current == null || current.isGroup) {
-      return;
+      return null;
     }
     final List<TA> characters = _swipeCharacters();
     if (characters.length < 2) {
-      return;
+      return null;
     }
     final int index = characters.indexWhere((TA ta) => ta.id == current.taId);
     if (index < 0) {
-      return;
+      return null;
     }
     final int count = characters.length;
-    final int target = ((index + direction) % count + count) % count;
-    final String? targetId = _conversationForCharacter(characters[target].id);
-    if (targetId != null) {
-      _openConversation(targetId);
+    final int at = ((index + direction) % count + count) % count;
+    final String? id = _conversationForCharacter(characters[at].id);
+    if (id == null) {
+      return null;
     }
+    return _SwipeTarget(ta: characters[at], conversationId: id);
+  }
+
+  // ---- 渲染 ----
+
+  Widget _buildView(String conversationId, double inset) {
+    return ChatConversationView(
+      key: _viewKey(conversationId),
+      controller: widget.controller,
+      conversationId: conversationId,
+      isGroup: _isGroupOf(conversationId),
+      contentLeftInset: inset,
+      onSwipeStart: _swipeEnabled ? _onSwipeStart : null,
+      onSwipeUpdate: _swipeEnabled ? _onSwipeUpdate : null,
+      onSwipeEnd: _swipeEnabled ? _onSwipeEnd : null,
+    );
+  }
+
+  /// 拖动时露出的"下一页"预览:一张中性底 + 目标角色的头像与名字,
+  /// 让人在松手前就知道要切到谁。
+  Widget _buildSwipePeek(BuildContext context, _SwipeTarget target) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    // 向左滑 ⇒ 下一页从右侧露出,内容也靠右排,顺着手指方向。
+    final bool fromRight = _dragDx < 0;
+    return ColoredBox(
+      color: cs.surface,
+      child: Align(
+        alignment: fromRight ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TaAvatar(ta: target.ta, size: 64, borderRadius: 16),
+              const SizedBox(height: 12),
+              FitText(
+                target.ta.name.trim().isEmpty ? '未命名TA' : target.ta.name,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Icon(
+                fromRight ? Icons.chevron_left : Icons.chevron_right,
+                size: 18,
+                color: cs.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -243,12 +449,9 @@ class _ChatPageState extends State<ChatPage> {
         MediaQuery.sizeOf(context).width >= AppSize.chatSidebarMinWidth;
     final bool showSidebar =
         landscape && wideEnough && widget.controller.settings.chatQuickSidebar;
-    final bool swipeEnabled = widget.controller.settings.chatSwipeSwitch;
 
     // 收起/展开是**一条动画**驱动的:它同时决定侧栏浮层的宽度与聊天
-    // 内容的内缩量,所以两列是滑出去/滑进来的,内容也跟着让位,
-    // 不会一边跳一边不动。初值直接取目标值 ⇒ 进入页面时按上次的
-    // 折叠状态就位,不会先展开再收起。
+    // 内容的内缩量,所以两列是滑出去/滑进来的,内容也跟着让位。
     final double targetInset = !showSidebar
         ? 0
         : (_sidebarCollapsed
@@ -260,45 +463,61 @@ class _ChatPageState extends State<ChatPage> {
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
       builder: (BuildContext context, double inset, Widget? _) {
-        return Stack(
-          children: <Widget>[
-            Positioned.fill(
-              // 换会话:整页淡入淡出。侧栏是**浮层**、不在这个切换器里,
-              // 所以切换时它稳稳留在原地,不会跟着闪。
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: ChatConversationView(
-                  key: ValueKey<String>(_conversationId),
-                  controller: widget.controller,
-                  conversationId: _conversationId,
-                  isGroup: _isGroupConversation,
-                  contentLeftInset: inset,
-                  onSwipeNext: swipeEnabled
-                      ? () => _swipeCharacter(1)
-                      : null,
-                  onSwipePrevious: swipeEnabled
-                      ? () => _swipeCharacter(-1)
-                      : null,
+        _lastInset = inset;
+        return AnimatedBuilder(
+          animation: _settleAnim,
+          builder: (BuildContext context, Widget? _) {
+            final bool committing = _outgoingView != null;
+            final double viewDx = committing ? 0 : _dragDx;
+            return Stack(
+              children: <Widget>[
+                // 拖动中露出的"下一页"预览(提交后由新会话视图接管)。
+                if (_peekTarget != null && !committing)
+                  Positioned.fill(child: _buildSwipePeek(context, _peekTarget!)),
+                // 当前会话(拖动时跟手平移)。
+                Positioned.fill(
+                  child: Transform.translate(
+                    offset: Offset(viewDx, 0),
+                    child: _buildView(_conversationId, inset),
+                  ),
                 ),
-              ),
-            ),
-            if (showSidebar)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: ChatQuickSidebar(
-                  controller: widget.controller,
-                  currentConversationId: _conversationId,
-                  onSelectConversation: _openConversation,
-                  width: inset,
-                  collapsed: _sidebarCollapsed,
-                  onToggleCollapsed: _toggleSidebar,
-                ),
-              ),
-          ],
+                // 退场中的旧会话:滑出或淡出,期间不接收点击。
+                if (_outgoingView != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: _outgoingMode == _OutgoingMode.fade
+                            ? 1 - _settleT
+                            : 1,
+                        child: Transform.translate(
+                          offset: Offset(
+                            _outgoingMode == _OutgoingMode.slide
+                                ? _animFrom + (_animTo - _animFrom) * _settleT
+                                : 0,
+                            0,
+                          ),
+                          child: _outgoingView,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (showSidebar)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: ChatQuickSidebar(
+                      controller: widget.controller,
+                      currentConversationId: _conversationId,
+                      onSelectConversation: _openConversation,
+                      width: inset,
+                      collapsed: _sidebarCollapsed,
+                      onToggleCollapsed: _toggleSidebar,
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -311,8 +530,9 @@ class ChatConversationView extends StatefulWidget {
     required this.conversationId,
     this.isGroup = false,
     this.contentLeftInset = 0,
-    this.onSwipeNext,
-    this.onSwipePrevious,
+    this.onSwipeStart,
+    this.onSwipeUpdate,
+    this.onSwipeEnd,
   });
 
   final AppController controller;
@@ -324,14 +544,17 @@ class ChatConversationView extends StatefulWidget {
   /// 磨砂透出来就与聊天区连成一片。
   final double contentLeftInset;
 
-  /// 消息区左滑(下一个角色)。为空表示不启用左右滑动。
+  /// 消息区横向拖动开始(为空表示不启用左右滑动)。
   ///
   /// 手势**只覆盖消息区**:标题栏与输入框不参与 —— 否则在输入框里
   /// 横向拖动选字会被误判成"切换角色"。
-  final VoidCallback? onSwipeNext;
+  final VoidCallback? onSwipeStart;
 
-  /// 消息区右滑(上一个角色)。
-  final VoidCallback? onSwipePrevious;
+  /// 横向拖动中:转发本次的横向位移(跟手平移与预览由外层决定)。
+  final ValueChanged<double>? onSwipeUpdate;
+
+  /// 横向拖动结束(松手):由外层决定提交切换还是弹回原位。
+  final VoidCallback? onSwipeEnd;
 
   @override
   State<ChatConversationView> createState() => _ChatConversationViewState();
@@ -734,24 +957,14 @@ class _ChatConversationViewState extends State<ChatConversationView>
     );
   }
 
-  /// 本次横向拖动的累计位移(正 = 向右)。
-  double _swipeDx = 0;
+  // 横向拖动只做"转发":跟手平移、下一页预览、提交还是弹回,都由外层
+  // (聊天页壳)决定 —— 只有它知道"下一个角色是谁、固定在哪个会话"。
+  void _onSwipeStart(DragStartDetails details) => widget.onSwipeStart?.call();
 
-  void _onSwipeStart(DragStartDetails details) => _swipeDx = 0;
+  void _onSwipeUpdate(DragUpdateDetails details) =>
+      widget.onSwipeUpdate?.call(details.delta.dx);
 
-  void _onSwipeUpdate(DragUpdateDetails details) => _swipeDx += details.delta.dx;
-
-  void _onSwipeEnd(DragEndDetails details) {
-    // 用累计位移判定而不是速度:慢速长拖也应该生效,行为更可预期。
-    const double threshold = 64;
-    final double dx = _swipeDx;
-    _swipeDx = 0;
-    if (dx <= -threshold) {
-      widget.onSwipeNext?.call();
-    } else if (dx >= threshold) {
-      widget.onSwipePrevious?.call();
-    }
-  }
+  void _onSwipeEnd(DragEndDetails details) => widget.onSwipeEnd?.call();
   @override
   Widget build(BuildContext context) {
     // 缓存 Theme 数据避免重复查找
@@ -940,19 +1153,13 @@ class _ChatConversationViewState extends State<ChatConversationView>
                       // deferToChild:只有落在消息区(列表)上的拖动才算,
                       // 手势不越界到输入框/标题栏。
                       behavior: HitTestBehavior.deferToChild,
-                      onHorizontalDragStart:
-                          widget.onSwipeNext == null &&
-                              widget.onSwipePrevious == null
+                      onHorizontalDragStart: widget.onSwipeStart == null
                           ? null
                           : _onSwipeStart,
-                      onHorizontalDragUpdate:
-                          widget.onSwipeNext == null &&
-                              widget.onSwipePrevious == null
+                      onHorizontalDragUpdate: widget.onSwipeUpdate == null
                           ? null
                           : _onSwipeUpdate,
-                      onHorizontalDragEnd:
-                          widget.onSwipeNext == null &&
-                              widget.onSwipePrevious == null
+                      onHorizontalDragEnd: widget.onSwipeEnd == null
                           ? null
                           : _onSwipeEnd,
                       child: Listener(
