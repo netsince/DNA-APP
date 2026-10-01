@@ -22,6 +22,7 @@ class AppDrawerContent extends StatelessWidget {
     this.onOpenArticles,
     this.onOpenRecommend,
     this.onOpenProxy,
+    this.onExitToMainApp,
   });
 
   final AppNavTarget selected;
@@ -38,6 +39,10 @@ class AppDrawerContent extends StatelessWidget {
 
   /// 「代理中转」回调（BYOK 代理配置页）。
   final VoidCallback? onOpenProxy;
+
+  /// 「返回主应用」回调：岛被嵌进主项目的「社区」栏目时由外层传入；
+  /// 岛单独运行时不传，抽屉里不出现该条目。
+  final VoidCallback? onExitToMainApp;
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +107,14 @@ class AppDrawerContent extends StatelessWidget {
               _actionTile(Icons.article_outlined, '官方文章', onOpenArticles!),
             if (onOpenRecommend != null)
               _actionTile(Icons.recommend_outlined, '站长推荐', onOpenRecommend!),
+          ],
+          if (onExitToMainApp != null) ...<Widget>[
+            const Divider(),
+            _actionTile(
+              Icons.keyboard_return,
+              '返回主应用',
+              onExitToMainApp!,
+            ),
           ],
         ],
       ),

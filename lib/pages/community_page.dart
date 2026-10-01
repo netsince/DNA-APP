@@ -15,6 +15,9 @@ import 'package:dna/widgets/fit_text.dart';
 
 /// 「社区」栏目：把整体复制进来的「岛」接进主项目的栏目壳。
 ///
+/// 「返回主应用」跳回「主页」：用户的心智是"回到主应用"，而不是
+/// "回到上一次所在的栏目"。
+///
 /// 这里**只做接线，不改岛的功能**：
 /// * 岛原来靠自己的 `main.dart` 做启动初始化（读设置、解析服务器地址、
 ///   拉站点配置与登录会话、预取表情包）。现在 `main.dart` 不再是入口，
@@ -38,13 +41,20 @@ SectionPageData communitySection(AppController controller) {
     appBar: (BuildContext context) => AppBar(
       title: const FitText('社区'),
     ),
-    body: (BuildContext context) => const CommunityBody(),
+    body: (BuildContext context) => CommunityBody(
+      onExitToMainApp: () => AppSectionShell.maybeOf(
+        context,
+      )?.navigateTo(AppSection.home, axis: Axis.horizontal),
+    ),
   );
 }
 
 /// 社区内容：岛的启动流程 + 岛的外壳。
 class CommunityBody extends StatefulWidget {
-  const CommunityBody({super.key});
+  const CommunityBody({super.key, this.onExitToMainApp});
+
+  /// 「返回主应用」：透传给岛的顶栏抽屉与底部导航。
+  final VoidCallback? onExitToMainApp;
 
   @override
   State<CommunityBody> createState() => _CommunityBodyState();
@@ -122,6 +132,6 @@ class _CommunityBodyState extends State<CommunityBody> {
         onDismissed: () => setState(() => _shutdownDismissed = true),
       );
     }
-    return const RootShell();
+    return RootShell(onExitToMainApp: widget.onExitToMainApp);
   }
 }

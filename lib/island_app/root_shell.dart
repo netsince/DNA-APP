@@ -31,7 +31,14 @@ enum _TopTab { recommend, swipe, explore }
 /// 导航目标（推荐/茶馆/上传/生图/我/设置）通过侧边栏与底栏切换；
 /// 「推荐」页内顶栏提供 推荐/刷一刷/探索 三个内容子页。
 class RootShell extends StatefulWidget {
-  const RootShell({super.key});
+  const RootShell({super.key, this.onExitToMainApp});
+
+  /// 「返回主应用」回调。
+  ///
+  /// 岛被嵌进主项目的「社区」栏目时由外层传入：顶栏抽屉与底栏都会出现
+  /// 返回入口。岛单独运行（原来的 main.dart）时不传，两个入口都不出现，
+  /// 行为与合并前完全一致。
+  final VoidCallback? onExitToMainApp;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -233,6 +240,8 @@ class _RootShellState extends State<RootShell> {
       onOpenArticles: _openArticles,
       onOpenRecommend: _openRecommend,
       onOpenProxy: _openProxy,
+      // 嵌进主项目时才有:抽屉末尾的「返回主应用」。
+      onExitToMainApp: widget.onExitToMainApp,
     );
 
     final bool isAtRootPage =
@@ -327,17 +336,51 @@ class _RootShellState extends State<RootShell> {
         child: SizedBox(
           height: 56,
           child: Row(
-            children: _bottomTargets.map((target) {
-              final selected = _page == target;
-              return Expanded(
-                child: InkWell(
-                  onTap: () => _onSelectNav(target),
-                  child: _bottomItem(target, selected),
+            children: <Widget>[
+              ..._bottomTargets.map((target) {
+                final selected = _page == target;
+                return Expanded(
+                  child: InkWell(
+                    onTap: () => _onSelectNav(target),
+                    child: _bottomItem(target, selected),
+                  ),
+                );
+              }),
+              // 「我」右边的「返回主应用」：仅在嵌入主项目时出现。
+              if (widget.onExitToMainApp != null)
+                Expanded(
+                  child: InkWell(
+                    onTap: widget.onExitToMainApp,
+                    child: _bottomExitItem(),
+                  ),
                 ),
-              );
-            }).toList(),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 底栏末尾的「返回主应用」项：样式对齐 [_bottomItem] 的未激活态，
+  /// 图标用「出门」的隐喻（箭头出门），文字与其它项一致。
+  Widget _bottomExitItem() {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(Icons.logout, size: 22, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 2),
+          Text(
+            '返回',
+            style: TextStyle(
+              fontSize: 11,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
