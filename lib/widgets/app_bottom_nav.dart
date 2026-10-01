@@ -13,6 +13,7 @@ const List<AppSection> _bottomSections = <AppSection>[
   AppSection.groupChats,
   AppSection.myHome,
   AppSection.world,
+  AppSection.community,
 ];
 
 /// 底部导航栏：主页 / 群聊 / 我家 / 世界。仅在开启「主页底部导航栏」时显示。
@@ -59,6 +60,11 @@ class AppBottomNav extends StatelessWidget {
           icon: Icon(Icons.public_outlined),
           selectedIcon: Icon(Icons.public),
           label: '世界',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.explore_outlined),
+          selectedIcon: Icon(Icons.explore),
+          label: '社区',
         ),
       ],
     );

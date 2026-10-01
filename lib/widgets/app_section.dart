@@ -30,9 +30,9 @@ const List<AppSection> kHorizontalSectionOrder = <AppSection>[
   AppSection.groupChats,
   AppSection.myHome,
   AppSection.world,
+  AppSection.community,
   AppSection.identity,
   AppSection.settings,
-  AppSection.community,
 ];
 
 /// 滑行时长随距离递增:首步 [AppMotion.sectionTravel],
