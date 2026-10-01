@@ -6,6 +6,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/articles_page.dart';
 import 'package:dna/island_app/card_detail_page.dart';
+import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/explore_body.dart';
 import 'package:dna/island_app/home_body.dart';
@@ -348,17 +349,25 @@ class _RootShellState extends State<RootShell> {
   }
 
   /// 单个底栏项：激活显示图标 + 文字，未激活仅图标。
+  ///
+  /// 「我」特殊：登录时图标位置换成**当前用户头像**（圆形裁剪），
+  /// 文字规则不变。
   Widget _bottomItem(AppNavTarget target, bool selected) {
     final scheme = Theme.of(context).colorScheme;
     final (icon, label) = _navMeta(target);
     final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final bool meWithAvatar =
+        target == AppNavTarget.me && AuthSession.instance.isLoggedIn;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Icon(icon, size: 22, color: color),
+          if (meWithAvatar)
+            Avatar(avatar: AuthSession.instance.avatar, radius: 11)
+          else
+            Icon(icon, size: 22, color: color),
           if (selected) ...<Widget>[
             const SizedBox(height: 2),
             Text(

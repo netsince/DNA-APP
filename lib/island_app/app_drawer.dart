@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/site_config.dart';
+import 'package:dna/island_app/widgets/avatar.dart';
 
 /// 侧边栏 / 底栏导航目标。
 enum AppNavTarget {
@@ -23,6 +25,7 @@ class AppDrawerContent extends StatelessWidget {
     this.onOpenRecommend,
     this.onOpenProxy,
     this.onOpenSponsor,
+    this.onLogin,
     this.onExitToMainApp,
   });
 
@@ -43,6 +46,9 @@ class AppDrawerContent extends StatelessWidget {
 
   /// 「赞助」回调（赞助页）。岛设置并入主项目设置后，赞助从抽屉直达。
   final VoidCallback? onOpenSponsor;
+
+  /// 「登录」回调：未登录时侧栏显示「登录」，由外层打开登录页。
+  final VoidCallback? onLogin;
 
   /// 「返回主应用」回调：岛被嵌进主项目的「社区」栏目时由外层传入；
   /// 岛单独运行时不传，抽屉里不出现该条目。
@@ -87,7 +93,32 @@ class AppDrawerContent extends StatelessWidget {
           _navTile(AppNavTarget.teahouse, Icons.local_cafe_outlined, '茶馆'),
           _navTile(AppNavTarget.upload, Icons.upload_outlined, '上传'),
           _navTile(AppNavTarget.imagegen, Icons.auto_awesome_outlined, '生图'),
-          _navTile(AppNavTarget.me, Icons.person_outline, '我'),
+          ListenableBuilder(
+            listenable: AuthSession.instance,
+            builder: (context, _) {
+              final session = AuthSession.instance;
+              if (session.isLoggedIn) {
+                return ListTile(
+                  leading: Avatar(
+                    avatar: session.avatar,
+                    radius: 18,
+                  ),
+                  title: Text(
+                    session.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  selected: selected == AppNavTarget.me,
+                  onTap: () => onSelect(AppNavTarget.me),
+                );
+              }
+              return ListTile(
+                leading: const Icon(Icons.login),
+                title: const Text('登录'),
+                onTap: onLogin,
+              );
+            },
+          ),
           // ── 官方与支持(低频):公告/文章/代理/赞助 ──
           if (onShowAnnouncement != null ||
               onOpenArticles != null ||

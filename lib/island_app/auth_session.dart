@@ -26,6 +26,17 @@ class AuthSession extends ChangeNotifier {
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
 
+  /// 显示名：昵称优先，其次用户名。侧栏/底栏直接用。
+  String get displayName {
+    if (_user == null) return '';
+    final nickname = (_user!['nickname'] ?? '').toString();
+    if (nickname.isNotEmpty) return nickname;
+    return (_user!['username'] ?? '').toString();
+  }
+
+  /// 当前用户头像（服务端路径或 data URL；空串 = 无头像）。侧栏/底栏直接用。
+  String get avatar => _user == null ? '' : (_user!['avatar'] ?? '').toString();
+
   /// 正在恢复会话（启动时静默校验）。
   bool get restoring => _restoring;
 
