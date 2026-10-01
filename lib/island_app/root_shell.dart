@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
-import 'package:dna/island_app/about_body.dart';
 import 'package:dna/island_app/app_drawer.dart';
-import 'package:dna/island_app/appearance_settings_body.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/articles_page.dart';
@@ -17,8 +15,6 @@ import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/proxy_config_page.dart';
 import 'package:dna/island_app/recommend_page.dart';
 import 'package:dna/island_app/search_page.dart';
-import 'package:dna/island_app/server_settings_body.dart';
-import 'package:dna/island_app/settings_body.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/sponsor_body.dart';
 import 'package:dna/island_app/teahouse_body.dart';
@@ -146,32 +142,13 @@ class _RootShellState extends State<RootShell> {
     if (reRefresh) _recommendRefresh.value++;
   }
 
-  /// 打开设置子页面（原生路由 push）。
-  void _openSettingsSub(String title, Widget body) {
+  /// 打开赞助页（原生路由 push；岛设置并入主项目设置后，赞助从抽屉直达）。
+  void _openSponsor() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: Text(title)),
-          body: body,
-        ),
-      ),
-    );
-  }
-
-  /// 打开设置主页（原生路由 push）。
-  void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('设置')),
-          body: SettingsBody(
-            onOpenServer: () =>
-                _openSettingsSub('服务器', const ServerSettingsBody()),
-            onOpenAppearance: () =>
-                _openSettingsSub('外观', const AppearanceSettingsBody()),
-            onOpenSponsor: () => _openSettingsSub('赞助', const SponsorBody()),
-            onOpenAbout: () => _openSettingsSub('关于', const AboutBody()),
-          ),
+          appBar: AppBar(title: const Text('赞助')),
+          body: const SponsorBody(),
         ),
       ),
     );
@@ -180,10 +157,6 @@ class _RootShellState extends State<RootShell> {
   /// 通过侧边栏/底栏选中导航目标。
   void _onSelectNav(AppNavTarget target) {
     _scaffoldKey.currentState?.closeDrawer();
-    if (target == AppNavTarget.settings) {
-      _openSettings();
-      return;
-    }
     final firstShow = _page != target;
     setState(() {
       _page = target;
@@ -240,6 +213,7 @@ class _RootShellState extends State<RootShell> {
       onOpenArticles: _openArticles,
       onOpenRecommend: _openRecommend,
       onOpenProxy: _openProxy,
+      onOpenSponsor: _openSponsor,
       // 嵌进主项目时才有:抽屉末尾的「返回主应用」。
       onExitToMainApp: widget.onExitToMainApp,
     );

@@ -53,16 +53,16 @@ void main() {
       }
     });
 
-    test('分组数为 7(按用户任务而非技术模块)', () {
-      // _Group( 共 8 处 = 7 个调用 + 1 个 `const _Group(` 构造定义。
+    test('分组数为 8(第 8 组是社区)(按用户任务而非技术模块)', () {
+      // _Group( 共 9 处 = 8 个调用 + 1 个 `const _Group(` 构造定义。
       final int all = RegExp(r'_Group\(').allMatches(src).length;
-      expect(all - 1, 7);
+      expect(all - 1, 8);
     });
 
-    test('入口总数为 12', () {
-      // _Entry( 共 13 处 = 12 个调用 + 1 个 `const _Entry(` 构造定义。
+    test('入口总数为 14', () {
+      // _Entry( 共 15 处 = 14 个调用 + 1 个 `const _Entry(` 构造定义。
       final int all = RegExp(r'_Entry\(').allMatches(src).length;
-      expect(all - 1, 12);
+      expect(all - 1, 14);
     });
 
     test('入口副标题强制单行(防止文案写长撑高行高)', () {
@@ -79,7 +79,7 @@ void main() {
       // 只取真正的调用点(排除 `const _Entry(` 构造定义)。
       final Iterable<RegExpMatch> entries = RegExp(r'(?<!const )_Entry\(([\s\S]*?)\n\s*\),')
           .allMatches(src);
-      expect(entries.length, 12);
+      expect(entries.length, 14);
       for (final RegExpMatch m in entries) {
         expect(m.group(1)!.contains('subtitle:'), isTrue,
             reason: '入口缺少副标题:\n${m.group(1)}');

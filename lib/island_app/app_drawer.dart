@@ -22,6 +22,7 @@ class AppDrawerContent extends StatelessWidget {
     this.onOpenArticles,
     this.onOpenRecommend,
     this.onOpenProxy,
+    this.onOpenSponsor,
     this.onExitToMainApp,
   });
 
@@ -39,6 +40,9 @@ class AppDrawerContent extends StatelessWidget {
 
   /// 「代理中转」回调（BYOK 代理配置页）。
   final VoidCallback? onOpenProxy;
+
+  /// 「赞助」回调（赞助页）。岛设置并入主项目设置后，赞助从抽屉直达。
+  final VoidCallback? onOpenSponsor;
 
   /// 「返回主应用」回调：岛被嵌进主项目的「社区」栏目时由外层传入；
   /// 岛单独运行时不传，抽屉里不出现该条目。
@@ -84,8 +88,14 @@ class AppDrawerContent extends StatelessWidget {
           _navTile(AppNavTarget.upload, Icons.upload_outlined, '上传'),
           _navTile(AppNavTarget.imagegen, Icons.auto_awesome_outlined, '生图'),
           _navTile(AppNavTarget.me, Icons.person_outline, '我'),
-          const Divider(),
-          _navTile(AppNavTarget.settings, Icons.settings_outlined, '设置'),
+          if (onOpenSponsor != null) ...<Widget>[
+            const Divider(),
+            _actionTile(
+              Icons.volunteer_activism_outlined,
+              '赞助',
+              onOpenSponsor!,
+            ),
+          ],
           if (onShowAnnouncement != null ||
               onOpenArticles != null ||
               onOpenRecommend != null ||

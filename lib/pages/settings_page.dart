@@ -17,6 +17,9 @@ import 'settings/security_settings_page.dart';
 import 'settings/tts_settings_page.dart';
 import 'settings/voice_input_settings_page.dart';
 import 'settings/about_page.dart';
+// 社区设置项:原样复用「岛」的子页,不重写。
+import '../island_app/server_settings_body.dart';
+import '../island_app/sponsor_body.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 设置主页。
@@ -220,7 +223,41 @@ class SettingsBody extends StatelessWidget {
                   ],
                 ),
 
-                // ===== 7. 关于 =====
+                // ===== 7. 社区（DNAISLAND） =====
+                // 服务器与赞助是从「岛」的设置里并过来的两件还活着的配置;
+                // 岛的外观设置改的是已被主项目主题取代的旧主题,不再入口。
+                _Group(
+                  title: '社区（DNAISLAND）',
+                  icon: Icons.explore_outlined,
+                  entries: <_Entry>[
+                    _Entry(
+                      icon: Icons.dns_outlined,
+                      title: '社区服务器',
+                      subtitle: '社区后端地址，可用官方或自建',
+                      onTap: () => _push(
+                        context,
+                        Scaffold(
+                          appBar: AppBar(title: const Text('社区服务器')),
+                          body: ServerSettingsBody(),
+                        ),
+                      ),
+                    ),
+                    _Entry(
+                      icon: Icons.volunteer_activism_outlined,
+                      title: '赞助社区',
+                      subtitle: '支持 DNAISLAND 持续运转',
+                      onTap: () => _push(
+                        context,
+                        Scaffold(
+                          appBar: AppBar(title: const Text('赞助社区')),
+                          body: SponsorBody(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ===== 8. 关于 =====
                 _Group(
                   title: '关于',
                   icon: Icons.info_outline,
