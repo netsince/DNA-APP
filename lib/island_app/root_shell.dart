@@ -361,27 +361,14 @@ class _RootShellState extends State<RootShell> {
     );
   }
 
-  /// 底栏末尾的「返回主应用」项：样式对齐 [_bottomItem] 的未激活态，
-  /// 图标用「出门」的隐喻（箭头出门），文字与其它项一致。
+  /// 底栏末尾的「返回主应用」项：**只显示图标**（与底栏未激活项一致），
+  /// 图标用「出门」的隐喻（箭头出门）。
   Widget _bottomExitItem() {
     final scheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(Icons.logout, size: 22, color: scheme.onSurfaceVariant),
-          const SizedBox(height: 2),
-          Text(
-            '返回',
-            style: TextStyle(
-              fontSize: 11,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+      child: Icon(Icons.logout, size: 22, color: scheme.onSurfaceVariant),
     );
   }
 
