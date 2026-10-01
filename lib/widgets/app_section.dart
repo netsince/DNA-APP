@@ -402,22 +402,27 @@ class AppSectionShellState extends State<AppSectionShell>
     );
 
     if (landscape) {
+      // 「社区」等自带完整外壳(侧栏/顶栏)的栏目:主项目的常驻侧栏让位,
+      // 内容占满 —— 否则两条侧栏并排(主项目的 + 岛自己的)没法看。
+      final bool islandOwnsChrome = _data(_current)!.hideBottomNav;
       return Scaffold(
-        body: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            SizedBox(
-              width: widget.drawerWidth,
-              child: AppDrawer(
-                controller: widget.controller,
-                current: _current,
-                persistent: true,
+        body: islandOwnsChrome
+            ? content
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(
+                    width: widget.drawerWidth,
+                    child: AppDrawer(
+                      controller: widget.controller,
+                      current: _current,
+                      persistent: true,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: content),
+                ],
               ),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: content),
-          ],
-        ),
         floatingActionButton: _buildFab(context, inset),
       );
     }
