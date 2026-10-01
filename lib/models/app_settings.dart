@@ -103,7 +103,7 @@ class AppSettings {
       allowDeleteMessage: false,
       autoBackup: true,
       showSplashAnimation: true,
-      showBottomNav: false,
+      showBottomNav: true,
       chatQuickSidebar: true,
       chatQuickSidebarCollapsed: false,
       chatSwipeSwitch: true,
@@ -478,7 +478,7 @@ class AppSettings {
       autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
-      showBottomNav: (json['showBottomNav'] as bool?) ?? false,
+      showBottomNav: (json['showBottomNav'] as bool?) ?? true,
       chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
       chatQuickSidebarCollapsed:
           (json['chatQuickSidebarCollapsed'] as bool?) ?? false,

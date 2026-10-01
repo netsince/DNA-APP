@@ -12,6 +12,7 @@ import 'package:dna/island_app/home_body.dart';
 import 'package:dna/island_app/image_gen_body.dart';
 import 'package:dna/island_app/swipe_body.dart';
 import 'package:dna/island_app/me_page.dart';
+import 'package:dna/island_app/notifications_page.dart';
 import 'package:dna/island_app/proxy_config_page.dart';
 import 'package:dna/island_app/recommend_page.dart';
 import 'package:dna/island_app/search_page.dart';
@@ -275,7 +276,7 @@ class _RootShellState extends State<RootShell> {
       leading: landscape ? null : _hamburger(),
       title: _title(),
       centerTitle: true,
-      actions: [_searchButton()],
+      actions: [_notificationButton(), _searchButton()],
     );
   }
 
@@ -460,6 +461,35 @@ class _RootShellState extends State<RootShell> {
           );
         },
       );
+
+  /// 右侧通知入口：带未读数角标。未登录时不显示。
+  ///
+  /// 未读数在构建顶栏时拉一次(登录才有意义),失败按 0 处理 ——
+  /// 一个角标不该在顶栏里报错。
+  Widget _notificationButton() {
+    if (!AuthSession.instance.isLoggedIn) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<int>(
+      future: ApiClient.instance.getUnreadNotificationCount(),
+      builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
+        final int unread = snapshot.data ?? 0;
+        return IconButton(
+          tooltip: '消息通知',
+          icon: Badge(
+            isLabelVisible: unread > 0,
+            label: Text('$unread'),
+            child: const Icon(Icons.notifications_outlined),
+          ),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 /// 站点公告弹层（可复用）：侧边栏「公告」与首页首启公告共用。

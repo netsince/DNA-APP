@@ -8,7 +8,6 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/my_cards_page.dart';
 import 'package:dna/island_app/my_collections_page.dart';
-import 'package:dna/island_app/notifications_page.dart';
 import 'package:dna/island_app/points_page.dart';
 import 'package:dna/island_app/profile_edit_page.dart';
 import 'package:dna/island_app/punishments_page.dart';
@@ -656,6 +655,20 @@ class _ProfileViewState extends State<ProfileView> {
                   onSelected: (v) {
                     if (v == 'edit') _openEditProfile(context);
                     if (v == 'logout') _confirmLogout(context);
+                    if (v == 'tickets') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const TicketsPage(),
+                        ),
+                      );
+                    }
+                    if (v == 'punishments') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const PunishmentsPage(),
+                        ),
+                      );
+                    }
                   },
                   itemBuilder: (_) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(
@@ -664,6 +677,22 @@ class _ProfileViewState extends State<ProfileView> {
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.edit_outlined),
                         title: Text('编辑资料'),
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'tickets',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.support_agent),
+                        title: Text('我的工单'),
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'punishments',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.gavel_outlined),
+                        title: Text('我的处罚'),
                       ),
                     ),
                     const PopupMenuItem<String>(
@@ -785,55 +814,12 @@ class _ProfileViewState extends State<ProfileView> {
           width: 76,
           child: _entry(
             context,
-            Icons.notifications_outlined,
-            '消息通知',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => NotificationsPage(),
-                ),
-              );
-            },
-          ),
-        ),
-        SizedBox(
-          width: 76,
-          child: _entry(
-            context,
             Icons.redeem_outlined,
             '我的点数',
             () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => PointsPage(),
-                ),
-              );
-            },
-          ),
-        ),
-        SizedBox(
-          width: 76,
-          child: _entry(
-            context,
-            Icons.support_agent,
-            '我的工单',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const TicketsPage()),
-              );
-            },
-          ),
-        ),
-        SizedBox(
-          width: 76,
-          child: _entry(
-            context,
-            Icons.gavel_outlined,
-            '我的处罚',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const PunishmentsPage(),
                 ),
               );
             },

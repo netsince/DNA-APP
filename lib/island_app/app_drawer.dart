@@ -88,24 +88,18 @@ class AppDrawerContent extends StatelessWidget {
           _navTile(AppNavTarget.upload, Icons.upload_outlined, '上传'),
           _navTile(AppNavTarget.imagegen, Icons.auto_awesome_outlined, '生图'),
           _navTile(AppNavTarget.me, Icons.person_outline, '我'),
-          if (onOpenSponsor != null) ...<Widget>[
-            const Divider(),
-            _actionTile(
-              Icons.volunteer_activism_outlined,
-              '赞助',
-              onOpenSponsor!,
-            ),
-          ],
+          // ── 官方与支持(低频):公告/文章/代理/赞助 ──
           if (onShowAnnouncement != null ||
               onOpenArticles != null ||
               onOpenRecommend != null ||
-              onOpenProxy != null) ...<Widget>[
+              onOpenProxy != null ||
+              onOpenSponsor != null) ...<Widget>[
             const Divider(),
-            if (onOpenProxy != null)
+            if (onOpenSponsor != null)
               _actionTile(
-                Icons.alt_route_outlined,
-                '代理中转',
-                onOpenProxy!,
+                Icons.volunteer_activism_outlined,
+                '赞助',
+                onOpenSponsor!,
               ),
             if (onShowAnnouncement != null)
               _actionTile(
@@ -117,7 +111,14 @@ class AppDrawerContent extends StatelessWidget {
               _actionTile(Icons.article_outlined, '官方文章', onOpenArticles!),
             if (onOpenRecommend != null)
               _actionTile(Icons.recommend_outlined, '站长推荐', onOpenRecommend!),
+            if (onOpenProxy != null)
+              _actionTile(
+                Icons.alt_route_outlined,
+                '代理中转',
+                onOpenProxy!,
+              ),
           ],
+          // ── 离开社区(最后) ──
           if (onExitToMainApp != null) ...<Widget>[
             const Divider(),
             _actionTile(
