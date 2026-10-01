@@ -41,20 +41,13 @@ SectionPageData communitySection(AppController controller) {
     appBar: (BuildContext context) => AppBar(
       title: const FitText('社区'),
     ),
-    body: (BuildContext context) => CommunityBody(
-      onExitToMainApp: () => AppSectionShell.maybeOf(
-        context,
-      )?.navigateTo(AppSection.home, axis: Axis.horizontal),
-    ),
+    body: (BuildContext context) => const CommunityBody(),
   );
 }
 
 /// 社区内容：岛的启动流程 + 岛的外壳。
 class CommunityBody extends StatefulWidget {
-  const CommunityBody({super.key, this.onExitToMainApp});
-
-  /// 「返回主应用」：透传给岛的顶栏抽屉与底部导航。
-  final VoidCallback? onExitToMainApp;
+  const CommunityBody({super.key});
 
   @override
   State<CommunityBody> createState() => _CommunityBodyState();
@@ -118,6 +111,18 @@ class _CommunityBodyState extends State<CommunityBody> {
     StickerCatalog.instance.ensureLoaded();
   }
 
+  /// 「返回主应用」：跳回「主页」。
+  ///
+  /// 刻意在这里（而不是外层闭包）取壳：栏目内容是"胶片"，会被卸载重建，
+  /// 外层闭包捕获的 context 在胶片滑走后已失效，maybeOf 会查不到壳 ——
+  /// 返回按钮就会变成空操作。这里用的是**当前挂着**的 context。
+  void _exitToMainApp() {
+    AppSectionShell.maybeOf(context)?.navigateTo(
+      AppSection.home,
+      axis: Axis.horizontal,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_booting) {
@@ -132,6 +137,6 @@ class _CommunityBodyState extends State<CommunityBody> {
         onDismissed: () => setState(() => _shutdownDismissed = true),
       );
     }
-    return RootShell(onExitToMainApp: widget.onExitToMainApp);
+    return RootShell(onExitToMainApp: _exitToMainApp);
   }
 }
