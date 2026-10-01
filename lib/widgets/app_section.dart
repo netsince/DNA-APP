@@ -68,6 +68,7 @@ class SectionPageData {
     this.showArchived,
     this.contentMaxWidth = AppSize.listMaxWidth,
     this.hideBottomNav = false,
+    this.hideAppBar = false,
   });
 
   final AppSection section;
@@ -94,6 +95,13 @@ class SectionPageData {
   /// (推荐/茶馆/上传/生图/我) —— 两条底栏叠在一起没法看,所以那一栏
   /// 让位给岛自己的导航。其余栏目保持默认(false)。
   final bool hideBottomNav;
+
+  /// 本栏目是否隐藏主项目标题栏。
+  ///
+  /// 与 [hideBottomNav] 同理:「社区」里岛自带顶栏(含 推荐/刷一刷/探索
+  /// 子 tab 与搜索按钮),主项目的标题栏让位,避免两条栏叠在一起。
+  /// 注意:隐藏后该栏目**没有**主项目的抽屉按钮,退出靠横向滑动或系统返回。
+  final bool hideAppBar;
 
   /// 内容列最大宽度。窗口比它宽时**居中收窄成一列**,窄窗口自动铺满。
   ///
@@ -313,6 +321,10 @@ class AppSectionShellState extends State<AppSectionShell>
 
   /// 标题栏槽位:位置固定,内容随当前栏目淡换。
   Widget _appBarSlot() {
+    // 「社区」等自带顶栏的栏目:主项目标题栏让位(高度归零,不占布局)。
+    if (_data(_current)!.hideAppBar) {
+      return const SizedBox(height: 0, width: double.infinity);
+    }
     final Widget bar = PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: KeyedSubtree(

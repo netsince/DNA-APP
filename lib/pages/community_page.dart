@@ -32,6 +32,9 @@ SectionPageData communitySection(AppController controller) {
     // 传一个极大的上限，壳的 inset 会被钳到 0（见 _contentInset）。
     contentMaxWidth: double.infinity,
     hideBottomNav: true,
+    // 岛自带顶栏（含 推荐/刷一刷/探索 子 tab 与搜索），主项目标题栏让位。
+    // 注意：隐藏后该栏目没有主项目的抽屉按钮，退出靠横向滑动或系统返回。
+    hideAppBar: true,
     appBar: (BuildContext context) => AppBar(
       title: const FitText('社区'),
     ),
