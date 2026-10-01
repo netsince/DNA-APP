@@ -10,15 +10,27 @@ import 'package:dna/widgets/section_assembly.dart';
 ///
 /// 枚举顺序即**抽屉自上而下**的顺序,也是纵向滑动的"胶片"顺序:
 /// 从首页滑到世界,会依次经过群聊、我家、身份。
-enum AppSection { home, groupChats, myHome, identity, world, settings }
+enum AppSection {
+  home,
+  groupChats,
+  myHome,
+  identity,
+  world,
+  community,
+  settings,
+}
 
 /// 底栏(横向)的滑动顺序:前四项与底栏一致;身份/设置不在底栏中,
 /// 追加在末尾——仅当从它们出发横向切换时才会作为端点或途经页。
+///
+/// 「社区」也不在底栏里(它自带一套底部导航),同样追加在末尾:
+/// 这样底栏那四栏之间的横向滑动行为完全不受影响。
 const List<AppSection> kHorizontalSectionOrder = <AppSection>[
   AppSection.home,
   AppSection.groupChats,
   AppSection.myHome,
   AppSection.world,
+  AppSection.community,
   AppSection.identity,
   AppSection.settings,
 ];
@@ -55,6 +67,8 @@ class SectionPageData {
     this.fab,
     this.showArchived,
     this.contentMaxWidth = AppSize.listMaxWidth,
+    this.hideBottomNav = false,
+    this.hideAppBar = false,
   });
 
   final AppSection section;
@@ -74,6 +88,20 @@ class SectionPageData {
   /// 归档视图开关:标题栏动作与内容区共用一份状态。
   /// 无归档概念的栏目(身份/设置)为 null。
   final ValueNotifier<bool>? showArchived;
+
+  /// 本栏目是否隐藏主项目底栏。
+  ///
+  /// 「社区」栏目把复制进来的岛整块放进来,而岛**自带一套底部导航**
+  /// (推荐/茶馆/上传/生图/我) —— 两条底栏叠在一起没法看,所以那一栏
+  /// 让位给岛自己的导航。其余栏目保持默认(false)。
+  final bool hideBottomNav;
+
+  /// 本栏目是否隐藏主项目标题栏。
+  ///
+  /// 与 [hideBottomNav] 同理:「社区」里岛自带顶栏(含 推荐/刷一刷/探索
+  /// 子 tab 与搜索按钮),主项目的标题栏让位,避免两条栏叠在一起。
+  /// 注意:隐藏后该栏目**没有**主项目的抽屉按钮,退出靠横向滑动或系统返回。
+  final bool hideAppBar;
 
   /// 内容列最大宽度。窗口比它宽时**居中收窄成一列**,窄窗口自动铺满。
   ///
@@ -293,6 +321,10 @@ class AppSectionShellState extends State<AppSectionShell>
 
   /// 标题栏槽位:位置固定,内容随当前栏目淡换。
   Widget _appBarSlot() {
+    // 「社区」等自带顶栏的栏目:主项目标题栏让位(高度归零,不占布局)。
+    if (_data(_current)!.hideAppBar) {
+      return const SizedBox(height: 0, width: double.infinity);
+    }
     final Widget bar = PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: KeyedSubtree(
@@ -370,22 +402,27 @@ class AppSectionShellState extends State<AppSectionShell>
     );
 
     if (landscape) {
+      // 「社区」等自带完整外壳(侧栏/顶栏)的栏目:主项目的常驻侧栏让位,
+      // 内容占满 —— 否则两条侧栏并排(主项目的 + 岛自己的)没法看。
+      final bool islandOwnsChrome = _data(_current)!.hideBottomNav;
       return Scaffold(
-        body: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            SizedBox(
-              width: widget.drawerWidth,
-              child: AppDrawer(
-                controller: widget.controller,
-                current: _current,
-                persistent: true,
+        body: islandOwnsChrome
+            ? content
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(
+                    width: widget.drawerWidth,
+                    child: AppDrawer(
+                      controller: widget.controller,
+                      current: _current,
+                      persistent: true,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: content),
+                ],
               ),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: content),
-          ],
-        ),
         floatingActionButton: _buildFab(context, inset),
       );
     }
@@ -397,7 +434,10 @@ class AppSectionShellState extends State<AppSectionShell>
         persistent: false,
       ),
       body: content,
-      bottomNavigationBar: widget.controller.settings.showBottomNav
+      // 「社区」栏目里岛自带底栏,主项目底栏让位(见 SectionPageData.hideBottomNav)。
+      bottomNavigationBar:
+          widget.controller.settings.showBottomNav &&
+              !_data(_current)!.hideBottomNav
           ? AppBottomNav(controller: widget.controller, current: _current)
           : null,
       floatingActionButton: _buildFab(context, inset),

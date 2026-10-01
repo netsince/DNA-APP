@@ -159,7 +159,7 @@ class SettingsService {
       showMessageCopy: prefs.getBool(_showMessageCopyKey) ?? true,
       showMessageContinue: prefs.getBool(_showMessageContinueKey) ?? true,
       enterToSend: prefs.getBool(_enterToSendKey) ?? true,
-      showBottomNav: prefs.getBool(_showBottomNavKey) ?? false,
+      showBottomNav: prefs.getBool(_showBottomNavKey) ?? true,
       chatQuickSidebar: prefs.getBool(_chatQuickSidebarKey) ?? true,
       chatQuickSidebarCollapsed:
           prefs.getBool(_chatQuickSidebarCollapsedKey) ?? false,

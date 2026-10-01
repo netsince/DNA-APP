@@ -120,6 +120,12 @@ class AppDrawer extends StatelessWidget {
             onTap: () => _navigate(context, AppSection.world),
           ),
           ListTile(
+            leading: const Icon(Icons.explore_outlined),
+            title: const FitText('社区'),
+            selected: current == AppSection.community,
+            onTap: () => _navigate(context, AppSection.community),
+          ),
+          ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const FitText('设置'),
             selected: current == AppSection.settings,
