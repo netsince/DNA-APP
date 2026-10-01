@@ -3,6 +3,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 
 /// 单张角色卡组件：封面 + 名称 + 作者 + 简介 + 观看/复制数。
 ///
@@ -146,11 +147,11 @@ class CardTile extends StatelessWidget {
               const Spacer(),
               if (author.isNotEmpty)
                 Flexible(
-                  child: Text(
-                    author,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
+                  child: UserBadge.fromUser(
+                    card['author'] is Map
+                        ? Map<String, dynamic>.from(card['author'] as Map)
+                        : null,
+                    fallbackName: author,
                     style: metaStyle,
                   ),
                 ),

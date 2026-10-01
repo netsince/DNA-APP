@@ -25,6 +25,7 @@ import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 
 /// 「我」页面：未登录时显示登录表单；已登录时显示个人主页。
 class MePage extends StatelessWidget {
@@ -589,23 +590,16 @@ class _ProfileViewState extends State<ProfileView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Flexible(
-                          child: Text(
-                            nickname.isEmpty ? username : nickname,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                        if (verified) ...<Widget>[
-                          const SizedBox(width: 6),
-                          Icon(Icons.verified, size: 18, color: scheme.primary),
-                        ],
-                      ],
+                    // 名字 + 赞助红星 + 认证对勾：与网页版 user_badge 宏同口径。
+                    UserBadge(
+                      name: nickname.isEmpty ? username : nickname,
+                      isSponsor: u != null && u['is_sponsor'] == true,
+                      verified: verified,
+                      badgeSize: 18,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1323,18 +1317,13 @@ class _FollowListPageState extends State<FollowListPage> {
             );
           }
           final u = _users[index];
-          final nickname = (u['nickname'] ?? '').toString();
           final username = (u['username'] ?? '').toString();
           return ListTile(
             leading: _Avatar(
               avatar: (u['avatar'] ?? '').toString(),
               radius: 22,
             ),
-            title: Text(
-              nickname.isEmpty ? username : nickname,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            title: UserBadge.fromUser(u, fallbackName: username),
             subtitle: Text(
               '@$username',
               maxLines: 1,

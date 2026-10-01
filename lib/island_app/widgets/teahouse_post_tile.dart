@@ -3,6 +3,7 @@ import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
@@ -74,22 +75,12 @@ class TeahousePostTile extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Flexible(
-                                child: Text(
-                                  authorName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.labelLarge
-                                      ?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                              if (author?.verified == true) ...<Widget>[
-                                const SizedBox(width: 4),
-                                Icon(Icons.verified,
-                                    size: 14, color: scheme.primary),
-                              ],
-                            ],
+                          UserBadge(
+                            name: authorName,
+                            isSponsor: author?.isSponsor == true,
+                            verified: author?.verified == true,
+                            style: theme.textTheme.labelLarge
+                                ?.copyWith(fontWeight: FontWeight.w500),
                           ),
                           if (post.createdAt.isNotEmpty)
                             Text(

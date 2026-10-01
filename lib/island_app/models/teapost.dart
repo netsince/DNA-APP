@@ -6,6 +6,7 @@ class TeaPostAuthor {
     required this.nickname,
     required this.avatar,
     required this.verified,
+    this.isSponsor = false,
   });
 
   factory TeaPostAuthor.fromJson(Map<String, dynamic> m) => TeaPostAuthor(
@@ -14,6 +15,8 @@ class TeaPostAuthor {
         nickname: (m['nickname'] ?? '').toString(),
         avatar: (m['avatar'] ?? '').toString(),
         verified: m['verified'] == true,
+        // 赞助者标记：昵称旁红星（与网页版同一字段；旧服务端缺失时为 false）。
+        isSponsor: m['is_sponsor'] == true,
       );
 
   final String id;
@@ -21,6 +24,7 @@ class TeaPostAuthor {
   final String nickname;
   final String avatar;
   final bool verified;
+  final bool isSponsor;
 
   String get displayName => nickname.isNotEmpty ? nickname : username;
 }

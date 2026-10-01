@@ -15,6 +15,7 @@ import 'package:dna/island_app/widgets/comment_section.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 
 /// 角色卡详情数据模型（对应后端 `GET /api/v1/cards/<id>` 的 data）。
 class CardDetail {
@@ -355,6 +356,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
   String _authorAvatar = '';
   String _authorNickname = '';
   bool _authorVerified = false;
+  /// 作者是否为赞助者（昵称旁红星）。
+  bool _authorIsSponsor = false;
   int _followerCount = 0;
   int _cardCount = 0;
   bool _following = false;
@@ -564,6 +567,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _authorAvatar = avatar;
         _authorNickname = nickname.isEmpty ? _detail!.authorName ?? '' : nickname;
         _authorVerified = user is Map && user['verified'] == true;
+        _authorIsSponsor = user is Map && user['is_sponsor'] == true;
         _followerCount = (follower is num) ? follower.toInt() : 0;
         _cardCount = cardCount;
         _following = data['is_following'] == true;
@@ -889,6 +893,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       nickname: _authorNickname,
       avatar: _authorAvatar,
       verified: _authorVerified,
+      isSponsor: _authorIsSponsor,
       cardCount: _authorReady ? _cardCount : null,
       followerCount: _authorReady ? _followerCount : null,
       isFollowing: _following,
@@ -1223,6 +1228,7 @@ class _AuthorSection extends StatelessWidget {
     required this.nickname,
     required this.avatar,
     required this.verified,
+    required this.isSponsor,
     required this.cardCount,
     required this.followerCount,
     required this.isFollowing,
@@ -1238,6 +1244,9 @@ class _AuthorSection extends StatelessWidget {
 
   /// 作者是否已认证（昵称旁显示小对勾）。
   final bool verified;
+
+  /// 作者是否为赞助者（昵称旁显示红星）。
+  final bool isSponsor;
 
   final int? cardCount;
   final int? followerCount;
@@ -1286,24 +1295,13 @@ class _AuthorSection extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Flexible(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w500),
-                          ),
+                        UserBadge(
+                          name: name,
+                          isSponsor: isSponsor,
+                          verified: verified,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
-                        // 认证作者昵称旁的小对勾。
-                        if (verified) ...<Widget>[
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.verified,
-                            size: 15,
-                            color: scheme.primary,
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 2),

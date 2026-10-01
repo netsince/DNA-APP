@@ -11,6 +11,7 @@ import 'package:dna/island_app/models/comment.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 
@@ -755,10 +756,10 @@ class _CommentSectionState extends State<CommentSection> {
                 Row(
                   children: <Widget>[
                     Flexible(
-                      child: Text(
-                        name,
+                      child: UserBadge(
+                        name: name,
+                        isSponsor: author?.isSponsor == true,
                         style: theme.textTheme.labelLarge,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (c.isAuthor) ...<Widget>[

@@ -11,6 +11,7 @@ import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 
 /// 搜索结果类型。
 enum SearchTab { all, cards, users, posts }
@@ -441,19 +442,11 @@ class _SearchPageState extends State<SearchPage> {
                     avatar: (u['avatar'] ?? '').toString(),
                     radius: 18,
                   ),
-                  title: Row(
-                    children: <Widget>[
-                      Flexible(
-                        child: Text((u['nickname'] ?? '').toString(),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      if (u['verified'] == true) ...<Widget>[
-                        const SizedBox(width: 4),
-                        Icon(Icons.verified,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary),
-                      ],
-                    ],
+                  title: UserBadge(
+                    name: (u['nickname'] ?? '').toString(),
+                    isSponsor: u['is_sponsor'] == true,
+                    verified: u['verified'] == true,
+                    verifiedLabel: (u['verified_label'] ?? '').toString(),
                   ),
                   subtitle: Text('@${u['username'] ?? ''}',
                       maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -684,19 +677,12 @@ class _SearchPageState extends State<SearchPage> {
             ),
         ],
       ),
-      title: Row(
-        children: <Widget>[
-          Flexible(
-            child: Text(nickname,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w500)),
-          ),
-          if (verified) ...<Widget>[
-            const SizedBox(width: 4),
-            Icon(Icons.verified,
-                size: 16, color: Theme.of(context).colorScheme.primary),
-          ],
-        ],
+      title: UserBadge(
+        name: nickname,
+        isSponsor: u['is_sponsor'] == true,
+        verified: verified,
+        verifiedLabel: (u['verified_label'] ?? '').toString(),
+        style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       subtitle: Text('@$username',
           maxLines: 1, overflow: TextOverflow.ellipsis),

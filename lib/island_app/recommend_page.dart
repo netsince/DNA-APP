@@ -6,6 +6,7 @@ import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/user_badge.dart';
 
 /// 站长推荐加载回调（默认走 [ApiClient.getRecommendations]）。
 typedef RecommendationsLoader = Future<RecommendationsData> Function();
@@ -270,7 +271,6 @@ class _RecommendUser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final nickname = (data['nickname'] ?? '').toString();
     final username = (data['username'] ?? '').toString();
     final avatar = (data['avatar'] ?? '').toString();
     return Card(
@@ -287,10 +287,9 @@ class _RecommendUser extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      nickname,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    UserBadge.fromUser(
+                      data,
+                      fallbackName: username,
                       style: Theme.of(context)
                           .textTheme
                           .titleSmall

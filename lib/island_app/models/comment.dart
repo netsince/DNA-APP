@@ -7,12 +7,16 @@ class CommentAuthor {
     required this.username,
     required this.nickname,
     this.avatar,
+    this.isSponsor = false,
   });
 
   final int id;
   final String username;
   final String nickname;
   final String? avatar;
+
+  /// 赞助者：昵称旁红星（与网页版同一字段；旧服务端缺失时为 false）。
+  final bool isSponsor;
 
   factory CommentAuthor.fromJson(Map<String, dynamic> m) {
     final mm = m.map((k, v) => MapEntry(k.toString(), v));
@@ -22,6 +26,7 @@ class CommentAuthor {
       username: (mm['username'] ?? '').toString(),
       nickname: (mm['nickname'] ?? mm['display_name'] ?? '').toString(),
       avatar: mm['avatar'] == '' ? null : (mm['avatar']?.toString()),
+      isSponsor: mm['is_sponsor'] == true,
     );
   }
 }
