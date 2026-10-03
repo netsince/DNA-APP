@@ -4,6 +4,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
+import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
@@ -59,7 +60,19 @@ class _HomeBodyState extends State<HomeBody>
     SiteConfig.instance.addListener(_onSiteConfigChanged);
     widget.refreshCounter?.addListener(_onRefreshRequested);
     _maybeShowAnnouncement();
-    _loadFeatured();
+    // 主应用首屏时已经预取过一批推荐（见 CommunityPreload）：命中就直接
+    // 铺上，用户点进社区立刻有内容，连骨架屏都不出现。
+    final List<Map<String, dynamic>>? prefetched =
+        CommunityPreload.instance.freshFeaturedCards;
+    if (prefetched != null) {
+      _cards = prefetched;
+      _loading = false;
+      _seenIds.addAll(
+        prefetched.map((Map<String, dynamic> c) => (c['id'] ?? '').toString()),
+      );
+    } else {
+      _loadFeatured();
+    }
   }
 
   void _onSiteConfigChanged() => _maybeShowAnnouncement();

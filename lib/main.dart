@@ -9,6 +9,7 @@ import 'pages/auth_page.dart';
 import 'state/app_controller.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
+import 'island_app/community_preload.dart';
 import 'pages/oobe_page.dart';
 import 'pages/splash_page.dart';
 import 'widgets/app_section.dart';
@@ -159,30 +160,36 @@ class _DnaAppState extends State<DnaApp> {
       title: 'Duet Nurturing Ally',
       debugShowCheckedModeBanner: false,
       themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
-      theme: _buildTheme(lightColorScheme),
-      darkTheme: _buildTheme(darkColorScheme),
+      theme: _buildTheme(lightColorScheme, _fontFamily),
+      darkTheme: _buildTheme(darkColorScheme, _fontFamily),
       home: AppRoot(controller: widget.controller),
     );
   }
+
+  /// 当前字体族：`null` = 跟随系统字体（默认），否则内置思源黑体。
+  String? get _fontFamily =>
+      AppFont.familyFor(widget.controller.settings.fontFamilyMode);
 
   /// 由配色方案构建完整主题。
   ///
   /// 所有视觉规范集中在此处定义(参见 `DESIGN_SPEC.md`),业务代码不再手写
   /// 卡片圆角/描边/间距,避免同类元素在不同页面长得不一样。
   ///
-  /// 字体:内置**思源黑体**(Source Han Sans / Noto Sans SC,Regular 400 +
-  /// Medium 500),不依赖系统字体。原因见 `pubspec.yaml` 的 `fonts:` 注释 ——
-  /// 内置字体根治了「中英混排跳字体」「假粗」「跨平台不一致」三个问题。
-  static ThemeData _buildTheme(ColorScheme cs) {
+  /// 字体:[fontFamily] 为 `null` 时**跟随系统字体** —— 手机主题引擎改写的
+  /// 那套,用户自己挑的字体不会被应用覆盖(默认);传 `AppFont.family` 则用
+  /// 内置**思源黑体**(Source Han Sans / Noto Sans SC,Regular 400 + Medium
+  /// 500),后者根治「中英混排跳字体」「假粗」「跨平台不一致」三个问题,
+  /// 代价是不跟随系统主题字体。两者在「设置 → 界面与显示 → 字体」里切换。
+  static ThemeData _buildTheme(ColorScheme cs, String? fontFamily) {
     final ThemeData base = ThemeData(
       colorScheme: cs,
       useMaterial3: true,
-      fontFamily: AppFont.family,
+      fontFamily: fontFamily,
     );
     return ThemeData(
       colorScheme: cs,
       useMaterial3: true,
-      fontFamily: AppFont.family,
+      fontFamily: fontFamily,
 
       // 桌面端:控件按鼠标操作收紧一档(触屏保持标准密度)。
       // 桌面上指针比手指精确得多,标准密度的行高与内边距偏松,
@@ -404,6 +411,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
     // 放在首帧之后发起，不阻塞启动。
     StartupUpdateCheck.schedule(context, widget.controller);
+    // 社区（岛）的隐藏预热：首屏之后在后台把岛的初始化与「推荐」首屏数据
+    // 做掉，用户点「社区」时不再转圈。关闭社区时不预热。
+    _scheduleCommunityPreload();
     // 网页版每次打开页面（冷启动/刷新）只弹一次预览提示。
     if (kIsWeb && !_webNoticeShown) {
       _webNoticeShown = true;
@@ -529,12 +539,26 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         _requireAuth = newRequireAuth;
       });
     }
+    // 用户在设置里重新打开社区：补一次预热（已预热过则内部直接返回）。
+    _scheduleCommunityPreload();
+  }
+
+  /// 安排社区的隐藏预热。
+  ///
+  /// 两道闸门：**已过开屏**（用户已经/即将看到主界面）且**社区是开着的**。
+  /// 未完成 OOBE 的新用户不做预热 —— 那会儿他还在填表，预热纯属浪费流量。
+  void _scheduleCommunityPreload() {
+    if (_showSplash || !_showHome) return;
+    CommunityPreload.instance.schedule(
+      enabled: () => widget.controller.settings.enableCommunity,
+    );
   }
 
   void _onSplashComplete() {
     if (mounted) {
       setState(() => _showSplash = false);
     }
+    _scheduleCommunityPreload();
   }
 
   void _onAuthPassed() {

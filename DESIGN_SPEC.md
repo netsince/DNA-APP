@@ -257,6 +257,12 @@ L6  模型专属采样                  model_sampler_settings
 | 授权 | **SIL Open Font License 1.1**(可自由商用与再分发),全文见 `LICENSE-OFL.txt` |
 | 文件 | `assets/fonts/SourceHanSansSC-Regular.otf`、`assets/fonts/SourceHanSansSC-Medium.otf` |
 
+> **v0.3.1 起这是「可选项」,默认不启用。** 默认**跟随系统字体**
+> (`ThemeData.fontFamily = null`,见 `AppFont.familyFor`):手机主题引擎换掉的
+> 字体是用户自己挑的,应用没理由盖掉它(0.3.0 强制内置字体,自定义字体的用户
+> 反馈字体失效)。想要下面这三个「内置才治得好」的问题消失的用户,在
+> 「设置 → 界面与显示 → 字体」切到思源黑体即可 —— 字体文件仍然随包分发。
+
 **为什么必须内置**(此前"零字体"状态引发的三个渲染问题):
 
 | 问题 | 根因 | 内置后 |
@@ -342,7 +348,7 @@ AppTextStyles.tiny(theme)          // 极小标注 11
 1. **禁止 `fontSize:` 硬编码**(当前残余 **0**),一律使用 `AppFontSize` 令牌或 `textTheme`。
 2. `AppFontSize.tiny`(11px)**仅用于**"看一眼就够"的辅助信息,正文与说明文字禁止使用。
 3. 行高统一使用 `AppLineHeight` 令牌,禁止手写 `height: 1.x`(当前残余 **0**)。
-4. **字体**:内置**思源黑体**(`AppFont.family`),不依赖系统字体。详见 §3.0。
+4. **字体**:默认**跟随系统字体**(`fontFamily: null`);可切换为内置**思源黑体**(`AppFont.family`)。详见 §3.0。
 5. **字重**:只用 `AppWeight.regular` / `AppWeight.medium`,禁止 `w600`/`w700`/`bold`。详见 §3.2.1。
 6. 所有文本**一律使用 `FitText`**,传入 `contrastBackground` 以自动适配对比度。
 
@@ -525,7 +531,7 @@ AppTextStyles.tiny(theme)          // 极小标注 11
 | 列表项内边距 | `AppInsets.tile` = `EdgeInsets.symmetric(horizontal: 16)`,垂直为 **0** |
 | 图标尺寸 | 行内 16 / 卡片头 20 / 空状态 48 |
 | 触摸目标 | ≥ 48×48 |
-| 输入栏 | 浮岛式,圆角 `AppRadius.pill`(28),半透明背景 |
+| 输入栏 | 两种可选(设置 → 界面与显示 → 聊天输入栏样式):**胶囊**(默认,浮岛式,圆角 `AppRadius.pill`,半透明背景)/ **经典**(0.2.0 旧样式:下划线输入框 + 框外独立图标按钮) |
 | 危险操作 | 必须走 `delete_confirm_page`(输入名称 + 5 秒滚动反悔) |
 | 操作反馈 | 统一 `showSnack` / `showConfirmDialog` |
 | 动画 | 页面转场由 `pageTransitionsTheme` 统一(Android 预测式返回 / iOS·macOS Cupertino) |

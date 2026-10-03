@@ -32,9 +32,14 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   late String _accentMode;
   int? _customAccentColor;
 
+  // ---- 字体 ----
+  String _fontFamilyMode = AppFont.modeSystem;
+
   // ---- 应用与启动 ----
   bool _showSplash = true;
   bool _showBottomNav = false;
+  bool _enableCommunity = true;
+  String _chatInputStyle = 'capsule';
   bool _chatQuickSidebar = true;
   bool _chatSwipeSwitch = true;
   bool _showTokenDashboard = false;
@@ -59,8 +64,12 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     _accentMode = s.accentMode;
     _customAccentColor = s.customAccentColor;
 
+    _fontFamilyMode = s.fontFamilyMode;
+
     _showSplash = s.showSplashAnimation;
     _showBottomNav = s.showBottomNav;
+    _enableCommunity = s.enableCommunity;
+    _chatInputStyle = s.chatInputStyle;
     _chatQuickSidebar = s.chatQuickSidebar;
     _chatSwipeSwitch = s.chatSwipeSwitch;
     _showTokenDashboard = s.showTokenDashboard;
@@ -104,6 +113,23 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     if (_accentMode == mode) return;
     setState(() => _accentMode = mode);
     await widget.controller.saveAccentMode(mode);
+  }
+
+  /// 切换字体：跟随系统 / 内置思源黑体。
+  ///
+  /// 主题由 `DnaApp` 按 `settings.fontFamilyMode` 重建，保存后立刻生效
+  /// （不需要重启）。
+  Future<void> _selectFontFamily(String mode) async {
+    if (_fontFamilyMode == mode) return;
+    setState(() => _fontFamilyMode = mode);
+    await widget.controller.saveFontFamilyMode(mode);
+  }
+
+  /// 切换聊天输入栏样式：胶囊 / 经典（0.2.0 旧样式）。
+  Future<void> _selectChatInputStyle(String style) async {
+    if (_chatInputStyle == style) return;
+    setState(() => _chatInputStyle = style);
+    await widget.controller.saveChatInputStyle(style);
   }
 
   Future<void> _pickColor() async {
@@ -238,11 +264,70 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             ],
           ),
 
-          // ===== 2. 界面元素 =====
+          // ===== 2. 字体 =====
+          SettingSection(
+            title: '字体',
+            icon: Icons.text_fields,
+            description: '跟随系统字体，或改用内置思源黑体。',
+            children: <Widget>[
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(
+                    value: AppFont.modeSystem,
+                    label: FitText('系统字体'),
+                  ),
+                  ButtonSegment<String>(
+                    value: AppFont.modeSourceHan,
+                    label: FitText('思源黑体'),
+                  ),
+                ],
+                selected: <String>{_fontFamilyMode},
+                onSelectionChanged: (Set<String> val) =>
+                    _selectFontFamily(val.first),
+              ),
+              AppSpacing.hXs,
+              FitText(
+                _fontFamilyMode == AppFont.modeSourceHan
+                    ? '思源黑体：中英混排不跳字体、字重真实，跨设备一致。'
+                    : '系统字体：跟随手机主题设置，换字体后应用一起变。',
+                style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+            ],
+          ),
+
+          // ===== 3. 界面元素 =====
           SettingSection(
             title: '界面元素',
             icon: Icons.tune,
             children: <Widget>[
+              FitText(
+                '聊天输入栏样式',
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
+              ),
+              AppSpacing.hXs,
+              FitText(
+                _chatInputStyle == 'classic'
+                    ? '经典：下划线输入框，按钮独立排在框外。'
+                    : '胶囊：输入框与按钮合成一条悬浮胶囊。',
+                style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+              AppSpacing.hSm,
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(
+                    value: 'capsule',
+                    label: FitText('胶囊'),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'classic',
+                    label: FitText('经典'),
+                  ),
+                ],
+                selected: <String>{_chatInputStyle},
+                onSelectionChanged: (Set<String> val) =>
+                    _selectChatInputStyle(val.first),
+              ),
+              AppSpacing.hLg,
               FitText(
                 '背景遮罩强度',
                 style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
@@ -330,7 +415,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             ],
           ),
 
-          // ===== 3. 气泡快捷按钮 =====
+          // ===== 4. 气泡快捷按钮 =====
           SettingSection(
             title: '气泡快捷按钮',
             icon: Icons.touch_app_outlined,
@@ -373,7 +458,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             ],
           ),
 
-          // ===== 4. 启动与导航 =====
+          // ===== 5. 启动与导航 =====
           SettingSection(
             title: '启动与导航',
             icon: Icons.rocket_launch_outlined,
@@ -395,6 +480,15 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 onChanged: (bool v) {
                   setState(() => _showBottomNav = v);
                   widget.controller.saveShowBottomNav(v);
+                },
+              ),
+              SettingSwitch(
+                title: '社区',
+                subtitle: '关闭后底栏与侧栏不再显示社区。',
+                value: _enableCommunity,
+                onChanged: (bool v) {
+                  setState(() => _enableCommunity = v);
+                  widget.controller.saveEnableCommunity(v);
                 },
               ),
               SettingSwitch(
@@ -427,7 +521,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
             ],
           ),
 
-          // ===== 5. 应用图标 =====
+          // ===== 6. 应用图标 =====
           SettingSection(
             title: '应用图标',
             icon: Icons.apps_outlined,

@@ -226,36 +226,39 @@ class SettingsBody extends StatelessWidget {
                 // ===== 7. 社区（DNAISLAND） =====
                 // 服务器与赞助是从「岛」的设置里并过来的两件还活着的配置;
                 // 岛的外观设置改的是已被主项目主题取代的旧主题,不再入口。
-                _Group(
-                  title: '社区（DNAISLAND）',
-                  icon: Icons.explore_outlined,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.dns_outlined,
-                      title: '社区服务器',
-                      subtitle: '社区后端地址，可用官方或自建',
-                      onTap: () => _push(
-                        context,
-                        Scaffold(
-                          appBar: AppBar(title: const Text('社区服务器')),
-                          body: ServerSettingsBody(),
+                // 整个社区功能在「界面与显示 → 启动与导航」里可以关掉,
+                // 关掉后这一组设置也一并收起(开关本身不在这里,不会锁死)。
+                if (controller.settings.enableCommunity)
+                  _Group(
+                    title: '社区（DNAISLAND）',
+                    icon: Icons.explore_outlined,
+                    entries: <_Entry>[
+                      _Entry(
+                        icon: Icons.dns_outlined,
+                        title: '社区服务器',
+                        subtitle: '社区后端地址，可用官方或自建',
+                        onTap: () => _push(
+                          context,
+                          Scaffold(
+                            appBar: AppBar(title: const Text('社区服务器')),
+                            body: ServerSettingsBody(),
+                          ),
                         ),
                       ),
-                    ),
-                    _Entry(
-                      icon: Icons.volunteer_activism_outlined,
-                      title: '赞助社区',
-                      subtitle: '支持 DNAISLAND 持续运转',
-                      onTap: () => _push(
-                        context,
-                        Scaffold(
-                          appBar: AppBar(title: const Text('赞助社区')),
-                          body: SponsorBody(),
+                      _Entry(
+                        icon: Icons.volunteer_activism_outlined,
+                        title: '赞助社区',
+                        subtitle: '支持 DNAISLAND 持续运转',
+                        onTap: () => _push(
+                          context,
+                          Scaffold(
+                            appBar: AppBar(title: const Text('赞助社区')),
+                            body: SponsorBody(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
                 // ===== 8. 关于 =====
                 _Group(

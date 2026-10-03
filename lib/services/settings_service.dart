@@ -18,6 +18,9 @@ class SettingsService {
   static const String _apiKeyKey = 'api_key';
   static const String _providerKey = 'provider';
   static const String _themeModeKey = 'theme_mode';
+  static const String _fontFamilyModeKey = 'font_family_mode';
+  static const String _chatInputStyleKey = 'chat_input_style';
+  static const String _enableCommunityKey = 'enable_community';
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
@@ -122,6 +125,9 @@ class SettingsService {
     return AppSettings(
       provider: legacyProvider,
       themeMode: prefs.getString(_themeModeKey) ?? 'system',
+      fontFamilyMode: prefs.getString(_fontFamilyModeKey) ?? 'system',
+      chatInputStyle: prefs.getString(_chatInputStyleKey) ?? 'capsule',
+      enableCommunity: prefs.getBool(_enableCommunityKey) ?? true,
       baseUrl: legacyBaseUrl,
       apiKey: legacyApiKey,
       selectedModel: legacyModel,
@@ -234,6 +240,9 @@ class SettingsService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_providerKey, settings.provider);
     await prefs.setString(_themeModeKey, settings.themeMode);
+    await prefs.setString(_fontFamilyModeKey, settings.fontFamilyMode);
+    await prefs.setString(_chatInputStyleKey, settings.chatInputStyle);
+    await prefs.setBool(_enableCommunityKey, settings.enableCommunity);
     await prefs.setString(_baseUrlKey, settings.baseUrl);
     await prefs.setString(_apiKeyKey, settings.apiKey);
     await prefs.setString(_modelKey, settings.selectedModel);

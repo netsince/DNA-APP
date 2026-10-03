@@ -9,13 +9,16 @@ import 'package:dna/widgets/section_assembly.dart';
 /// 主导航的栏目:抽屉与底部导航栏共用这一份定义。
 ///
 /// 枚举顺序即**抽屉自上而下**的顺序,也是纵向滑动的"胶片"顺序:
-/// 从首页滑到世界,会依次经过群聊、我家、身份。
+/// 从首页滑到设置,会依次经过群聊、我家、世界、身份、社区。
+///
+/// 「身份」排在「世界」**下面**:四个常驻底栏栏目(主页/群聊/我家/世界)聚在
+/// 上半区,身份/社区/设置这类"另一类入口"放在下半区,侧边栏读起来是两段。
 enum AppSection {
   home,
   groupChats,
   myHome,
-  identity,
   world,
+  identity,
   community,
   settings,
 }
@@ -52,8 +55,19 @@ Duration sectionTravelDuration(int distance) {
 }
 
 /// 对应轴的滑动顺序表。
-List<AppSection> sectionOrder(Axis axis) =>
-    axis == Axis.vertical ? AppSection.values : kHorizontalSectionOrder;
+///
+/// 关掉「社区」时把它从两张表里都摘掉：抽屉纵向滑动不再**途经**社区
+/// （途经页是真的会挂载并渲染的），横向滑动也不会滑到那一栏。
+List<AppSection> sectionOrder(Axis axis, {bool enableCommunity = true}) {
+  final List<AppSection> order =
+      axis == Axis.vertical ? AppSection.values : kHorizontalSectionOrder;
+  if (enableCommunity) {
+    return order;
+  }
+  return order
+      .where((AppSection s) => s != AppSection.community)
+      .toList(growable: false);
+}
 
 /// 一个栏目的"壳内零件":标题栏、内容区、悬浮按钮。
 ///
@@ -256,6 +270,19 @@ class AppSectionShellState extends State<AppSectionShell>
     if (oldWidget.controller != widget.controller) {
       _sections = sectionAssembly(widget.controller);
     }
+    // 用户在设置里关掉了社区，而人正站在社区里：立刻退回主页。
+    //
+    // 这里直接改字段而不是 navigateTo —— 关掉之后社区已不在任何顺序表里，
+    // navigateTo 查不到起点索引会直接返回。didUpdateWidget 紧跟着就是
+    // build，赋值即生效。
+    if (!widget.controller.settings.enableCommunity &&
+        _current == AppSection.community) {
+      _flight = null;
+      _drive
+        ..stop()
+        ..value = 1.0;
+      _current = AppSection.home;
+    }
   }
 
   /// 切换到目标栏目。抽屉纵向滑(按抽屉顺序,途经栏目逐个掠过),
@@ -271,7 +298,10 @@ class AppSectionShellState extends State<AppSectionShell>
     if (target == _flight?.to) {
       return; // 已在飞往该栏目
     }
-    final List<AppSection> order = sectionOrder(axis);
+    final List<AppSection> order = sectionOrder(
+      axis,
+      enableCommunity: widget.controller.settings.enableCommunity,
+    );
     final int from = order.indexOf(_current);
     final int to = order.indexOf(target);
     if (from < 0 || to < 0) {
@@ -434,10 +464,16 @@ class AppSectionShellState extends State<AppSectionShell>
         persistent: false,
       ),
       body: content,
-      // 「社区」栏目里岛自带底栏,主项目底栏让位(见 SectionPageData.hideBottomNav)。
+      // 底栏出现的三个条件(缺一不可):
+      // 1. 用户开了「底部导航栏」;
+      // 2. 该栏目没有主动让位(「社区」里岛自带底栏,见 hideBottomNav);
+      // 3. **当前栏目本来就在底栏里** —— 身份/设置是抽屉专属栏目,底栏没有
+      //    它们的位置,而 NavigationBar 不接受「无选中项」(-1 会断言崩溃),
+      //    所以这两栏干脆不显示底栏(见 AppBottomNav.showsFor)。
       bottomNavigationBar:
           widget.controller.settings.showBottomNav &&
-              !_data(_current)!.hideBottomNav
+              !_data(_current)!.hideBottomNav &&
+              AppBottomNav.showsFor(widget.controller, _current)
           ? AppBottomNav(controller: widget.controller, current: _current)
           : null,
       floatingActionButton: _buildFab(context, inset),

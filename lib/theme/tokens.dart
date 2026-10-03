@@ -111,11 +111,32 @@ abstract final class AppSpacing {
 
 /// 字体族令牌。
 ///
-/// 内置**思源黑体**(Source Han Sans / Noto Sans SC),随安装包分发,
-/// 不依赖系统字体。授权 SIL OFL 1.1,全文见 `LICENSE-OFL.txt`。
+/// 内置**思源黑体**(Source Han Sans / Noto Sans SC),随安装包分发。
+/// 授权 SIL OFL 1.1,全文见 `LICENSE-OFL.txt`。
+///
+/// 内置字体是**可选项**而非唯一选择:手机主题自带字体的用户会希望
+/// 应用跟着系统走(设置里的「系统字体」)。默认跟随系统,理由是
+/// 系统字体是用户自己挑的,不该被应用覆盖。
 abstract final class AppFont {
   /// 字体族名(与 `pubspec.yaml` 的 `fonts:` 声明一致)。
   static const String family = 'SourceHanSans';
+
+  /// 字体模式:跟随系统字体(默认)。
+  static const String modeSystem = 'system';
+
+  /// 字体模式:内置思源黑体。
+  static const String modeSourceHan = 'sourcehan';
+
+  /// 可选字体模式(设置页单选)。
+  static const List<String> modes = <String>[modeSystem, modeSourceHan];
+
+  /// 把字体模式翻译成 `ThemeData.fontFamily`。
+  ///
+  /// 返回 `null` = 不指定字体族,由 Flutter 走平台默认字体 —— 也就是
+  /// 手机上「设置 → 显示 → 字体」里那套(主题引擎改写的系统字体),
+  /// 正是要跟随的目标。返回 [family] 则使用内置思源黑体。
+  static String? familyFor(String mode) =>
+      mode == modeSourceHan ? family : null;
 }
 
 /// 字重令牌。

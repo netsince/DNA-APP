@@ -9,6 +9,9 @@ class AppSettings {
   const AppSettings({
     required this.provider,
     required this.themeMode,
+    this.fontFamilyMode = 'system',
+    this.chatInputStyle = 'capsule',
+    this.enableCommunity = true,
     required this.baseUrl,
     required this.apiKey,
     required this.selectedModel,
@@ -162,6 +165,26 @@ class AppSettings {
 
   final String provider;
   final String themeMode;
+
+  /// 字体模式：`'system'`（跟随系统字体，默认）或 `'sourcehan'`（内置思源黑体）。
+  ///
+  /// 手机主题引擎会改写系统字体，内置字体曾经把它整块盖掉 —— 用户自己挑的
+  /// 字体失效。所以默认跟随系统，想要「中英混排不跳字体」的用户可以切到
+  /// 思源黑体（见 [AppFont]，实际映射在 `AppFont.familyFor`）。
+  final String fontFamilyMode;
+
+  /// 聊天底部输入栏样式：`'capsule'`（胶囊输入岛，默认）或 `'classic'`（0.2.0 旧样式）。
+  ///
+  /// 胶囊把输入框与按钮包在同一个圆角容器里；旧样式是 0.2.0 那套
+  /// 「下划线输入框 + 框外独立图标按钮」。两种都保留，用户自己挑。
+  final String chatInputStyle;
+
+  /// 是否启用「社区」（内嵌的 DNAISLAND）。
+  ///
+  /// 关闭后底部导航栏、侧边栏与横向滑动顺序里都不再出现社区，且**不做**
+  /// 社区的启动预热（不读站点配置、不拉推荐），一切当作没有这个功能。
+  final bool enableCommunity;
+
   final String baseUrl;
   final String apiKey;
   final String selectedModel;
@@ -375,6 +398,9 @@ class AppSettings {
     return <String, dynamic>{
       'provider': provider,
       'themeMode': themeMode,
+      'fontFamilyMode': fontFamilyMode,
+      'chatInputStyle': chatInputStyle,
+      'enableCommunity': enableCommunity,
       'baseUrl': baseUrl,
       'apiKey': apiKey,
       'selectedModel': selectedModel,
@@ -460,6 +486,9 @@ class AppSettings {
     return AppSettings(
       provider: (json['provider'] as String?) ?? 'openai',
       themeMode: (json['themeMode'] as String?) ?? 'system',
+      fontFamilyMode: (json['fontFamilyMode'] as String?) ?? 'system',
+      chatInputStyle: (json['chatInputStyle'] as String?) ?? 'capsule',
+      enableCommunity: (json['enableCommunity'] as bool?) ?? true,
       baseUrl: (json['baseUrl'] as String?) ?? '',
       apiKey: (json['apiKey'] as String?) ?? '',
       selectedModel: (json['selectedModel'] as String?) ?? '',
@@ -570,6 +599,9 @@ class AppSettings {
   AppSettings copyWith({
     String? provider,
     String? themeMode,
+    String? fontFamilyMode,
+    String? chatInputStyle,
+    bool? enableCommunity,
     String? baseUrl,
     String? apiKey,
     String? selectedModel,
@@ -645,6 +677,9 @@ class AppSettings {
     return AppSettings(
       provider: provider ?? this.provider,
       themeMode: themeMode ?? this.themeMode,
+      fontFamilyMode: fontFamilyMode ?? this.fontFamilyMode,
+      chatInputStyle: chatInputStyle ?? this.chatInputStyle,
+      enableCommunity: enableCommunity ?? this.enableCommunity,
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,
