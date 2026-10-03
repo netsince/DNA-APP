@@ -397,6 +397,31 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存字体模式（'system' 跟随系统 / 'sourcehan' 内置思源黑体）。
+  ///
+  /// 主题由 [DnaApp] 按 `settings.fontFamilyMode` 重建，`notifyListeners`
+  /// 之后整棵树立刻换字体，无需重启。
+  Future<void> saveFontFamilyMode(String mode) async {
+    _settings = _settings.copyWith(fontFamilyMode: mode.trim());
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存聊天输入栏样式（'capsule' 胶囊 / 'classic' 旧样式）。
+  Future<void> saveChatInputStyle(String style) async {
+    _settings = _settings.copyWith(chatInputStyle: style.trim());
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 开关「社区」功能。关闭后底栏/侧边栏/横向滑动顺序都不再出现社区，
+  /// 也不再做启动预热（见 `CommunityPreload`）。
+  Future<void> saveEnableCommunity(bool value) async {
+    _settings = _settings.copyWith(enableCommunity: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveSelectedModel(String model) async {
     _settings = _settings.copyWith(selectedModel: model.trim());
     // 同步到默认模型
@@ -493,17 +518,17 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
-  Future<void> saveChatQuickSidebar(bool value) async {
-    _settings = _settings.copyWith(chatQuickSidebar: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+  /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
+  Future<void> saveChatQuickSidebar(bool value) async {
+    _settings = _settings.copyWith(chatQuickSidebar: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
   }
-  /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
-  Future<void> saveChatQuickSidebarCollapsed(bool value) async {
-    _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+  /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
+  Future<void> saveChatQuickSidebarCollapsed(bool value) async {
+    _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
   }
   /// 保存「聊天页左右滑动切换角色」开关。
   Future<void> saveChatSwipeSwitch(bool value) async {

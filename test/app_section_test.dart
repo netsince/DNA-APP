@@ -418,4 +418,45 @@ void main() {
     final Rect body = tester.getRect(find.byType(ConversationListBody));
     expect(body.width, closeTo(600, 1.0));
   });
+
+  testWidgets('底栏开启时进「身份/设置」不崩:这两栏不渲染底栏(回归:selectedIndex 越界)',
+      (WidgetTester tester) async {
+    // 回归:底栏只承载 主页/群聊/我家/世界(/社区),身份与设置不在其中。
+    // 而 NavigationBar 的 selectedIndex 必须落在 [0, destinations.length),
+    // **不接受 -1 表示「无选中项」** —— 早先这里直接把 indexOf 的结果
+    // (-1)传进去,一进设置页就断言崩溃、掀掉整棵树。
+    final AppController c = await boot();
+    await c.saveShowBottomNav(true);
+
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    AppSectionShellState shell() =>
+        tester.state<AppSectionShellState>(find.byType(AppSectionShell));
+
+    // 身份:底栏里没有它 ⇒ 不渲染底栏(而不是给个越界下标)。
+    shell().navigateTo(AppSection.identity);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    // 设置:同理。
+    shell().navigateTo(AppSection.settings);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    // 回到世界:底栏回来,且选中项落在「世界」。
+    shell().navigateTo(AppSection.world);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final NavigationBar back = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    expect(back.selectedIndex, 3);
+  });
 }

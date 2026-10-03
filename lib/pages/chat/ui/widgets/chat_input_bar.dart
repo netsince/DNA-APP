@@ -258,7 +258,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// 文本输入框：通过 Shortcuts/Actions 处理回车与换行的键盘策略。
-  Widget _buildTextField() {
+  ///
+  /// [capsule] 为真：去掉描边与自定内边距，外观交给外层胶囊容器（输入岛）；
+  /// 为假：什么都不指定，走当时的「默认输入框」样式（下划线、无填充），
+  /// 即 0.2.0 的旧样式（由 [_buildClassicBar] 摘掉全局输入框样式后生效）。
+  Widget _buildTextField({required bool capsule}) {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // 回车 / 小键盘回车（区分是否带 Shift）
@@ -288,12 +292,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
           minLines: 1,
           maxLines: 4,
           onChanged: _onChanged,
-          decoration: const InputDecoration(
-            hintText: '输入消息...',
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          ),
+          decoration: capsule
+              ? const InputDecoration(
+                  hintText: '输入消息...',
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                )
+              : const InputDecoration(hintText: '输入消息...'),
           onTap: widget.onTap,
           textInputAction:
               _enterToSend ? TextInputAction.send : TextInputAction.newline,
@@ -845,84 +854,172 @@ class _ChatInputBarState extends State<ChatInputBar> {
       return _buildVoicePanel();
     }
     final ColorScheme cs = Theme.of(context).colorScheme;
+    // 输入栏样式：'capsule'（默认，胶囊输入岛）/ 'classic'（0.2.0 旧样式）。
+    // 两种都在「设置 → 界面与显示 → 聊天输入栏」里可选，功能完全一致。
+    final bool capsule =
+        widget.controller.settings.chatInputStyle != 'classic';
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        padding: capsule
+            ? const EdgeInsets.fromLTRB(12, 4, 12, 10)
+            : const EdgeInsets.fromLTRB(12, 6, 12, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             _buildQuickReplies(),
-            const SizedBox(height: 4),
-            // 悬浮动态输入岛
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh.withValues(
-                  alpha: widget.halfScreen ? 0.72 : 0.95,
-                ),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(
-                    alpha: widget.halfScreen ? 0.35 : 0.5,
-                  ),
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: widget.halfScreen ? 0.03 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  Expanded(
-                    child: _buildTextField(),
-                  ),
-                  // 添加括号按钮
-                  if (widget.controller.settings.showParenButton) ...<Widget>[
-                    _buildParenButton(cs),
-                    const SizedBox(width: 2),
-                  ],
-                  // 生成中:整区恒定显示「停止生成」(不依赖 _hasInput——
-                  // 发送即清空输入,若按文字条件渲染会让停止按钮直接消失)。
-                  if (widget.sending) ...<Widget>[
-                    _buildSendOrStopButton(cs),
-                    const SizedBox(width: 2),
-                  ] else if (!_hasInput) ...<Widget>[
-                    // 语音输入按钮
-                    if (widget.controller.settings.voiceInputEnabled) ...<Widget>[
-                      _buildMic(),
-                      const SizedBox(width: 2),
-                    ],
-                    // 灵感按钮
-                    IconButton(
-                      tooltip: '灵感',
-                      color: cs.onSurfaceVariant,
-                      onPressed: widget.inspirationInProgress
-                          ? null
-                          : () => widget.onStartInspiration(),
-                      icon: widget.inspirationInProgress
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.auto_awesome_outlined),
-                    ),
-                  ] else ...<Widget>[
-                    // 发送按钮(动态高亮悬浮胶囊状态)
-                    _buildSendOrStopButton(cs),
-                    const SizedBox(width: 2),
-                  ],
-                ],
-              ),
-            ),
+            SizedBox(height: capsule ? 4 : 6),
+            if (capsule) _buildCapsuleBar(cs) else _buildClassicBar(cs),
           ],
         ),
       ),
+    );
+  }
+
+  /// 胶囊样式（默认）：输入框与所有按钮装在同一个圆角容器里（悬浮输入岛）。
+  Widget _buildCapsuleBar(ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh.withValues(
+          alpha: widget.halfScreen ? 0.72 : 0.95,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(
+            alpha: widget.halfScreen ? 0.35 : 0.5,
+          ),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: widget.halfScreen ? 0.03 : 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Expanded(child: _buildTextField(capsule: true)),
+          _buildTrailingActions(cs, capsule: true),
+        ],
+      ),
+    );
+  }
+
+  /// 旧样式（0.2.0）：**下划线输入框 + 框外各自独立的图标按钮**。
+  ///
+  /// 0.2.0 的输入框用的就是 Flutter 的默认输入框（下划线、无填充），因为
+  /// 那时主项目还没有全局的 `inputDecorationTheme`。后来全局配上了「描边
+  /// 圆角 + 填充」的输入框样式，所以这里要把全局样式**临时摘掉**，否则
+  /// 这一栏会长成一个描边方框 —— 那就不是 0.2.0 的样子了。
+  ///
+  /// 与胶囊样式的区别只有「外观」：回车/换行策略、语音、灵感、发送与停止
+  /// 的行为完全一致（旧版本没有「停止生成」，这里保留）。
+  Widget _buildClassicBar(ColorScheme cs) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Expanded(
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              inputDecorationTheme: const InputDecorationThemeData(
+                filled: false,
+              ),
+            ),
+            child: _buildTextField(capsule: false),
+          ),
+        ),
+        _buildTrailingActions(cs, capsule: false),
+      ],
+    );
+  }
+
+  /// 输入框右侧的动作区：括号 / 语音 / 灵感 / 发送（或停止）。
+  ///
+  /// [capsule] 只影响间距与发送键的形态：胶囊里发送键是实心圆钮，
+  /// 旧样式里是与其它按钮同款的普通图标按钮（含发送图标）。
+  Widget _buildTrailingActions(ColorScheme cs, {required bool capsule}) {
+    final Widget gap = SizedBox(width: capsule ? 2 : 8);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        // 添加括号按钮
+        if (widget.controller.settings.showParenButton) ...<Widget>[
+          _buildParenButton(cs),
+          gap,
+        ],
+        // 生成中:整区恒定显示「停止生成」(不依赖 _hasInput——
+        // 发送即清空输入,若按文字条件渲染会让停止按钮直接消失)。
+        if (widget.sending) ...<Widget>[
+          if (capsule)
+            _buildSendOrStopButton(cs)
+          else
+            _buildClassicSendOrStopButton(cs),
+          gap,
+        ] else if (!_hasInput) ...<Widget>[
+          // 语音输入按钮
+          if (widget.controller.settings.voiceInputEnabled) ...<Widget>[
+            _buildMic(),
+            gap,
+          ],
+          // 灵感按钮
+          IconButton(
+            tooltip: '灵感',
+            color: cs.onSurfaceVariant,
+            onPressed: widget.inspirationInProgress
+                ? null
+                : () => widget.onStartInspiration(),
+            icon: widget.inspirationInProgress
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome_outlined),
+          ),
+        ] else ...<Widget>[
+          // 发送按钮(动态高亮悬浮胶囊状态)
+          if (capsule)
+            _buildSendOrStopButton(cs)
+          else
+            _buildClassicSendOrStopButton(cs),
+          gap,
+        ],
+      ],
+    );
+  }
+
+  /// 旧样式的发送/停止键：与其它按钮同款的普通图标按钮。
+  ///
+  /// 生成中且可以停止时显示停止方块；生成中但上层没给停止回调时，
+  /// 退回旧版本的「转圈且不可点」。
+  Widget _buildClassicSendOrStopButton(ColorScheme cs) {
+    final bool canStop = widget.sending && widget.onStopGeneration != null;
+    if (widget.sending && !canStop) {
+      return const IconButton(
+        tooltip: '发送中...',
+        onPressed: null,
+        icon: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return IconButton(
+      tooltip: canStop ? '停止生成' : '发送',
+      color: cs.onSurfaceVariant,
+      onPressed: canStop
+          ? () {
+              _lastStopAt = DateTime.now();
+              widget.onStopGeneration!();
+            }
+          : _sendSafe,
+      icon: Icon(canStop ? Icons.stop_rounded : Icons.send),
     );
   }
 

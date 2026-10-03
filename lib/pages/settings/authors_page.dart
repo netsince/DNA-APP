@@ -43,11 +43,6 @@ const List<_Author> _kAuthors = <_Author>[
     role: '软件 LOGO 设计',
   ),
   _Author(
-    name: '终LFFX',
-    role: '前期社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/终',
-  ),
-  _Author(
     name: '辞安',
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/辞安',
@@ -67,6 +62,16 @@ const List<_Author> _kAuthors = <_Author>[
     name: '晨霧',
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/Chengwu',
+  ),
+  _Author(
+    name: '小意',
+    role: '社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/小黎',
+  ),
+  _Author(
+    name: '终LFFX',
+    role: '前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/终',
   ),
   _Author(
     name: '人r',

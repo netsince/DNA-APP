@@ -107,12 +107,8 @@ class AppDrawer extends StatelessWidget {
             selected: current == AppSection.myHome,
             onTap: () => _navigate(context, AppSection.myHome),
           ),
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: const FitText('身份'),
-            selected: current == AppSection.identity,
-            onTap: () => _navigate(context, AppSection.identity),
-          ),
+          // 顺序 = AppSection 枚举顺序（也是纵向滑动的胶片顺序）：
+          // 身份排在「世界」下面。
           ListTile(
             leading: const Icon(Icons.public_outlined),
             title: const FitText('世界'),
@@ -120,11 +116,20 @@ class AppDrawer extends StatelessWidget {
             onTap: () => _navigate(context, AppSection.world),
           ),
           ListTile(
-            leading: const Icon(Icons.explore_outlined),
-            title: const FitText('社区'),
-            selected: current == AppSection.community,
-            onTap: () => _navigate(context, AppSection.community),
+            leading: const Icon(Icons.person_outline),
+            title: const FitText('身份'),
+            selected: current == AppSection.identity,
+            onTap: () => _navigate(context, AppSection.identity),
           ),
+          // 「社区」可在设置里整体关掉：关掉后侧边栏（含横屏常驻侧栏）里
+          // 不再出现这一行，也不做任何预热。
+          if (controller.settings.enableCommunity)
+            ListTile(
+              leading: const Icon(Icons.explore_outlined),
+              title: const FitText('社区'),
+              selected: current == AppSection.community,
+              onTap: () => _navigate(context, AppSection.community),
+            ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const FitText('设置'),
