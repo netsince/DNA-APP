@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,7 +8,9 @@ import 'drag_scroll_behavior.dart';
 /// 基于生态名库 [extended_image] 构建的高品质全屏图片查看器。
 ///
 /// 特性：
-/// - 采用 [ExtendedImageSlidePage] 实现与微信/小红书完全一致的手势滑动拖拽退出
+/// - 下滑拖拽退出（自带的 [_VerticalDismiss]：**只认纵向占优的拖拽**，
+///   横向滑动完整留给画廊翻页 —— 不再用包里的 `ExtendedImageSlidePage`，
+///   原因见文件末尾那段说明）
 /// - 采用 [ExtendedImageGesturePageView] 解决多图切换与单图放大的手势冲突
 /// - 支持 Hero 动画双向过度
 /// - 支持双击手势点按放大/复原
@@ -53,25 +56,15 @@ class ImageViewerPage extends StatefulWidget {
         pageBuilder: (_, animation, secondaryAnimation) {
           // 套一层 DragScrollBehavior：画廊本身是个 PageView，电脑版上不放开
           // 鼠标拖拽的话鼠标根本翻不动图（与「刷一刷」同一个坑）。
+          //
+          // 退出层不在这里：由 ImageViewerPage 自己包（见 _VerticalDismiss），
+          // 因为"这次拖拽该不该退出"要看画廊当前的缩放比例，而那个状态在页面内部。
           return ScrollConfiguration(
             behavior: const DragScrollBehavior(),
-            child: ExtendedImageSlidePage(
-              slidePageBackgroundHandler: (offset, pageSize) {
-                final double opacity =
-                    1.0 - (offset.dy.abs() / pageSize.height).clamp(0.0, 1.0);
-                return Colors.black.withValues(alpha: opacity);
-              },
-              slideType: SlideType.wholePage,
-              // **只允许上下拖拽退出**。以前是 SlideAxis.both，拖拽退出会把
-              // 水平方向也接管过去：左右滑动切图时整页跟着手指走、退出动画
-              // 被触发，多图预览因此总是"被打断"（用户反馈）。竖着滑才是退出，
-              // 与底部提示"下滑拖拽退出"一致。
-              slideAxis: SlideAxis.vertical,
-              child: ImageViewerPage(
-                urls: urls,
-                initialIndex: initialIndex,
-                heroTag: heroTag,
-              ),
+            child: ImageViewerPage(
+              urls: urls,
+              initialIndex: initialIndex,
+              heroTag: heroTag,
             ),
           );
         },
@@ -122,7 +115,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GestureDetector(
+      // 退出层：**只接受「纵向占优」的拖拽**，横向滑动一律让给画廊翻页。
+      // 详见文件末尾 _VerticalDismiss 的说明。
+      body: _VerticalDismiss(
         onTap: _toggleControls,
         child: Stack(
           children: <Widget>[
@@ -142,7 +137,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   url,
                   fit: BoxFit.contain,
                   mode: ExtendedImageMode.gesture,
-                  enableSlideOutPage: true,
+                  // 关掉包自带的「拖拽出页」：它由图片自身的 ScaleGestureRecognizer
+                  // 驱动（任意方向、36px 就接管），会和画廊的横向翻页识别器抢手势 ——
+                  // 斜着滑时退出逻辑赢，画面被上下拽着走、图也切不了（用户反馈）。
+                  // 退出改由外层 _VerticalDismiss 负责。
+                  enableSlideOutPage: false,
                   initGestureConfigHandler: (state) {
                     return GestureConfig(
                       minScale: 0.9,
@@ -327,6 +326,228 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 图片查看器的「拖拽退出」层：**只接受「纵向占优」的拖拽**。
+///
+/// ## 为什么不用 extended_image 自带的 `ExtendedImageSlidePage`
+///
+/// 包里的退出手势是「图片自身的 `ScaleGestureRecognizer`」驱动的：它**任意方向**
+/// 都能接管（focalPoint 位移超过 36px 即接受），而画廊翻页用的是横向识别器
+/// （横向 18px 即接受）。同一根手指上两者抢手势，斜着滑时退出逻辑经常先赢：
+/// 画面被上下拽着走、翻页也被吞掉 —— 就是用户反馈的「左右滑动时被上下滑动的
+/// 退出动作影响」。`slideAxis: SlideAxis.vertical` 只能约束"位移只累计 dy"，
+/// **抢手势它管不了**（上一轮没修干净的原因）。
+///
+/// ## 现在怎么做
+///
+/// * 用 [_VerticalDismissRecognizer]：纵向位移**明显占优**（≥ 横向 1.2 倍）才接受，
+///   否则拒绝自己 —— 横向滑动因此完整留给画廊的翻页识别器；
+/// * 图片被放大（scale > 1）时也拒绝自己：那时纵向拖拽应该归图片平移；
+/// * 松手按包内同款阈值决定去留：|dy| > 屏幕高/6 或甩速 > 700 则退出，否则回弹；
+/// * 背景透明度随位移线性淡出（与原来一致）。
+class _VerticalDismiss extends StatefulWidget {
+  const _VerticalDismiss({required this.child, required this.onTap});
+
+  final Widget child;
+
+  /// 单击（切换工具栏显隐）。
+  final VoidCallback onTap;
+
+  @override
+  State<_VerticalDismiss> createState() => _VerticalDismissState();
+}
+
+class _VerticalDismissState extends State<_VerticalDismiss>
+    with SingleTickerProviderStateMixin {
+  /// 甩出速度阈值（px/s）：位移不够但甩得够快也退出。
+  static const double _flingVelocity = 700;
+
+  /// 位移阈值：屏幕高的 1/6（与包内 `defaultSlideEndHandler` 同款）。
+  static const double _distanceRatio = 6;
+
+  double _dy = 0;
+  Offset? _start;
+
+  /// 本次手势是否被判为「横向占优」：是则退出层全程不参与。
+  bool _horizontal = false;
+  bool _popping = false;
+  double _settleFrom = 0;
+
+  late final AnimationController _settle = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  )..addListener(() => setState(() => _dy = _settleFrom * (1 - _settle.value)));
+
+  @override
+  void dispose() {
+    _settle.dispose();
+    super.dispose();
+  }
+
+  /// 当前图片是否处于放大状态（放大时纵向拖拽应归图片平移，不退出）。
+  ///
+  /// 为什么要走元素树找画廊 State：包里的 `ExtendedImageGesturePageView` 会把
+  /// `key` 原样再传给内层 `GesturePageView`（其 build 里就是 `key: widget.key`），
+  /// 同一个 GlobalKey 落在两个 widget 上会直接断言崩溃
+  /// （"Multiple widgets used the same GlobalKey"，实测过），所以没法用 GlobalKey
+  /// 拿 State。这里每次手势判定只查一次，开销可忽略。
+  bool _isZoomed() {
+    final ExtendedImageGesturePageViewState? state = _findGalleryState(context);
+    final double scale =
+        state?.extendedImageGestureState?.gestureDetails?.totalScale ?? 1.0;
+    return scale > 1.01;
+  }
+
+  static ExtendedImageGesturePageViewState? _findGalleryState(
+    BuildContext context,
+  ) {
+    ExtendedImageGesturePageViewState? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is StatefulElement &&
+          element.state is ExtendedImageGesturePageViewState) {
+        found = element.state as ExtendedImageGesturePageViewState;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    if (context is Element) {
+      context.visitChildren(visit);
+    }
+    return found;
+  }
+
+  void _onStart(DragStartDetails details) {
+    _settle.stop();
+    _start = details.globalPosition;
+    _horizontal = false;
+  }
+
+  void _onUpdate(DragUpdateDetails details) {
+    final Offset start = _start ?? details.globalPosition;
+    final Offset delta = details.globalPosition - start;
+    // 方向占优：横向位移不亚于纵向 ⇒ 这是「切图」手势，退出层一律不参与。
+    final bool horizontal = delta.dx.abs() >= delta.dy.abs();
+    setState(() {
+      _horizontal = horizontal;
+      _dy = horizontal ? 0 : delta.dy;
+    });
+  }
+
+  void _onEnd(DragEndDetails details) {
+    final double height = MediaQuery.sizeOf(context).height;
+    final double vy = details.velocity.pixelsPerSecond.dy;
+    final bool shouldPop = !_horizontal &&
+        (_dy.abs() > height / _distanceRatio || vy.abs() > _flingVelocity);
+    if (shouldPop) {
+      setState(() => _popping = true);
+      Navigator.of(context).maybePop();
+      return;
+    }
+    _settleFrom = _dy;
+    _settle.forward(from: 0);
+  }
+
+  void _onCancel() {
+    _settleFrom = _dy;
+    _settle.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double height = MediaQuery.sizeOf(context).height;
+    final double progress =
+        height <= 0 ? 0.0 : (_dy.abs() / height).clamp(0.0, 1.0);
+    return RawGestureDetector(
+      behavior: HitTestBehavior.translucent,
+      gestures: <Type, GestureRecognizerFactory>{
+        _VerticalDismissRecognizer:
+            GestureRecognizerFactoryWithHandlers<_VerticalDismissRecognizer>(
+          () => _VerticalDismissRecognizer(
+            canStart: () => !_isZoomed(),
+            debugOwner: this,
+          ),
+          (_VerticalDismissRecognizer instance) {
+            instance
+              ..onStart = _onStart
+              ..onUpdate = _onUpdate
+              ..onEnd = _onEnd
+              ..onCancel = _onCancel;
+          },
+        ),
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Stack(
+          children: <Widget>[
+            // 背景随位移淡出
+            Positioned.fill(
+              child: ColoredBox(
+                color: _popping
+                    ? Colors.transparent
+                    : Colors.black.withValues(alpha: 1 - progress),
+              ),
+            ),
+            Transform.translate(offset: Offset(0, _dy), child: widget.child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 只接受「纵向占优」拖拽的垂直拖拽识别器。
+///
+/// Flutter 自带的 `VerticalDragGestureRecognizer` 只看**纵向位移**是否超过 slop：
+/// 斜着滑（横向 100px、纵向 30px）它照样接受，于是把横向翻页的手势抢走。
+/// 这里覆盖 `hasSufficientGlobalDistanceToAccept`（基类的公开方法），额外要求
+/// 纵向位移 ≥ 横向位移的 1.2 倍；不满足就**拒绝自己**，手势完整留给画廊。
+class _VerticalDismissRecognizer extends VerticalDragGestureRecognizer {
+  _VerticalDismissRecognizer({this.canStart, super.debugOwner});
+
+  /// 额外前置条件（例如「图片没被放大」）：为假时一律不接受。
+  final bool Function()? canStart;
+
+  /// 纵向相对横向的占优倍数。
+  static const double _dominance = 1.2;
+
+  double _dx = 0;
+  double _dy = 0;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _dx = 0;
+    _dy = 0;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) {
+      _dx += event.delta.dx;
+      _dy += event.delta.dy;
+    }
+    super.handleEvent(event);
+  }
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) {
+    if (canStart != null && !canStart!()) {
+      return false;
+    }
+    if (_dx.abs() * _dominance >= _dy.abs()) {
+      return false; // 横向不亚于纵向：让给画廊翻页
+    }
+    return super.hasSufficientGlobalDistanceToAccept(
+      pointerDeviceKind,
+      deviceTouchSlop,
     );
   }
 }
