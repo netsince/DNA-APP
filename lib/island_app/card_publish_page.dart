@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/card_crop_page.dart';
 
 /// 角色卡图片槽位。
@@ -62,6 +63,12 @@ class _CardPublishPageState extends State<CardPublishPage> {
 
   bool _submitting = false;
   bool _loadingDetail = false;
+
+  /// 编辑模式下详情拉取失败：**必须拦住提交**。
+  ///
+  /// 服务端的图片是覆盖式替换：拉取失败时 `_existingImages` 是空的，提交就会把这张卡
+  /// 已有的图片全部删掉（数据丢失）。所以这里宁可不让人提交，让他重试。
+  bool _detailFailed = false;
   final ImagePicker _picker = ImagePicker();
 
   bool get _editing => widget.editCardId != null;
@@ -89,13 +96,17 @@ class _CardPublishPageState extends State<CardPublishPage> {
   }
 
   Future<void> _loadDetail() async {
-    setState(() => _loadingDetail = true);
+    setState(() {
+      _loadingDetail = true;
+      _detailFailed = false;
+    });
     try {
       final d = await ApiClient.instance.getCardDetail(widget.editCardId!);
       if (!mounted) return;
       _applyPrefill(d);
     } catch (_) {
-      // 拉取失败不阻塞表单，用户仍可手动填写后提交。
+      // 拉取失败不再"静默继续"：编辑是覆盖式提交，缺了既有图会把图删掉。
+      if (mounted) setState(() => _detailFailed = true);
     } finally {
       if (mounted) setState(() => _loadingDetail = false);
     }
@@ -231,6 +242,12 @@ class _CardPublishPageState extends State<CardPublishPage> {
   }
 
   Future<void> _submit() async {
+    if (_editing && _detailFailed) {
+      // 见 _detailFailed 的说明：宁可不提交，也不能把既有图片删掉。
+      // 放在表单校验之前：这是硬拦截，不该让用户先把表单填完才被告知。
+      _snack('未能加载原卡片内容，为避免误删图片请先重试加载');
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (!_loggedIn) {
       _snack('请先登录后再发布');
@@ -239,11 +256,15 @@ class _CardPublishPageState extends State<CardPublishPage> {
     setState(() => _submitting = true);
     try {
       final payload = await _buildPayload();
-      // 网页版对齐：网络失败自动重试一次，且服务端按内容指纹幂等去重，不会产生重复卡片。
       try {
         await _publishOrEdit(payload);
+      } on ApiException {
+        // 服务端已经给出明确原因（字段校验、图片比例、权限等）：**不要重试**，
+        // 原样把这句话带给用户。以前这里不分青红皂白重试一次，等于把同一个错误请求
+        // 又发了一遍（还会让用户等两倍时间）。
+        rethrow;
       } catch (_) {
-        // 仅网络类失败重试一次；本地校验错误不上抛。
+        // 网络类失败（超时 / 断连）重试一次；服务端按内容指纹幂等去重，不会产生重复卡片。
         await _publishOrEdit(payload);
       }
       if (!mounted) return;
@@ -312,6 +333,32 @@ class _CardPublishPageState extends State<CardPublishPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: <Widget>[
+                  if (_detailFailed) ...<Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(Icons.error_outline, size: 18),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              '原卡片内容加载失败，为避免误删图片已暂停提交。',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loadDetail,
+                            child: const Text('重试'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _label('名称 *'),
                   TextFormField(
                     controller: _name,
@@ -645,12 +692,19 @@ class _ImageSlotPicker extends StatelessWidget {
       );
     }
     if (existingPath != null && existingPath!.isNotEmpty) {
-      // 相对路径：无法直接预览，仅显示占位，可重新选择或移除。
-      return Container(
+      // 相对路径（/card-image/<id>/<slot>）：补上服务器地址后直接显示。
+      // 以前这里只画一个占位图标，用户看到的就是"既有图片加载不出来"。
+      return Image.network(
+        ServerConfig.resolveUrl(existingPath!),
         height: 160,
-        color: scheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(icon, size: 28, color: scheme.onSurfaceVariant),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (_, _, _) => Container(
+          height: 160,
+          color: scheme.surfaceContainerHighest,
+          child: Center(
+            child: Icon(icon, size: 28, color: scheme.onSurfaceVariant),
+          ),
         ),
       );
     }
