@@ -2,6 +2,8 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'drag_scroll_behavior.dart';
+
 /// 基于生态名库 [extended_image] 构建的高品质全屏图片查看器。
 ///
 /// 特性：
@@ -49,18 +51,27 @@ class ImageViewerPage extends StatefulWidget {
         opaque: false,
         barrierColor: Colors.transparent,
         pageBuilder: (_, animation, secondaryAnimation) {
-          return ExtendedImageSlidePage(
-            slidePageBackgroundHandler: (offset, pageSize) {
-              final double opacity =
-                  1.0 - (offset.dy.abs() / pageSize.height).clamp(0.0, 1.0);
-              return Colors.black.withValues(alpha: opacity);
-            },
-            slideType: SlideType.wholePage,
-            slideAxis: SlideAxis.both,
-            child: ImageViewerPage(
-              urls: urls,
-              initialIndex: initialIndex,
-              heroTag: heroTag,
+          // 套一层 DragScrollBehavior：画廊本身是个 PageView，电脑版上不放开
+          // 鼠标拖拽的话鼠标根本翻不动图（与「刷一刷」同一个坑）。
+          return ScrollConfiguration(
+            behavior: const DragScrollBehavior(),
+            child: ExtendedImageSlidePage(
+              slidePageBackgroundHandler: (offset, pageSize) {
+                final double opacity =
+                    1.0 - (offset.dy.abs() / pageSize.height).clamp(0.0, 1.0);
+                return Colors.black.withValues(alpha: opacity);
+              },
+              slideType: SlideType.wholePage,
+              // **只允许上下拖拽退出**。以前是 SlideAxis.both，拖拽退出会把
+              // 水平方向也接管过去：左右滑动切图时整页跟着手指走、退出动画
+              // 被触发，多图预览因此总是"被打断"（用户反馈）。竖着滑才是退出，
+              // 与底部提示"下滑拖拽退出"一致。
+              slideAxis: SlideAxis.vertical,
+              child: ImageViewerPage(
+                urls: urls,
+                initialIndex: initialIndex,
+                heroTag: heroTag,
+              ),
             ),
           );
         },

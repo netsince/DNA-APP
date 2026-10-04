@@ -34,6 +34,10 @@ SectionPageData communitySection(AppController controller) {
     // 岛自带顶栏（含 推荐/刷一刷/探索 子 tab 与搜索），主项目标题栏让位。
     // 注意：隐藏后该栏目没有主项目的抽屉按钮，退出靠横向滑动或系统返回。
     hideAppBar: true,
+    // 只是被"路过"时**不要**挂载岛的外壳：岛一挂载就会弹站点公告、弹各种
+    // SnackBar、还会构建一大堆岛内页面 —— 这些副作用不该发生在主应用里
+    // （详见 SectionPageData.mountWhenPassing）。只有真正进入社区才挂载。
+    mountWhenPassing: false,
     appBar: (BuildContext context) => AppBar(
       title: const FitText('社区'),
     ),
@@ -84,6 +88,16 @@ class _CommunityBodyState extends State<CommunityBody> {
 
   @override
   Widget build(BuildContext context) {
+    // 岛内所有提示（SnackBar）都走 `ScaffoldMessenger.of(context)`。主项目根部
+    // 的那个 messenger 会把它们画到**主应用**的 Scaffold 上：人已经离开社区了，
+    // 提示还挂在主应用底部（用户反馈「提示框有一定概率一直常驻不消失」）。
+    //
+    // 给社区单开一个 messenger：提示只属于社区，社区一卸载就跟着消失。
+    // 社区是全屏栏目，视觉位置与原来一致（还是屏幕底部）。
+    return ScaffoldMessenger(child: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     final CommunityPreload preload = CommunityPreload.instance;
     if (!preload.isBooted) {
       return const Center(child: CircularProgressIndicator());

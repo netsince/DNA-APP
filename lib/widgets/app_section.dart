@@ -83,6 +83,7 @@ class SectionPageData {
     this.contentMaxWidth = AppSize.listMaxWidth,
     this.hideBottomNav = false,
     this.hideAppBar = false,
+    this.mountWhenPassing = true,
   });
 
   final AppSection section;
@@ -122,6 +123,34 @@ class SectionPageData {
   /// 标题栏、内容区、悬浮按钮共用这一份宽度 ⇒ 三者对齐同一条
   /// 内容列边缘,不会出现"标题贴最左、内容在中间"的错位。
   final double contentMaxWidth;
+
+  /// 作为**纯途经页**被胶片滑过时,是否照常挂载内容。默认 true。
+  ///
+  /// 默认情况下途经页会真的被挂载并渲染 —— 这正是"中间栏目真的从视口里
+  /// 掠过"这个观感的来源,对普通栏目是对的。
+  ///
+  /// 但「社区」不行:它的内容是一整套岛的外壳([RootShell]),**一挂载就有
+  /// 副作用** —— 弹站点公告(模态遮罩会把侧边栏的点击吞掉)、各页面弹
+  /// SnackBar(被主项目的 messenger 画到主应用底部)、还顺手构建一大堆岛内
+  /// 页面。这些都不该因为"从世界滑到设置时路过社区"而发生。
+  ///
+  /// 所以社区这一栏设成 false:只有它真的是飞行的**起点或终点**时才挂载
+  /// (起点是"正滑离社区",终点是"正在进入社区"),纯途经时只放一块静态
+  /// 占位(见 [SectionPassingPlaceholder])。
+  final bool mountWhenPassing;
+}
+
+/// 纯途经页的占位:一块与页面同色的空白。
+///
+/// 只有声明了 [SectionPageData.mountWhenPassing] 为 false 的栏目会用到它
+/// (目前只有「社区」)。**刻意不放转圈**:这里并没有在加载任何东西 ——
+/// 是我们主动不挂载,放个转圈会让人以为卡住了。它只在滑动过程中一闪而过。
+class SectionPassingPlaceholder extends StatelessWidget {
+  const SectionPassingPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      ColoredBox(color: Theme.of(context).colorScheme.surface);
 }
 
 /// 进行中的一次栏目飞行:起点、终点、轴与顺序表。
@@ -344,9 +373,27 @@ class AppSectionShellState extends State<AppSectionShell>
       toIndex: f.toIndex,
       sections: f.order,
       pages: <Widget>[
-        for (final AppSection s in f.order) _data(s)!.body(context),
+        for (final AppSection s in f.order) _flyingPage(context, s, f),
       ],
     );
+  }
+
+  /// 飞行中某一栏目的内容。
+  ///
+  /// 起点与终点照常挂载(它们是真的要出现在视口里的);**纯途经页**里,
+  /// 声明了 [SectionPageData.mountWhenPassing] 为 false 的栏目(社区)只放
+  /// 一块静态占位 —— 它的挂载副作用(弹公告、弹提示、构建整套岛外壳)不该
+  /// 因为"路过"而发生。
+  Widget _flyingPage(
+    BuildContext context,
+    AppSection s,
+    AppSectionFlight f,
+  ) {
+    final SectionPageData d = _data(s)!;
+    if (d.mountWhenPassing || s == f.from || s == f.to) {
+      return d.body(context);
+    }
+    return const SectionPassingPlaceholder();
   }
 
   /// 标题栏槽位:位置固定,内容随当前栏目淡换。

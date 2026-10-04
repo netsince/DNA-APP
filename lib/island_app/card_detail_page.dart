@@ -242,12 +242,17 @@ typedef ReportReasonsLoader =
     Future<List<({String key, String label})>> Function();
 
 /// 举报提交函数（type/id/reason/可选 detail）。
-typedef ReportSubmitter = Future<void> Function(
-  String type,
-  String id,
-  String reason,
+///
+/// **必须与 [ApiClient.submitReport] 的形参形式一致（都用命名参数）**：
+/// 两者不一致时 `widget.reportSubmitter ?? ApiClient.instance.submitReport`
+/// 的类型会退化成 `Function`，编译期不报错、调用时才抛 NoSuchMethodError ——
+/// 举报就这么坏过一次（调用处传位置参数，实现却只收命名参数）。
+typedef ReportSubmitter = Future<void> Function({
+  required String type,
+  required String id,
+  required String reason,
   String? detail,
-);
+});
 
 /// 复制/导出角色卡：返回可写入剪贴板的角色卡 JSON 包字符串（需登录）。
 typedef CardExporter = Future<String> Function(String cardId);
@@ -683,7 +688,12 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
     try {
       final submit = widget.reportSubmitter ?? ApiClient.instance.submitReport;
-      await submit('card', detailId, picked.key, picked.detail);
+      await submit(
+        type: 'card',
+        id: detailId,
+        reason: picked.key,
+        detail: picked.detail,
+      );
       if (!mounted) return;
       _showSnack('举报已提交，管理员会尽快处理');
     } catch (_) {

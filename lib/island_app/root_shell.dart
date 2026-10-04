@@ -20,6 +20,7 @@ import 'package:dna/island_app/search_page.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/sponsor_body.dart';
 import 'package:dna/island_app/teahouse_body.dart';
+import 'package:dna/island_app/widgets/drag_scroll_behavior.dart';
 
 /// 顶部内容 tab：推荐 / 刷一刷 / 探索。
 enum _TopTab { recommend, swipe, explore }
@@ -170,8 +171,16 @@ class _RootShellState extends State<RootShell> {
   }
 
   /// 主体内容层（始终保持 IndexedStack 不销毁）。
+  ///
+  /// 外面套一层 [DragScrollBehavior]：电脑版上「刷一刷」、横向筛选条这类
+  /// **靠拖**的界面才能用鼠标拖动（Flutter 桌面默认把鼠标排除在 dragDevices
+  /// 之外，按住鼠标拖毫无反应 —— 用户反馈"电脑版刷一刷坏了"）。
+  /// 只作用于社区内部，不动主项目全局的滚动行为。
   Widget _body() {
-    return _buildContentStack();
+    return ScrollConfiguration(
+      behavior: const DragScrollBehavior(),
+      child: _buildContentStack(),
+    );
   }
 
   /// 主页面常驻栈：索引 = 导航目标；推荐页内部按顶栏 tab 切换。
@@ -216,6 +225,10 @@ class _RootShellState extends State<RootShell> {
       onOpenRecommend: _openRecommend,
       onOpenProxy: _openProxy,
       onOpenSponsor: _openSponsor,
+      // 未登录时侧栏那行「登录」必须接上回调：不传的话 ListTile.onTap 是
+      // null，那一行**看起来正常但完全点不动**（岛独立运行时就一直是这样）。
+      // 「登录表单」在「我」页里，所以这里直接切过去。
+      onLogin: () => _onSelectNav(AppNavTarget.me),
       // 嵌进主项目时才有:抽屉末尾的「返回主应用」。
       onExitToMainApp: widget.onExitToMainApp,
     );

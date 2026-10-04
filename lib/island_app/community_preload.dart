@@ -30,7 +30,9 @@ import 'package:dna/island_app/widgets/sticker_text.dart';
 /// * **关掉社区就不预热**：设置里关闭社区后 [schedule] 直接返回，
 ///   不读站点配置、不拉推荐，完全当作没有这个功能；
 /// * 全程**失败静默**：预热失败不该在主应用里弹任何东西，真正打开社区时
-///   各页面自己会重试并显示错误态。
+///   各页面自己会重试并显示错误态；
+/// * **失败会补跑**：上一次预热失败（网络抖动）后，下次真正进社区时会
+///   静默再试一次，不必重启应用。
 class CommunityPreload {
   CommunityPreload._();
 
@@ -43,6 +45,16 @@ class CommunityPreload {
   Future<void>? _booting;
   bool _needsSetup = false;
   String? _setupError;
+
+  /// 上一次预热有没有失败过（站点配置 / 登录态 / 推荐首屏任一步）。
+  ///
+  /// 失败**不代表**不能进社区（社区各页面自己会重试并显示错误态），但用户
+  /// 反馈「预加载有时候没成功」—— 所以真正要进社区时（[ensureBooted]）会
+  /// 静默补跑一次，把那次网络抖动补回来。
+  bool _bootFailed = false;
+
+  /// 补跑是否正在进行（避免重复补跑）。
+  bool _retrying = false;
 
   List<Map<String, dynamic>>? _featured;
   DateTime? _featuredAt;
@@ -77,20 +89,35 @@ class CommunityPreload {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_started || !enabled()) return;
       _started = true;
-      unawaited(_warmUp());
+      // 不 await：预热是后台任务，不允许阻塞首屏之后的任何一帧。
+      unawaited(ensureBooted());
     });
   }
 
-  Future<void> _warmUp() async {
-    await ensureBooted();
-    if (_needsSetup) return;
-    await prefetchFeatured();
+  /// 跑完岛的启动初始化（幂等；并发调用共享同一次）。
+  ///
+  /// 已经跑完但**上次失败过**的话，这里会顺手静默补跑一次（不阻塞调用方：
+  /// 调用方此时已经可以渲染社区了，补跑成功后再由各页面的监听刷新）。
+  Future<void> ensureBooted() {
+    if (_booted) {
+      _retryIfFailed();
+      return Future<void>.value();
+    }
+    return _booting ??= _boot();
   }
 
-  /// 跑完岛的启动初始化（幂等；并发调用共享同一次）。
-  Future<void> ensureBooted() {
-    if (_booted) return Future<void>.value();
-    return _booting ??= _boot();
+  /// 上次预热失败过就补跑一次（后台、静默、失败也不报错）。
+  void _retryIfFailed() {
+    if (!_bootFailed || _retrying) return;
+    _retrying = true;
+    unawaited(() async {
+      try {
+        await _loadSiteConfigAndSession();
+        await prefetchFeatured();
+      } finally {
+        _retrying = false;
+      }
+    }());
   }
 
   /// 搬自岛的 `MyApp._init()`：首次启动（尚无地址）时先试官方默认地址，
@@ -119,14 +146,33 @@ class CommunityPreload {
           return;
         }
       }
+      // 「推荐」首屏与站点配置/登录态**互不依赖**：并行发起，谁慢都不拖住
+      // 另一个（以前是串行 await，站点配置一慢，推荐就跟着晚到 —— 用户看到
+      // 的就是「预加载有时候没成功」）。
+      //
+      // 注意 [_booted] 只等后者：首页数据没到，岛的首页自己会显示骨架屏，
+      // 不该因为预取慢就让整个社区卡在转圈上。
+      final Future<bool> featured = prefetchFeatured();
+      await _loadSiteConfigAndSession();
+      unawaited(featured);
+    } catch (_) {
+      // 预热失败：不打扰用户，真正进社区时会补跑（见 _retryIfFailed）。
+      _bootFailed = true;
+    } finally {
+      _booted = true;
+    }
+  }
+
+  /// 站点配置 / 登录态 / 表情包目录。失败记到 [_bootFailed]，等补跑。
+  Future<void> _loadSiteConfigAndSession() async {
+    try {
       await SiteConfig.instance.load();
       await AuthSession.instance.load();
       // 后台预取表情包目录（公开接口），失败静默回退。
       StickerCatalog.instance.ensureLoaded();
+      _bootFailed = false;
     } catch (_) {
-      // 预热失败：不打扰用户，社区页会自己再试。
-    } finally {
-      _booted = true;
+      _bootFailed = true;
     }
   }
 
@@ -135,27 +181,28 @@ class CommunityPreload {
     _needsSetup = false;
     _setupError = null;
     _booted = true;
-    try {
-      await SiteConfig.instance.load();
-      await AuthSession.instance.load();
-      StickerCatalog.instance.ensureLoaded();
-    } catch (_) {
-      // 同上：填完地址后即使某一步失败也要放行，页面自己会重试。
-    }
+    await _loadSiteConfigAndSession();
     await prefetchFeatured();
   }
 
-  /// 预取「推荐」首屏卡片。失败静默：打开社区时首页会自己重试。
-  Future<void> prefetchFeatured() async {
-    if (_needsSetup) return;
-    if (ServerConfig.cachedBaseUrl.isEmpty) return;
+  /// 预取「推荐」首屏卡片。
+  ///
+  /// 返回是否成功；失败静默（打开社区时首页会自己重试）。失败会被记下来，
+  /// 下次真正进社区时补跑一次。
+  Future<bool> prefetchFeatured() async {
+    if (_needsSetup) return false;
+    if (ServerConfig.cachedBaseUrl.isEmpty) return false;
     try {
       final List<Map<String, dynamic>> cards =
           await ApiClient.instance.getFeaturedCards();
       _featured = cards;
       _featuredAt = DateTime.now();
+      _bootFailed = false;
+      return true;
     } catch (_) {
       // 预热失败不打扰用户：真正进入社区时首页会重新拉并显示错误态。
+      _bootFailed = true;
+      return false;
     }
   }
 
@@ -166,6 +213,8 @@ class CommunityPreload {
     _booting = null;
     _needsSetup = false;
     _setupError = null;
+    _bootFailed = false;
+    _retrying = false;
     _featured = null;
     _featuredAt = null;
     _started = false;

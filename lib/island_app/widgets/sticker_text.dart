@@ -47,6 +47,11 @@ class StickerCatalog {
       _loaded = true;
     } catch (_) {
       // 加载失败不抛给 UI，渲染时按纯文本回退。
+      //
+      // 但必须**允许下次重试**：把 _loading 留着的话，那个已完成的 Future 会
+      // 被 ensureLoaded() 永远命中（`_loading ??=`），这一次网络抖动就等于
+      // 「整个会话的表情包都不再加载」—— 启动预热正好是最容易抖动的时候。
+      _loading = null;
     }
   }
 
