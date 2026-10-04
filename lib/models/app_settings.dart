@@ -12,6 +12,7 @@ class AppSettings {
     this.fontFamilyMode = 'system',
     this.chatInputStyle = 'capsule',
     this.enableCommunity = true,
+    this.freeImageCrop = false,
     required this.baseUrl,
     required this.apiKey,
     required this.selectedModel,
@@ -184,6 +185,13 @@ class AppSettings {
   /// 关闭后底部导航栏、侧边栏与横向滑动顺序里都不再出现社区，且**不做**
   /// 社区的启动预热（不读站点配置、不拉推荐），一切当作没有这个功能。
   final bool enableCommunity;
+
+  /// 是否开启「自由剪图」：开启后**所有图片编辑器**的裁剪比例限制一律失效
+  /// （角色卡形象、TA 形象、社区头像），想剪成什么比例就剪什么比例。默认关闭。
+  ///
+  /// 由「高级 → 命令」输入 `freeimage` 打开设置页切换。裁剪层通过
+  /// `FreeImageCrop.bind` 读这里，不存副本（见 lib/island_app/widgets/card_crop_page.dart）。
+  final bool freeImageCrop;
 
   final String baseUrl;
   final String apiKey;
@@ -401,6 +409,7 @@ class AppSettings {
       'fontFamilyMode': fontFamilyMode,
       'chatInputStyle': chatInputStyle,
       'enableCommunity': enableCommunity,
+      'freeImageCrop': freeImageCrop,
       'baseUrl': baseUrl,
       'apiKey': apiKey,
       'selectedModel': selectedModel,
@@ -489,6 +498,7 @@ class AppSettings {
       fontFamilyMode: (json['fontFamilyMode'] as String?) ?? 'system',
       chatInputStyle: (json['chatInputStyle'] as String?) ?? 'capsule',
       enableCommunity: (json['enableCommunity'] as bool?) ?? true,
+      freeImageCrop: (json['freeImageCrop'] as bool?) ?? false,
       baseUrl: (json['baseUrl'] as String?) ?? '',
       apiKey: (json['apiKey'] as String?) ?? '',
       selectedModel: (json['selectedModel'] as String?) ?? '',
@@ -602,6 +612,7 @@ class AppSettings {
     String? fontFamilyMode,
     String? chatInputStyle,
     bool? enableCommunity,
+    bool? freeImageCrop,
     String? baseUrl,
     String? apiKey,
     String? selectedModel,
@@ -680,6 +691,7 @@ class AppSettings {
       fontFamilyMode: fontFamilyMode ?? this.fontFamilyMode,
       chatInputStyle: chatInputStyle ?? this.chatInputStyle,
       enableCommunity: enableCommunity ?? this.enableCommunity,
+      freeImageCrop: freeImageCrop ?? this.freeImageCrop,
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,

@@ -21,6 +21,7 @@ class SettingsService {
   static const String _fontFamilyModeKey = 'font_family_mode';
   static const String _chatInputStyleKey = 'chat_input_style';
   static const String _enableCommunityKey = 'enable_community';
+  static const String _freeImageCropKey = 'free_image_crop';
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
@@ -128,6 +129,7 @@ class SettingsService {
       fontFamilyMode: prefs.getString(_fontFamilyModeKey) ?? 'system',
       chatInputStyle: prefs.getString(_chatInputStyleKey) ?? 'capsule',
       enableCommunity: prefs.getBool(_enableCommunityKey) ?? true,
+      freeImageCrop: prefs.getBool(_freeImageCropKey) ?? false,
       baseUrl: legacyBaseUrl,
       apiKey: legacyApiKey,
       selectedModel: legacyModel,
@@ -243,6 +245,7 @@ class SettingsService {
     await prefs.setString(_fontFamilyModeKey, settings.fontFamilyMode);
     await prefs.setString(_chatInputStyleKey, settings.chatInputStyle);
     await prefs.setBool(_enableCommunityKey, settings.enableCommunity);
+    await prefs.setBool(_freeImageCropKey, settings.freeImageCrop);
     await prefs.setString(_baseUrlKey, settings.baseUrl);
     await prefs.setString(_apiKeyKey, settings.apiKey);
     await prefs.setString(_modelKey, settings.selectedModel);

@@ -34,6 +34,7 @@ import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
 import '../services/world_export_import_service.dart';
+import '../island_app/widgets/card_crop_page.dart' show FreeImageCrop;
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 
@@ -51,7 +52,11 @@ class AppController extends ChangeNotifier {
           AnthropicProvider(),
           ZhipuProvider(),
           DeepSeekService(),
-        ]);
+        ]) {
+    // 「自由剪图」开关：把裁剪层（含内嵌社区）的读取回调指向本控制器的当前设置。
+    // 只绑一次、不存副本，所以设置一变裁剪层立刻跟着变（见 FreeImageCrop 的说明）。
+    FreeImageCrop.bind(() => _settings.freeImageCrop);
+  }
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
@@ -418,6 +423,16 @@ class AppController extends ChangeNotifier {
   /// 也不再做启动预热（见 `CommunityPreload`）。
   Future<void> saveEnableCommunity(bool value) async {
     _settings = _settings.copyWith(enableCommunity: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存「自由剪图」开关（高级 → 命令 → `freeimage`）。
+  ///
+  /// 裁剪层通过 `FreeImageCrop.bind` 直接读本控制器的当前设置，所以这里只需落盘 +
+  /// 通知界面重建，不需要再同步第二份状态。
+  Future<void> saveFreeImageCrop(bool value) async {
+    _settings = _settings.copyWith(freeImageCrop: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }

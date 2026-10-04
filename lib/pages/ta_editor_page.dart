@@ -22,6 +22,7 @@ import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 import 'dialogue_style_page.dart';
+import 'package:dna/island_app/widgets/card_crop_page.dart' show FreeImageCrop;
 import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
@@ -105,11 +106,19 @@ class _TaEditorPageState extends State<TaEditorPage> {
       try {
         cropped = await ImageCropper().cropImage(
           sourcePath: picked.path,
-          aspectRatio: ratio,
+          // 打开「自由剪图」后不锁比例（见 FreeImageCrop）；默认按槽位比例裁剪。
+          aspectRatio: FreeImageCrop.enabled ? null : ratio,
           compressQuality: 95,
           uiSettings: <PlatformUiSettings>[
-            AndroidUiSettings(toolbarTitle: '裁剪图片'),
-            IOSUiSettings(title: '裁剪图片'),
+            AndroidUiSettings(
+              toolbarTitle: '裁剪图片',
+              lockAspectRatio: !FreeImageCrop.enabled,
+            ),
+            IOSUiSettings(
+              title: '裁剪图片',
+              aspectRatioLockEnabled: !FreeImageCrop.enabled,
+              resetAspectRatioEnabled: FreeImageCrop.enabled,
+            ),
           ],
         );
       } on MissingPluginException {

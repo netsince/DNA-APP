@@ -169,8 +169,10 @@ class _CardPublishPageState extends State<CardPublishPage> {
       if (picked == null || !mounted) return;
       final bytes = await picked.readAsBytes();
       if (!mounted) return;
-      // 按槽位要求的比例锁定裁剪：1:1 / 16:9 / 9:16 是展示端的硬约束，不允许自由改比例。
-      // 服务端按同一套比例强制校验（app/services/card_publish_service.py）。
+      // 按槽位要求的比例锁定裁剪：1:1 / 16:9 / 9:16 是展示端的硬约束。
+      // 服务端按同一套比例强制校验（app/services/card_publish_service.py），所以这里
+      // 剪成别的比例会在发布时被拒 —— 除非打开「自由剪图」（见 FreeImageCrop），
+      // 那时裁剪界面不再锁比例，但服务端校验仍在。
       final cropped = await openCropPage(
         context,
         sourceBytes: bytes,
@@ -397,10 +399,14 @@ class _CardPublishPageState extends State<CardPublishPage> {
                   ),
                   const SizedBox(height: 16),
                   _label('图片（可选）'),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
-                    child: Text('选择图片后按对应比例裁剪确认',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      FreeImageCrop.enabled
+                          ? '选择图片后自由裁剪（已关闭比例限制；形象槽位仍受服务端比例校验）'
+                          : '选择图片后按对应比例裁剪确认',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ),
                   ..._imageSlots.map((s) => _ImageSlotPicker(
                         slot: s.$1,

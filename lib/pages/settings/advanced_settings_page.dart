@@ -6,6 +6,7 @@ import '../../services/update_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'free_image_settings_page.dart';
 import 'update_dialog.dart';
 import 'update_settings_page.dart';
 
@@ -43,6 +44,17 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => UpdateSettingsPage(controller: widget.controller),
+        ),
+      );
+      return;
+    }
+
+    // 进入「自由剪图」页(开关所有图片编辑器的裁剪比例限制)。
+    if (cmd == 'freeimage') {
+      _cmdCtrl.clear();
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FreeImageSettingsPage(controller: widget.controller),
         ),
       );
       return;
