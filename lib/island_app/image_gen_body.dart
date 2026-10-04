@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/image_gen_detail_page.dart';
 import 'package:dna/island_app/points_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
@@ -323,7 +324,8 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     });
     try {
       final page = reset ? 1 : _logsPage + 1;
-      final result = await ApiClient.instance.getImageGenLogs(page: page);
+      final result = await ApiClient.instance
+          .getImageGenLogs(page: page, includeFailed: true);
       if (!mounted) return;
       setState(() {
         if (reset) _logs.clear();
@@ -342,15 +344,25 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     }
   }
 
-  void _openLog(Map<String, dynamic> log) {
-    final images = log['images'];
-    if (images is! List || images.isEmpty) return;
-    final urls = images.map((e) => e.toString()).toList();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _AuthImageViewer(urls: urls, log: log),
+  /// 打开生图作品详情页（对齐网页版 `/image-gen/logs/<id>`）。
+  ///
+  /// 以前这里在「没有产图」时直接 return，导致**失败记录点了完全没反应**、错误原因在
+  /// App 里根本看不到；现在一律打开详情页，由它显示失败原因与「本次未产出图像」占位。
+  ///
+  /// 详情页的「同款生成」会把提示词 pop 回来，这里填进输入框。
+  Future<void> _openLog(Map<String, dynamic> log) async {
+    final String? prompt = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => ImageGenDetailPage(log: log),
       ),
     );
+    if (!mounted || prompt == null || prompt.isEmpty) return;
+    setState(() {
+      _promptController.text = prompt;
+      _promptController.selection =
+          TextSelection.collapsed(offset: _promptController.text.length);
+    });
+    _snack('已填入原提示词，可直接再次生成');
   }
 
   /// 由生成记录里的 `size`（如 "1024x1024"）推导宽高比；解析失败回退 3:4。
@@ -400,6 +412,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         final log = logs[i];
         final firstImage = (log['first_image'] ?? '').toString();
         final aspect = _logAspect(log);
+        // 失败记录没有产出图（接口带 include_failed=1 时才回来）：给占位卡片，
+        // 点进去能在详情页看到失败原因。
+        final bool failed = firstImage.isEmpty;
         return InkWell(
           onTap: () => onTap(log),
           borderRadius: BorderRadius.circular(10),
@@ -407,7 +422,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
             borderRadius: BorderRadius.circular(10),
             child: AspectRatio(
               aspectRatio: aspect,
-              child: Stack(
+              child: failed
+                  ? _buildFailedCard(scheme, log)
+                  : Stack(
                 fit: StackFit.expand,
                 children: <Widget>[
                   ColoredBox(color: scheme.surfaceContainerHighest),
@@ -443,6 +460,37 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           ),
         );
       },
+    );
+  }
+
+  /// 失败记录的瀑布流卡片：没有产出图，用占位 + 「生成失败」，点进去看原因。
+  static Widget _buildFailedCard(ColorScheme scheme, Map<String, dynamic> log) {
+    final String model = (log['model_name'] ?? '').toString();
+    return Container(
+      color: scheme.surfaceContainerHighest,
+      padding: const EdgeInsets.all(kListGap),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(Icons.broken_image_outlined,
+              size: 26, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 6),
+          Text('生成失败',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          if (model.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 2),
+            Text(
+              model,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -729,12 +777,20 @@ class _ImageGenBodyState extends State<ImageGenBody> {
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.w500)),
         TextButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
+          onPressed: () async {
+            // 历史全量页里的「同款生成」会把提示词一路回传到这里，填进输入框。
+            final String? prompt = await Navigator.of(context).push<String>(
+              MaterialPageRoute<String>(
                 builder: (_) => const ImageGenHistoryPage(),
               ),
             );
+            if (!mounted || prompt == null || prompt.isEmpty) return;
+            setState(() {
+              _promptController.text = prompt;
+              _promptController.selection =
+                  TextSelection.collapsed(offset: _promptController.text.length);
+            });
+            _snack('已填入原提示词，可直接再次生成');
           },
           child: const Text('全部记录 ›'),
         ),
@@ -781,127 +837,6 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           ),
         ),
     ];
-  }
-}
-
-/// 生图产出的全屏查看器（带认证头加载）。
-class _AuthImageViewer extends StatefulWidget {
-  const _AuthImageViewer({required this.urls, required this.log});
-
-  final List<String> urls;
-  final Map<String, dynamic> log;
-
-  @override
-  State<_AuthImageViewer> createState() => _AuthImageViewerState();
-}
-
-class _AuthImageViewerState extends State<_AuthImageViewer> {
-  final PageController _pageController = PageController();
-  int _current = 0;
-  bool _downloading = false;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  /// 下载当前页原图到系统临时目录（WebP 原样保存，如需 PNG 可后续扩展）。
-  Future<void> _downloadCurrent() async {
-    if (_downloading) return;
-    final url = widget.urls[_current];
-    setState(() => _downloading = true);
-    try {
-      final bytes = await fetchAuthImageBytes(url);
-      final safePrompt = (widget.log['prompt'] ?? 'artwork')
-          .toString()
-          .replaceAll(RegExp(r'[^\w\u4e00-\u9fa5-]'), '_');
-      final name = '${safePrompt.length > 30 ? safePrompt.substring(0, 30) : safePrompt}_${_current + 1}.webp';
-      final file = await File('${Directory.systemTemp.path}${Platform.pathSeparator}$name')
-          .writeAsBytes(bytes, flush: true);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已下载：${file.path}')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('下载失败，请重试')),
-      );
-    } finally {
-      if (mounted) setState(() => _downloading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final log = widget.log;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text('生图预览', style: const TextStyle(fontSize: 16)),
-        actions: <Widget>[
-          if (widget.urls.length > 1)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Text(
-                  '${_current + 1}/${widget.urls.length}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ),
-          _downloading
-              ? const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                )
-              : IconButton(
-                  onPressed: _downloadCurrent,
-                  tooltip: '下载原图',
-                  icon: const Icon(Icons.download_rounded),
-                ),
-        ],
-      ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.urls.length,
-        onPageChanged: (i) => setState(() => _current = i),
-        itemBuilder: (context, i) {
-          return InteractiveViewer(
-            child: Center(
-              child: Image(
-                image: AuthNetworkImage(widget.urls[i]),
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const Text(
-                  '图片加载失败',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            '提示词：${log['prompt'] ?? ''}',
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -954,7 +889,8 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
     });
     try {
       final page = reset ? 1 : _page + 1;
-      final result = await ApiClient.instance.getImageGenLogs(page: page);
+      final result = await ApiClient.instance
+          .getImageGenLogs(page: page, includeFailed: true);
       if (!mounted) return;
       setState(() {
         if (reset) _logs.clear();
@@ -973,15 +909,16 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
     }
   }
 
-  void _openLog(Map<String, dynamic> log) {
-    final images = log['images'];
-    if (images is! List || images.isEmpty) return;
-    final urls = images.map((e) => e.toString()).toList();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _AuthImageViewer(urls: urls, log: log),
+  /// 打开详情页；详情页的「同款生成」会把提示词 pop 回来，这里继续往上抛给工作台
+  /// （历史全量页是盖在工作台之上的，所以先 pop 自己，提示词就能回填到输入框）。
+  Future<void> _openLog(Map<String, dynamic> log) async {
+    final String? prompt = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => ImageGenDetailPage(log: log),
       ),
     );
+    if (!mounted || prompt == null || prompt.isEmpty) return;
+    Navigator.of(context).pop(prompt);
   }
 
   @override

@@ -1796,13 +1796,19 @@ class ApiClient {
   /// 生图历史（GET `/api/v1/image-gen/logs`，需登录）。
   ///
   /// 返回 `{items, page, pages, total, has_next}`。
+  ///
+  /// [includeFailed] 为真时把**失败记录**也带回来（`images` 为空、多一个 `error` 字段）：
+  /// 详情页要显示失败原因，历史里也要能看到失败过。服务端默认不返回失败记录，
+  /// 是为了不打扰老版本 App（它们的历史瀑布流只认图片）。
   Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getImageGenLogs({int page = 1}) async {
+      getImageGenLogs({int page = 1, bool includeFailed = false}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/image-gen/logs')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri('/api/v1/image-gen/logs').replace(queryParameters: {
+      'page': '$page',
+      if (includeFailed) 'include_failed': '1',
+    });
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('生图历史响应格式不正确');
