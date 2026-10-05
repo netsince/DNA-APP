@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
+import 'package:dna/island_app/utils/save_image.dart';
 
 /// 生图相关页面共用的工具与组件。
 ///
@@ -12,31 +11,9 @@ import 'package:dna/island_app/utils/auth_image.dart';
 /// 与网页版 `image_gen/log_detail.html` 差了一大截：没有状态/尺寸/张数/模型/消耗点数/
 /// 生成时间，没有参考图，没有复制提示词，没有「同款生成」，失败原因也看不到
 /// （而且没有产图的记录连点都点不开）。这里按网页版补齐，改成手机上的竖排布局。
-
-/// 把某一张原图下载到系统临时目录（WebP 原样保存）。
 ///
-/// 详情页与全屏画廊共用：文件名取自提示词，避免两处各写一份导致行为不一致。
-Future<void> downloadArtwork(
-  BuildContext context, {
-  required String url,
-  required String prompt,
-  int index = 1,
-}) async {
-  final messenger = ScaffoldMessenger.of(context);
-  try {
-    final bytes = await fetchAuthImageBytes(url);
-    final safePrompt = prompt.replaceAll(RegExp(r'[^\w\u4e00-\u9fa5-]'), '_');
-    final trimmed =
-        safePrompt.length > 30 ? safePrompt.substring(0, 30) : safePrompt;
-    final name = '${trimmed.isEmpty ? 'artwork' : trimmed}_$index.webp';
-    final file =
-        await File('${Directory.systemTemp.path}${Platform.pathSeparator}$name')
-            .writeAsBytes(bytes, flush: true);
-    messenger.showSnackBar(SnackBar(content: Text('已下载：${file.path}')));
-  } catch (_) {
-    messenger.showSnackBar(const SnackBar(content: Text('下载失败，请重试')));
-  }
-}
+/// 下载/保存统一走 [saveImageAsPng]（转 PNG + 系统保存对话框，相册能看到），
+/// 不再把 WebP 写进系统临时目录。
 
 /// 状态徽章的文案与配色（与网页版一致：已完成 / 失败 / 生成中）。
 ({String label, Color bg, Color fg}) _statusBadge(ColorScheme scheme, String st) {
@@ -73,9 +50,10 @@ List<String> _stringList(dynamic raw) {
   return raw.map((dynamic e) => e.toString()).where((s) => s.isNotEmpty).toList();
 }
 
-/// 生图产出的全屏画廊（带认证头加载，左右翻页，可下载当前张）。
+/// 生图产出的全屏画廊（带认证头加载，左右翻页，可保存当前张为 PNG）。
 ///
 /// [showPrompt] 为假时不显示底部提示词条 —— 从详情页进来时提示词已经在详情里了。
+/// [downloadNameBase] 是保存时的文件名来源（成品用提示词，参考图用「参考图」）。
 class ImageGenGalleryPage extends StatefulWidget {
   const ImageGenGalleryPage({
     super.key,
@@ -83,12 +61,14 @@ class ImageGenGalleryPage extends StatefulWidget {
     required this.prompt,
     this.initialIndex = 0,
     this.showPrompt = true,
+    this.downloadNameBase,
   });
 
   final List<String> urls;
   final String prompt;
   final int initialIndex;
   final bool showPrompt;
+  final String? downloadNameBase;
 
   @override
   State<ImageGenGalleryPage> createState() => _ImageGenGalleryPageState();
@@ -115,11 +95,10 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
   Future<void> _downloadCurrent() async {
     if (_downloading) return;
     setState(() => _downloading = true);
-    await downloadArtwork(
+    await saveImageAsPng(
       context,
       url: widget.urls[_current],
-      prompt: widget.prompt,
-      index: _current + 1,
+      baseName: '${widget.downloadNameBase ?? widget.prompt}_${_current + 1}',
     );
     if (mounted) setState(() => _downloading = false);
   }
@@ -157,7 +136,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
                 )
               : IconButton(
                   onPressed: _downloadCurrent,
-                  tooltip: '下载原图',
+                  tooltip: '保存为 PNG',
                   icon: const Icon(Icons.download_rounded),
                 ),
         ],
@@ -254,7 +233,8 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
     _snack('已复制提示词');
   }
 
-  void _openGallery(List<String> urls, int index) {
+  /// [nameBase] 决定保存时的文件名：成品用提示词，参考图用「参考图」。
+  void _openGallery(List<String> urls, int index, {String? nameBase}) {
     if (urls.isEmpty) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -263,6 +243,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
           prompt: _prompt,
           initialIndex: index,
           showPrompt: false,
+          downloadNameBase: nameBase ?? _prompt,
         ),
       ),
     );
@@ -271,11 +252,10 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
   Future<void> _downloadCurrent() async {
     if (_images.isEmpty || _downloading) return;
     setState(() => _downloading = true);
-    await downloadArtwork(
+    await saveImageAsPng(
       context,
       url: _images[_current],
-      prompt: _prompt,
-      index: _current + 1,
+      baseName: '${_prompt}_${_current + 1}',
     );
     if (mounted) setState(() => _downloading = false);
   }
@@ -331,7 +311,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.download_rounded, size: 18),
-                  label: const Text('下载原图'),
+                  label: const Text('保存原图'),
                 ),
               ),
               const SizedBox(width: kListGap),
@@ -547,7 +527,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
             separatorBuilder: (_, _) => const SizedBox(width: kListGap),
             itemBuilder: (BuildContext context, int i) {
               return GestureDetector(
-                onTap: () => _openGallery(_refs, i),
+                onTap: () => _openGallery(_refs, i, nameBase: '参考图'),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(kRadiusSm),
                   child: SizedBox(

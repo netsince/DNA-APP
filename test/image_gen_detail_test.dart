@@ -71,8 +71,8 @@ void main() {
     expect(find.text('2026-10-04 15:12'), findsOneWidget);
     expect(find.text('提示词 Prompt'), findsOneWidget);
     expect(find.text('一只在窗边的猫'), findsOneWidget);
-    // 底部操作栏
-    expect(find.text('下载原图'), findsOneWidget);
+    // 底部操作栏（保存统一走 PNG，按钮文案是「保存原图」）
+    expect(find.text('保存原图'), findsOneWidget);
     expect(find.text('同款生成'), findsOneWidget);
   });
 
@@ -166,11 +166,11 @@ void main() {
     expect(find.text('失败'), findsOneWidget);
     expect(find.text('本次未产出图像'), findsOneWidget);
     expect(find.textContaining('multipart: NextPart: EOF'), findsOneWidget);
-    // 没有图时「下载原图」按钮禁用
+    // 没有图时「保存原图」按钮禁用
     final OutlinedButton download = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, '下载原图'),
+      find.widgetWithText(OutlinedButton, '保存原图'),
     );
-    expect(download.onPressed, isNull, reason: '没有产出图时下载按钮应禁用');
+    expect(download.onPressed, isNull, reason: '没有产出图时保存按钮应禁用');
   });
 
   testWidgets('部分完成：状态文案与失败区分开', (WidgetTester tester) async {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'drag_scroll_behavior.dart';
+import '../utils/save_image.dart';
 
 /// 基于生态名库 [extended_image] 构建的高品质全屏图片查看器。
 ///
@@ -81,6 +82,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   late int _currentIndex;
   bool _showControls = true;
 
+  /// 正在保存：避免连点弹出多个系统保存对话框。
+  bool _saving = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +113,19 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         duration: Duration(seconds: 2),
       ),
     );
+  }
+
+  /// 保存当前这张为 PNG（系统「保存到…」对话框，Android 默认落到 Download，
+  /// 相册/文件应用都能看到；不再把 WebP 塞进临时目录让用户找不着）。
+  Future<void> _saveCurrent() async {
+    if (_saving || widget.urls.isEmpty) return;
+    setState(() => _saving = true);
+    await saveImageAsPng(
+      context,
+      url: widget.urls[_currentIndex],
+      baseName: 'DNAISLAND_图片_${_currentIndex + 1}',
+    );
+    if (mounted) setState(() => _saving = false);
   }
 
   @override
@@ -276,6 +293,14 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                             ),
                           ),
                         const Spacer(),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.download_rounded,
+                            color: Colors.white,
+                          ),
+                          tooltip: '保存为 PNG',
+                          onPressed: _saveCurrent,
+                        ),
                         IconButton(
                           icon: const Icon(
                             Icons.link_rounded,
