@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/image_gen_detail_page.dart';
+import 'package:dna/island_app/image_gen_failed_page.dart';
 import 'package:dna/island_app/points_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
@@ -776,26 +777,48 @@ class _ImageGenBodyState extends State<ImageGenBody> {
                 .textTheme
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.w500)),
-        TextButton(
-          onPressed: () async {
-            // 历史全量页里的「同款生成」会把提示词一路回传到这里，填进输入框。
-            final String? prompt = await Navigator.of(context).push<String>(
-              MaterialPageRoute<String>(
+        Row(
+          children: <Widget>[
+            // 失败记录单独成页：失败后只能看到一句错误提示时，用户无从下手重试。
+            TextButton(
+              onPressed: () => _openRecordsPage(
+                context,
+                builder: (_) => const ImageGenFailedPage(),
+              ),
+              child: Text(
+                '失败记录 ›',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _openRecordsPage(
+                context,
                 builder: (_) => const ImageGenHistoryPage(),
               ),
-            );
-            if (!mounted || prompt == null || prompt.isEmpty) return;
-            setState(() {
-              _promptController.text = prompt;
-              _promptController.selection =
-                  TextSelection.collapsed(offset: _promptController.text.length);
-            });
-            _snack('已填入原提示词，可直接再次生成');
-          },
-          child: const Text('全部记录 ›'),
+              child: const Text('全部记录 ›'),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  /// 打开「全部记录 / 失败记录」这类独立页；这些页面里的「同款生成」会把提示词一路
+  /// 回传到工作台，这里统一填进输入框。
+  Future<void> _openRecordsPage(
+    BuildContext context, {
+    required WidgetBuilder builder,
+  }) async {
+    final String? prompt = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(builder: builder),
+    );
+    if (!mounted || prompt == null || prompt.isEmpty) return;
+    setState(() {
+      _promptController.text = prompt;
+      _promptController.selection =
+          TextSelection.collapsed(offset: _promptController.text.length);
+    });
+    _snack('已填入原提示词，可直接再次生成');
   }
 
   List<Widget> _buildHistory(BuildContext context) {

@@ -1800,14 +1800,18 @@ class ApiClient {
   /// [includeFailed] 为真时把**失败记录**也带回来（`images` 为空、多一个 `error` 字段）：
   /// 详情页要显示失败原因，历史里也要能看到失败过。服务端默认不返回失败记录，
   /// 是为了不打扰老版本 App（它们的历史瀑布流只认图片）。
+  ///
+  /// [status] 按状态过滤（`success` / `partial` / `failed`）。传 `failed` 时服务端只返回
+  /// 失败记录 —— 「生成失败记录」页用它翻页，否则得先翻过一堆成功记录才凑得齐失败的那些。
   Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getImageGenLogs({int page = 1, bool includeFailed = false}) async {
+      getImageGenLogs({int page = 1, bool includeFailed = false, String? status}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
     final uri = _apiUri('/api/v1/image-gen/logs').replace(queryParameters: {
       'page': '$page',
       if (includeFailed) 'include_failed': '1',
+      if (status != null && status.isNotEmpty) 'status': status,
     });
     final data = await _getJson(uri);
     final d = data['data'];
