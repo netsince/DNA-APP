@@ -166,7 +166,7 @@ class AnthropicProvider extends LlmServiceBase {
             headers: buildHeaders(request.apiKey),
             body: jsonEncode(_buildBody(request, stream: false)),
           )
-          .timeout(LlmServiceBase.completionTimeout);
+          .timeout(request.timeout);
       if (res.statusCode != 200) {
         return ChatCompletionResult(
           success: false,
@@ -204,7 +204,12 @@ class AnthropicProvider extends LlmServiceBase {
     final http.Request req = http.Request('POST', endpoint)
       ..headers.addAll(buildHeaders(request.apiKey))
       ..body = jsonEncode(_buildBody(request, stream: true));
-    return pumpSse(request: req, decodeEvent: _decodeAnthropicEvent);
+    return pumpSse(
+      request: req,
+      decodeEvent: _decodeAnthropicEvent,
+      handshakeTimeout: request.timeout,
+      idleTimeout: idleTimeoutFor(request),
+    );
   }
 
   /// Anthropic SSE 事件解码。

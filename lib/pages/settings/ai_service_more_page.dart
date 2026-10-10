@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/dialogs.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 
@@ -160,9 +162,61 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
                 ),
               ],
             ),
+            AppSpacing.hLg,
+            SettingSection(
+              icon: Icons.timer_outlined,
+              title: '网络',
+              children: <Widget>[
+                SettingTile(
+                  icon: Icons.hourglass_bottom,
+                  title: '请求超时',
+                  subtitle: _timeoutSubtitle(
+                    widget.controller.settings.requestTimeoutSeconds,
+                  ),
+                  onTap: _editRequestTimeout,
+                ),
+              ],
+            ),
           ],
         );
       },
+    );
+  }
+
+  /// 请求超时的副标题：默认值 + 什么时候该调大。
+  String _timeoutSubtitle(int seconds) {
+    if (seconds <= 20) {
+      return '$seconds 秒（默认）· 带思考的模型建议调到 60 以上';
+    }
+    return '$seconds 秒 · 已放宽，适合带思考的模型';
+  }
+
+  /// 编辑「请求超时」。
+  ///
+  /// 背景：非流式调用（剧情摘要 / 灵感 / 重说）里这个值是**总时长上限**，模型思考超过
+  /// 就会直接报 TimeoutException；带思考的模型思考 20 秒以上很常见，所以必须能调。
+  Future<void> _editRequestTimeout() async {
+    final int current = widget.controller.settings.requestTimeoutSeconds;
+    final String? value = await showTextInputDialog(
+      context: context,
+      title: '请求超时（秒）',
+      hintText: '5 – 600',
+      initialValue: '$current',
+      confirmText: '保存',
+      keyboardType: TextInputType.number,
+    );
+    if (!mounted || value == null) return;
+    final int? seconds = int.tryParse(value.trim());
+    if (seconds == null) {
+      showSnack(context, '请输入数字');
+      return;
+    }
+    final int clamped = seconds.clamp(5, 600);
+    await widget.controller.saveRequestTimeoutSeconds(clamped);
+    if (!mounted) return;
+    showSnack(
+      context,
+      clamped == seconds ? '已保存为 $clamped 秒' : '允许 5–600 秒，已保存为 $clamped 秒',
     );
   }
 }

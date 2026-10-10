@@ -138,7 +138,7 @@ class ZhipuProvider extends LlmServiceBase {
             headers: buildHeaders(request.apiKey),
             body: jsonEncode(_buildBody(request)),
           )
-          .timeout(LlmServiceBase.completionTimeout);
+          .timeout(request.timeout);
       // C3:非流式响应解析复用基类实现,不再各持一份。
       return parseOpenAiChatResponse(response);
     } catch (error) {
@@ -158,7 +158,12 @@ class ZhipuProvider extends LlmServiceBase {
           ..headers.addAll(buildHeaders(request.apiKey))
           ..body = jsonEncode(_buildBody(request, stream: true));
 
-    yield* pumpSse(request: req, decodeEvent: decodeOpenAiEvent);
+    yield* pumpSse(
+      request: req,
+      decodeEvent: decodeOpenAiEvent,
+      handshakeTimeout: request.timeout,
+      idleTimeout: idleTimeoutFor(request),
+    );
   }
 
   Object? _safeJsonDecode(String body) {

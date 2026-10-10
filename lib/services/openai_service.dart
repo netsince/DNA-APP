@@ -116,7 +116,7 @@ class OpenAiService extends LlmServiceBase {
             headers: buildHeaders(request.apiKey),
             body: jsonEncode(buildOpenAiCompatibleBody(request)),
           )
-          .timeout(LlmServiceBase.completionTimeout);
+          .timeout(request.timeout);
       return parseOpenAiChatResponse(response);
     } catch (error) {
       return ChatCompletionResult(success: false, errorMessage: '请求失败:$error');

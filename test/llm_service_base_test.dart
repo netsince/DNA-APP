@@ -17,7 +17,7 @@ import 'package:dna/services/openai_service.dart';
 /// (A1 回归)、空闲看门狗(A3)、错误文案提取、端点拼接规则(B2)、
 /// 能力矩阵请求体(B1)、max_tokens 透传(B5),以及 Anthropic event/data 解析。
 void main() {
-  LlmRequest openAiRequest({String model = 'gpt-4o', int? maxTokens}) =>
+  LlmRequest openAiRequest({String model = 'gpt-4o', int? maxTokens, Duration? timeout}) =>
       LlmRequest(
         baseUrl: 'https://example.test/v1',
         apiKey: 'key',
@@ -26,6 +26,7 @@ void main() {
           <String, String>{'role': 'user', 'content': 'hi'}
         ],
         maxTokens: maxTokens,
+        timeout: timeout ?? const Duration(seconds: 20),
       );
 
   String sse(List<Map<String, dynamic>> deltas) {
@@ -179,6 +180,62 @@ void main() {
       final SseDecode hit = provider.decodeEvent(
           '{"choices":[{"delta":{"content":"x"}}]}');
       expect(hit.chunks.single, isA<LlmContentChunk>());
+    });
+  });
+
+  group('请求超时取自设置(可调)', () {
+    // 背景：超时原本是写死的 20 秒。非流式调用（剧情摘要 / 灵感 / 重说）里它是**总时长
+    // 上限** —— 带思考的模型思考 20 秒以上就直接报 TimeoutException。现在这个值来自
+    // 设置项「请求超时」，这两条用例证明服务端真的按请求里的值走。
+    test('非流式:遵守请求里的 1 秒超时,而不是写死的 20 秒', () async {
+      final provider = _ExposedOpenAi(client: _NeverRespondClient());
+      final Stopwatch sw = Stopwatch()..start();
+      final ChatCompletionResult result = await provider.createChatCompletion(
+        openAiRequest(timeout: const Duration(seconds: 1)),
+      );
+      sw.stop();
+
+      expect(result.success, isFalse);
+      expect(result.errorMessage, contains('请求失败'));
+      expect(
+        sw.elapsed,
+        lessThan(const Duration(seconds: 6)),
+        reason: '若仍用写死的 20 秒，这里会等满 20 秒而失败',
+      );
+    });
+
+    test('流式:握手超时同样取自请求', () async {
+      final provider = _ExposedOpenAi(streamClient: _NeverRespondClient());
+      final Stopwatch sw = Stopwatch()..start();
+      final List<LlmStreamChunk> chunks = await provider
+          .streamChatCompletion(openAiRequest(timeout: const Duration(seconds: 1)))
+          .toList();
+      sw.stop();
+
+      expect(chunks.whereType<LlmErrorChunk>(), isNotEmpty);
+      expect(sw.elapsed, lessThan(const Duration(seconds: 6)));
+    });
+
+    test('空闲看门狗不窄于 120 秒;调大请求超时会一起放宽', () {
+      final provider = _ExposedOpenAiDefaults();
+      // 默认 20 秒的请求超时不该把空闲上限压到 20 秒（那会把"一直在推 reasoning
+      // 增量、但两次输出间隔超过 20 秒"的正常回复掐断）。
+      expect(
+        provider.idleTimeoutOf(openAiRequest()),
+        const Duration(seconds: 120),
+      );
+      // 调到 120 秒以上才抬高它。
+      expect(
+        provider.idleTimeoutOf(
+          openAiRequest(timeout: const Duration(minutes: 5)),
+        ),
+        const Duration(minutes: 5),
+      );
+      // 小值不抬也不压：子类覆写（A3 用例把它调到 80ms）必须仍然生效。
+      expect(
+        _ExposedOpenAi().idleTimeoutOf(openAiRequest()),
+        const Duration(milliseconds: 80),
+      );
     });
   });
 
@@ -461,15 +518,30 @@ class _NeverBodyClient extends http.BaseClient {
 
 /// 暴露受保护成员供测试;流式客户端经基类构造注入,空闲看门狗调快。
 class _ExposedOpenAi extends OpenAiService {
-  _ExposedOpenAi({super.streamClient});
+  _ExposedOpenAi({super.client, super.streamClient});
 
   @override
   Duration? get streamIdleTimeout => const Duration(milliseconds: 80);
 
+  Duration idleTimeoutOf(LlmRequest request) => idleTimeoutFor(request);
   SseDecode decodeEvent(String data) => decodeOpenAiEvent(null, data);
   String extractError(String body, int code) => extractErrorMessage(body, code);
   ChatCompletionResult parseResponse(http.Response response) =>
       parseOpenAiChatResponse(response);
   String chatEndpointOf(String base) => chatEndpoint(base);
   String modelsEndpointOf(String base) => modelsEndpoint(base);
+}
+
+/// 不覆盖 [streamIdleTimeout] 的暴露版:用于验证空闲看门狗的取值规则
+/// （默认 120 秒、调大请求超时后一起放宽）。
+class _ExposedOpenAiDefaults extends OpenAiService {
+  Duration idleTimeoutOf(LlmRequest request) => idleTimeoutFor(request);
+}
+
+/// 永不响应的假客户端:验证"超时取自请求里的设置"而不是写死的 20 秒。
+class _NeverRespondClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    return Completer<http.StreamedResponse>().future; // 永不完成
+  }
 }

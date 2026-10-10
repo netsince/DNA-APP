@@ -264,11 +264,14 @@ abstract class LlmServiceBase implements LlmProvider {
   Stream<LlmStreamChunk> pumpSse({
     required http.Request request,
     required SseDecode Function(String? event, String data) decodeEvent,
+    Duration? handshakeTimeout,
+    Duration? idleTimeout,
   }) async* {
     final http.Client streamClient = createStreamClient();
     try {
-      final http.StreamedResponse response =
-          await streamClient.send(request).timeout(completionTimeout);
+      final http.StreamedResponse response = await streamClient
+          .send(request)
+          .timeout(handshakeTimeout ?? completionTimeout);
       if (response.statusCode != 200) {
         final String body = await response.stream.bytesToString();
         yield LlmErrorChunk(extractErrorMessage(body, response.statusCode));
@@ -277,7 +280,7 @@ abstract class LlmServiceBase implements LlmProvider {
       Stream<String> lines = response.stream
           .transform(utf8.decoder)
           .transform(const LineSplitter());
-      final Duration? idle = streamIdleTimeout;
+      final Duration? idle = idleTimeout ?? streamIdleTimeout;
       if (idle != null) {
         lines = lines.timeout(idle);
       }
@@ -436,7 +439,27 @@ abstract class LlmServiceBase implements LlmProvider {
     final http.Request req = http.Request('POST', endpoint)
       ..headers.addAll(buildHeaders(request.apiKey))
       ..body = jsonEncode(buildOpenAiCompatibleBody(request, stream: true));
-    return pumpSse(request: req, decodeEvent: decodeOpenAiEvent);
+    return pumpSse(
+      request: req,
+      decodeEvent: decodeOpenAiEvent,
+      handshakeTimeout: request.timeout,
+      idleTimeout: idleTimeoutFor(request),
+    );
+  }
+
+  /// 流式空闲看门狗的**实际取值**。
+  ///
+  /// 只有把「请求超时」调到**超过默认静默上限（120 秒）**时才抬高它 —— 用户为带思考的
+  /// 模型放宽到 300 秒时，静默上限也一起放宽到 300 秒；而默认 20 秒的请求超时**不会**
+  /// 反过来把静默上限压到 20 秒（那会把"两次输出间隔超过 20 秒、但一直在推 reasoning
+  /// 增量"的正常回复掐断），也不影响子类对 [streamIdleTimeout] 的覆写。
+  @protected
+  Duration idleTimeoutFor(LlmRequest request) {
+    const Duration defaultIdle = Duration(seconds: 120);
+    if (request.timeout > defaultIdle) {
+      return request.timeout;
+    }
+    return streamIdleTimeout ?? defaultIdle;
   }
 
   // ---------------- 统一实现:端点规则(B2) ----------------

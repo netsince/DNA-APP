@@ -155,6 +155,8 @@ class AppController extends ChangeNotifier {
       maxTokens: model.maxTokens,
       thinkingType: deepseekThinkingType,
       reasoningEffort: deepseekReasoningEffort,
+      // 「请求超时」设置：非流式是总时长上限，流式只守护到响应头。
+      timeout: Duration(seconds: _settings.requestTimeoutSeconds),
     );
   }
 
@@ -724,6 +726,17 @@ class AppController extends ChangeNotifier {
   Future<void> saveSummaryWordThreshold(int summaryWordThreshold) async {
     final int clamped = summaryWordThreshold.clamp(0, 1000000);
     _settings = _settings.copyWith(summaryWordThreshold: clamped);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存单次补全请求的超时秒数（5–600 秒）。
+  ///
+  /// 下限 5 秒避免用户填 0 把所有请求直接判超时；上限 600 秒避免填出"永远不超时"。
+  /// 带思考的模型需要调大：非流式调用（摘要/灵感/重说）里这是**总时长上限**。
+  Future<void> saveRequestTimeoutSeconds(int seconds) async {
+    final int clamped = seconds.clamp(5, 600);
+    _settings = _settings.copyWith(requestTimeoutSeconds: clamped);
     await _settingsService.save(_settings);
     notifyListeners();
   }

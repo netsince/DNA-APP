@@ -20,6 +20,7 @@ class AppSettings {
     required this.autoSummaryPrompt,
     required this.summaryTurnInterval,
     this.summaryWordThreshold = 6000,
+    this.requestTimeoutSeconds = 20,
     required this.retrySequential,
     required this.inspirationIncludeSummary,
     required this.promptStrategy,
@@ -98,6 +99,7 @@ class AppSettings {
       autoSummaryPrompt: true,
       summaryTurnInterval: 200,
       summaryWordThreshold: 6000,
+      requestTimeoutSeconds: 20,
       retrySequential: false,
       inspirationIncludeSummary: false,
       promptStrategy: PromptStrategy.defaults(),
@@ -203,6 +205,17 @@ class AppSettings {
   /// 距上次摘要后新增内容的字符数阈值（0 表示禁用），用于按词数触发摘要，
   /// 与 [summaryTurnInterval] 的消息数触发构成「双触发」。默认 6000。
   final int summaryWordThreshold;
+
+  /// 单次补全请求的超时秒数（默认 20，范围 5–600）。
+  ///
+  /// 语义随调用方式不同：
+  /// * **非流式**（剧情摘要 / 灵感 / 重说）是**总时长上限** —— 模型思考超过这个秒数就会
+  ///   直接失败并报 `TimeoutException`；
+  /// * **流式**（正常发消息）只守护到「响应头到达」为止，之后由空闲看门狗看护
+  ///   （取值不小于 120 秒）。
+  ///
+  /// 带思考的模型（reasoning）思考 20 秒以上很常见，所以这个值需要能调大。
+  final int requestTimeoutSeconds;
   final bool retrySequential;
   final bool inspirationIncludeSummary;
   final PromptStrategy promptStrategy;
@@ -417,6 +430,7 @@ class AppSettings {
       'autoSummaryPrompt': autoSummaryPrompt,
       'summaryTurnInterval': summaryTurnInterval,
       'summaryWordThreshold': summaryWordThreshold,
+      'requestTimeoutSeconds': requestTimeoutSeconds,
       'retrySequential': retrySequential,
       'inspirationIncludeSummary': inspirationIncludeSummary,
       'promptStrategy': promptStrategy.toJson(),
@@ -506,6 +520,7 @@ class AppSettings {
       autoSummaryPrompt: (json['autoSummaryPrompt'] as bool?) ?? true,
       summaryTurnInterval: (json['summaryTurnInterval'] as int?) ?? 200,
       summaryWordThreshold: (json['summaryWordThreshold'] as int?) ?? 6000,
+      requestTimeoutSeconds: (json['requestTimeoutSeconds'] as int?) ?? 20,
       retrySequential: (json['retrySequential'] as bool?) ?? false,
       inspirationIncludeSummary:
           (json['inspirationIncludeSummary'] as bool?) ?? false,
@@ -620,6 +635,7 @@ class AppSettings {
     bool? autoSummaryPrompt,
     int? summaryTurnInterval,
     int? summaryWordThreshold,
+    int? requestTimeoutSeconds,
     bool? retrySequential,
     bool? inspirationIncludeSummary,
     PromptStrategy? promptStrategy,
@@ -699,6 +715,7 @@ class AppSettings {
       autoSummaryPrompt: autoSummaryPrompt ?? this.autoSummaryPrompt,
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
       summaryWordThreshold: summaryWordThreshold ?? this.summaryWordThreshold,
+      requestTimeoutSeconds: requestTimeoutSeconds ?? this.requestTimeoutSeconds,
       retrySequential: retrySequential ?? this.retrySequential,
       inspirationIncludeSummary: inspirationIncludeSummary ?? this.inspirationIncludeSummary,
       promptStrategy: promptStrategy ?? this.promptStrategy,

@@ -20,6 +20,7 @@ class LlmRequest {
     this.maxTokens,
     this.thinkingType,
     this.reasoningEffort,
+    this.timeout = const Duration(seconds: 20),
   });
 
   final String baseUrl;
@@ -46,6 +47,12 @@ class LlmRequest {
   /// DeepSeek 思考强度:'low' / 'high' / 'max'。
   final String? reasoningEffort;
 
+  /// 本次请求的超时（来自设置里的「请求超时」）。
+  ///
+  /// 非流式调用是**总时长上限**；流式调用只守护到响应头到达，body 阶段另有空闲看门狗。
+  /// 带思考的模型需要调大，否则思考还没结束就被判超时。
+  final Duration timeout;
+
   LlmRequest copyWith({
     String? baseUrl,
     String? apiKey,
@@ -62,6 +69,7 @@ class LlmRequest {
     int? maxTokens,
     String? thinkingType,
     String? reasoningEffort,
+    Duration? timeout,
   }) {
     return LlmRequest(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -79,6 +87,7 @@ class LlmRequest {
       maxTokens: maxTokens ?? this.maxTokens,
       thinkingType: thinkingType ?? this.thinkingType,
       reasoningEffort: reasoningEffort ?? this.reasoningEffort,
+      timeout: timeout ?? this.timeout,
     );
   }
 }
