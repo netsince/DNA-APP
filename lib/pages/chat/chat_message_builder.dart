@@ -70,6 +70,62 @@ class ChatMessageBuilder {
     return <String, String>{'role': 'user', 'content': '[$label] $text'};
   }
 
+  /// 摘要作为一条 system 消息注入时的前缀。
+  ///
+  /// 「不代表你的身份」这半句是**护栏**：摘要是一段纯文本，模型很容易把它当成
+  /// 自己的第一人称经历（历史上摘要还是按用户视角生成的），于是把用户的身份认成自己。
+  static const String summarySystemPrefix = '对话摘要（第三方客观记录，不代表你的身份）：\n';
+
+  /// 摘要（纯文本）里的说话人标签：人类 = 「用户」，AI = **各自的角色名**。
+  ///
+  /// 与 [historyEntryFor] 是同一件事的两面：发给模型的历史用**消息通道**表达说话人，
+  /// 而摘要是一段纯文本，只能用**名字**表达。这里曾经一律写「助手」——
+  /// 等于把所有 AI 成员糊成同一个人，而模型被教过的约定是「assistant = 我自己」
+  /// （见 chat_system_prompt 的群聊规则），于是摘要里的「助手：」会被读成它自己的台词，
+  /// 别人的话和它自己的话互相张冠李戴：这正是"生成摘要后角色错乱"的根源之一。
+  static String summarySpeakerLabel({
+    required ConversationMessage message,
+    String? fallbackAssistantName,
+    String? Function(String? speakerTaId)? speakerNameResolver,
+    String humanLabel = '用户',
+  }) {
+    if (message.role == 'user') {
+      return humanLabel;
+    }
+    final String? named = speakerNameResolver?.call(message.speakerTaId);
+    if (named != null && named.trim().isNotEmpty) {
+      return named.trim();
+    }
+    // 存量数据可能没有 speakerTaId：退回当前角色名，实在没有就叫「成员」。
+    final String? fallback = fallbackAssistantName?.trim();
+    if (fallback != null && fallback.isNotEmpty) {
+      return fallback;
+    }
+    return '成员';
+  }
+
+  /// 把一段对话拼成摘要用的文本：每行「说话人：内容」。
+  ///
+  /// 说话人一律用真实名字（人类为「用户」），不再用「助手」这种会与通道约定打架的泛称。
+  static String buildSummaryTranscript(
+    List<ConversationMessage> messages, {
+    String? fallbackAssistantName,
+    String? Function(String? speakerTaId)? speakerNameResolver,
+    String humanLabel = '用户',
+  }) {
+    return messages
+        .map((ConversationMessage m) {
+          final String label = summarySpeakerLabel(
+            message: m,
+            fallbackAssistantName: fallbackAssistantName,
+            speakerNameResolver: speakerNameResolver,
+            humanLabel: humanLabel,
+          );
+          return '$label：${m.text}';
+        })
+        .join('\n');
+  }
+
   /// 合并相邻的同角色消息(自后向前并入前一条,以 \n 连接,保持顺序稳定)。
   ///
   /// 群聊视角映射会产生连续多条 user 消息;Anthropic 要求 user/assistant

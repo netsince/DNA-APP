@@ -9,6 +9,22 @@ mixin ChatSummaryHelpers on ChatStateMixin {
   void _insertMessageAfter(String anchorId, ConversationMessage message);
   void _removeMessageById(String messageId);
 
+  /// 说话人角色名（群聊里用来区分每个成员；由 chat_actions_send 提供实现）。
+  String? _speakerNameFor(String? taId);
+
+  /// 摘要文本里逐条标注真实说话人：人类 = 「用户」，AI = 各自的角色名。
+  ///
+  /// 以前这里一律写「助手」—— 等于把所有 AI 成员糊成同一个人，而模型被教过的约定是
+  /// 「assistant = 我自己」，于是摘要里的「助手：」会被读成它自己的台词，别人的话和
+  /// 它自己的话互相张冠李戴。群聊尤其明显（见 ChatMessageBuilder.historyEntryFor）。
+  String _summaryTranscript(List<ConversationMessage> messages) {
+    return ChatMessageBuilder.buildSummaryTranscript(
+      messages,
+      fallbackAssistantName: _ta?.name,
+      speakerNameResolver: _speakerNameFor,
+    );
+  }
+
   // ignore: unused_element
   Future<void> _maybePromptSummary() async {
     if (!widget.controller.settings.autoSummaryPrompt) {
@@ -120,17 +136,14 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       showSnack(context, '没有可总结的内容。');
       return;
     }
-    final StringBuffer convo = StringBuffer();
-    for (final ConversationMessage m in slice) {
-      final String roleLabel = m.role == 'user' ? '用户' : '助手';
-      convo.writeln('$roleLabel: ${m.text}');
-    }
+    final String convo = _summaryTranscript(slice);
     final String personaContext = _buildPersonaWorldContext();
     final World? world = _world;
     final List<Map<String, String>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
-        'content': '你是对话范围总结助手。请保留关键设定与事实，简洁总结最近对话，不要编造。',
+        'content':
+            '你是对话范围总结助手。请用第三人称客观要点总结最近对话（人类称「用户」，AI 称其角色名），保留关键设定与事实，不要编造，不要使用「我」「你」。',
       },
       if (personaContext.isNotEmpty)
         <String, String>{
@@ -199,9 +212,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       showSnack(context, '没有可摘要的新内容。');
       return;
     }
-    final String sourceText = sourceMessages
-        .map((ConversationMessage m) => '${m.role == 'user' ? '用户' : '助手'}：${m.text}')
-        .join('\n');
+    final String sourceText = _summaryTranscript(sourceMessages);
     final ConversationSummary? previous = ChatMessageSlice.latestSummary(_conversation);
     final String personaContext = _buildPersonaWorldContext();
     final World? world = _world;
@@ -209,8 +220,8 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       <String, String>{
         'role': 'system',
         'content': previous != null && previous.text.trim().isNotEmpty
-            ? '你是对话摘要助手。请以「已有摘要」为基底进行扩展更新：保留其中仍然有效的关键设定、关系、计划与事实，并追加「新增对话」带来的关键信息。不要推翻或重写旧摘要，不要编造。直接输出扩展更新后的完整摘要。'
-            : '你是对话摘要助手。请用简洁要点总结对话，保留关键设定、关系、计划与事实，不要编造。',
+            ? ChatSystemPrompt.summaryInstructionExtend
+            : ChatSystemPrompt.summaryInstruction,
       },
       if (personaContext.isNotEmpty)
         <String, String>{
