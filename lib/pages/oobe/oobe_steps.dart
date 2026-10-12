@@ -7,6 +7,13 @@ import 'package:dna/widgets/fit_text.dart';
 
 /// OOBE 引导流程中的子步骤 Widget 与导航 Intent，从 oobe_page 拆分而来。
 
+/// 引导总步数：欢迎 → API 配置 → 模型选择 → 社区。
+///
+/// 社区这一步原先只存在于社区自己的「服务器地址」兜底页里，用户装完 App 还得再进社区
+/// 单独配一次；现在并入主引导，默认值与社区内完全一致（官方地址），连不上可以勾选忽略
+/// 继续 —— 与 API Key 那一步同一套交互。
+const int kOobeStepCount = 4;
+
 class StepTracker extends StatelessWidget {
   const StepTracker({super.key, required this.stepIndex});
 
@@ -15,12 +22,12 @@ class StepTracker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: List<Widget>.generate(3, (int index) {
+      children: List<Widget>.generate(kOobeStepCount, (int index) {
         final bool isActive = index <= stepIndex;
         return Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            margin: EdgeInsets.only(right: index == 2 ? 0 : 8),
+            margin: EdgeInsets.only(right: index == kOobeStepCount - 1 ? 0 : 8),
             height: 6,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -48,7 +55,8 @@ class WelcomeStep extends StatelessWidget {
           children: <Widget>[
             FitText('与汝共奏', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-            FitText('将通过 3 个步骤完成首次配置。', style: Theme.of(context).textTheme.bodyLarge),
+            FitText('将通过 $kOobeStepCount 个步骤完成首次配置。',
+                style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 16),
             const StepBullet(text: '选择服务商、填写 API Key，并完成连接检测'),
             const StepBullet(text: '自动拉取模型或手动添加自定义模型'),
@@ -133,7 +141,8 @@ class ApiStep extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: ListView(
           children: <Widget>[
-            FitText('步骤 1/3 · API 配置', style: Theme.of(context).textTheme.titleLarge),
+            FitText('步骤 1/$kOobeStepCount · API 配置',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             FitText('服务商', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
             const SizedBox(height: 8),
@@ -236,7 +245,8 @@ class ModelStep extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            FitText('步骤 2/3 · 模型选择', style: Theme.of(context).textTheme.titleLarge),
+            FitText('步骤 2/$kOobeStepCount · 模型选择',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
@@ -297,6 +307,105 @@ class ModelStep extends StatelessWidget {
   }
 }
 
+/// 步骤 4：社区（DNAISLAND 服务器地址）。
+///
+/// 与社区内部的「服务器地址」设置共用同一套校验（`ApiClient.validateServer`）和同一个
+/// 默认值（官方地址），所以这里填好的和进社区后看到的完全一致 —— 用户不用再单独配一次。
+/// 连不上时可以勾选「忽略此问题」继续，与 API Key 那一步同一套交互，之后随时能在
+/// 「社区 → 服务器地址」里改。
+class CommunityStep extends StatelessWidget {
+  const CommunityStep({
+    super.key,
+    required this.urlController,
+    required this.defaultUrl,
+    required this.checking,
+    required this.validated,
+    required this.error,
+    required this.ignoreIssue,
+    required this.onIgnoreChanged,
+    required this.onCheck,
+    required this.onInputChanged,
+    required this.onUseDefault,
+  });
+
+  final TextEditingController urlController;
+  final String defaultUrl;
+  final bool checking;
+  final bool validated;
+  final String? error;
+  final bool ignoreIssue;
+  final ValueChanged<bool> onIgnoreChanged;
+  final VoidCallback onCheck;
+  final VoidCallback onInputChanged;
+  final VoidCallback onUseDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ListView(
+          children: <Widget>[
+            FitText('步骤 $kOobeStepCount/$kOobeStepCount · 社区',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            FitText(
+              'DNAISLAND 社区：官方服务器地址已经填好，直接下一步即可。'
+              '连不上可以先跳过，之后在「社区 → 服务器地址」里随时修改。',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: urlController,
+              decoration: InputDecoration(
+                labelText: '社区服务器地址',
+                hintText: defaultUrl,
+              ),
+              keyboardType: TextInputType.url,
+              onChanged: (_) => onInputChanged(),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: checking ? null : onUseDefault,
+              icon: const Icon(Icons.public, size: 18),
+              label: const FitText('使用官方服务器'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: checking ? null : onCheck,
+              icon: checking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.verified_outlined),
+              label: FitText(checking ? '检测中...' : '保存并检测社区'),
+            ),
+            if (validated) ...<Widget>[
+              const SizedBox(height: 8),
+              FitText('社区连接验证成功。',
+                  style: TextStyle(color: Colors.green.shade700)),
+            ],
+            if (error != null) ...<Widget>[
+              const SizedBox(height: 8),
+              FitText(error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              CheckboxListTile(
+                value: ignoreIssue,
+                title: const FitText('忽略此问题'),
+                subtitle: const FitText('勾选后允许跳过本次检测并完成引导。'),
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (bool? value) => onIgnoreChanged(value ?? false),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class OobeFooter extends StatelessWidget {
   const OobeFooter({
     super.key,
@@ -304,24 +413,27 @@ class OobeFooter extends StatelessWidget {
     required this.canGoNext,
     required this.onBack,
     required this.onNext,
-    required this.ignoreApiIssue,
+    required this.ignoreIssue,
   });
 
   final int stepIndex;
   final bool canGoNext;
   final VoidCallback onBack;
   final VoidCallback onNext;
-  final bool ignoreApiIssue;
+
+  /// 当前步的检测失败但用户勾了「忽略此问题」。
+  final bool ignoreIssue;
 
   @override
   Widget build(BuildContext context) {
     final String nextLabel;
     if (stepIndex == 0) {
       nextLabel = '开始';
-    } else if (stepIndex == 1) {
-      nextLabel = ignoreApiIssue ? '忽略并继续' : '下一步';
+    } else if (stepIndex >= kOobeStepCount - 1) {
+      // 最后一步（社区）：连不上时同样允许忽略并完成引导。
+      nextLabel = ignoreIssue ? '忽略并继续' : '完成';
     } else {
-      nextLabel = '完成';
+      nextLabel = ignoreIssue ? '忽略并继续' : '下一步';
     }
 
     return Row(

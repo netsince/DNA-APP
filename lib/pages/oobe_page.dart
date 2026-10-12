@@ -7,6 +7,8 @@ import '../state/app_controller.dart';
 import '../utils/api_guard.dart';
 import '../utils/dialogs.dart';
 import 'oobe/oobe_steps.dart';
+import 'package:dna/island_app/api/client.dart' show ApiClient;
+import 'package:dna/island_app/server_config.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class OobePage extends StatefulWidget {
@@ -19,10 +21,11 @@ class OobePage extends StatefulWidget {
 }
 
 class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
-  static const int _stepCount = 3;
+  static const int _stepCount = kOobeStepCount;
 
   final TextEditingController _baseUrlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
+  final TextEditingController _communityUrlController = TextEditingController();
 
   late final PageController _pageController;
 
@@ -31,6 +34,13 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
   bool _apiValidated = false;
   String? _apiError;
   bool _ignoreApiIssue = false;
+
+  /// 社区（DNAISLAND 服务器地址）那一步的状态：与社区内部的「服务器地址」设置同一套
+  /// 校验与默认值，连不上可以勾「忽略此问题」继续。
+  bool _checkingCommunity = false;
+  bool _communityValidated = false;
+  String? _communityError;
+  bool _ignoreCommunityIssue = false;
 
   bool _loadingModels = false;
   String? _modelsError;
@@ -73,13 +83,29 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
     if (settings.selectedModel.isNotEmpty) {
       _selectedModel = settings.selectedModel;
     }
+    // 社区地址：默认官方地址（与社区内部 OOBE 一致）；已配过自定义地址的沿用旧值。
+    _communityUrlController.text = ServerConfig.defaultBaseUrl;
+    _loadCommunityUrl();
     _pageController = PageController();
+  }
+
+  /// 读取已保存的社区地址；没有（或为空）就保持官方默认值。
+  Future<void> _loadCommunityUrl() async {
+    final String saved = await ServerConfig.getBaseUrl();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _communityUrlController.text =
+          saved.trim().isEmpty ? ServerConfig.defaultBaseUrl : saved;
+    });
   }
 
   @override
   void dispose() {
     _baseUrlController.dispose();
     _apiKeyController.dispose();
+    _communityUrlController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -96,6 +122,11 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
             (_apiValidated || (_apiError != null && _ignoreApiIssue));
       case 2:
         return (_selectedModel ?? '').trim().isNotEmpty;
+      case 3:
+        // 社区：填了地址，且（检测通过 或 检测失败但勾了忽略）—— 与 API 那步同规则。
+        return _communityUrlController.text.trim().isNotEmpty &&
+            (_communityValidated ||
+                (_communityError != null && _ignoreCommunityIssue));
       default:
         return false;
     }
@@ -129,6 +160,43 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
       _apiError = result.success
           ? null
           : withTransportWarning(_baseUrlController.text, result.message);
+    });
+  }
+
+  /// 保存并检测社区服务器地址。
+  ///
+  /// 与社区内部的「服务器地址」用同一个校验器（[ApiClient.validateServer]），
+  /// 所以这里通过的东西进社区后一定能用；失败时允许勾「忽略此问题」继续。
+  Future<void> _checkCommunity() async {
+    final String base = ServerConfig.normalize(_communityUrlController.text);
+    if (base.isEmpty) {
+      setState(() {
+        _communityValidated = false;
+        _communityError = '请输入社区服务器地址';
+        _ignoreCommunityIssue = false;
+      });
+      return;
+    }
+    setState(() {
+      _checkingCommunity = true;
+      _communityValidated = false;
+      _communityError = null;
+      _ignoreCommunityIssue = false;
+    });
+
+    // 与 API 那步一致：先落盘再检测，检测失败也不会丢掉用户填的地址。
+    await ServerConfig.setBaseUrl(base);
+    if (!mounted) {
+      return;
+    }
+    final String? error = await ApiClient.instance.validateServer(base);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _checkingCommunity = false;
+      _communityValidated = error == null;
+      _communityError = error;
     });
   }
 
@@ -186,6 +254,18 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
     }
     if (_stepIndex == 2 && _canGoNext) {
       await widget.controller.saveSelectedModel(_selectedModel!.trim());
+      await _goToStep(3);
+      return;
+    }
+    if (_stepIndex == 3 && _canGoNext) {
+      // 社区地址落盘：即使检测失败（用户勾了忽略）也存下来，之后可在社区设置里改。
+      final String base = ServerConfig.normalize(_communityUrlController.text);
+      if (base.isNotEmpty) {
+        await ServerConfig.setBaseUrl(base);
+      }
+      if (!mounted) {
+        return;
+      }
       await widget.controller.completeOobe();
     }
   }
@@ -352,6 +432,35 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
                                     },
                                     onCustom: _showCustomModelDialog,
                                   ),
+                                  CommunityStep(
+                                    urlController: _communityUrlController,
+                                    defaultUrl: ServerConfig.defaultBaseUrl,
+                                    checking: _checkingCommunity,
+                                    validated: _communityValidated,
+                                    error: _communityError,
+                                    ignoreIssue: _ignoreCommunityIssue,
+                                    onIgnoreChanged: (bool value) {
+                                      setState(
+                                          () => _ignoreCommunityIssue = value);
+                                    },
+                                    onCheck: _checkCommunity,
+                                    onUseDefault: () {
+                                      setState(() {
+                                        _communityUrlController.text =
+                                            ServerConfig.defaultBaseUrl;
+                                        _communityValidated = false;
+                                        _communityError = null;
+                                        _ignoreCommunityIssue = false;
+                                      });
+                                    },
+                                    onInputChanged: () {
+                                      setState(() {
+                                        _communityValidated = false;
+                                        _communityError = null;
+                                        _ignoreCommunityIssue = false;
+                                      });
+                                    },
+                                  ),
                                 ],
                               ),
                             ),
@@ -361,7 +470,10 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
                               canGoNext: _canGoNext,
                               onBack: _back,
                               onNext: _next,
-                              ignoreApiIssue: _apiError != null && _ignoreApiIssue,
+                              ignoreIssue: (_apiError != null &&
+                                      _ignoreApiIssue) ||
+                                  (_communityError != null &&
+                                      _ignoreCommunityIssue),
                             ),
                           ],
                         ),
