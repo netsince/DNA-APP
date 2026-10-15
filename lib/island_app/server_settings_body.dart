@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
+import 'package:dna/widgets/server_address_form.dart';
 
 /// 服务器设置（后端地址）内容，无脚手架，由 [RootShell] 承载。
 class ServerSettingsBody extends StatefulWidget {
@@ -88,38 +89,17 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
                   'DNAISLAND 是开源项目，默认使用官方服务器；你也可以填写自建服务器的地址。',
                   style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
-              TextField(
+              ServerAddressForm(
                 controller: _controller,
-                enabled: !_saving,
-                decoration: InputDecoration(
-                  hintText: ServerConfig.defaultBaseUrl,
-                  labelText: '服务器地址',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.link),
-                  errorText: _error,
-                  errorMaxLines: 3,
-                ),
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _saving ? null : _save(),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _saving ? null : _useOfficial,
-                  icon: const Icon(Icons.public, size: 18),
-                  label: const Text('使用官方服务器'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: const Icon(Icons.save),
-                  label: Text(_saving ? '正在验证…' : '保存'),
-                ),
+                defaultUrl: ServerConfig.defaultBaseUrl,
+                onUseDefault: _useOfficial,
+                onSubmit: _save,
+                checking: _saving,
+                error: _error,
+                actionLabel: '保存',
+                checkingLabel: '正在验证…',
+                actionIcon: Icons.save,
+                layout: ServerActionLayout.fullWidthFilled,
               ),
             ],
           );

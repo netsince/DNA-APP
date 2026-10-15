@@ -90,7 +90,8 @@ class SettingsService {
       }
     }
 
-    final String legacyProvider = prefs.getString(_providerKey) ?? 'openai';
+    final String legacyProvider =
+        prefs.getString(_providerKey) ?? LlmProviderConfig.defaultProviderType;
     final String legacyBaseUrl = prefs.getString(_baseUrlKey) ?? '';
     final String legacyApiKey = prefs.getString(_apiKeyKey) ?? '';
     final String legacyModel = prefs.getString(_modelKey) ?? '';

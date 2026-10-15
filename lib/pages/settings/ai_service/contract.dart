@@ -25,6 +25,7 @@ class AiServicePageContract {
     required this.apiKeyController,
     required this.checkingApi,
     required this.loadingModels,
+    required this.apiValidated,
     required this.apiMessage,
     required this.modelsError,
     required this.models,
@@ -53,6 +54,12 @@ class AiServicePageContract {
 
   /// 模型列表拉取中。
   final bool loadingModels;
+
+  /// 上一次连接检测是否通过 —— 决定结果横幅是成功态还是失败态。
+  ///
+  /// 此前这里只有一个 apiMessage 字符串,视图靠 message.contains('成功') 反推
+  /// 成败;一旦校验器改了文案(或文案里恰好含「成功」二字),图标与配色就会错。
+  final bool apiValidated;
 
   /// 连接检测结果文案(已附加明文 HTTP 警示)。
   final String? apiMessage;

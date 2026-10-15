@@ -10,6 +10,19 @@ void main() {
       expect(LlmProviderConfig.defaultAlias, '默认');
     });
 
+    test('新装的默认服务商是 DeepSeek', () {
+      // 改默认值只需要改 LlmProviderConfig.defaultProviderType 一处；
+      // 这条守住「别处又硬编码回 openai」。
+      expect(LlmProviderConfig.defaultProviderType, 'deepseek');
+      expect(LlmProviderConfig.defaultConfig().providerType, 'deepseek');
+      expect(AppSettings.empty().provider, 'deepseek');
+      expect(
+        AppSettings.fromJson(<String, dynamic>{}).provider,
+        'deepseek',
+        reason: '老数据没有 provider 字段时的兜底也必须是 DeepSeek',
+      );
+    });
+
     test('toJson and fromJson correctly serialize and deserialize', () {
       final config = LlmProviderConfig(
         id: 'test-id',

@@ -47,6 +47,12 @@ const List<_OssItem> _kOssItems = <_OssItem>[
     url: 'https://pub.dev/packages/cupertino_icons',
   ),
   _OssItem(
+    name: 'LobeHub Icons',
+    purpose: 'AI 服务商的品牌图标（服务商选择处展示，数据内置于 lib/widgets/brand_paths.dart）',
+    license: 'MIT',
+    url: 'https://github.com/lobehub/lobe-icons',
+  ),
+  _OssItem(
     name: 'http',
     purpose: 'HTTP 网络请求',
     license: 'BSD-3-Clause',

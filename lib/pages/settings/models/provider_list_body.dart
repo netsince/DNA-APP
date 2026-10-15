@@ -6,6 +6,7 @@ import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_container.dart';
+import 'package:dna/widgets/brand_icon.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import 'provider_edit_page.dart';
@@ -135,10 +136,12 @@ class ProviderListBody extends StatelessWidget {
                                 ),
                                 borderRadius: AppRadius.xsAll,
                               ),
-                              child: Icon(
-                                Icons.cloud_outlined,
-                                color: cs.primary,
+                              // 用真实厂商标：列表里每张卡代表一家服务商，
+                              // 统一的云朵图标等于没给信息。
+                              child: BrandIcon(
+                                id: p.providerType,
                                 size: AppSize.iconCard,
+                                color: cs.primary,
                               ),
                             ),
                             AppSpacing.wMd,

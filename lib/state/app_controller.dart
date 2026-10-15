@@ -47,11 +47,14 @@ class AppController extends ChangeNotifier {
   })  : _settingsService = settingsService,
         _openAiService = openAiService,
         _hiveService = hiveService ?? HiveService(),
+        // 顺序 = 设置页 / OOBE 里 Chip 的展示顺序，也是「服务商 id 认不出来时」
+        // 的兜底项。默认服务商（LlmProviderConfig.defaultProviderType）排在最前，
+        // 这样新装时选中的就是第一个，不用往下找。
         _providerRegistry = LlmProviderRegistry(<LlmProvider>[
+          DeepSeekService(),
           openAiService,
           AnthropicProvider(),
           ZhipuProvider(),
-          DeepSeekService(),
         ]) {
     // 「自由剪图」开关：把裁剪层（含内嵌社区）的读取回调指向本控制器的当前设置。
     // 只绑一次、不存副本，所以设置一变裁剪层立刻跟着变（见 FreeImageCrop 的说明）。

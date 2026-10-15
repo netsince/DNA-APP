@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
-import 'package:dna/island_app/widgets/async_action_button.dart';
+import 'package:dna/widgets/server_address_form.dart';
 
 /// 服务器地址兜底设置页。
 ///
@@ -94,7 +94,7 @@ class _ServerSetupPageState extends State<ServerSetupPage> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     '设置服务器地址',
@@ -108,38 +108,17 @@ class _ServerSetupPageState extends State<ServerSetupPage> {
                     style: TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
-                  TextField(
+                  ServerAddressForm(
                     controller: _controller,
-                    enabled: !_checking,
-                    decoration: InputDecoration(
-                      hintText: ServerConfig.defaultBaseUrl,
-                      labelText: '服务器地址',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.link),
-                      errorText: _error,
-                      errorMaxLines: 3,
-                    ),
-                    keyboardType: TextInputType.url,
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (_) => _checking ? null : _next(),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _checking ? null : _useOfficial,
-                    icon: const Icon(Icons.public, size: 18),
-                    label: const Text('使用官方服务器'),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: AsyncActionButton(
-                      variant: AsyncButtonVariant.filled,
-                      enabled: !_checking,
-                      onPressed: _next,
-                      loadingSize: 18,
-                      icon: const Icon(Icons.arrow_forward),
-                      child: Text(_checking ? '正在验证…' : '下一步'),
-                    ),
+                    defaultUrl: ServerConfig.defaultBaseUrl,
+                    onUseDefault: _useOfficial,
+                    onSubmit: _next,
+                    checking: _checking,
+                    error: _error,
+                    actionLabel: '下一步',
+                    checkingLabel: '正在验证…',
+                    actionIcon: Icons.arrow_forward,
+                    layout: ServerActionLayout.fullWidthFilled,
                   ),
                 ],
               ),

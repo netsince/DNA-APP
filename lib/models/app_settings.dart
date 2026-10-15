@@ -90,7 +90,7 @@ class AppSettings {
 
   factory AppSettings.empty() {
     return AppSettings(
-      provider: 'openai',
+      provider: LlmProviderConfig.defaultProviderType,
       themeMode: 'system',
       baseUrl: '',
       apiKey: '',
@@ -507,7 +507,8 @@ class AppSettings {
           )
         : PromptStrategy.defaults();
     return AppSettings(
-      provider: (json['provider'] as String?) ?? 'openai',
+      provider:
+          (json['provider'] as String?) ?? LlmProviderConfig.defaultProviderType,
       themeMode: (json['themeMode'] as String?) ?? 'system',
       fontFamilyMode: (json['fontFamilyMode'] as String?) ?? 'system',
       chatInputStyle: (json['chatInputStyle'] as String?) ?? 'capsule',
@@ -604,7 +605,8 @@ class AppSettings {
               .toList() ??
           <LlmProviderConfig>[
             LlmProviderConfig.defaultConfig(
-              providerType: (json['provider'] as String?) ?? 'openai',
+              providerType: (json['provider'] as String?) ??
+                  LlmProviderConfig.defaultProviderType,
               baseUrl: (json['baseUrl'] as String?) ?? '',
               apiKey: (json['apiKey'] as String?) ?? '',
             ),

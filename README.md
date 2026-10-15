@@ -49,7 +49,7 @@
 ## 截图预览
 
 ![首页 — 极简，任我玩](assets/screenshots/main.png)
-![启动向导 — 三步，这就好](assets/screenshots/OOBEs.png)
+![启动向导 — 四步，这就好](assets/screenshots/OOBEs.png)
 ![聊天 — 对话，在本地](assets/screenshots/chat.png)
 ![角色设定 — 设定，也本地](assets/screenshots/character.png)
 ![设置 — 设置，很个性](assets/screenshots/settings.png)

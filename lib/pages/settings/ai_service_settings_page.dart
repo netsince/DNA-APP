@@ -60,6 +60,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
 
   bool _checkingApi = false;
   bool _loadingModels = false;
+  bool _apiValidated = false;
   String? _apiMessage;
   String? _modelsError;
   List<String> _models = <String>[];
@@ -120,6 +121,8 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     if (!mounted) return;
     setState(() {
       _checkingApi = false;
+      // 成败用结构化字段,不再靠文案里有没有「成功」二字反推。
+      _apiValidated = r.success;
       // 校验文案附加明文 HTTP 传输警示(成功/失败均展示,不阻断)。
       _apiMessage = withTransportWarning(_baseUrlCtrl.text, r.message);
     });
@@ -158,6 +161,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
     if (provider.id == widget.controller.settings.provider) return;
     await widget.controller.saveProvider(provider.id);
     setState(() {
+      _apiValidated = false;
       _apiMessage = null;
       _models = <String>[];
       _selectedModel = null;
@@ -197,6 +201,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         apiKeyController: _apiKeyCtrl,
         checkingApi: _checkingApi,
         loadingModels: _loadingModels,
+        apiValidated: _apiValidated,
         apiMessage: _apiMessage,
         modelsError: _modelsError,
         models: _models,

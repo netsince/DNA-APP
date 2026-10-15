@@ -47,7 +47,8 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
     _aliasCtrl = TextEditingController(
       text: existing?.alias ?? '',
     );
-    _selectedType = existing?.providerType ?? 'openai';
+    _selectedType =
+        existing?.providerType ?? LlmProviderConfig.defaultProviderType;
     _baseUrlCtrl = TextEditingController(
       text: existing?.baseUrl ?? '',
     );

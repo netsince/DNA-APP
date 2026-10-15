@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/model_picker.dart';
+import 'package:dna/widgets/provider_config_form.dart';
 import 'package:dna/widgets/setting_section.dart';
 
-import '../../../services/llm_provider.dart';
 import 'contract.dart';
 
 /// 分支 A:**新手简易模式** —— 单页经典配置器。
@@ -37,7 +38,7 @@ class AiServiceSimpleView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (contract.isModelMissing) _missingModelBanner(cs, ts),
-        _providerSection(context, cs, ts),
+        _providerSection(),
         AppSpacing.hLg,
         _modelSection(context, cs, ts),
         if (contract.controller.llmProvider.id == 'deepseek') ...<Widget>[
@@ -84,90 +85,37 @@ class AiServiceSimpleView extends StatelessWidget {
   }
 
   /// 服务商与 API 连接卡。
-  Widget _providerSection(BuildContext context, ColorScheme cs, TextTheme ts) {
+  ///
+  /// 表单本体是 ProviderConfigForm —— 与 OOBE 的「API 配置」步骤同一个组件,
+  /// 两边不再各写一份(此前连「恢复默认地址」按钮与检测结果的呈现都不一样)。
+  Widget _providerSection() {
     return SettingSection(
       icon: Icons.dns_outlined,
       title: '服务商选择',
       children: <Widget>[
-        AppSpacing.hSm,
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: contract.controller.llmProviders
-              .map((LlmProvider p) => ChoiceChip(
-                    label: FitText(p.label),
-                    selected: p.id == contract.controller.settings.provider,
-                    onSelected: (_) => contract.onSelectProvider(p),
-                  ))
-              .toList(),
-        ),
-        AppSpacing.hLg,
-
-        // Base URL:服务商锁定地址时不显示。
-        if (!contract.fixedBaseUrl) ...<Widget>[
-          TextField(
-            controller: contract.baseUrlController,
-            decoration: InputDecoration(
-              labelText: 'Base URL',
-              hintText: contract.defaultBaseUrl,
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                tooltip: '恢复默认地址',
-                icon: const Icon(Icons.restore),
-                onPressed: () {
-                  contract.baseUrlController.text = contract.defaultBaseUrl;
-                  contract.onSaveApi();
-                },
-              ),
-            ),
-            onChanged: (_) => contract.onSaveApi(),
-          ),
-          AppSpacing.hMd,
-        ],
-
-        // API Key。
-        TextField(
-          controller: contract.apiKeyController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'API Key',
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (_) => contract.onSaveApi(),
-        ),
         AppSpacing.hMd,
-
-        OutlinedButton.icon(
-          onPressed: contract.checkingApi ? null : contract.onCheckApi,
-          icon: contract.checkingApi
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.network_check),
-          label: FitText(contract.checkingApi ? '检测中...' : '检测连接'),
-        ),
-
-        if (contract.apiMessage != null) ...<Widget>[
-          AppSpacing.hSm,
-          _connectionResult(cs),
-        ],
-      ],
-    );
-  }
-
-  /// 连接检测结果行。
-  Widget _connectionResult(ColorScheme cs) {
-    final bool ok = contract.apiMessage!.contains('成功');
-    final Color color = ok ? cs.primary : cs.error;
-    return Row(
-      children: <Widget>[
-        Icon(ok ? Icons.check_circle : Icons.error, size: 16, color: color),
-        AppSpacing.wXs,
-        Expanded(
-          child: FitText(contract.apiMessage!,
-              style: TextStyle(color: color)),
+        ProviderConfigForm(
+          providers: contract.controller.llmProviders,
+          selectedProviderId: contract.controller.settings.provider,
+          baseUrlController: contract.baseUrlController,
+          apiKeyController: contract.apiKeyController,
+          defaultBaseUrl: contract.defaultBaseUrl,
+          hideBaseUrl: contract.fixedBaseUrl,
+          requiresApiKey: contract.controller.llmProvider.requiresApiKey,
+          onProviderChanged: contract.onSelectProvider,
+          onInputChanged: contract.onSaveApi,
+          onRestoreDefault: () {
+            contract.baseUrlController.text = contract.defaultBaseUrl;
+            contract.onSaveApi();
+          },
+          checking: contract.checkingApi,
+          checkLabel: '检测连接',
+          checkIcon: Icons.network_check,
+          onCheck: contract.onCheckApi,
+          onSubmitApiKey: contract.onCheckApi,
+          validated: contract.apiValidated,
+          validatedMessage: contract.apiMessage ?? '连接成功。',
+          error: contract.apiValidated ? null : contract.apiMessage,
         ),
       ],
     );
@@ -197,99 +145,17 @@ class AiServiceSimpleView extends StatelessWidget {
             ),
       children: <Widget>[
         AppSpacing.hMd,
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: <Widget>[
-            FilledButton.tonalIcon(
-              onPressed: contract.loadingModels ? null : contract.onFetchModels,
-              icon: contract.loadingModels
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh),
-              label: FitText(contract.loadingModels ? '加载中...' : '刷新模型列表'),
-            ),
-            OutlinedButton.icon(
-              onPressed: contract.onAddCustomModel,
-              icon: const Icon(Icons.edit_outlined),
-              label: const FitText('自定义模型'),
-            ),
-          ],
-        ),
-        if (contract.modelsError != null) ...<Widget>[
-          AppSpacing.hSm,
-          FitText(contract.modelsError!, style: TextStyle(color: cs.error)),
-        ],
-        AppSpacing.hMd,
-        _modelList(context, cs, ts),
-      ],
-    );
-  }
-
-  /// 模型列表(空态提示 / 可选列表)。
-  Widget _modelList(BuildContext context, ColorScheme cs, TextTheme ts) {
-    if (contract.models.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: AppInsets.tile,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: AppRadius.xsAll,
-        ),
-        child: FitText(
-          contract.selectedModel == null
-              ? '尚未加载模型列表。可点击【刷新模型列表】自动拉取，或点击【自定义模型】手动填写。'
-              : '已选定当前模型：${contract.selectedModel}',
-          style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        FitText('可选模型列表（点击切换）：',
-            style: ts.bodySmall?.copyWith(color: cs.outline)),
-        AppSpacing.hXs,
-        Container(
-          constraints: const BoxConstraints(maxHeight: 240),
-          decoration: BoxDecoration(
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
-            borderRadius: AppRadius.xsAll,
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: contract.models.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (BuildContext context, int index) {
-              final String model = contract.models[index];
-              final bool sel = model == contract.selectedModel;
-              return ListTile(
-                dense: true,
-                visualDensity: VisualDensity.compact,
-                leading: Icon(
-                  sel
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: sel ? cs.primary : cs.outline,
-                  size: AppSize.iconInline,
-                ),
-                title: FitText(
-                  model,
-                  style: TextStyle(
-                    fontWeight: sel ? AppWeight.medium : AppWeight.regular,
-                    color: sel ? cs.primary : null,
-                  ),
-                ),
-                onTap: () {
-                  contract.onPickModel(model);
-                  contract.onSaveModel();
-                },
-              );
-            },
-          ),
+        ModelPicker(
+          models: contract.models,
+          selectedModel: contract.selectedModel,
+          loading: contract.loadingModels,
+          error: contract.modelsError,
+          onReload: contract.onFetchModels,
+          onSelect: (String model) {
+            contract.onPickModel(model);
+            contract.onSaveModel();
+          },
+          onCustom: contract.onAddCustomModel,
         ),
       ],
     );
