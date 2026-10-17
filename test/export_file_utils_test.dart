@@ -135,4 +135,42 @@ void main() {
       }
     });
   });
+
+  group('ExportFileUtils.extensionWarning', () {
+    // 移动端只能用 FileType.any（自定义扩展名在 Android 上没有 MIME 类型，
+    // 会被文件选择器置灰），所以选完必须自己校验一道。
+    const List<String> exts = <String>['dnaworld', 'json'];
+
+    test('本应用的扩展名放行', () {
+      expect(
+        ExportFileUtils.extensionWarning('中土世界-2026_01_01.dnaworld', exts),
+        isNull,
+      );
+    });
+
+    test('大小写不敏感', () {
+      expect(
+        ExportFileUtils.extensionWarning('X.DNAWORLD', exts),
+        isNull,
+      );
+    });
+
+    test('json / txt 放行（用户可能手工改过扩展名）', () {
+      expect(ExportFileUtils.extensionWarning('a.json', exts), isNull);
+      expect(ExportFileUtils.extensionWarning('a.txt', exts), isNull);
+    });
+
+    test('没有扩展名的不拦（聊天软件转存常没扩展名）', () {
+      expect(ExportFileUtils.extensionWarning('world', exts), isNull);
+      expect(ExportFileUtils.extensionWarning('world.', exts), isNull);
+    });
+
+    test('明显不对的扩展名给出可读提示', () {
+      final String? warning =
+          ExportFileUtils.extensionWarning('photo.jpg', exts);
+      expect(warning, isNotNull);
+      expect(warning, contains('.jpg'));
+      expect(warning, contains('.dnaworld'));
+    });
+  });
 }

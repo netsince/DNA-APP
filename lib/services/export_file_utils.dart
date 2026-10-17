@@ -118,6 +118,28 @@ class ExportFileUtils {
     }
   }
 
+  /// 移动端放开类型过滤后的软校验。
+  ///
+  /// 扩展名明显不对时返回一句人话；没问题（或根本没有扩展名）返回 null。
+  ///
+  /// 为什么需要它：Android / iOS 上只能用 [FileType.any]（原因见 [importText]），
+  /// 用户这时能选到任意文件。与其让 JSON 解析抛一个看不懂的错，不如直接说清楚。
+  /// **没有扩展名的不拦** —— 从聊天软件转存过来的文件常常没有扩展名。
+  static String? extensionWarning(String fileName, List<String> exts) {
+    final int dot = fileName.lastIndexOf('.');
+    if (dot <= 0 || dot == fileName.length - 1) return null;
+    final String picked = fileName.substring(dot + 1).toLowerCase();
+    final Set<String> accepted = <String>{
+      for (final String e in exts) e.toLowerCase(),
+      // 兼容用户手工改扩展名 / 其它来源的文件。
+      'json',
+      'txt',
+    };
+    if (accepted.contains(picked)) return null;
+    final String wanted = exts.map((String e) => '.$e').join(' / ');
+    return '这不是可导入的文件（.$picked），请选择 $wanted 文件';
+  }
+
   /// 从文件选择并读取文本内容。用户取消返回 `data == null`。
   ///
   /// [exts] 为允许的扩展名列表(不含点,小写)。同时接受 `json` 以兼容
@@ -127,10 +149,21 @@ class ExportFileUtils {
     required String dialogTitle,
   }) async {
     try {
+      // **移动端必须用 FileType.any。**
+      //
+      // file_picker 在 Android / iOS 上是把 allowedExtensions 映射成 **MIME
+      // 类型** 去过滤的（Android 走 android.webkit.MimeTypeMap）。.dnata /
+      // .dnaworld / .dnapersona 这类自定义扩展名不在系统 MIME 表里，映射结果
+      // 是 null —— 文件被**置灰选不中**，列表里还显示成 "BIN"
+      // （application/octet-stream）。
+      //
+      // 桌面 / Web 保持 FileType.custom：那边是按扩展名字符串过滤的，自定义
+      // 扩展名工作正常，能保住「只看到该看的文件」这个体验。
+      final bool mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
       final FilePickerResult? picked = await FilePicker.platform.pickFiles(
         dialogTitle: dialogTitle,
-        type: FileType.custom,
-        allowedExtensions: exts,
+        type: mobile ? FileType.any : FileType.custom,
+        allowedExtensions: mobile ? null : exts,
         withData: true,
       );
       if (picked == null || picked.files.isEmpty) {
@@ -138,6 +171,14 @@ class ExportFileUtils {
       }
 
       final PlatformFile f = picked.files.first;
+
+      // 移动端放开了类型过滤，这里补一道软校验。
+      if (mobile) {
+        final String? warning = extensionWarning(f.name, exts);
+        if (warning != null) {
+          return ExportImportResult(success: false, message: warning);
+        }
+      }
 
       // Web / 已带字节:直接用内存数据。
       final Uint8List? bytes = f.bytes;
