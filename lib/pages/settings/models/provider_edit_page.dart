@@ -47,8 +47,10 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
     _aliasCtrl = TextEditingController(
       text: existing?.alias ?? '',
     );
-    _selectedType =
-        existing?.providerType ?? LlmProviderConfig.defaultProviderType;
+    // 这里刻意不用 LlmProviderConfig.defaultProviderType：本表单是「新增一个
+    // 自定义服务商」，协议类型默认选「OpenAI 兼容」最合用（自建/第三方端点
+    // 绝大多数是 OpenAI 兼容的），与 App 的默认服务商是两回事。
+    _selectedType = existing?.providerType ?? 'openai';
     _baseUrlCtrl = TextEditingController(
       text: existing?.baseUrl ?? '',
     );
