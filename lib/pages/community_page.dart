@@ -5,6 +5,9 @@ import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/server_setup_page.dart';
 import 'package:dna/island_app/shutdown_page.dart';
 import 'package:dna/island_app/site_config.dart';
+import 'package:dna/island_app/world_import_sink.dart';
+import 'package:dna/models/world.dart';
+import 'package:dna/utils/id_utils.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -41,13 +44,39 @@ SectionPageData communitySection(AppController controller) {
     appBar: (BuildContext context) => AppBar(
       title: const FitText('社区'),
     ),
-    body: (BuildContext context) => const CommunityBody(),
+    body: (BuildContext context) => CommunityBody(controller: controller),
   );
+}
+
+/// 主应用侧的「导入世界」落地。
+///
+/// 社区只认 [WorldImportSink] 这一个方法，不认 AppController —— 社区对主应用
+/// 是零状态依赖（只 import 两个 widget），这个边界值得守。
+class _MainAppWorldBridge implements WorldImportSink, WorldPublishSource {
+  _MainAppWorldBridge(this.controller);
+
+  final AppController controller;
+
+  /// 发布页用：只列**未归档**的世界（归档的不该再被发到社区）。
+  @override
+  List<World> localWorlds() => controller.activeWorlds;
+
+  @override
+  Future<String> importWorld(World world) async {
+    // **必须换 id**：本地世界的 id 由客户端 newId() 生成，社区世界的 id 是
+    // 后端分配的 UUID，两套 id 直接混用会撞（本地已有同 id 的世界会被覆盖）。
+    final World local = world.copyWith(id: newId());
+    await controller.upsertWorld(local);
+    return local.id;
+  }
 }
 
 /// 社区内容：等岛的隐藏预热完成，再渲染岛的外壳。
 class CommunityBody extends StatefulWidget {
-  const CommunityBody({super.key});
+  const CommunityBody({super.key, required this.controller});
+
+  /// 用来读「返回主应用按钮」这个开关；监听它，改了设置立刻生效。
+  final AppController controller;
 
   @override
   State<CommunityBody> createState() => _CommunityBodyState();
@@ -114,6 +143,17 @@ class _CommunityBodyState extends State<CommunityBody> {
         onDismissed: () => setState(() => _shutdownDismissed = true),
       );
     }
-    return RootShell(onExitToMainApp: _exitToMainApp);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (BuildContext context, Widget? _) => RootShell(
+        // 设置里关掉「返回主应用」就传 null：顶栏那个按钮和侧边栏底部的
+        // 条目都跟着消失（两处都是 onExitToMainApp != null 才渲染）。
+        onExitToMainApp: widget.controller.settings.showExitToMainApp
+            ? _exitToMainApp
+            : null,
+        worldImportSink: _MainAppWorldBridge(widget.controller),
+        worldPublishSource: _MainAppWorldBridge(widget.controller),
+      ),
+    );
   }
 }

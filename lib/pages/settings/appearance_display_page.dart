@@ -39,6 +39,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   bool _showSplash = true;
   bool _showBottomNav = false;
   bool _enableCommunity = true;
+  bool _showExitToMainApp = true;
   String _chatInputStyle = 'capsule';
   bool _chatQuickSidebar = true;
   bool _chatSwipeSwitch = true;
@@ -69,6 +70,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     _showSplash = s.showSplashAnimation;
     _showBottomNav = s.showBottomNav;
     _enableCommunity = s.enableCommunity;
+    _showExitToMainApp = s.showExitToMainApp;
     _chatInputStyle = s.chatInputStyle;
     _chatQuickSidebar = s.chatQuickSidebar;
     _chatSwipeSwitch = s.chatSwipeSwitch;
@@ -489,6 +491,15 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 onChanged: (bool v) {
                   setState(() => _enableCommunity = v);
                   widget.controller.saveEnableCommunity(v);
+                },
+              ),
+              SettingSwitch(
+                title: '返回主应用按钮',
+                subtitle: '关闭后靠横向滑动或系统返回退出',
+                value: _showExitToMainApp,
+                onChanged: (bool v) {
+                  setState(() => _showExitToMainApp = v);
+                  widget.controller.saveShowExitToMainApp(v);
                 },
               ),
               SettingSwitch(

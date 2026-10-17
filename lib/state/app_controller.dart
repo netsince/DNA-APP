@@ -432,6 +432,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 开关「返回主应用」按钮。
+  ///
+  /// 社区是主项目里的一个全屏栏目（没有主项目的底栏与抽屉），关掉这个入口后
+  /// 退出社区只能靠横向滑动或系统返回。
+  Future<void> saveShowExitToMainApp(bool value) async {
+    _settings = _settings.copyWith(showExitToMainApp: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「自由剪图」开关（高级 → 命令 → `freeimage`）。
   ///
   /// 裁剪层通过 `FreeImageCrop.bind` 直接读本控制器的当前设置，所以这里只需落盘 +

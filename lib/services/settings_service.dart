@@ -56,6 +56,7 @@ class SettingsService {
   static const String _showMessageContinueKey = 'show_message_continue';
   static const String _enterToSendKey = 'enter_to_send';
   static const String _showBottomNavKey = 'show_bottom_nav';
+  static const String _showExitToMainAppKey = 'show_exit_to_main_app';
   static const String _chatQuickSidebarKey = 'chat_quick_sidebar';
   static const String _chatQuickSidebarCollapsedKey =
       'chat_quick_sidebar_collapsed';
@@ -169,6 +170,7 @@ class SettingsService {
       showMessageContinue: prefs.getBool(_showMessageContinueKey) ?? true,
       enterToSend: prefs.getBool(_enterToSendKey) ?? true,
       showBottomNav: prefs.getBool(_showBottomNavKey) ?? true,
+      showExitToMainApp: prefs.getBool(_showExitToMainAppKey) ?? true,
       chatQuickSidebar: prefs.getBool(_chatQuickSidebarKey) ?? true,
       chatQuickSidebarCollapsed:
           prefs.getBool(_chatQuickSidebarCollapsedKey) ?? false,
@@ -302,6 +304,7 @@ class SettingsService {
     await prefs.setBool(_showMessageContinueKey, settings.showMessageContinue);
     await prefs.setBool(_enterToSendKey, settings.enterToSend);
     await prefs.setBool(_showBottomNavKey, settings.showBottomNav);
+    await prefs.setBool(_showExitToMainAppKey, settings.showExitToMainApp);
     await prefs.setBool(_chatQuickSidebarKey, settings.chatQuickSidebar);
     await prefs.setBool(
       _chatQuickSidebarCollapsedKey,

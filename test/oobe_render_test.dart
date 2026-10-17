@@ -10,6 +10,7 @@ import 'package:dna/pages/oobe/oobe_steps.dart';
 import 'package:dna/pages/oobe/step_hero.dart';
 import 'package:dna/pages/oobe_page.dart';
 import 'package:dna/services/hive_service.dart';
+import 'package:dna/services/llm_provider.dart';
 import 'package:dna/services/openai_service.dart';
 import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
@@ -288,6 +289,22 @@ void main() {
 
       expect(findText('gpt-4.1'), findsOneWidget);
       expect(findText('gpt-4.1-mini'), findsOneWidget);
+    });
+  });
+
+  group('默认选中与列表顺序是两件事', () {
+    test('默认服务商是 DeepSeek，但服务商列表顺序不变', () async {
+      final AppController c = await boot();
+      // 默认值：新装选中的是 DeepSeek。
+      expect(c.settings.provider, 'deepseek');
+      expect(c.llmProvider.id, 'deepseek');
+      // 顺序：跟默认值无关，仍是原来的排列。
+      // 这条是给「把默认项挪到第一个」这种改法上的闸门 —— 一挪，
+      // OOBE、设置页 Chip、服务商编辑页下拉框三处顺序会一起变。
+      expect(
+        c.llmProviders.map((LlmProvider p) => p.id).toList(),
+        <String>['openai', 'anthropic', 'zhipu', 'deepseek'],
+      );
     });
   });
 

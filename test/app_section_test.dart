@@ -17,6 +17,7 @@ import 'package:dna/widgets/app_container.dart';
 import 'package:dna/widgets/app_drawer.dart';
 import 'package:dna/widgets/app_icon_flight.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -459,4 +460,45 @@ void main() {
     );
     expect(back.selectedIndex, 3);
   });
+
+  testWidgets('系统返回:非主页栏目按返回 → 回主页', (WidgetTester tester) async {
+    final AppController c = await boot();
+
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    // 走到「世界」栏目。
+    tester
+        .state<AppSectionShellState>(find.byType(AppSectionShell))
+        .navigateTo(AppSection.world);
+    await tester.pumpAndSettle();
+    expect(findText('消息'), findsNothing, reason: '已离开主页');
+
+    await pressBack(tester);
+    await tester.pumpAndSettle();
+
+    // 回主页:主页内容回来了。
+    //
+    // 这条守的是一个真 bug:主应用原本**一个 PopScope 都没有**,所以除了社区
+    // 自己那层之外,任何栏目按系统返回都没人接 —— 在 Android 上会直接把应用
+    // 退出掉,而不是退回主页。
+    expect(findText('消息'), findsOneWidget, reason: '系统返回应回主页');
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// 按系统返回键。
+Future<void> pressBack(WidgetTester tester) async {
+  final ByteData message = const JSONMethodCodec().encodeMethodCall(
+    const MethodCall('popRoute'),
+  );
+  await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+    'flutter/navigation',
+    message,
+    (ByteData? _) {},
+  );
+  await tester.pump();
 }

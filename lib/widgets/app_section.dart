@@ -355,6 +355,30 @@ class AppSectionShellState extends State<AppSectionShell>
     _drive.forward();
   }
 
+  /// 给栏目内容套上「系统返回 → 回主页」。
+  ///
+  /// 主应用原本**一个 PopScope 都没有**：在社区里按返回，社区那层 PopScope 在
+  /// 根页是 canPop=true，于是把整个应用 pop 掉 —— Android 上就是直接退出应用，
+  /// 而不是回主页。本文件里那句「退出靠横向滑动或系统返回」的注释只对了一半：
+  /// 横向滑动是真的，系统返回这条从来没接上。
+  ///
+  /// 「社区」例外：它自带一层 PopScope（浮层 → 子页 → 顶栏 tab → 最后交回主应用）。
+  /// 两层同时抢一次返回会各处理一遍，所以社区那一栏在这里直接放行。
+  Widget _withBack(Widget child) {
+    if (_current == AppSection.community) {
+      return child;
+    }
+    return PopScope(
+      // 已经在主页就别拦，交给系统（Android 上是退出应用）。
+      canPop: _current == AppSection.home,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (didPop) return;
+        navigateTo(AppSection.home, axis: Axis.horizontal);
+      },
+      child: child,
+    );
+  }
+
   @override
   void dispose() {
     _drive.dispose();
@@ -478,13 +502,16 @@ class AppSectionShellState extends State<AppSectionShell>
       ],
     );
 
+    // 系统返回 → 回主页（「社区」例外，见 _withBack）。
+    final Widget bodyWithBack = _withBack(content);
+
     if (landscape) {
       // 「社区」等自带完整外壳(侧栏/顶栏)的栏目:主项目的常驻侧栏让位,
       // 内容占满 —— 否则两条侧栏并排(主项目的 + 岛自己的)没法看。
       final bool islandOwnsChrome = _data(_current)!.hideBottomNav;
       return Scaffold(
         body: islandOwnsChrome
-            ? content
+            ? bodyWithBack
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
@@ -497,7 +524,7 @@ class AppSectionShellState extends State<AppSectionShell>
                     ),
                   ),
                   const VerticalDivider(width: 1),
-                  Expanded(child: content),
+                  Expanded(child: bodyWithBack),
                 ],
               ),
         floatingActionButton: _buildFab(context, inset),
@@ -510,7 +537,7 @@ class AppSectionShellState extends State<AppSectionShell>
         current: _current,
         persistent: false,
       ),
-      body: content,
+      body: bodyWithBack,
       // 底栏出现的三个条件(缺一不可):
       // 1. 用户开了「底部导航栏」;
       // 2. 该栏目没有主动让位(「社区」里岛自带底栏,见 hideBottomNav);

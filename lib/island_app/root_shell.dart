@@ -13,6 +13,8 @@ import 'package:dna/island_app/home_body.dart';
 import 'package:dna/island_app/image_gen_body.dart';
 import 'package:dna/island_app/swipe_body.dart';
 import 'package:dna/island_app/me_page.dart';
+import 'package:dna/island_app/my_cards_page.dart';
+import 'package:dna/island_app/my_collections_page.dart';
 import 'package:dna/island_app/notifications_page.dart';
 import 'package:dna/island_app/proxy_config_page.dart';
 import 'package:dna/island_app/recommend_page.dart';
@@ -20,17 +22,31 @@ import 'package:dna/island_app/search_page.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/sponsor_body.dart';
 import 'package:dna/island_app/teahouse_body.dart';
+import 'package:dna/island_app/world_import_sink.dart';
+import 'package:dna/island_app/world_publish_page.dart';
+import 'package:dna/island_app/worlds_body.dart';
+import 'package:dna/island_app/widgets/plus_hub.dart';
 import 'package:dna/island_app/widgets/drag_scroll_behavior.dart';
 
 /// 顶部内容 tab：推荐 / 刷一刷 / 探索。
 enum _TopTab { recommend, swipe, explore }
+
+/// 底栏的 Key。
+///
+/// 侧边栏（抽屉）与底栏会出现同名图标，测试要单独点底栏时得能区分开。
+const Key kCommunityBottomBarKey = Key('communityBottomBar');
 
 /// 应用外壳：顶栏 + 常驻侧边栏/底栏。
 ///
 /// 导航目标（推荐/茶馆/上传/生图/我/设置）通过侧边栏与底栏切换；
 /// 「推荐」页内顶栏提供 推荐/刷一刷/探索 三个内容子页。
 class RootShell extends StatefulWidget {
-  const RootShell({super.key, this.onExitToMainApp});
+  const RootShell({
+    super.key,
+    this.onExitToMainApp,
+    this.worldImportSink,
+    this.worldPublishSource,
+  });
 
   /// 「返回主应用」回调。
   ///
@@ -38,6 +54,15 @@ class RootShell extends StatefulWidget {
   /// 返回入口。岛单独运行（原来的 main.dart）时不传，两个入口都不出现，
   /// 行为与合并前完全一致。
   final VoidCallback? onExitToMainApp;
+
+  /// 导入落地用的窄接口（见 [WorldImportSink]）。
+  ///
+  /// 社区对主应用是零状态依赖，所以这里不传 AppController，只注入这一个方法。
+  /// 为空时世界卡详情页不给「导入」按钮（岛独立运行时没有可写入的本地世界）。
+  final WorldImportSink? worldImportSink;
+
+  /// 取本地世界列表的窄接口（发布世界卡用）。为空时发布页只给提示。
+  final WorldPublishSource? worldPublishSource;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -56,6 +81,9 @@ class _RootShellState extends State<RootShell> {
   final ValueNotifier<int> _imageGenActivate = ValueNotifier<int>(0);
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// 「＋」枢纽是否开着（开着时图标转成 ×）。
+  bool _plusOpen = false;
 
   @override
   void initState() {
@@ -141,8 +169,38 @@ class _RootShellState extends State<RootShell> {
     setState(() {
       _tab = t;
       _page = AppNavTarget.recommend;
+      _plusOpen = false;
     });
     if (reRefresh) _recommendRefresh.value++;
+  }
+
+  /// 打开通知页（侧栏「我的」组，带未读角标）。
+  void _openNotifications() {
+    _scaffoldKey.currentState?.closeDrawer();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
+    );
+  }
+
+  /// 打开「我的发布」。
+  void _openMyCards() {
+    _scaffoldKey.currentState?.closeDrawer();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const MyCardsPage()),
+    );
+  }
+
+  /// 打开「我的收藏」。
+  void _openMyFavorites() {
+    _scaffoldKey.currentState?.closeDrawer();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MyCollectionsPage(
+          title: '我的收藏',
+          loader: ApiClient.instance.getMyFavorites,
+        ),
+      ),
+    );
   }
 
   /// 打开赞助页（原生路由 push；岛设置并入主项目设置后，赞助从抽屉直达）。
@@ -163,6 +221,10 @@ class _RootShellState extends State<RootShell> {
     final firstShow = _page != target;
     setState(() {
       _page = target;
+      // 底栏是从 ＋ 浮层「挖空」的那块里露出来的（见 PlusHubOverlay），
+      // 点它不经过蒙层、不会触发 onClose，所以必须在这里顺手收掉 ——
+      // 否则会切到茶馆、浮层却还盖在上面。
+      _plusOpen = false;
     });
     // 首次切到「生图」：触发生图工作台加载（登录态已就绪，避免 401）。
     if (target == AppNavTarget.imagegen && firstShow) {
@@ -204,13 +266,14 @@ class _RootShellState extends State<RootShell> {
             ),
           ],
         ),
+        WorldsBody(importSink: widget.worldImportSink),
         const TeahouseBody(),
         const CardPublishStartBody(),
         ImageGenBody(
           onRequireLogin: () => _onSelectNav(AppNavTarget.me),
           loadSignal: _imageGenActivate,
         ),
-        const MePage(),
+        MePage(importSink: widget.worldImportSink),
       ],
     );
   }
@@ -225,6 +288,9 @@ class _RootShellState extends State<RootShell> {
       onOpenRecommend: _openRecommend,
       onOpenProxy: _openProxy,
       onOpenSponsor: _openSponsor,
+      onOpenNotifications: _openNotifications,
+      onOpenMyCards: _openMyCards,
+      onOpenMyFavorites: _openMyFavorites,
       // 未登录时侧栏那行「登录」必须接上回调：不传的话 ListTile.onTap 是
       // null，那一行**看起来正常但完全点不动**（岛独立运行时就一直是这样）。
       // 「登录表单」在「我」页里，所以这里直接切过去。
@@ -237,14 +303,28 @@ class _RootShellState extends State<RootShell> {
         _page == AppNavTarget.recommend && _tab == _TopTab.recommend;
 
     return PopScope(
-      canPop: isAtRootPage,
+      // 社区自己接管返回，顺序是：浮层 → 子页 → 顶栏 tab → 交回主应用。
+      //
+      // 嵌进主应用时 canPop 必须**恒为 false**：社区是主应用里的一个「栏目」而不是
+      // 一条路由，canPop=true 会把整个应用 pop 掉 —— Android 上就是按一下返回直接
+      // 退出应用，而用户只是想退一层。独立运行（onExitToMainApp 为空）时才交给系统。
+      canPop: widget.onExitToMainApp == null && isAtRootPage && !_plusOpen,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop) return;
+        if (_plusOpen) {
+          _closePlusHub();
+          return;
+        }
         if (_page != AppNavTarget.recommend) {
           setState(() => _page = AppNavTarget.recommend);
-        } else if (_tab != _TopTab.recommend) {
-          setState(() => _tab = _TopTab.recommend);
+          return;
         }
+        if (_tab != _TopTab.recommend) {
+          setState(() => _tab = _TopTab.recommend);
+          return;
+        }
+        // 社区内部已经退无可退 → 交回主应用。
+        widget.onExitToMainApp?.call();
       },
       child: OrientationBuilder(
         builder: (context, orientation) {
@@ -252,13 +332,8 @@ class _RootShellState extends State<RootShell> {
           final Widget? bottomBar = landscape ? null : _bottomBar();
           final PreferredSizeWidget topBar = _topBar(landscape);
 
-          return Scaffold(
-            key: _scaffoldKey,
-            appBar: landscape ? null : topBar,
-            drawer: landscape ? null : Drawer(child: drawerContent),
-            bottomNavigationBar: bottomBar,
-            body: landscape
-                ? Row(
+          final Widget content = landscape
+              ? Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       SizedBox(
@@ -277,20 +352,54 @@ class _RootShellState extends State<RootShell> {
                       ),
                     ],
                   )
-                : _body(),
+              : _body();
+
+          // ＋ 枢纽浮在**整个 Scaffold 之上**，连底栏一起糊；底部原来 ＋ 的位置
+          // 换成一个关闭按钮。
+          //
+          // 不用 push 路由：路由的 ModalBarrier 会吸收整屏点击，浮层里的按钮
+          // 也跟着点不动。
+          return Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              Scaffold(
+                key: _scaffoldKey,
+                appBar: landscape ? null : topBar,
+                drawer: landscape ? null : Drawer(child: drawerContent),
+                bottomNavigationBar: bottomBar,
+                body: content,
+              ),
+              PlusHubOverlay(
+                open: _plusOpen,
+                bottomBarHeight: _kBottomBarHeight,
+                onClose: _closePlusHub,
+                onSelect: _onPlusChoice,
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  /// 构建顶栏（汉堡 + 标题/tab + 搜索）。
+  /// 构建顶栏（汉堡 + 标题/tab + 搜索 + 返回主应用）。
   AppBar _topBar(bool landscape) {
     return AppBar(
       leading: landscape ? null : _hamburger(),
       title: _title(),
       centerTitle: true,
-      actions: [_notificationButton(), _searchButton()],
+      actions: <Widget>[
+        _searchButton(),
+        _notificationButton(),
+        // 「返回主应用」放右上角，而不是占底栏一格 —— 那一格要留给栏目
+        // （世界卡要用），而侧边栏里的入口需要两步，太绕。
+        if (widget.onExitToMainApp != null)
+          IconButton(
+            tooltip: '返回主应用',
+            icon: const Icon(Icons.logout),
+            onPressed: _exitToMainApp,
+          ),
+      ],
     );
   }
 
@@ -301,19 +410,33 @@ class _RootShellState extends State<RootShell> {
 
   String _pageTitle(AppNavTarget p) => switch (p) {
         AppNavTarget.recommend => '推荐',
+        AppNavTarget.worlds => '世界',
         AppNavTarget.teahouse => '茶馆',
-        AppNavTarget.upload => '上传',
+        AppNavTarget.upload => '发布',
         AppNavTarget.imagegen => '生图',
         AppNavTarget.me => '我',
         AppNavTarget.settings => '设置',
       };
 
-  /// 常驻底栏：推荐/茶馆/上传/生图/我。
+  /// 底栏内容高度（不含系统底部安全区）。
+  ///
+  /// ＋ 浮层要按这个高度从底部挖空，所以两边必须共用同一个常量。
+  static const double _kBottomBarHeight = 56;
+
+  /// 常驻底栏：推荐 / 茶馆 / ＋ / 我（嵌入主项目时末尾再加「返回主应用」）。
   ///
   /// 未激活只显示图标；激活项同时显示小字号文字（MDUI 简洁风格）。
+  ///
+  /// 中间那格是 **＋ 动作枢纽**而不是栏目（对齐网页版的移动底栏）：点开是
+  /// 「发布角色卡」与「AI生图」。这样发布与生图不占底栏格子 —— 之前它俩各占
+  /// 一格，加上「返回主应用」一共 6 格，很挤；腾出来的位置留给真正的栏目。
+  ///
+  /// ＋ 放在第三格：嵌入主项目时底栏是 5 格（推荐/茶馆/＋/我/返回），
+  /// ＋ 正好落在正中，与网页版一致。
   Widget _bottomBar() {
     final scheme = Theme.of(context).colorScheme;
     return Container(
+      key: kCommunityBottomBarKey,
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border(
@@ -323,26 +446,14 @@ class _RootShellState extends State<RootShell> {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 56,
+          height: _kBottomBarHeight,
           child: Row(
             children: <Widget>[
-              ..._bottomTargets.map((target) {
-                final selected = _page == target;
-                return Expanded(
-                  child: InkWell(
-                    onTap: () => _onSelectNav(target),
-                    child: _bottomItem(target, selected),
-                  ),
-                );
-              }),
-              // 「我」右边的「返回主应用」：仅在嵌入主项目时出现。
-              if (widget.onExitToMainApp != null)
-                Expanded(
-                  child: InkWell(
-                    onTap: widget.onExitToMainApp,
-                    child: _bottomExitItem(),
-                  ),
-                ),
+              _bottomNavItem(AppNavTarget.recommend),
+              _bottomNavItem(AppNavTarget.worlds),
+              _bottomNavItem(AppNavTarget.teahouse),
+              _plusItem(),
+              _bottomNavItem(AppNavTarget.me),
             ],
           ),
         ),
@@ -350,14 +461,88 @@ class _RootShellState extends State<RootShell> {
     );
   }
 
-  /// 底栏末尾的「返回主应用」项：**只显示图标**（与底栏未激活项一致），
-  /// 图标用「出门」的隐喻（箭头出门）。
-  Widget _bottomExitItem() {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      child: Icon(Icons.logout, size: 22, color: scheme.onSurfaceVariant),
+  Widget _bottomNavItem(AppNavTarget target) {
+    final bool selected = _page == target;
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onSelectNav(target),
+        child: _bottomItem(target, selected),
+      ),
+    );
+  }
+
+  /// 底栏中间的 ＋：动作枢纽。
+  ///
+  /// 高亮跟「发布」「生图」两页联动 —— 停在那两页时 ＋ 亮起，否则底栏会出现
+  /// 「一格都没选中」的空档（网页版也是这么做的：publish.* 时 ＋ 激活）。
+  ///
+  /// **刻意不显示文字标签**：别的格子是栏目、标签常驻；＋ 是动作，标签只在枢纽
+  /// 展开时出现。那一出现/一消失会把图标在 56px 的格子里顶上顶下 8px 多，而且是
+  /// 瞬时的 —— 看着像按钮在打嗝。转成 × 的图标已经足够说明状态。
+  Widget _plusItem() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool active = _plusOpen ||
+        _page == AppNavTarget.upload ||
+        _page == AppNavTarget.imagegen;
+    final Color color = active ? scheme.primary : scheme.onSurfaceVariant;
+    return Expanded(
+      child: InkWell(
+        onTap: _togglePlusHub,
+        child: Center(
+          child: AnimatedRotation(
+            // 45° 就够把 ＋ 转成 × —— 用最短的必要位移，别让它多绕一圈。
+            turns: _plusOpen ? 0.125 : 0,
+            // 与浮层同一组 MD3 令牌，图标和面板同步动，不会一个先到、一个后到。
+            duration: Durations.medium1,
+            curve: Easing.emphasizedDecelerate,
+            child: Icon(Icons.add, size: 22, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 点 ＋：展开 / 收起枢纽。
+  ///
+  /// 做成开关而不是「只能开」—— 浮层不盖底栏（见 PlusHubOverlay 的注释），
+  /// 所以 ＋ 一直在，再点一次就收起来（图标同时从 ＋ 转成 ×）。
+  void _togglePlusHub() {
+    _scaffoldKey.currentState?.closeDrawer();
+    setState(() => _plusOpen = !_plusOpen);
+  }
+
+  void _closePlusHub() {
+    if (!_plusOpen) return;
+    setState(() => _plusOpen = false);
+  }
+
+  /// 「返回主应用」：先收掉 ＋ 浮层。
+  ///
+  /// 社区这一栏是 IndexedStack 常驻的，不收的话下次从主应用回到社区，
+  /// 浮层还盖在那儿。
+  void _exitToMainApp() {
+    _closePlusHub();
+    widget.onExitToMainApp?.call();
+  }
+
+  void _onPlusChoice(PlusHubChoice choice) {
+    _closePlusHub();
+    switch (choice) {
+      case PlusHubChoice.publishCard:
+        _onSelectNav(AppNavTarget.upload);
+      case PlusHubChoice.publishWorld:
+        _openWorldPublish();
+      case PlusHubChoice.imageGen:
+        _onSelectNav(AppNavTarget.imagegen);
+    }
+  }
+
+  /// 发布世界卡：从本地世界里挑一个发到社区。
+  void _openWorldPublish() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => WorldPublishPage(source: widget.worldPublishSource),
+      ),
     );
   }
 
@@ -399,20 +584,13 @@ class _RootShellState extends State<RootShell> {
 
   (IconData, String) _navMeta(AppNavTarget t) => switch (t) {
         AppNavTarget.recommend => (Icons.home_outlined, '推荐'),
+        AppNavTarget.worlds => (Icons.public_outlined, '世界'),
         AppNavTarget.teahouse => (Icons.local_cafe_outlined, '茶馆'),
         AppNavTarget.upload => (Icons.upload_outlined, '上传'),
         AppNavTarget.imagegen => (Icons.auto_awesome_outlined, '生图'),
         AppNavTarget.me => (Icons.person_outline, '我'),
         AppNavTarget.settings => (Icons.settings_outlined, '设置'),
       };
-
-  static const List<AppNavTarget> _bottomTargets = <AppNavTarget>[
-    AppNavTarget.recommend,
-    AppNavTarget.teahouse,
-    AppNavTarget.upload,
-    AppNavTarget.imagegen,
-    AppNavTarget.me,
-  ];
 
   Widget _hamburger() => Builder(
         builder: (context) => IconButton(
@@ -422,18 +600,25 @@ class _RootShellState extends State<RootShell> {
       );
 
   /// 居中顶栏 tab：推荐 / 刷一刷 / 探索。
+  ///
+  /// 外面套 FittedBox：顶栏右侧有三个动作（搜索 / 通知 / 返回）时，窄屏上
+  /// 中间的可用宽度只剩 168px，而三个 tab 要 171px —— 差一点点就溢出。
+  /// 这里让它按需整体缩小（最多缩几个百分点，肉眼无感），而不是硬溢出。
   Widget _topTabs() {
     return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: _TopTab.values.map((t) {
-          final label = switch (t) {
-            _TopTab.recommend => '推荐',
-            _TopTab.swipe => '刷一刷',
-            _TopTab.explore => '探索',
-          };
-          return _topTabButton(label, t);
-        }).toList(),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: _TopTab.values.map((t) {
+            final label = switch (t) {
+              _TopTab.recommend => '推荐',
+              _TopTab.swipe => '刷一刷',
+              _TopTab.explore => '探索',
+            };
+            return _topTabButton(label, t);
+          }).toList(),
+        ),
       ),
     );
   }
@@ -485,30 +670,63 @@ class _RootShellState extends State<RootShell> {
       );
 
   /// 右侧通知入口：带未读数角标。未登录时不显示。
-  ///
-  /// 未读数在构建顶栏时拉一次(登录才有意义),失败按 0 处理 ——
-  /// 一个角标不该在顶栏里报错。
   Widget _notificationButton() {
     if (!AuthSession.instance.isLoggedIn) {
       return const SizedBox.shrink();
     }
-    return FutureBuilder<int>(
-      future: ApiClient.instance.getUnreadNotificationCount(),
-      builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
-        final int unread = snapshot.data ?? 0;
-        return IconButton(
-          tooltip: '消息通知',
-          icon: Badge(
-            isLabelVisible: unread > 0,
-            label: Text('$unread'),
-            child: const Icon(Icons.notifications_outlined),
-          ),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
-            );
-          },
+    return const _NotificationButton();
+  }
+}
+
+/// 顶栏右侧的通知入口：带未读数角标。
+///
+/// **未读数只在 initState 拉一次，绝不能写在 build 里。**
+///
+/// 这里原先是个 FutureBuilder，future 直接写成
+/// getUnreadNotificationCount() —— 而 _topBar() 是在 build() 里调的，于是
+/// RootShell 每 rebuild 一次就发一次请求。配合「每次尝试 15 秒超时」和
+/// maxConnectionsPerHost = 4，几次交互就能把连接池占满，之后所有请求排队等死
+/// —— 表现就是「疯狂地无法连接」。而且它只在登录后渲染，未登录时完全看不出来。
+class _NotificationButton extends StatefulWidget {
+  const _NotificationButton();
+
+  @override
+  State<_NotificationButton> createState() => _NotificationButtonState();
+}
+
+class _NotificationButtonState extends State<_NotificationButton> {
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final int unread = await ApiClient.instance.getUnreadNotificationCount();
+      if (mounted) setState(() => _unread = unread);
+    } catch (_) {
+      // 一个角标不该在顶栏里报错；失败就当 0。
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: '消息通知',
+      icon: Badge(
+        isLabelVisible: _unread > 0,
+        label: Text('$_unread'),
+        child: const Icon(Icons.notifications_outlined),
+      ),
+      onPressed: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
         );
+        // 从通知页回来，未读数可能已经清掉，刷新一次。
+        if (mounted) _load();
       },
     );
   }

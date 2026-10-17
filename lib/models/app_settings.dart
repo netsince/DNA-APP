@@ -31,6 +31,7 @@ class AppSettings {
     required this.autoBackup,
     required this.showSplashAnimation,
     required this.showBottomNav,
+    this.showExitToMainApp = true,
     required this.chatQuickSidebar,
     required this.chatQuickSidebarCollapsed,
     required this.chatSwipeSwitch,
@@ -110,6 +111,7 @@ class AppSettings {
       autoBackup: true,
       showSplashAnimation: true,
       showBottomNav: true,
+      showExitToMainApp: true,
       chatQuickSidebar: true,
       chatQuickSidebarCollapsed: false,
       chatSwipeSwitch: true,
@@ -243,6 +245,12 @@ class AppSettings {
 
   /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
   final bool showBottomNav;
+
+  /// 是否在「社区」顶栏右上角显示「返回主应用」。**默认开启**。
+  ///
+  /// 关掉后顶栏和侧边栏都不再出现该入口 —— 社区是主项目里的一个全屏栏目，
+  /// 没有主项目的底栏/抽屉，退出就只能靠横向滑动或系统返回。
+  final bool showExitToMainApp;
 
   /// 横屏宽窗口的聊天页是否显示「快速切换侧栏」。
   final bool chatQuickSidebar;
@@ -442,6 +450,7 @@ class AppSettings {
       'showSplashAnimation': showSplashAnimation,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
+      'showExitToMainApp': showExitToMainApp,
       'chatQuickSidebar': chatQuickSidebar,
       'chatQuickSidebarCollapsed': chatQuickSidebarCollapsed,
       'chatSwipeSwitch': chatSwipeSwitch,
@@ -534,6 +543,7 @@ class AppSettings {
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? true,
+      showExitToMainApp: (json['showExitToMainApp'] as bool?) ?? true,
       chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
       chatQuickSidebarCollapsed:
           (json['chatQuickSidebarCollapsed'] as bool?) ?? false,
@@ -649,6 +659,7 @@ class AppSettings {
     bool? showSplashAnimation,
     bool? updateCheckEnabled,
     bool? showBottomNav,
+    bool? showExitToMainApp,
     bool? chatQuickSidebar,
     bool? chatQuickSidebarCollapsed,
     bool? chatSwipeSwitch,
@@ -729,6 +740,7 @@ class AppSettings {
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
+      showExitToMainApp: showExitToMainApp ?? this.showExitToMainApp,
       chatQuickSidebar: chatQuickSidebar ?? this.chatQuickSidebar,
       chatQuickSidebarCollapsed:
           chatQuickSidebarCollapsed ?? this.chatQuickSidebarCollapsed,

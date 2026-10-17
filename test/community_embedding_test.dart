@@ -170,6 +170,28 @@ void main() {
         reason: '登录表单在「我」页，登录入口应切到那一页',
       );
     });
+
+    test('顶栏未读数不能写在 build 里（每 rebuild 一次就发一次请求）', () {
+      // 真事故：应用在电脑上「疯狂地无法连接」，浏览器和手机却正常。
+      //
+      // 根因不是网络不通，而是请求自己把连接池占满了 —— 其中一个放大器就是
+      // 顶栏那个未读数：future 写在 build 里，而 _topBar() 是在 build() 里调
+      // 的，于是 RootShell 每 rebuild 一次就发一次请求。配合「每次尝试 15 秒
+      // 超时」和 maxConnectionsPerHost = 4，几次交互就能让后续所有请求排队
+      // 等死。它只在登录后渲染，所以未登录时完全看不出来。
+      final String src =
+          File('lib/island_app/root_shell.dart').readAsStringSync();
+      expect(
+        RegExp(r'future:\s*ApiClient\.instance').hasMatch(src),
+        isFalse,
+        reason: 'build 里不能直接发请求：换成 StatefulWidget，在 initState 里拉一次',
+      );
+      expect(
+        src.contains('class _NotificationButton'),
+        isTrue,
+        reason: '未读数应在一个 StatefulWidget 里只拉一次（从通知页回来再刷新）',
+      );
+    });
   });
   group('社区预热的数据', () {
     test('表情目录加载失败后允许重试（一次抖动不会把整个会话钉死）', () async {
