@@ -215,12 +215,24 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
-  static const Duration _timeout = Duration(seconds: 10);
+  /// 建立连接（DNS + TCP + TLS）的超时。
+  ///
+  /// 比响应/正文宽松：debug 构建的冷启动（首次执行的 JIT 编译）本身就要几秒，
+  /// 而那段编译时间也会计入墙钟。10 秒会把冷启动的第一次请求直接砍掉。
+  static const Duration _connectTimeout = Duration(seconds: 15);
+
+  /// 等响应头 / 等正文首包的超时。
+  static const Duration _responseTimeout = Duration(seconds: 15);
+
+  /// 读响应体的超时。
+  ///
+  /// 推荐流一页就有 160–230KB，跟"等首包"共用一个额度太紧，单独放宽。
+  static const Duration _bodyTimeout = Duration(seconds: 30);
 
   /// 复用的 HttpClient：内部维护连接池与 keep-alive，避免每次请求都重建
   /// DNS / TCP / TLS 连接（无限滚动等高频请求尤其受益）。
   final HttpClient _client = HttpClient()
-    ..connectionTimeout = _timeout
+    ..connectionTimeout = _connectTimeout
     // 连接池空闲超时，配合 keep-alive 复用已有连接。
     ..idleTimeout = const Duration(seconds: 15)
     // 每个主机最大连接数，限制同时发起的并发连接。
@@ -284,11 +296,15 @@ class ApiClient {
   /// 统一请求入口：GET/POST 共用，带自动重试。
   ///
   /// 重试策略：
-  /// - 网络异常（超时、连接被重置、无法连接、DNS 解析失败、TLS 握手失败）
-  ///   与 5xx 服务端错误：自动重试，最多共 [_maxAttempts] 次尝试；
+  /// - 连接类异常（连接被重置、无法连接、DNS 解析失败、TLS 握手失败）与
+  ///   5xx 服务端错误：自动重试，最多共 [_maxAttempts] 次尝试；
+  /// - **超时不重试**（见下方 on TimeoutException）；
   /// - 4xx 客户端错误（未登录/无权限/资源不存在等）与响应解析错误：
   ///   不重试（重试无意义，只会放大问题）。
-  Future<Map<String, dynamic>> _requestJson(
+  ///
+  /// 成功后返回**响应体原文**：JSON 接口由 [_requestJson] 再解析一层；需要
+  /// 原文的接口（取世界卡）直接用它 —— 两者共用同一套重试/中止语义。
+  Future<String> _requestBody(
     String method,
     Uri target,
     Future<HttpClientRequest> Function() open,
@@ -296,9 +312,9 @@ class ApiClient {
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
       try {
         // 请求头在 open() 内设置（必须在写入 body 之前）。
-        final request = await open().timeout(_timeout);
-        final response = await request.close().timeout(_timeout);
-        final body = await utf8.decodeStream(response).timeout(_timeout);
+        request = await open().timeout(_connectTimeout);
+        final response = await request.close().timeout(_responseTimeout);
+        final body = await utf8.decodeStream(response).timeout(_bodyTimeout);
         final status = response.statusCode;
         if (status < 200 || status >= 300) {
           if (status >= 500 && attempt < _maxAttempts) {
@@ -307,6 +323,7 @@ class ApiClient {
               target,
               statusCode: status,
               responseBody: body,
+      HttpClientRequest? request;
               error: '服务端错误，稍后重试（$attempt/$_maxAttempts）',
             );
             await Future<void>.delayed(_retryDelay);
@@ -320,27 +337,24 @@ class ApiClient {
           );
           throw _apiExceptionFrom(status, body);
         }
-        // 响应体可能很大（含内嵌 base64 头像），在后台 isolate 解析，避免卡 UI。
-        final decoded = await compute(jsonDecode, body);
-        if (decoded is! Map) {
-          _logError(method, target, error: '返回格式不正确，body=$body');
-          throw Exception('返回格式不正确');
-        }
-        return decoded as Map<String, dynamic>;
+        return body;
       } on TimeoutException {
-        if (attempt < _maxAttempts) {
-          _logError(
-            method,
-            target,
-            error: '请求超时，稍后重试（$attempt/$_maxAttempts）',
-          );
-          await Future<void>.delayed(_retryDelay);
-          continue;
-        }
+        // 超时**必须主动中止**，且**不重试**。
+        //
+        // 中止：.timeout() 只让 Future 报错，底层连接会继续挂着。配合
+        // maxConnectionsPerHost 的上限，几个超时请求就能把连接池占满，
+        // 之后每个请求都排队、都超时 —— 表现为「疯狂地无法连接」。
+        //
+        // 不重试：超时无法判断服务端是否已经处理过，重试 POST 会重复提交
+        // （发帖发两遍、导入导两次）；而且每个请求 4 次 × 15 秒地占着连接，
+        // 正是把连接池拖死的放大器。读操作的韧性交给调用方的刷新/重进。
+        _abort(request);
         _logError(method, target, error: '请求超时');
         rethrow;
       } on IOException catch (e) {
-        // 连接被重置 / 无法连接 / DNS 解析失败 / TLS 握手失败等网络异常，可重试。
+        // 连接被重置 / 无法连接 / DNS 解析失败 / TLS 握手失败等网络异常，可重试
+        // —— 这些情况下请求确定没有送达服务端，重试是安全的。
+        _abort(request);
         if (attempt < _maxAttempts) {
           _logError(
             method,
@@ -379,6 +393,36 @@ class ApiClient {
       ..writeln('  请求内容: $method ${target.toString()}')
       ..writeln('  响应头 statusCode: ${statusCode ?? (error is TimeoutException ? '超时' : '无')}');
     if (responseBody != null) {
+  /// 统一请求入口：GET/POST 共用，带自动重试；返回解析后的 JSON 对象。
+  Future<Map<String, dynamic>> _requestJson(
+    String method,
+    Uri target,
+    Future<HttpClientRequest> Function() open,
+  ) async {
+    final body = await _requestBody(method, target, open);
+    // 响应体可能很大（含内嵌 base64 头像），在后台 isolate 解析，避免卡 UI。
+    final decoded = await compute(jsonDecode, body);
+    if (decoded is! Map) {
+      _logError(method, target, error: '返回格式不正确，body=$body');
+      throw Exception('返回格式不正确');
+    }
+    return decoded as Map<String, dynamic>;
+  }
+
+  /// 主动中止请求，把它占用的连接还回连接池。
+  ///
+  /// 超时/出错后必须调用：否则那条连接会一直挂到服务端或系统超时为止，
+  /// 而 [HttpClient.maxConnectionsPerHost] 是硬上限，几个泄漏就能让后续
+  /// 所有请求排队等死。
+  void _abort(HttpClientRequest? request) {
+    if (request == null) return;
+    try {
+      request.abort();
+    } catch (_) {
+      // 已结束的请求再 abort 会抛异常，忽略即可。
+    }
+  }
+
       buffer.writeln('  响应体: $responseBody');
     }
     if (error != null) {
