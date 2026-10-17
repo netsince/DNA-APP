@@ -17,6 +17,8 @@
     <span> • </span>
     <a href="https://dnaopensource.netsince.com/download">下载</a>
     <span> • </span>
+    <a href="https://cloudna.netsince.com">云 · 与汝共奏</a>
+    <span> • </span>
     <a href="https://dnaisland.nb6.ltd">社区</a>
 </div>
 
@@ -66,24 +68,20 @@
 
 ## 社区
 
-有社区，但是单独的网站。[角色卡社区](https://dnaisland.nb6.ltd)
-
-我们希望社区是跟APP解耦的，虽然这样有些麻烦。
+有社区，你可以在软件中使用社区（v0.3.0 加入），或使用网页版社区：[角色卡社区](https://dnaisland.nb6.ltd)
 
 当然，社区也是开源的！[DNAISLAND](https://github.com/netsince/dnaisland)
-
-
 
 ---
 
 ## 特性
 
-- **数据本地存储** — 所有对话数据存储在本地，不会传到任何第三方服务器。（除API请求）
-- **零多余网络请求** — 除请求指定的 API、设置外，不会连接任何第三方网络（可选搭配本地模型实现完全离线）
+- **数据本地存储** — 所有对话数据存储在本地，不会传到任何第三方服务器（除API请求）
+- **零多余网络请求** — 只要你想，可实现不连接任何第三方网络（可选搭配本地模型实现完全离线、社区可关闭）
 - **角色扮演体验** — 专注于纯粹的 RP（Role-Play）体验，无冗余功能干扰
 - **灵活的提示词策略** — 支持自定义提示词策略，精细控制 AI 角色行为
 - **本地身份验证** — 支持本地生物识别锁定，保护隐私数据
-- **跨平台** — 支持 Android、Windows、macOS、Linux、iOS（iOS 需自行编译）
+- **跨平台** — 支持 Android、Windows、macOS、Linux、iOS（iOS 需自行编译）甚至网页
 
 # FOR DEVELOPERS
 
@@ -132,6 +130,8 @@ flutter build macos
 # Linux
 flutter build linux
 
+# Web
+flutter build web
 ```
 
 ---
@@ -140,6 +140,7 @@ flutter build linux
 
 - [项目官网](https://dnaopensource.netsince.com)
 - [下载页面](https://dnaopensource.netsince.com/download)
+- [在线体验！云 · 与汝共奏](https://cloudna.netsince.com)
 - [角色卡社区](https://dnaisland.nb6.ltd)
 - [社区开源仓库 (DNAISLAND)](https://github.com/netsince/dnaisland)
 
