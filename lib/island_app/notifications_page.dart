@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
+import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
@@ -124,6 +125,17 @@ class _NotificationsBodyState extends State<NotificationsBody> {
     }
   }
 
+  /// 按关联类型决定跳到哪：角色卡 → 卡片详情，世界卡 → 世界卡详情。
+  void _openRelated(String type, String id) {
+    if (type == 'world') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => WorldDetailPage(id: id)),
+      );
+      return;
+    }
+    _openCard(id);
+  }
+
   void _openCard(String cardId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: cardId)),
@@ -200,10 +212,18 @@ class _NotificationsBodyState extends State<NotificationsBody> {
         final isRead = n['is_read'] == true;
         final message = (n['message'] ?? '').toString();
         final created = (n['created_at'] ?? '').toString();
-        final cardId = (n['related_card_id'] ?? '').toString();
+        // 关联对象：优先用通用的 related_type / related_id；老服务端只给
+        // related_card_id，回退成角色卡。
+        final String relatedType = (n['related_type'] ??
+                (n['related_card_id'] != null ? 'card' : ''))
+            .toString();
+        final String relatedId =
+            (n['related_id'] ?? n['related_card_id'] ?? '').toString();
+        final bool canOpen = relatedId.isNotEmpty &&
+            (relatedType == 'card' || relatedType == 'world');
         final scheme = Theme.of(context).colorScheme;
         return ListTile(
-          onTap: cardId.isEmpty ? null : () => _openCard(cardId),
+          onTap: canOpen ? () => _openRelated(relatedType, relatedId) : null,
           leading: SizedBox(
             width: 10,
             child: isRead
@@ -233,7 +253,7 @@ class _NotificationsBodyState extends State<NotificationsBody> {
               ).textTheme.bodySmall?.copyWith(color: scheme.outline),
             ),
           ),
-          trailing: cardId.isEmpty
+          trailing: !canOpen
               ? null
               : Icon(
                   Icons.chevron_right,
