@@ -293,6 +293,19 @@ class ApiClient {
         return request;
       });
 
+  /// 发送**原文** POST（请求体已经是 JSON 文本，不再 jsonEncode 一层）。
+  ///
+  /// 世界卡的发布就是这样：把 World.toJson() 的文本直接当请求体发出去，
+  /// 免得把几百 KB 的文本再转义一遍。
+  Future<Map<String, dynamic>> _postRaw(Uri target, String text) =>
+      _requestJson('POST', target, () async {
+        final request = await _client.postUrl(target);
+        _applyHeaders(request);
+        request.headers.set('Content-Type', 'application/json; charset=utf-8');
+        request.add(utf8.encode(text));
+        return request;
+      });
+
   /// 统一请求入口：GET/POST 共用，带自动重试。
   ///
   /// 重试策略：
@@ -310,6 +323,7 @@ class ApiClient {
     Future<HttpClientRequest> Function() open,
   ) async {
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
+      HttpClientRequest? request;
       try {
         // 请求头在 open() 内设置（必须在写入 body 之前）。
         request = await open().timeout(_connectTimeout);
@@ -323,7 +337,6 @@ class ApiClient {
               target,
               statusCode: status,
               responseBody: body,
-      HttpClientRequest? request;
               error: '服务端错误，稍后重试（$attempt/$_maxAttempts）',
             );
             await Future<void>.delayed(_retryDelay);
@@ -380,19 +393,6 @@ class ApiClient {
     throw StateError('不可达：重试循环必须返回或抛出');
   }
 
-  /// 在控制台打印请求错误日志，包含请求方法、完整 URL 与错误详情/响应结果。
-  void _logError(
-    String method,
-    Uri target, {
-    int? statusCode,
-    String? responseBody,
-    Object? error,
-  }) {
-    final buffer = StringBuffer()
-      ..writeln('[API ERROR] $method ${target.toString()}')
-      ..writeln('  请求内容: $method ${target.toString()}')
-      ..writeln('  响应头 statusCode: ${statusCode ?? (error is TimeoutException ? '超时' : '无')}');
-    if (responseBody != null) {
   /// 统一请求入口：GET/POST 共用，带自动重试；返回解析后的 JSON 对象。
   Future<Map<String, dynamic>> _requestJson(
     String method,
@@ -423,6 +423,19 @@ class ApiClient {
     }
   }
 
+  /// 在控制台打印请求错误日志，包含请求方法、完整 URL 与错误详情/响应结果。
+  void _logError(
+    String method,
+    Uri target, {
+    int? statusCode,
+    String? responseBody,
+    Object? error,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('[API ERROR] $method ${target.toString()}')
+      ..writeln('  请求内容: $method ${target.toString()}')
+      ..writeln('  响应头 statusCode: ${statusCode ?? (error is TimeoutException ? '超时' : '无')}');
+    if (responseBody != null) {
       buffer.writeln('  响应体: $responseBody');
     }
     if (error != null) {
@@ -521,6 +534,164 @@ class ApiClient {
         (k, v) => MapEntry(k.toString(), v),
       );
     }).toList();
+  }
+
+  // ========================================================================
+  //  WORLD CARDS 世界卡（社区栏目）
+  // ========================================================================
+
+  /// 世界卡列表（GET /api/v1/worlds）。
+  ///
+  /// 返回分页对象（items / page / pages / total / has_next）。每一项都**不含
+  /// 正文** —— 列表只给元信息（名称/简介/词条数/复制量/标签），正文要靠
+  /// [downloadWorldText] 单独取。
+  Future<Map<String, dynamic>> getWorlds({
+    int page = 1,
+    int perPage = 20,
+    String query = '',
+    String tag = '',
+    String sort = 'new',
+  }) async {
+    final Map<String, String> params = <String, String>{
+      'page': page.toString(),
+      'per_page': perPage.toString(),
+      'sort': sort,
+    };
+    if (query.trim().isNotEmpty) params['q'] = query.trim();
+    if (tag.trim().isNotEmpty) params['tag'] = tag.trim();
+    final data = await _getJson(
+      _apiUri('/api/v1/worlds').replace(queryParameters: params),
+    );
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 世界卡详情（GET `/api/v1/worlds/<id>`）：元信息 + 词条名 + 1 条示例。
+  Future<Map<String, dynamic>> getWorldDetail(String id) async {
+    final data = await _getJson(_apiUri('/api/v1/worlds/$id'));
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 取世界卡原文（GET `/api/v1/worlds/<id>/export`）。
+  ///
+  /// **原样返回服务端存的那段文本**，不解析 —— 直接交给
+  /// WorldExportImportService.importWorld 即可。服务端在这一步同时记复制统计。
+  Future<String> downloadWorldText(String id) {
+    final Uri target = _apiUri('/api/v1/worlds/$id/export');
+    return _requestBody('GET', target, () async {
+      final request = await _client.getUrl(target);
+      _applyHeaders(request);
+      return request;
+    });
+  }
+
+  /// 发布世界卡（POST /api/v1/worlds）。
+  ///
+  /// [rawJson] 是 World.toJson() 的文本，**直接当请求体**发出去；服务端按收到
+  /// 的字节原样入库，所以客户端这边也不该先 parse 再 encode。
+  Future<Map<String, dynamic>> publishWorld(String rawJson) async {
+    final data = await _postRaw(_apiUri('/api/v1/worlds'), rawJson);
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 我发布的世界卡（GET `/api/v1/my/worlds`，需登录）。
+  ///
+  /// **含待审核 / 已拒绝 / 已下架** —— 作者要看得到自己的全部条目和状态。
+  Future<Map<String, dynamic>> getMyWorlds({int page = 1}) async {
+    final data = await _getJson(
+      _apiUri('/api/v1/my/worlds').replace(queryParameters: {'page': '$page'}),
+    );
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 我收藏的世界卡（GET `/api/v1/my/world-favorites`，需登录）。
+  Future<Map<String, dynamic>> getMyWorldFavorites({int page = 1}) async {
+    final data = await _getJson(
+      _apiUri('/api/v1/my/world-favorites')
+          .replace(queryParameters: {'page': '$page'}),
+    );
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 世界卡热门标签（GET `/api/v1/worlds/tags`）。
+  ///
+  /// 返回 `[{tag, count}]`，列表页的筛选条用它 —— 客户端不该自己猜标签，
+  /// 也不该把全量世界卡拉下来自己聚合。
+  Future<List<({String tag, int count})>> getWorldTags() async {
+    final data = await _getJson(_apiUri('/api/v1/worlds/tags'));
+    final payload = data['data'];
+    if (payload is! Map) return const <({String tag, int count})>[];
+    final raw = payload['tags'];
+    if (raw is! List) return const <({String tag, int count})>[];
+    return raw.whereType<Map>().map((Map e) {
+      final tag = (e['tag'] ?? '').toString();
+      final count = e['count'];
+      return (tag: tag, count: count is num ? count.toInt() : 0);
+    }).where((e) => e.tag.isNotEmpty).toList();
+  }
+
+  /// 某个用户发布的世界卡（GET `/api/v1/users/<username>/worlds`）。
+  ///
+  /// 作者主页的「世界」tab 用；可见性由服务端按「本人 / 他人」分别处理。
+  Future<Map<String, dynamic>> getUserWorlds(
+    String username, {
+    int page = 1,
+    int perPage = 12,
+  }) async {
+    final data = await _getJson(
+      _apiUri('/api/v1/users/$username/worlds').replace(
+        queryParameters: <String, String>{
+          'page': page.toString(),
+          'per_page': perPage.toString(),
+        },
+      ),
+    );
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 收藏 / 取消收藏世界卡（POST `/api/v1/worlds/<id>/favorite`，需登录）。
+  ///
+  /// 返回 {favorited: bool, count: int}。
+  Future<Map<String, dynamic>> favoriteWorld(String id) async {
+    final Uri target = _apiUri('/api/v1/worlds/$id/favorite');
+    final data = await _requestJson('POST', target, () async {
+      final request = await _client.postUrl(target);
+      _applyHeaders(request);
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.add(utf8.encode('{}'));
+      return request;
+    });
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 撤回自己发布的世界卡（DELETE `/api/v1/worlds/<id>`）。
+  Future<void> deleteWorld(String id) async {
+    final Uri target = _apiUri('/api/v1/worlds/$id');
+    await _requestJson('DELETE', target, () async {
+      final request = await _client.deleteUrl(target);
+      _applyHeaders(request);
+      return request;
+    });
   }
 
   /// 拉取探索角色卡分页（GET `/api/v1/cards/explore`）。

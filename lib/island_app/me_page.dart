@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/island_app/world_import_sink.dart';
+import 'package:dna/island_app/worlds_list_page.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
+import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/my_cards_page.dart';
 import 'package:dna/island_app/my_collections_page.dart';
 import 'package:dna/island_app/points_page.dart';
@@ -26,10 +29,14 @@ import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/world_detail_page.dart';
 
 /// 「我」页面：未登录时显示登录表单；已登录时显示个人主页。
 class MePage extends StatelessWidget {
-  const MePage({super.key});
+  const MePage({super.key, this.importSink});
+
+  /// 导入落地用的窄接口：从这里点进世界卡详情时，才能给「导入到我的世界」。
+  final WorldImportSink? importSink;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +47,7 @@ class MePage extends StatelessWidget {
         final user = auth.user;
         if (auth.isLoggedIn && user != null) {
           return ProfileView(
+            importSink: importSink,
             username: (user['username'] ?? '').toString(),
             isSelf: true,
           );
@@ -240,6 +248,10 @@ typedef ProfileCommentsLoader =
 typedef ProfileTeahouseLoader =
     Future<Map<String, dynamic>> Function(String username, {int page});
 
+/// 用户发布的世界卡加载回调（默认走 [ApiClient.getUserWorlds]）。
+typedef ProfileWorldsLoader =
+    Future<Map<String, dynamic>> Function(String username, {int page});
+
 /// 个人主页（自己或他人共用）：身份头卡 + 可点击统计 + 内容标签。
 ///
 /// [isSelf] 为 true 时额外显示「这是你」与退出按钮。
@@ -251,10 +263,15 @@ class ProfileView extends StatefulWidget {
     this.profileLoader,
     this.commentsLoader,
     this.teahouseLoader,
+    this.worldsLoader,
     this.followToggler,
     this.clipboardWriter,
     this.isLoggedIn,
+    this.importSink,
   });
+
+  /// 导入落地用的窄接口（透传给世界卡详情页）。
+  final WorldImportSink? importSink;
 
   final String username;
   final bool isSelf;
@@ -267,6 +284,9 @@ class ProfileView extends StatefulWidget {
 
   /// 注入用：用户茶馆帖子加载器（测试时替换为 stub）。
   final ProfileTeahouseLoader? teahouseLoader;
+
+  /// 注入用：用户世界卡加载器（测试时替换为 stub）。
+  final ProfileWorldsLoader? worldsLoader;
 
   /// 注入用：关注切换回调（测试时替换为 stub）。
   final ProfileFollowToggler? followToggler;
@@ -305,6 +325,16 @@ class _ProfileViewState extends State<ProfileView> {
   bool _teahouseLoadingMore = false;
   bool _teahouseNoMore = false;
   int _teahousePage = 0;
+
+  // 世界卡 tab 分页状态
+  //
+  // 这一个**不在 initState 里预拉**：主页一进来就并发四个请求（资料/评论/
+  // 茶馆/世界卡）没必要，世界卡 tab 是最后才被看的。切过去时再拉。
+  final List<WorldCardSummary> _worlds = <WorldCardSummary>[];
+  bool _worldsLoading = false;
+  bool _worldsLoadingMore = false;
+  bool _worldsNoMore = false;
+  int _worldsPage = 0;
 
   /// 当前登录用户是否已关注该主页用户（他人主页关注按钮的初始状态）。
   bool _isFollowing = false;
@@ -389,6 +419,47 @@ class _ProfileViewState extends State<ProfileView> {
         setState(() {
           _teahouseLoading = false;
           _teahouseLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  /// 用户世界卡分页加载（[reset] 为 true 时重拉第一页）。
+  ///
+  /// 切到「世界」tab 时才第一次调用（见 [_onWorldsTabActive]）。
+  Future<void> _loadWorlds({bool reset = false}) async {
+    if (_worldsLoadingMore || (!reset && _worldsNoMore)) return;
+    setState(() {
+      if (reset) _worldsLoading = true;
+      _worldsLoadingMore = !reset;
+    });
+    try {
+      final page = reset ? 1 : _worldsPage + 1;
+      final data = await (widget.worldsLoader ??
+          ApiClient.instance.getUserWorlds)(widget.username, page: page);
+      if (!mounted) return;
+      final rawItems = data['items'];
+      final items = rawItems is List
+          ? rawItems
+              .whereType<Map>()
+              .map((Map e) =>
+                  WorldCardSummary.fromJson(e.cast<String, dynamic>()))
+              .where((WorldCardSummary w) => w.id.isNotEmpty)
+              .toList()
+          : <WorldCardSummary>[];
+      setState(() {
+        if (reset) _worlds.clear();
+        _worlds.addAll(items);
+        _worldsPage = page;
+        _worldsNoMore = items.isEmpty || data['has_next'] != true;
+        _worldsLoading = false;
+        _worldsLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _worldsLoading = false;
+          _worldsLoadingMore = false;
         });
       }
     }
@@ -529,7 +600,7 @@ class _ProfileViewState extends State<ProfileView> {
     }
     // 主页式布局：身份头卡随内容上滚消失，TabBar 吸顶，内容占满剩余空间。
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: AppRefreshIndicator(
         onRefresh: _refresh,
         child: NestedScrollView(
@@ -540,8 +611,10 @@ class _ProfileViewState extends State<ProfileView> {
               pinned: true,
               delegate: _SliverTabBarHeader(
                 child: const TabBar(
+                  // 顺序与网页版个人主页一致：角色卡 → 世界卡 → 茶馆 → 评论。
                   tabs: <Widget>[
                     Tab(text: '角色卡'),
+                    Tab(text: '世界'),
                     Tab(text: '茶馆'),
                     Tab(text: '评论'),
                   ],
@@ -552,6 +625,7 @@ class _ProfileViewState extends State<ProfileView> {
           body: TabBarView(
             children: <Widget>[
               _buildCardsTab(context),
+              _buildWorldsTab(context),
               _buildTeahouseTab(context),
               _buildCommentsTab(context),
             ],
@@ -868,6 +942,50 @@ class _ProfileViewState extends State<ProfileView> {
             },
           ),
         ),
+        SizedBox(
+          width: 76,
+          child: _entry(
+            context,
+            Icons.public_outlined,
+            '我的世界',
+            () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => WorldsListPage(
+                    title: '我的世界卡',
+                    emptyText: '你还没有发布过世界卡。',
+                    loader: (int page) =>
+                        ApiClient.instance.getMyWorlds(page: page),
+                    importSink: widget.importSink,
+                    // 自己的条目要能看出审核状态、要能撤回。
+                    manageable: true,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SizedBox(
+          width: 76,
+          child: _entry(
+            context,
+            Icons.bookmark_outline,
+            '世界收藏',
+            () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => WorldsListPage(
+                    title: '我收藏的世界卡',
+                    emptyText: '还没有收藏任何世界卡。',
+                    loader: (int page) =>
+                        ApiClient.instance.getMyWorldFavorites(page: page),
+                    importSink: widget.importSink,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -1020,6 +1138,100 @@ class _ProfileViewState extends State<ProfileView> {
     if (_comments.isEmpty && !_commentsLoading) {
       _loadComments(reset: true);
     }
+  }
+
+  /// 切到「世界」tab 且当前是空态时自动重拉。
+  void _onWorldsTabActive() {
+    if (!mounted) return;
+    if (_worlds.isEmpty && !_worldsLoading) {
+      _loadWorlds(reset: true);
+    }
+  }
+
+  /// 世界 tab：用户发布的世界卡（分页加载，点击进入详情）。
+  Widget _buildWorldsTab(BuildContext context) {
+    return _ReloadOnActive(
+      onActive: _onWorldsTabActive,
+      child: _buildWorldsContent(context),
+    );
+  }
+
+  Widget _buildWorldsContent(BuildContext context) {
+    if (_worldsLoading && _worlds.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_worlds.isEmpty && !_worldsLoading) {
+      return _emptyTab('世界', '还没有发布任何世界卡');
+    }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
+          _loadWorlds();
+        }
+        return false;
+      },
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _worlds.length + (_worldsLoadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
+        itemBuilder: (context, index) {
+          if (index >= _worlds.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _worldTile(context, _worlds[index]);
+        },
+      ),
+    );
+  }
+
+  /// 世界卡一行：名字 + 元信息（+ 自己主页上的审核状态）。
+  Widget _worldTile(BuildContext context, WorldCardSummary w) {
+    final scheme = Theme.of(context).colorScheme;
+    final String meta = <String>[
+      if (w.entryCount > 0) '${w.entryCount} 词条',
+      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
+      if (w.copyCount > 0) '复制 ${w.copyCount}',
+      if (w.createdAt != null)
+        formatRelativeTime(w.createdAt!.toIso8601String()),
+    ].join(' · ');
+    final String status = widget.isSelf ? w.statusLabel : '';
+    return ListTile(
+      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (w.summary.isNotEmpty)
+            Text(
+              w.summary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          if (meta.isNotEmpty)
+            Text(
+              meta,
+              style: TextStyle(fontSize: 12, color: scheme.outline),
+            ),
+          if (status.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: WorldStatusChip(summary: w),
+            ),
+        ],
+      ),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => WorldDetailPage(
+            id: w.id,
+            fallbackName: w.name,
+            importSink: widget.importSink,
+          ),
+        ),
+      ),
+    );
   }
 
   /// 茶馆 tab：用户发布的茶馆帖子（分页加载，点击进入帖子详情）。

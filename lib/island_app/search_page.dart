@@ -6,17 +6,23 @@ import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
+import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/world_detail_page.dart';
 
 /// 搜索结果类型。
-enum SearchTab { all, cards, users, posts }
+enum SearchTab { all, cards, worlds, users, posts }
 
-/// 全站搜索页：支持角色卡 / 用户 / 茶馆帖，对齐网页版 /search。
+/// 全站搜索页：支持角色卡 / 世界卡 / 用户 / 茶馆帖。
+///
+/// 世界卡此前**完全不在全站搜索里** —— 后端一直在给世界卡建倒排索引
+/// （search_service.DOC_WORLD，含词条名与触发词），但搜索页没有这个 tab，
+/// 于是「找一本世界书」只能去世界栏目里一页页翻。
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key, this.initialQuery = ''});
 
@@ -39,6 +45,12 @@ class _SearchPageState extends State<SearchPage> {
   int _cardsPage = 1;
   bool _cardsHasMore = false;
   bool _cardsLoadingMore = false;
+  // 世界卡搜索结果。
+  List<WorldCardSummary> _worlds = const <WorldCardSummary>[];
+  bool _worldsDone = false;
+  int _worldsPage = 1;
+  bool _worldsHasMore = false;
+  bool _worldsLoadingMore = false;
   // 用户搜索结果。
   List<Map<String, dynamic>> _users = const <Map<String, dynamic>>[];
   bool _usersDone = false;
@@ -132,9 +144,11 @@ class _SearchPageState extends State<SearchPage> {
         _cards = const <Map<String, dynamic>>[];
         _users = const <Map<String, dynamic>>[];
         _posts = const <Map<String, dynamic>>[];
+        _worlds = const <WorldCardSummary>[];
         _cardsHasMore = false;
         _usersHasMore = false;
         _postsHasMore = false;
+        _worldsHasMore = false;
       });
       return;
     }
@@ -146,12 +160,14 @@ class _SearchPageState extends State<SearchPage> {
       _cardsPage = 1;
       _usersPage = 1;
       _postsPage = 1;
+      _worldsPage = 1;
     });
     try {
       final Future<void> cardsF = _loadCards(q, reset: true);
       final Future<void> usersF = _loadUsers(q, reset: true);
       final Future<void> postsF = _loadPosts(q, reset: true);
-      await Future.wait(<Future<void>>[cardsF, usersF, postsF]);
+      final Future<void> worldsF = _loadWorlds(q, reset: true);
+      await Future.wait(<Future<void>>[cardsF, usersF, postsF, worldsF]);
       if (!mounted) return;
       setState(() => _loading = false);
     } catch (e) {
@@ -229,6 +245,46 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  Future<void> _loadWorlds(String q, {bool reset = false}) async {
+    try {
+      final page = reset ? 1 : _worldsPage + 1;
+      final Map<String, dynamic> data =
+          await ApiClient.instance.getWorlds(page: page, query: q);
+      if (!mounted) return;
+      final Object? raw = data['items'];
+      final List<WorldCardSummary> items = raw is List
+          ? raw
+              .whereType<Map>()
+              .map((Map e) =>
+                  WorldCardSummary.fromJson(e.cast<String, dynamic>()))
+              .where((WorldCardSummary w) => w.id.isNotEmpty)
+              .toList()
+          : <WorldCardSummary>[];
+      setState(() {
+        _worlds = reset ? items : <WorldCardSummary>[..._worlds, ...items];
+        _worldsPage = page;
+        _worldsHasMore = data['has_next'] == true;
+        _worldsDone = true;
+        _worldsLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _worldsDone = true;
+          _worldsLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _openWorld(WorldCardSummary w) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => WorldDetailPage(id: w.id, fallbackName: w.name),
+      ),
+    );
+  }
+
   /// 滚动接近底部时按当前 tab 加载下一页。
   void _onScroll(ScrollController c) {
     if (!c.hasClients) return;
@@ -243,6 +299,9 @@ class _SearchPageState extends State<SearchPage> {
       } else if (_tab == SearchTab.posts && _postsHasMore && !_postsLoadingMore && !_loading) {
         setState(() => _postsLoadingMore = true);
         _loadPosts(_query);
+      } else if (_tab == SearchTab.worlds && _worldsHasMore && !_worldsLoadingMore && !_loading) {
+        setState(() => _worldsLoadingMore = true);
+        _loadWorlds(_query);
       }
     }
   }
@@ -356,7 +415,7 @@ class _SearchPageState extends State<SearchPage> {
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _search(),
             decoration: InputDecoration(
-              hintText: '搜索角色卡 / 用户 / 茶馆帖',
+              hintText: '搜索角色卡 / 世界卡 / 用户 / 茶馆帖',
               isDense: true,
               filled: true,
               fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -463,6 +522,7 @@ class _SearchPageState extends State<SearchPage> {
     const tabs = <(SearchTab, String, IconData)>[
       (SearchTab.all, '全部', Icons.apps_outlined),
       (SearchTab.cards, '角色卡', Icons.badge_outlined),
+      (SearchTab.worlds, '世界', Icons.public_outlined),
       (SearchTab.users, '用户', Icons.person_outline),
       (SearchTab.posts, '茶馆帖', Icons.local_cafe_outlined),
     ];
@@ -542,6 +602,8 @@ class _SearchPageState extends State<SearchPage> {
           _buildSortBar(),
           Expanded(child: _cardResults()),
         ]);
+      case SearchTab.worlds:
+        return _worldResults();
       case SearchTab.users:
         return _userResults();
       case SearchTab.posts:
@@ -623,6 +685,61 @@ class _SearchPageState extends State<SearchPage> {
           onTap: () => _openCard(_cards[i]),
         );
       },
+    );
+  }
+
+  Widget _worldResults() {
+    if (_worldsDone && _worlds.isEmpty) {
+      return const Center(child: Text('未找到相关世界卡'));
+    }
+    return AppRefreshIndicator(
+      onRefresh: _search,
+      child: ListView.separated(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _worlds.length + (_worldsLoadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
+        itemBuilder: (context, i) {
+          if (i >= _worlds.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          return _worldTile(_worlds[i]);
+        },
+      ),
+    );
+  }
+
+  /// 世界卡搜索结果一行：名字 + 简介 + 元信息。
+  Widget _worldTile(WorldCardSummary w) {
+    final scheme = Theme.of(context).colorScheme;
+    final String meta = <String>[
+      if (w.entryCount > 0) '${w.entryCount} 词条',
+      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
+      if (w.copyCount > 0) '复制 ${w.copyCount}',
+      if (w.authorName.isNotEmpty) w.authorName,
+    ].join(' · ');
+    return ListTile(
+      leading: const Icon(Icons.public_outlined),
+      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        w.summary.isEmpty ? meta : '${w.summary}\n$meta',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+      ),
+      isThreeLine: w.summary.isNotEmpty,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openWorld(w),
     );
   }
 
@@ -781,8 +898,14 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _allResults() {
-    final bool nothing =
-        _cardsDone && _usersDone && _postsDone && _cards.isEmpty && _users.isEmpty && _posts.isEmpty;
+    final bool nothing = _cardsDone &&
+        _worldsDone &&
+        _usersDone &&
+        _postsDone &&
+        _cards.isEmpty &&
+        _worlds.isEmpty &&
+        _users.isEmpty &&
+        _posts.isEmpty;
     if (nothing) {
       return const Center(child: Text('未找到相关结果'));
     }
@@ -802,6 +925,18 @@ class _SearchPageState extends State<SearchPage> {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openCard(c),
+              )),
+        ],
+        if (_worlds.isNotEmpty) ...<Widget>[
+          const _SectionHeader('世界卡'),
+          ..._worlds.take(10).map((w) => ListTile(
+                leading: const Icon(Icons.public_outlined),
+                title: Text(w.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(w.summary,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openWorld(w),
               )),
         ],
         if (_users.isNotEmpty) ...<Widget>[

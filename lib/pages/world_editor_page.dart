@@ -1,8 +1,11 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 
+import '../island_app/api/client.dart';
 import '../models/world.dart';
 import '../services/export_file_utils.dart';
 import '../services/world_export_import_service.dart';
@@ -295,6 +298,41 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     );
   }
 
+  /// 发布到社区。
+  ///
+  /// 先落盘再发：社区读的是**本地世界**，不存的话发布页里根本看不到它。
+  ///
+  /// 发的是**裸 World.toJson()**，不是 exportWorld 的带信封格式 —— 服务端只读
+  /// 顶层的 name / summary / tags / entries，套一层 world:{...} 它就读不到了。
+  Future<void> _publishToCommunity() async {
+    final World current = _buildCurrentWorld();
+    if (current.name.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: FitText('先给世界起个名字')),
+      );
+      return;
+    }
+    try {
+      await widget.controller.upsertWorld(current);
+      final Map<String, dynamic> result =
+          await ApiClient.instance.publishWorld(jsonEncode(current.toJson()));
+      if (!mounted) return;
+      final bool reused = result['reused'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: FitText(
+            reused ? '这个世界之前已经提交过，正在审核中' : '已提交，等待审核',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText('发布失败：$e')),
+      );
+    }
+  }
+
   /// 弹出词条创建/编辑弹窗
   void _openEntryEditor({WorldEntry? entryToEdit, int? editIndex}) {
     showModalBottomSheet<void>(
@@ -340,6 +378,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                 case 'import':
                   _importFromClipboard();
                   break;
+                case 'publish':
+                  _publishToCommunity();
+                  break;
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -360,6 +401,16 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                     Icon(Icons.file_download_outlined),
                     SizedBox(width: 8),
                     FitText('导入世界观'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'publish',
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.public_outlined),
+                    SizedBox(width: 8),
+                    FitText('发布到社区'),
                   ],
                 ),
               ),

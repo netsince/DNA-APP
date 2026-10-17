@@ -43,6 +43,19 @@ class AuthSession extends ChangeNotifier {
   /// 登录请求进行中。
   bool get busy => _busy;
 
+  /// 测试用：直接注入登录态，不走网络。
+  ///
+  /// 侧边栏的「我的」分组只在登录后出现，而 [load] 需要一个真 token 加一次
+  /// 成功的 getMe()，在测试里跑不通。与 [CommunityPreload.resetForTest] /
+  /// [StickerCatalog.debugClear] 同一类口子。传空即退出登录。
+  @visibleForTesting
+  void debugSetSession({String? token, Map<String, dynamic>? user}) {
+    _token = token;
+    _user = user;
+    ApiClient.instance.token = token;
+    notifyListeners();
+  }
+
   /// 启动时从本地恢复会话并校验 token 有效性。
   Future<void> load() async {
     final prefs = await SharedPrefs.instance;
