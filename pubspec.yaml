@@ -138,7 +138,7 @@ flutter:
     # 本项目许可证全文（关于页「许可证」标签页读取展示）
     - LICENSE-nSPPL
     - LICENSE-CC
-    - LICENSE-OFL.txt
+    - LICENSE-OFL
 
   # 内置品牌字体：思源黑体（Source Han Sans / Noto Sans SC）。
   #
@@ -149,7 +149,7 @@ flutter:
   #      项目里 45 处 `w600` 会被不一致地渲染成 w400 或 w700；
   #   3. 跨平台不一致 —— Android 无雅黑，各平台观感割裂。
   #
-  # 授权：SIL Open Font License 1.1（可自由商用与再分发），全文见 LICENSE-OFL.txt。
+  # 授权：SIL Open Font License 1.1（可自由商用与再分发），全文见 LICENSE-OFL。
   # 体积：两个字重合计约 15.9 MB，随各平台安装包（APK / Exe / Linux / macOS / iOS / Web）分发。
   fonts:
     - family: SourceHanSans

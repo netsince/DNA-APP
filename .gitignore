@@ -50,11 +50,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-/s/
-
+# Backend is a separate repo nested inside this one; leave it as-is.
 /dnaisland/
 
-/image-gen-prototype/
-
-modelwksps
-/.*
+# Local-only dev material: reference checkouts, model workspace, research dumps.
+/local/

@@ -112,7 +112,7 @@ abstract final class AppSpacing {
 /// 字体族令牌。
 ///
 /// 内置**思源黑体**(Source Han Sans / Noto Sans SC),随安装包分发。
-/// 授权 SIL OFL 1.1,全文见 `LICENSE-OFL.txt`。
+/// 授权 SIL OFL 1.1,全文见 `LICENSE-OFL`。
 ///
 /// 内置字体是**可选项**而非唯一选择:手机主题自带字体的用户会希望
 /// 应用跟着系统走(设置里的「系统字体」)。默认跟随系统,理由是

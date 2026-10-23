@@ -44,10 +44,10 @@ void main() {
     });
 
     test('OFL 许可证已随包分发', () {
-      expect(File('LICENSE-OFL.txt').existsSync(), isTrue);
-      expect(pubspec.contains('LICENSE-OFL.txt'), isTrue,
+      expect(File('LICENSE-OFL').existsSync(), isTrue);
+      expect(pubspec.contains('LICENSE-OFL'), isTrue,
           reason: 'OFL 要求分发时附带许可证全文');
-      final String lic = File('LICENSE-OFL.txt').readAsStringSync();
+      final String lic = File('LICENSE-OFL').readAsStringSync();
       expect(lic.contains('SIL Open Font License'), isTrue);
     });
 

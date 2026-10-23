@@ -254,7 +254,7 @@ L6  模型专属采样                  model_sampler_settings
 | 字体族 | `SourceHanSans`(见 `AppFont.family`) |
 | 字重 | Regular **400** + Medium **500**(仅此两档,**真实字重**) |
 | 体积 | 约 **15.9 MB**(2 × 7.95 MB) |
-| 授权 | **SIL Open Font License 1.1**(可自由商用与再分发),全文见 `LICENSE-OFL.txt` |
+| 授权 | **SIL Open Font License 1.1**(可自由商用与再分发),全文见 `LICENSE-OFL` |
 | 文件 | `assets/fonts/SourceHanSansSC-Regular.otf`、`assets/fonts/SourceHanSansSC-Medium.otf` |
 
 > **v0.3.1 起这是「可选项」,默认不启用。** 默认**跟随系统字体**

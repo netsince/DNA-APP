@@ -9,14 +9,14 @@ import 'package:dna/services/tts/chattts_engine.dart';
 void main() {
   test('端到端合成（GPT→DVAE→Vocos→istft）', () {
     final Map<String, dynamic> speakerJson = jsonDecode(
-          File(r'D:\duetnurturingally\dna-client\modelwksps\tts_speaker.json')
+          File(r'D:\duetnurturingally\dna-client\local\modelwksps\tts_speaker.json')
               .readAsStringSync(),
         )
         as Map<String, dynamic>;
     final ChatTtsEngine engine = ChatTtsEngine(
-      modelsDir: r'D:\duetnurturingally\dna-client\modelwksps\models',
+      modelsDir: r'D:\duetnurturingally\dna-client\local\modelwksps\models',
       tokenizerJsonPath:
-          r'D:\duetnurturingally\dna-client\modelwksps\models\tokenizer\tokenizer.json',
+          r'D:\duetnurturingally\dna-client\local\modelwksps\models\tokenizer\tokenizer.json',
       speakerJson: speakerJson,
       threads: 4,
     );

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dna/services/tts/tts_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// ISTFT 的契约(复刻 modelwksps/chattts_onnx.py 的 `numpy_istft`)。
+/// ISTFT 的契约(复刻 local/modelwksps/chattts_onnx.py 的 `numpy_istft`)。
 ///
 /// 约定:real/imag 是 **rfft 布局** `[bins, T]`(bin 优先),
 /// `bins = n_fft/2 + 1` —— 与 numpy 的 `irfft(spec, n=n_fft, axis=1)` 对齐

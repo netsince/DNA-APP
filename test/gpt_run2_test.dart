@@ -7,9 +7,9 @@ import 'package:onnxruntime/onnxruntime.dart';
 
 void main() {
   // 相对包根定位(测试的工作目录就是包根),不再写死绝对路径。
-  final String modelsDir = '${Directory.current.path}/modelwksps/models';
+  final String modelsDir = '${Directory.current.path}/local/modelwksps/models';
   // 这是一条**跨语言数值校验**:拿 Python 侧 dump 出来的中间量,喂给 Dart
-  // 侧的 ONNX GPT 首步,比对 hidden。它需要本地调试产物,而 modelwksps/
+  // 侧的 ONNX GPT 首步,比对 hidden。它需要本地调试产物,而 local/modelwksps/
   // 被 .gitignore 忽略 —— 干净克隆上不存在,缺了就跳过。
   final List<String> needed = <String>[
     '_code_emb.bin',
@@ -77,5 +77,5 @@ void main() {
     // ignore: avoid_print
     print('maxDiff=$maxDiff');
     expect(maxDiff, lessThan(1e-3));
-  }, skip: hasFixtures ? null : '需要本地调试产物 modelwksps/_code_*.bin（该目录被 .gitignore 忽略）');
+  }, skip: hasFixtures ? null : '需要本地调试产物 local/modelwksps/_code_*.bin（该目录被 .gitignore 忽略）');
 }
