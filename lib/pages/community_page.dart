@@ -1,12 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
+import 'package:dna/island_app/card_publish_source.dart';
 import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/server_setup_page.dart';
 import 'package:dna/island_app/shutdown_page.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/world_import_sink.dart';
+import 'package:dna/models/ta.dart';
 import 'package:dna/models/world.dart';
+import 'package:dna/services/image_storage.dart';
 import 'package:dna/utils/id_utils.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/widgets/app_section.dart';
@@ -69,6 +74,25 @@ class _MainAppWorldBridge implements WorldImportSink, WorldPublishSource {
     await controller.upsertWorld(local);
     return local.id;
   }
+}
+
+/// 主应用侧的「取本地角色卡」落地（发布角色卡用）。
+///
+/// 与 [_MainAppWorldBridge] 同一个思路：只注入社区需要的两个方法，不传
+/// AppController。
+class _MainAppCardBridge implements CardPublishSource {
+  _MainAppCardBridge(this.controller);
+
+  final AppController controller;
+
+  /// 只列**未归档**的角色卡（归档的不该再被发到社区）。
+  @override
+  List<TA> localCards() => controller.activeTas;
+
+  /// 发布要的是 base64，社区拿不到本地文件，只能请主应用代读。
+  @override
+  Future<Uint8List?> imageBytes(String ref) =>
+      ImageStorage.instance.readBytes(ref);
 }
 
 /// 社区内容：等岛的隐藏预热完成，再渲染岛的外壳。
@@ -153,6 +177,7 @@ class _CommunityBodyState extends State<CommunityBody> {
             : null,
         worldImportSink: _MainAppWorldBridge(widget.controller),
         worldPublishSource: _MainAppWorldBridge(widget.controller),
+        cardPublishSource: _MainAppCardBridge(widget.controller),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/articles_page.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/card_publish_source.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/explore_body.dart';
 import 'package:dna/island_app/home_body.dart';
@@ -46,6 +47,7 @@ class RootShell extends StatefulWidget {
     this.onExitToMainApp,
     this.worldImportSink,
     this.worldPublishSource,
+    this.cardPublishSource,
   });
 
   /// 「返回主应用」回调。
@@ -63,6 +65,9 @@ class RootShell extends StatefulWidget {
 
   /// 取本地世界列表的窄接口（发布世界卡用）。为空时发布页只给提示。
   final WorldPublishSource? worldPublishSource;
+
+  /// 取本地角色卡（发布角色卡用）。为空时发布页只给「新建 / 导入」两条路。
+  final CardPublishSource? cardPublishSource;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -268,7 +273,7 @@ class _RootShellState extends State<RootShell> {
         ),
         WorldsBody(importSink: widget.worldImportSink),
         const TeahouseBody(),
-        const CardPublishStartBody(),
+        CardPublishStartBody(source: widget.cardPublishSource),
         ImageGenBody(
           onRequireLogin: () => _onSelectNav(AppNavTarget.me),
           loadSignal: _imageGenActivate,
@@ -383,22 +388,33 @@ class _RootShellState extends State<RootShell> {
   }
 
   /// 构建顶栏（汉堡 + 标题/tab + 搜索 + 返回主应用）。
+  /// 顶栏布局：**左边是「退」**（侧边栏、返回主应用），**右边是「找」**（通知、搜索）。
+  ///
+  /// 两个动作簇分开：左半区管「往回走」，右半区管「往外看」，比混在一排好扫。
   AppBar _topBar(bool landscape) {
+    final bool canExit = widget.onExitToMainApp != null;
     return AppBar(
-      leading: landscape ? null : _hamburger(),
+      // 两个图标占两格，默认 56 宽放不下。
+      leadingWidth: landscape ? null : (canExit ? 96 : null),
+      leading: landscape
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                _hamburger(),
+                if (canExit)
+                  IconButton(
+                    tooltip: '返回主应用',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: _exitToMainApp,
+                  ),
+              ],
+            ),
       title: _title(),
       centerTitle: true,
       actions: <Widget>[
-        _searchButton(),
         _notificationButton(),
-        // 「返回主应用」放右上角，而不是占底栏一格 —— 那一格要留给栏目
-        // （世界卡要用），而侧边栏里的入口需要两步，太绕。
-        if (widget.onExitToMainApp != null)
-          IconButton(
-            tooltip: '返回主应用',
-            icon: const Icon(Icons.logout),
-            onPressed: _exitToMainApp,
-          ),
+        _searchButton(),
       ],
     );
   }
@@ -449,10 +465,11 @@ class _RootShellState extends State<RootShell> {
           height: _kBottomBarHeight,
           child: Row(
             children: <Widget>[
+              // 顺序：推荐 / 茶馆 / ＋ / 世界 / 我
               _bottomNavItem(AppNavTarget.recommend),
-              _bottomNavItem(AppNavTarget.worlds),
               _bottomNavItem(AppNavTarget.teahouse),
               _plusItem(),
+              _bottomNavItem(AppNavTarget.worlds),
               _bottomNavItem(AppNavTarget.me),
             ],
           ),

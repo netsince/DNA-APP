@@ -1,36 +1,29 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
-import 'package:dna/island_app/utils/time_format.dart';
-import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/world_card_tile.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/theme/tokens.dart';
 
-/// 世界卡列表的筛选条件：搜索词 / 标签 / 排序。
+/// 世界卡列表的筛选条件：排序 / 标签。
 ///
-/// 收成一个值对象而不是三个独立参数：加载器要一次拿到全部条件，测试也好
-/// 断言「切标签后到底传了什么」。
+/// **没有搜索词** —— 找世界书走全站搜索（搜索页的「世界」tab），栏目里再放一个
+/// 搜索框，等于同一个动作有两个入口，两边还会各自演化。
 class WorldsQuery {
-  const WorldsQuery({this.sort = 'new', this.keyword = '', this.tag = ''});
+  const WorldsQuery({this.sort = 'new', this.tag = ''});
 
   final String sort;
-  final String keyword;
   final String tag;
 
-  WorldsQuery copyWith({String? sort, String? keyword, String? tag}) =>
-      WorldsQuery(
-        sort: sort ?? this.sort,
-        keyword: keyword ?? this.keyword,
-        tag: tag ?? this.tag,
-      );
+  WorldsQuery copyWith({String? sort, String? tag}) =>
+      WorldsQuery(sort: sort ?? this.sort, tag: tag ?? this.tag);
 
-  bool get hasFilter => keyword.trim().isNotEmpty || tag.trim().isNotEmpty;
+  bool get hasFilter => tag.trim().isNotEmpty;
 }
 
 /// 世界卡列表加载器（测试可注入）。返回分页对象（items / has_next）。
@@ -39,18 +32,20 @@ typedef WorldsLoader = Future<Map<String, dynamic>> Function(
   WorldsQuery query,
 );
 
-/// 社区「世界」栏目：世界卡列表。
+/// 社区「世界」栏目：探索页形态 —— 排序 / 标签筛选 + 卡片网格 + 无限分页。
 ///
-/// 列表项只有元信息（名称/简介/词条数/体积/复制量/标签），**不含正文** ——
-/// 正文在详情页点「导入」时才单独取（见 [WorldDetailPage]）。
+/// 与角色卡探索页同一套交互（横划胶囊筛选条 + 自适应列数网格 + 滚到底加载），
+/// 差别只在卡片：世界卡没有封面，用「简介 + 词条名 + 数据」立形态。
 ///
-/// 世界书动辄几百 KB，列表接口要是带上正文，翻一页就是几十 MB。
-///
-/// 与角色卡/茶馆对齐的部分：搜索框、标签筛选、骨架屏。这三样之前都没有，
-/// 于是「找一本世界书」只能靠翻页 —— 后端其实一直支持 q/tag 参数，只是
-/// 客户端从来没传过。
+/// 列表项只有元信息，**不含正文** —— 正文在详情页点「导入」时才单独取。
 class WorldsBody extends StatefulWidget {
-  const WorldsBody({super.key, this.importSink, this.loader, this.tagsLoader});
+  const WorldsBody({
+    super.key,
+    this.importSink,
+    this.loader,
+    this.tagsLoader,
+    this.onOpenWorld,
+  });
 
   /// 导入落地用的窄接口（见 [WorldImportSink]）。为空时详情页不给导入按钮
   /// —— 岛独立运行时没有主应用可写。
@@ -62,37 +57,36 @@ class WorldsBody extends StatefulWidget {
   /// 标签筛选条的标签来源。为空时走 [ApiClient.getWorldTags]。
   final Future<List<({String tag, int count})>> Function()? tagsLoader;
 
+  /// 打开详情（外壳可注入，保持侧边栏）；为空时 push 详情页。
+  final ValueChanged<String>? onOpenWorld;
+
   @override
   State<WorldsBody> createState() => _WorldsBodyState();
 }
 
 class _WorldsBodyState extends State<WorldsBody> {
-  final List<WorldCardSummary> _items = <WorldCardSummary>[];
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounce;
+  /// 排序项：key 与后端约定一致（new | copies）。
+  static const List<(String, String)> _sorts = <(String, String)>[
+    ('new', '最新'),
+    ('copies', '最多复制'),
+  ];
 
+  final List<WorldCardSummary> _items = <WorldCardSummary>[];
   List<({String tag, int count})> _tags = const <({String tag, int count})>[];
 
   bool _loading = true;
   bool _loadingMore = false;
-  String? _error;
-  int _page = 1;
   bool _hasNext = false;
+  int _page = 1;
+  String? _error;
 
   WorldsQuery _query = const WorldsQuery();
 
   @override
   void initState() {
     super.initState();
-    _load();
     _loadTags();
-  }
-
-  @override
-  void dispose() {
-    _searchDebounce?.cancel();
-    _searchController.dispose();
-    super.dispose();
+    _reload();
   }
 
   Future<void> _loadTags() async {
@@ -113,24 +107,33 @@ class _WorldsBodyState extends State<WorldsBody> {
     return ApiClient.instance.getWorlds(
       page: page,
       sort: _query.sort,
-      query: _query.keyword,
       tag: _query.tag,
     );
   }
 
-  Future<void> _load() async {
+  List<WorldCardSummary> _parse(Map<String, dynamic> data) {
+    final Object? raw = data['items'];
+    if (raw is! List) return <WorldCardSummary>[];
+    return raw
+        .whereType<Map>()
+        .map((Map e) => WorldCardSummary.fromJson(e.cast<String, dynamic>()))
+        .where((WorldCardSummary w) => w.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _reload() async {
     setState(() {
       _loading = true;
       _error = null;
+      _hasNext = false;
     });
     try {
       final Map<String, dynamic> data = await _fetch(1);
-      final List<WorldCardSummary> items = _parse(data);
       if (!mounted) return;
       setState(() {
         _items
           ..clear()
-          ..addAll(items);
+          ..addAll(_parse(data));
         _page = 1;
         _hasNext = data['has_next'] == true;
         _loading = false;
@@ -138,14 +141,14 @@ class _WorldsBodyState extends State<WorldsBody> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = '世界列表加载失败，下拉重试';
         _loading = false;
+        _error = '世界列表加载失败，下拉重试';
       });
     }
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || !_hasNext) return;
+    if (_loading || _loadingMore || !_hasNext) return;
     setState(() => _loadingMore = true);
     try {
       final Map<String, dynamic> data = await _fetch(_page + 1);
@@ -161,17 +164,20 @@ class _WorldsBodyState extends State<WorldsBody> {
     }
   }
 
-  List<WorldCardSummary> _parse(Map<String, dynamic> data) {
-    final Object? raw = data['items'];
-    if (raw is! List) return <WorldCardSummary>[];
-    return raw
-        .whereType<Map>()
-        .map((Map e) => WorldCardSummary.fromJson(e.cast<String, dynamic>()))
-        .where((WorldCardSummary w) => w.id.isNotEmpty)
-        .toList();
+  void _setFilter({String? sort, String? tag}) {
+    final String nextSort = sort ?? _query.sort;
+    final String nextTag = tag ?? _query.tag;
+    if (nextSort == _query.sort && nextTag == _query.tag) return;
+    setState(() => _query = WorldsQuery(sort: nextSort, tag: nextTag));
+    _reload();
   }
 
   void _openDetail(WorldCardSummary item) {
+    final ValueChanged<String>? cb = widget.onOpenWorld;
+    if (cb != null) {
+      cb(item.id);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => WorldDetailPage(
@@ -183,359 +189,313 @@ class _WorldsBodyState extends State<WorldsBody> {
     );
   }
 
-  /// 输入停顿 350ms 再查：每敲一个字都打一次接口，服务端会被搜索框打爆。
-  void _onSearchChanged(String text) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      final String keyword = text.trim();
-      if (keyword == _query.keyword) return;
-      setState(() => _query = _query.copyWith(keyword: keyword));
-      _load();
-    });
-  }
-
-  void _selectTag(String tag) {
-    if (_query.tag == tag) return;
-    setState(() => _query = _query.copyWith(tag: tag));
-    _load();
-  }
-
-  void _selectSort(String sort) {
-    if (_query.sort == sort) return;
-    setState(() => _query = _query.copyWith(sort: sort));
-    _load();
-  }
-
-  void _clearFilters() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    setState(() => _query = const WorldsQuery());
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: CustomScrollView(
-        slivers: <Widget>[
-          SliverToBoxAdapter(child: _header(context)),
-          ..._content(context),
-        ],
+    return AppRefreshIndicator(
+      onRefresh: _reload,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification n) {
+          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
+            _loadMore();
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: _buildSlivers(context),
+        ),
       ),
     );
   }
 
-  Widget _header(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+  List<Widget> _buildSlivers(BuildContext context) {
+    final List<Widget> slivers = <Widget>[
+      SliverToBoxAdapter(child: _filterBar(context)),
+      if (_tags.isNotEmpty) SliverToBoxAdapter(child: _tagBar(context)),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+    ];
+
+    if (_loading) {
+      slivers.add(SliverToBoxAdapter(child: _skeleton(context)));
+    } else if (_error != null) {
+      slivers.add(
+        SliverToBoxAdapter(child: ErrorState(message: _error!, onRetry: _reload)),
+      );
+    } else if (_items.isEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xl),
+            child: _query.hasFilter
+                ? EmptyState(
+                    icon: Icons.search_off,
+                    title: '这个标签下还没有世界卡',
+                    actionLabel: '看全部',
+                    onAction: () => _setFilter(tag: ''),
+                  )
+                : const EmptyState(
+                    icon: Icons.public_outlined,
+                    title: '还没有人发布世界卡',
+                    message: '发布一个世界书，让别人也能用上你的设定',
+                  ),
+          ),
+        ),
+      );
+    } else {
+      slivers.add(SliverToBoxAdapter(child: _grid(context)));
+      if (_loadingMore) {
+        slivers.add(
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        );
+      }
+      if (!_hasNext && _items.length > 12) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: Text(
+                  '到底啦',
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)));
+    return slivers;
+  }
+
+  /// 第 1 行：排序（与角色卡探索页同一套胶囊样式）。
+  Widget _filterBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
         AppSpacing.lg,
         AppSpacing.lg,
-        AppSpacing.sm,
+        0,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: _HorizontalPills(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '世界卡',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-              ),
-              // 排序：最新 / 最多复制。
-              //
-              // 复制量是这个栏目最有价值的信号 —— 一个人愿意把世界导入自己的
-              // 应用，说明它真的有用，比点赞可信。
-              SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'new', label: Text('最新')),
-                  ButtonSegment<String>(value: 'copies', label: Text('最多复制')),
-                ],
-                selected: <String>{_query.sort},
-                showSelectedIcon: false,
-                onSelectionChanged: (Set<String> next) =>
-                    _selectSort(next.first),
-              ),
-            ],
-          ),
-          AppSpacing.hSm,
-          TextField(
-            controller: _searchController,
-            onChanged: _onSearchChanged,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (String value) {
-              _searchDebounce?.cancel();
-              setState(
-                () => _query = _query.copyWith(keyword: value.trim()),
-              );
-              _load();
-            },
-            decoration: InputDecoration(
-              hintText: '搜索世界名称 / 简介',
-              isDense: true,
-              prefixIcon: const Icon(Icons.search, size: 20),
-              suffixIcon: _query.hasFilter
-                  ? IconButton(
-                      tooltip: '清除筛选',
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: _clearFilters,
-                    )
-                  : null,
-              border: OutlineInputBorder(borderRadius: AppRadius.smAll),
-            ),
-          ),
-          if (_tags.isNotEmpty) ...<Widget>[
-            AppSpacing.hSm,
-            SizedBox(
-              height: 32,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: <Widget>[
-                  _tagChip(context, '', '全部'),
-                  for (final ({String tag, int count}) t in _tags)
-                    _tagChip(context, t.tag, t.tag),
-                ],
+          if (_query.hasFilter)
+            _Pill(
+              label: '清除筛选',
+              icon: Icons.close,
+              selected: false,
+              onTap: () => _setFilter(tag: ''),
+            )
+          else
+            Text(
+              '排序',
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+          const SizedBox(width: AppSpacing.xs),
+          for (final (String key, String label) in _sorts) ...<Widget>[
+            _Pill(
+              label: label,
+              selected: _query.sort == key,
+              onTap: () => _setFilter(sort: key),
+            ),
+            const SizedBox(width: AppSpacing.xs),
           ],
         ],
       ),
     );
   }
 
-  Widget _tagChip(BuildContext context, String tag, String label) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool selected = _query.tag == tag;
+  /// 第 2 行：热门标签。
+  Widget _tagBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.xs),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        visualDensity: VisualDensity.compact,
-        labelStyle: TextStyle(
-          fontSize: AppFontSize.caption,
-          color: selected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
-        ),
-        onSelected: (_) => _selectTag(tag),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        0,
       ),
-    );
-  }
-
-  List<Widget> _content(BuildContext context) {
-    if (_loading && _items.isEmpty) {
-      return <Widget>[SliverToBoxAdapter(child: _skeleton(context))];
-    }
-    if (_items.isEmpty) {
-      return <Widget>[
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: _query.hasFilter
-              ? EmptyState(
-                  icon: Icons.search_off,
-                  title: '没有匹配的世界卡',
-                  message: '换个词，或者清除筛选看看全部',
-                  actionLabel: '清除筛选',
-                  onAction: _clearFilters,
-                )
-              : EmptyState(
-                  icon: Icons.public_outlined,
-                  title: _error ?? '还没有人发布世界卡',
-                  message: _error == null ? '发布一个世界书，让别人也能用上你的设定' : null,
-                  actionLabel: _error == null ? null : '重试',
-                  onAction: _error == null ? null : _load,
-                ),
-        ),
-      ];
-    }
-    return <Widget>[
-      SliverList.separated(
-        itemCount: _items.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (BuildContext context, int index) => _tile(
-          context,
-          _items[index],
-        ),
-      ),
-      SliverToBoxAdapter(child: _footer()),
-    ];
-  }
-
-  /// 首屏骨架：和真实行同构（标题 / 两行简介 / 元信息），比转圈更能预告布局。
-  Widget _skeleton(BuildContext context) {
-    Widget bar(double widthFactor, double height) => FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: widthFactor,
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.xsAll,
-            ),
+      child: _HorizontalPills(
+        children: <Widget>[
+          _Pill(
+            label: '#全部',
+            selected: _query.tag.isEmpty,
+            onTap: () => _setFilter(tag: ''),
           ),
-        );
-    return Shimmer(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        child: Column(
-          children: <Widget>[
-            for (int i = 0; i < 6; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    bar(0.45, 14),
-                    AppSpacing.hXs,
-                    bar(0.9, 10),
-                    AppSpacing.hXxs,
-                    bar(0.6, 10),
-                  ],
-                ),
-              ),
+          const SizedBox(width: AppSpacing.xs),
+          for (final ({String tag, int count}) t in _tags) ...<Widget>[
+            _Pill(
+              label: '#${t.tag} ${t.count}',
+              selected: _query.tag == t.tag,
+              onTap: () => _setFilter(tag: _query.tag == t.tag ? '' : t.tag),
+            ),
+            const SizedBox(width: AppSpacing.xs),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _footer() {
-    if (_loadingMore) {
-      return const Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        child: Center(
-          child: SizedBox.square(
-            dimension: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    if (!_hasNext) return AppSpacing.hXl;
+  /// 瀑布流：按列轮流投放，每列高度自然参差。
+  ///
+  /// 不用 GridView / Wrap：前者每行等高（长简介被裁），后者按行对齐（留白很丑）。
+  /// 这里让卡片按内容自己长，列与列之间错落。
+  Widget _grid(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Center(
-        child: TextButton(onPressed: _loadMore, child: const Text('加载更多')),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final double width = constraints.maxWidth;
+          final int columns = (width ~/ 220).clamp(2, 6);
+          const double spacing = AppSpacing.md;
+          final double itemWidth =
+              (width - spacing * (columns - 1)) / columns;
+
+          final List<List<Widget>> buckets = List<List<Widget>>.generate(
+            columns,
+            (_) => <Widget>[],
+          );
+          for (int i = 0; i < _items.length; i++) {
+            final WorldCardSummary w = _items[i];
+            buckets[i % columns].add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: spacing),
+                child: WorldCardTile(
+                  world: w,
+                  onTap: () => _openDetail(w),
+                ),
+              ),
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (int c = 0; c < columns; c++) ...<Widget>[
+                if (c > 0) const SizedBox(width: spacing),
+                SizedBox(
+                  width: itemWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: buckets[c],
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _tile(BuildContext context, WorldCardSummary item) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    final List<String> meta = <String>[
-      if (item.entryCount > 0) '${item.entryCount} 词条',
-      if (item.sizeLabel.isNotEmpty) item.sizeLabel,
-      if (item.copyCount > 0) '复制 ${item.copyCount}',
-    ];
-    final DateTime? when = item.updatedAt ?? item.createdAt;
-    final String whenLabel =
-        when == null ? '' : formatRelativeTime(when.toIso8601String());
-    return InkWell(
-      onTap: () => _openDetail(item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              item.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: AppWeight.medium,
-              ),
-            ),
-            if (item.summary.isNotEmpty) ...<Widget>[
-              AppSpacing.hXxs,
-              Text(
-                item.summary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (meta.isNotEmpty) ...<Widget>[
-              AppSpacing.hXs,
-              Text(
-                meta.join(' · '),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (item.tags.isNotEmpty) ...<Widget>[
-              AppSpacing.hXs,
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: <Widget>[
-                  for (final String tag in item.tags.take(4)) _chip(context, tag),
-                ],
-              ),
-            ],
-            if (item.authorName.isNotEmpty) ...<Widget>[
-              AppSpacing.hXs,
-              Row(
-                children: <Widget>[
-                  Avatar(avatar: item.authorAvatar, radius: 9),
-                  const SizedBox(width: AppSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      item.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+  /// 加载中的骨架网格：与真实卡片同列宽、同间隙。
+  Widget _skeleton(BuildContext context) {
+    final Color block = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final double width = constraints.maxWidth;
+          final int columns = (width ~/ 220).clamp(2, 6);
+          const double spacing = AppSpacing.md;
+          final double itemWidth = (width - spacing * (columns - 1)) / columns;
+          return Shimmer(
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: List<Widget>.generate(
+                columns * 3,
+                (_) => SizedBox(
+                  width: itemWidth,
+                  height: 188,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: block,
+                      borderRadius: AppRadius.mdAll,
                     ),
                   ),
-                  if (whenLabel.isNotEmpty) ...<Widget>[
-                    Text(
-                      ' · $whenLabel',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ],
-          ],
-        ),
+            ),
+          );
+        },
       ),
     );
   }
+}
 
-  Widget _chip(BuildContext context, String tag) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: AppRadius.xsAll,
-      ),
-      child: Text(
-        tag,
-        style: TextStyle(
-          fontSize: AppFontSize.caption,
-          color: cs.onSurfaceVariant,
+/// 横向可滚动的胶囊栏（桌面端可拖、可用滚轮）。
+class _HorizontalPills extends StatelessWidget {
+  const _HorizontalPills({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: children),
+    );
+  }
+}
+
+/// 单个筛选胶囊。
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? scheme.primary : scheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (icon != null) ...<Widget>[
+              Icon(icon, size: 14, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected
+                        ? scheme.onPrimaryContainer
+                        : scheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                  ),
+            ),
+          ],
         ),
       ),
     );

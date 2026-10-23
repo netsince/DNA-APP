@@ -56,7 +56,9 @@ class World {
 
   static World fromJson(Map<String, dynamic> json) {
     return World(
-      id: json['id'] as String,
+      // id 允许缺省：手写 / 第三方转换出来的世界 JSON 未必带 id。
+      // 为空时由调用方（编辑器）重新生成，绝不能因为缺个字段就整份解析失败。
+      id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
       summary: (json['summary'] as String?) ?? '',
       description: (json['description'] as String?) ?? '',

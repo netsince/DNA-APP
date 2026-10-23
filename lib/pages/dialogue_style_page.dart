@@ -12,10 +12,21 @@ import '../widgets/app_editor_frame.dart';
 
 /// 角色对话风格（Few-shot 示例）配置页。
 class DialogueStylePage extends StatefulWidget {
-  const DialogueStylePage({super.key, required this.controller, required this.ta});
+  const DialogueStylePage({
+    super.key,
+    this.controller,
+    required this.ta,
+    this.onSave,
+  });
 
-  final AppController controller;
+  /// 本地库。社区里编辑未发布/已发布的卡时**不传**（那边没有本地库）。
+  final AppController? controller;
+
   final TA ta;
+
+  /// 给了它就用它保存；否则写本地库。保存成功后一律把改好的 TA pop 回去，
+  /// 让调用方（社区编辑器）能拿到结果 —— 它没有本地库可回查。
+  final Future<void> Function(TA ta)? onSave;
 
   @override
   State<DialogueStylePage> createState() => _DialogueStylePageState();
@@ -50,12 +61,18 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
   }
 
   Future<void> _save() async {
-    final TA updated = widget.ta.copyWith(dialogueStyle: List<DialogueTurn>.from(_turns));
-    await widget.controller.upsertTa(updated);
+    final TA updated =
+        widget.ta.copyWith(dialogueStyle: List<DialogueTurn>.from(_turns));
+    final Future<void> Function(TA ta)? onSave = widget.onSave;
+    if (onSave != null) {
+      await onSave(updated);
+    } else {
+      await widget.controller!.upsertTa(updated);
+    }
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(updated);
   }
 
   @override

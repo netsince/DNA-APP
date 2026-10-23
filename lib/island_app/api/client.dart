@@ -684,6 +684,64 @@ class ApiClient {
         : <String, dynamic>{};
   }
 
+  /// 作者取自己的世界卡原文，**用于编辑，不记复制统计**
+  /// （GET `/api/v1/worlds/<id>/source`）。
+  ///
+  /// 不能用 [downloadWorldText]：那是「复制」动作，会 +1 复制量并写一条溯源记录。
+  Future<String> getWorldSource(String id) {
+    final Uri target = _apiUri('/api/v1/worlds/$id/source');
+    return _requestBody('GET', target, () async {
+      final request = await _client.getUrl(target);
+      _applyHeaders(request);
+      return request;
+    });
+  }
+
+  /// 编辑已发布的世界卡（PUT `/api/v1/worlds/<id>`）。
+  ///
+  /// [rawJson] 同样是 World.toJson() 的原文，**整份替换**。服务端会把状态打回
+  /// 待审核：审核过的是旧内容。
+  Future<Map<String, dynamic>> updateWorld(String id, String rawJson) async {
+    final Uri target = _apiUri('/api/v1/worlds/$id');
+    final data = await _requestJson('PUT', target, () async {
+      final request = await _client.putUrl(target);
+      _applyHeaders(request);
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.add(utf8.encode(rawJson));
+      return request;
+    });
+    final payload = data['data'];
+    return payload is Map
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
+  }
+
+  /// 下架 / 恢复自己的世界卡（POST `/api/v1/worlds/<id>/hide`，toggle）。
+  Future<bool> hideWorld(String id) async {
+    final Uri target = _apiUri('/api/v1/worlds/$id/hide');
+    final data = await _requestJson('POST', target, () async {
+      final request = await _client.postUrl(target);
+      _applyHeaders(request);
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.add(utf8.encode('{}'));
+      return request;
+    });
+    final payload = data['data'];
+    return payload is Map && payload['hidden'] == true;
+  }
+
+  /// 重新提审（POST `/api/v1/worlds/<id>/resubmit`）。
+  Future<void> resubmitWorld(String id) async {
+    final Uri target = _apiUri('/api/v1/worlds/$id/resubmit');
+    await _requestJson('POST', target, () async {
+      final request = await _client.postUrl(target);
+      _applyHeaders(request);
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.add(utf8.encode('{}'));
+      return request;
+    });
+  }
+
   /// 撤回自己发布的世界卡（DELETE `/api/v1/worlds/<id>`）。
   Future<void> deleteWorld(String id) async {
     final Uri target = _apiUri('/api/v1/worlds/$id');

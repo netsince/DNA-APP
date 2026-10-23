@@ -12,6 +12,7 @@ import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
 import '../widgets/adaptive_text_field.dart';
+import '../widgets/tag_input.dart';
 import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import '../widgets/app_editor_frame.dart';
@@ -23,10 +24,39 @@ import '../widgets/app_editor_frame.dart';
 /// 2. 高级选项（简介、标签、违禁词）默认折叠；
 /// 3. 子词条管理改为「卡片列表 + 独立弹窗编辑」，区分基础触发与高级规则。
 class WorldEditorPage extends StatefulWidget {
-  const WorldEditorPage({super.key, required this.controller, this.world});
+  const WorldEditorPage({
+    super.key,
+    this.controller,
+    this.world,
+    this.onSave,
+    this.title,
+    this.tagSuggestions = const <String>[],
+    this.saveLabel = '保存',
+  });
 
-  final AppController controller;
+  /// 本地世界库。社区发布/编辑世界卡时**不传**（那边零状态依赖）。
+  final AppController? controller;
+
   final World? world;
+
+  /// 保存回调。给了它就用它，不再写本地库 —— 社区发布/编辑走这条路：
+  /// 编辑器只是「把 World 交出去」，至于发到社区还是存本地，由调用方决定。
+  final Future<void> Function(World world)? onSave;
+
+  /// 顶栏标题；为空时按「创建世界 / 编辑世界」自动判断。
+  final String? title;
+
+  /// 标签候选（热门标签）。
+  ///
+  /// **由调用方注入，编辑器自己不拉**：这是社区的「热门标签」，本体编辑器打开时
+  /// 不该去请求社区接口 —— 既违反本体离线可用的前提，也不受「关闭社区」开关的
+  /// 约束。本体不传（空），社区发布页拉好再传进来。
+  final List<String> tagSuggestions;
+
+  /// 保存按钮的文案。**必须跟着行为走**：
+  /// 本体是「保存」到本地库；社区发布是「发布到社区」；社区编辑是「保存并重新提审」。
+  /// 之前统一写「保存世界」，在社区里点一下就直接发布了，文案和行为对不上。
+  final String saveLabel;
 
   @override
   State<WorldEditorPage> createState() => _WorldEditorPageState();
@@ -36,8 +66,10 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _summaryController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _tagsController;
   late final TextEditingController _forbiddenWordsController;
+
+  /// 标签用 chips 编辑（与角色卡编辑器、社区发布页共用 TagInput）。
+  late List<String> _tags;
 
   late String _worldId;
   late List<WorldEntry> _entries;
@@ -46,11 +78,13 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   void initState() {
     super.initState();
     final World? world = widget.world;
-    _worldId = world?.id ?? newId();
+    // id 可能是空串（手写 JSON / 第三方转换），空就生成一个新的。
+    final String incomingId = world?.id ?? '';
+    _worldId = incomingId.isEmpty ? newId() : incomingId;
     _nameController = TextEditingController(text: world?.name ?? '');
     _summaryController = TextEditingController(text: world?.summary ?? '');
     _descriptionController = TextEditingController(text: world?.description ?? '');
-    _tagsController = TextEditingController(text: (world?.tags ?? <String>[]).join(', '));
+    _tags = List<String>.from(world?.tags ?? const <String>[]);
     _forbiddenWordsController = TextEditingController(
       text: (world?.forbiddenWords ?? <String>[]).join(', '),
     );
@@ -62,17 +96,8 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     _nameController.dispose();
     _summaryController.dispose();
     _descriptionController.dispose();
-    _tagsController.dispose();
     _forbiddenWordsController.dispose();
     super.dispose();
-  }
-
-  List<String> _parseTags(String raw) {
-    return raw
-        .split(',')
-        .map((String e) => e.trim())
-        .where((String e) => e.isNotEmpty)
-        .toList();
   }
 
   List<String> _parseForbiddenWords(String raw) {
@@ -124,7 +149,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       name: _nameController.text.trim(),
       summary: _summaryController.text.trim(),
       description: _descriptionController.text.trim(),
-      tags: _parseTags(_tagsController.text),
+      tags: _tags,
       forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
       entries: _entries,
     );
@@ -139,7 +164,12 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       return;
     }
     final World world = _buildCurrentWorld();
-    await widget.controller.upsertWorld(world);
+    final Future<void> Function(World)? onSave = widget.onSave;
+    if (onSave != null) {
+      await onSave(world);
+    } else {
+      await widget.controller!.upsertWorld(world);
+    }
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -271,16 +301,18 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     }
 
     World worldToImport = importResult.data!;
-    final World? existing = widget.controller.getWorldById(worldToImport.id);
-    if (existing != null) {
-      worldToImport = worldToImport.copyWith(id: newId());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('ID 与已有世界冲突，已自动创建为新世界')),
-      );
+    final AppController? controller = widget.controller;
+    if (controller != null) {
+      final World? existing = controller.getWorldById(worldToImport.id);
+      if (existing != null) {
+        worldToImport = worldToImport.copyWith(id: newId());
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: FitText('ID 与已有世界冲突，已自动创建为新世界')),
+        );
+      }
+      await controller.upsertWorld(worldToImport);
     }
-
-    await widget.controller.upsertWorld(worldToImport);
     if (!mounted) return;
 
     setState(() {
@@ -288,7 +320,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       _nameController.text = worldToImport.name;
       _summaryController.text = worldToImport.summary;
       _descriptionController.text = worldToImport.description;
-      _tagsController.text = worldToImport.tags.join(', ');
+      _tags = List<String>.from(worldToImport.tags);
       _forbiddenWordsController.text = worldToImport.forbiddenWords.join(', ');
       _entries = List<WorldEntry>.from(worldToImport.entries);
     });
@@ -313,7 +345,8 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       return;
     }
     try {
-      await widget.controller.upsertWorld(current);
+      // 菜单只在 controller 非空时出现（社区编辑器走 onSave，没有本地库）。
+      await widget.controller!.upsertWorld(current);
       final Map<String, dynamic> result =
           await ApiClient.instance.publishWorld(jsonEncode(current.toJson()));
       if (!mounted) return;
@@ -367,7 +400,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: FitText(isNew ? '创建世界' : '编辑世界'),
+        title: FitText(widget.title ?? (isNew ? '创建世界' : '编辑世界')),
         actions: <Widget>[
           PopupMenuButton<String>(
             onSelected: (String value) {
@@ -404,22 +437,27 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
-                value: 'publish',
-                child: Row(
-                  children: <Widget>[
-                    Icon(Icons.public_outlined),
-                    SizedBox(width: 8),
-                    FitText('发布到社区'),
-                  ],
+              // 只有本地编辑器才有「发布到社区」；社区里的发布/编辑走 onSave，
+              // 再挂一个「发布到社区」会变成循环。
+              // 而且必须跟着「社区」开关走：关掉社区后不该还留一个点了就报错的入口。
+              if (widget.controller != null &&
+                  widget.controller!.settings.enableCommunity)
+                const PopupMenuItem<String>(
+                  value: 'publish',
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.public_outlined),
+                      SizedBox(width: 8),
+                      FitText('发布到社区'),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
-          IconButton(
+          TextButton.icon(
             onPressed: _save,
-            icon: const Icon(Icons.check),
-            tooltip: '保存世界',
+            icon: const Icon(Icons.check, size: 18),
+            label: Text(widget.saveLabel),
           ),
         ],
       ),
@@ -500,18 +538,6 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: _tagsController,
-                          decoration: InputDecoration(
-                            labelText: '分类标签（逗号分隔）',
-                            hintText: '例如：科幻, 废土, 魔法',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
                         AdaptiveTextField(
                           controller: _forbiddenWordsController,
                           decoration: InputDecoration(
@@ -525,6 +551,16 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 标签**不再埋在折叠项里**：埋着就没人填，社区筛选条也就永远是空的。
+                  FitText('分类标签', style: theme.textTheme.labelLarge),
+                  const SizedBox(height: 6),
+                  TagInput(
+                    tags: _tags,
+                    suggestions: widget.tagSuggestions,
+                    hintText: '例如：科幻, 废土, 魔法（回车或逗号添加）',
+                    onChanged: (List<String> next) => setState(() => _tags = next),
                   ),
                 ],
               ),
@@ -819,6 +855,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
   late final TextEditingController _relationController;
   late final TextEditingController _cooldownController;
   late final TextEditingController _delayController;
+  late final TextEditingController _orderController;
 
   late WorldEntryType _type;
   late WorldPersonGender _gender;
@@ -845,6 +882,10 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
     _delayController = TextEditingController(
       text: (e?.delayRounds ?? 0) > 0 ? '${e!.delayRounds}' : '',
     );
+    // 排序：0 是默认值，显示成空更干净。
+    _orderController = TextEditingController(
+      text: (e?.order ?? 0) > 0 ? '${e!.order}' : '',
+    );
 
     _type = e?.type ?? WorldEntryType.noun;
     _gender = e?.gender ?? WorldPersonGender.other;
@@ -866,6 +907,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
     _relationController.dispose();
     _cooldownController.dispose();
     _delayController.dispose();
+    _orderController.dispose();
     super.dispose();
   }
 
@@ -906,6 +948,8 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
       caseSensitive: _caseSensitive,
       matchWholeWords: _matchWholeWords,
       recursive: _recursive,
+      // 排序：预算裁剪时按 order 升序注入，越小越靠前。
+      order: (int.tryParse(_orderController.text.trim()) ?? 0).clamp(0, 9999),
       cooldownRounds: (int.tryParse(_cooldownController.text.trim()) ?? 0).clamp(0, 100),
       delayRounds: (int.tryParse(_delayController.text.trim()) ?? 0).clamp(0, 100),
       decorator: _decorator == 'none' ? null : _decorator,
@@ -1125,6 +1169,19 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                         const SizedBox(height: 12),
                         Row(
                           children: <Widget>[
+                            Expanded(
+                              child: TextField(
+                                controller: _orderController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: '排序',
+                                  hintText: '越小越靠前',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: _cooldownController,

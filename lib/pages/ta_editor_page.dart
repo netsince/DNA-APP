@@ -16,6 +16,7 @@ import '../services/image_storage.dart';
 import '../services/ta_service.dart';
 import '../utils/platform_capabilities.dart';
 import '../widgets/adaptive_text_field.dart';
+import '../widgets/tag_input.dart';
 import 'ta_editor/image_slot.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
@@ -29,10 +30,28 @@ import 'package:dna/widgets/seed_input_field.dart';
 import '../widgets/app_editor_frame.dart';
 
 class TaEditorPage extends StatefulWidget {
-  const TaEditorPage({super.key, required this.controller, this.ta});
+  const TaEditorPage({
+    super.key,
+    this.controller,
+    this.ta,
+    this.onSave,
+    this.title,
+    this.saveLabel = '保存',
+  });
 
-  final AppController controller;
+  /// 本地角色卡库。社区发布/编辑角色卡时**不传**（那边零状态依赖）。
+  final AppController? controller;
+
   final TA? ta;
+
+  /// 保存回调。给了它就用它，不再写本地库 —— 社区发布/编辑走这条路。
+  final Future<void> Function(TA ta)? onSave;
+
+  /// 顶栏标题；为空时按「创建TA / 编辑TA」自动判断。
+  final String? title;
+
+  /// 保存按钮文案。**必须跟着行为走**：本体是「保存」，社区是「发布到社区」。
+  final String saveLabel;
 
   @override
   State<TaEditorPage> createState() => _TaEditorPageState();
@@ -43,7 +62,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
   late final TextEditingController _personaController;
   late final TextEditingController _introController;
   late final TextEditingController _openingController;
-  late final TextEditingController _tagsController;
+
+  /// 标签用 chips 编辑（与社区角色卡发布页、世界编辑器共用 TagInput）。
+  late List<String> _tags;
+
   late final TextEditingController _seedController;
   late final TextEditingController _authorNoteController;
   late final TextEditingController _authorIntervalController;
@@ -64,7 +86,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _personaController = TextEditingController(text: ta?.persona ?? '');
     _introController = TextEditingController(text: ta?.intro ?? '');
     _openingController = TextEditingController(text: ta?.opening ?? '');
-    _tagsController = TextEditingController(text: (ta?.tags ?? <String>[]).join(', '));
+    _tags = List<String>.from(ta?.tags ?? const <String>[]);
     _seedController =
         TextEditingController(text: ta?.voiceSeed?.toString() ?? '');
     _authorNoteController = TextEditingController(text: ta?.authorNote ?? '');
@@ -82,7 +104,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
     _personaController.dispose();
     _introController.dispose();
     _openingController.dispose();
-    _tagsController.dispose();
     _seedController.dispose();
     _authorNoteController.dispose();
     _authorIntervalController.dispose();
@@ -134,12 +155,22 @@ class _TaEditorPageState extends State<TaEditorPage> {
     final Uint8List bytes = await source.readAsBytes();
     final String ext = path.extension(source.name);
     final String? oldRef = _images[slot];
-    final String storedPath = await widget.controller.storeTaImageBytes(
-      taId: _taId,
-      slot: slot,
-      bytes: bytes,
-      ext: ext.isEmpty ? null : ext,
-    );
+    // 有本地库走 controller（顺带记归属）；社区里没有本地库，直接落平台存储 ——
+    // 两者底层是同一个 ImageStorage.saveBytes。
+    final AppController? controller = widget.controller;
+    final String storedPath = controller != null
+        ? await controller.storeTaImageBytes(
+            taId: _taId,
+            slot: slot,
+            bytes: bytes,
+            ext: ext.isEmpty ? null : ext,
+          )
+        : await ImageStorage.instance.saveBytes(
+            taId: _taId,
+            slot: slot,
+            bytes: bytes,
+            ext: ext.isEmpty ? null : ext,
+          );
 
     if (!mounted) {
       return;
@@ -166,8 +197,9 @@ class _TaEditorPageState extends State<TaEditorPage> {
     final String sourcePath = result.files.single.path ?? '';
     if (sourcePath.isEmpty) return;
 
+    // 背景音乐只在本地有意义（不随角色卡导出），社区模式下这段 UI 也不会出现。
     final bool unlocked =
-        widget.controller.settings.bgmSizeLimitUnlocked;
+        widget.controller?.settings.bgmSizeLimitUnlocked ?? false;
     final String? stored = await TaService().storeMusic(
       sourcePath: sourcePath,
       taId: _taId,
@@ -200,14 +232,6 @@ class _TaEditorPageState extends State<TaEditorPage> {
     await TaService().deleteMusic(old);
   }
 
-  List<String> _parseTags(String raw) {
-    return raw
-        .split(',')
-        .map((String e) => e.trim())
-        .where((String e) => e.isNotEmpty)
-        .toList();
-  }
-
   int? _parseSeed() {
     final String raw = _seedController.text.trim();
     if (raw.isEmpty) return null;
@@ -222,7 +246,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       persona: _personaController.text.trim(),
       intro: _introController.text.trim(),
       opening: _openingController.text.trim(),
-      tags: _parseTags(_tagsController.text),
+      tags: _tags,
       images: _images,
       dialogueStyle: _dialogueStyle,
       voiceSeed: _parseSeed(),
@@ -236,7 +260,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
   Future<void> _save() async {
     final TA ta = _buildCurrentTA();
-    await widget.controller.upsertTa(ta);
+    final Future<void> Function(TA)? onSave = widget.onSave;
+    if (onSave != null) {
+      await onSave(ta);
+    } else {
+      await widget.controller!.upsertTa(ta);
+    }
     // 保存成功后清理被替换掉的旧图片文件，避免磁盘/IndexedDB 堆积
     if (_obsoleteImageRefs.isNotEmpty) {
       for (final String ref in _obsoleteImageRefs) {
@@ -378,9 +407,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     final importedTA = importResult.data!.ta;
 
-    // 检查ID冲突：永不覆盖，命中则自动改用新 ID 导入为新角色
+    // 检查ID冲突：永不覆盖，命中则自动改用新 ID 导入为新角色。
+    // 社区模式没有本地库，不存在冲突，直接用它自己的 id。
     TA taToImport = importedTA;
-    final existingTA = widget.controller.getTaById(importedTA.id);
+    final existingTA = widget.controller?.getTaById(importedTA.id);
     if (existingTA != null) {
       taToImport = TA(
         id: newId(),
@@ -448,7 +478,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
 
     // 更新TA并保存（originalLink 已在 importCharacter 阶段设置）
     final finalTA = ta.copyWith(images: newImages);
-    await widget.controller.upsertTa(finalTA);
+    // 有本地库就落库；社区模式只回填当前表单，等用户点「发布到社区」再提交。
+    await widget.controller?.upsertTa(finalTA);
 
     if (!mounted) return;
 
@@ -460,7 +491,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       _personaController.text = finalTA.persona;
       _introController.text = finalTA.intro;
       _openingController.text = finalTA.opening;
-      _tagsController.text = finalTA.tags.join(', ');
+      _tags = List<String>.from(finalTA.tags);
       _seedController.text = finalTA.voiceSeed?.toString() ?? '';
       _authorNoteController.text = finalTA.authorNote ?? '';
       _authorIntervalController.text = finalTA.authorNoteInterval.toString();
@@ -477,7 +508,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: FitText(widget.ta == null ? '创建TA' : '编辑TA'),
+        title: FitText(widget.title ?? (widget.ta == null ? '创建TA' : '编辑TA')),
         actions: <Widget>[
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -674,8 +705,10 @@ class _TaEditorPageState extends State<TaEditorPage> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
                       final TA current = _buildCurrentTA();
-                      await Navigator.of(context).push(
-                        MaterialPageRoute<void>(
+                      // 子页保存后会把改好的 TA pop 回来；社区模式没有本地库可回查，
+                      // 所以优先用它，其次才回查本地库。
+                      final TA? result = await Navigator.of(context).push<TA>(
+                        MaterialPageRoute<TA>(
                           builder: (BuildContext context) => DialogueStylePage(
                             controller: widget.controller,
                             ta: current,
@@ -685,9 +718,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
                       if (!mounted) {
                         return;
                       }
-                      final TA? updated = widget.controller.getTaById(_taId);
+                      final TA? updated =
+                          result ?? widget.controller?.getTaById(_taId);
                       setState(() {
-                        _dialogueStyle = List<DialogueTurn>.from(updated?.dialogueStyle ?? _dialogueStyle);
+                        _dialogueStyle = List<DialogueTurn>.from(
+                          updated?.dialogueStyle ?? _dialogueStyle,
+                        );
                       });
                     },
                   ),
@@ -752,6 +788,8 @@ class _TaEditorPageState extends State<TaEditorPage> {
             ),
           ),
           const SizedBox(height: 12),
+          // 背景音乐是纯本地功能（不随角色卡导出），社区编辑器里没有本地库，整块隐藏。
+          if (widget.controller != null)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -807,13 +845,12 @@ class _TaEditorPageState extends State<TaEditorPage> {
                 children: <Widget>[
                   FitText('标签', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _tagsController,
-                    decoration: const InputDecoration(
-                      labelText: '标签（逗号分隔）',
-                      hintText: '例如：治愈, 暖心, 励志',
-                      border: OutlineInputBorder(),
-                    ),
+                  TagInput(
+                    tags: _tags,
+                    hintText: '例如：治愈, 暖心, 励志（回车或逗号添加）',
+                    onChanged: (List<String> next) => setState(() {
+                      _tags = next;
+                    }),
                   ),
                 ],
               ),

@@ -153,8 +153,8 @@ void main() {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      // 传 onExitToMainApp：生产环境社区总是嵌进主应用，顶栏右上角会出现
-      // 「返回主应用」。底栏现在是 推荐 / 茶馆 / ＋ / 我 四格。
+      // 传 onExitToMainApp：生产环境社区总是嵌进主应用，顶栏左上角会出现
+      // 「返回主应用」。底栏是 推荐 / 茶馆 / ＋ / 世界 / 我 五格。
       await tester.pumpWidget(
         MaterialApp(
           home: RootShell(
@@ -248,25 +248,47 @@ void main() {
           );
       final Finder search = inAppBar(Icons.search);
       final Finder bell = inAppBar(Icons.notifications_outlined);
-      final Finder exitBtn = inAppBar(Icons.logout);
+      final Finder exitBtn = inAppBar(Icons.arrow_back);
+      final Finder menu = inAppBar(Icons.menu);
       expect(search, findsOneWidget);
       expect(bell, findsOneWidget);
       expect(exitBtn, findsOneWidget);
+      expect(menu, findsOneWidget);
 
-      // 顺序（从左到右）：搜索 | 通知 | 返回。
-      final double xSearch = tester.getCenter(search).dx;
-      final double xBell = tester.getCenter(bell).dx;
-      final double xExit = tester.getCenter(exitBtn).dx;
-      expect(xSearch, lessThan(xBell), reason: '搜索应在通知左边');
-      expect(xBell, lessThan(xExit), reason: '返回应在最右');
-
-      // 都在右上角：落在屏幕右半边。
+      // 左半区：侧边栏 | 返回。右半区：通知 | 搜索。
       final double width = tester.getSize(find.byType(RootShell)).width;
-      expect(xSearch, greaterThan(width * 0.5));
+      final double xMenu = tester.getCenter(menu).dx;
+      final double xExit = tester.getCenter(exitBtn).dx;
+      final double xBell = tester.getCenter(bell).dx;
+      final double xSearch = tester.getCenter(search).dx;
+      expect(xMenu, lessThan(xExit), reason: '侧边栏应在返回左边');
+      expect(xBell, lessThan(xSearch), reason: '通知应在搜索左边');
+      expect(xExit, lessThan(width * 0.5), reason: '返回应在左半区');
+      expect(xBell, greaterThan(width * 0.5), reason: '通知应在右半区');
 
       await tester.tap(exitBtn);
       await settleManually(tester);
       expect(exits, 1);
+    });
+
+    testWidgets('底栏顺序：推荐 / 茶馆 / ＋ / 世界 / 我', (WidgetTester tester) async {
+      await pumpShell(tester);
+      final Finder bar = find.byKey(kCommunityBottomBarKey);
+      double xOf(IconData icon) => tester
+          .getCenter(find.descendant(of: bar, matching: find.byIcon(icon)))
+          .dx;
+
+      final List<double> xs = <double>[
+        xOf(Icons.home_outlined),
+        xOf(Icons.local_cafe_outlined),
+        xOf(Icons.add),
+        xOf(Icons.public_outlined),
+        xOf(Icons.person_outline),
+      ];
+      for (int i = 1; i < xs.length; i++) {
+        expect(xs[i], greaterThan(xs[i - 1]),
+            reason: '第 ${i + 1} 格应排在第 $i 格右边');
+      }
     });
 
     testWidgets('设置里关掉「返回主应用」后，顶栏不再出现该按钮',
@@ -277,7 +299,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(AppBar),
-          matching: find.byIcon(Icons.logout),
+          matching: find.byIcon(Icons.arrow_back),
         ),
         findsNothing,
       );

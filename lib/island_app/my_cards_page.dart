@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
-import 'package:dna/island_app/card_publish_page.dart';
+import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/models/ta.dart';
+import 'package:dna/pages/ta_editor_page.dart';
 
 /// 「我的角色卡」管理页：分页列出自己发布的角色卡。
 ///
@@ -74,15 +76,38 @@ class _MyCardsPageState extends State<MyCardsPage> {
     if (mounted) _load(reset: true);
   }
 
+  /// 编辑已发布的角色卡：拉详情 → 转成本地 TA → 打开**软件本体那个编辑器**，
+  /// 保存 = 整份替换并重新提审（与发布同一套映射）。
   Future<void> _edit(Map<String, dynamic> card) async {
     final id = (card['id'] ?? '').toString();
     if (id.isEmpty) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CardPublishPage(editCardId: id),
-      ),
-    );
-    if (mounted) _load(reset: true);
+    try {
+      final Map<String, dynamic> detail =
+          await ApiClient.instance.getCardDetail(id);
+      final TA ta = await taFromCardDetail(detail);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TaEditorPage(
+            ta: ta,
+            title: '编辑角色卡',
+            saveLabel: '保存并重新提审',
+            onSave: (TA edited) async {
+              await ApiClient.instance.editCard(
+                id,
+                taToPublishPayload(
+                  edited,
+                  images: await taImageDataUrls(edited),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      if (mounted) _load(reset: true);
+    } catch (e) {
+      _snack('打开编辑器失败：$e');
+    }
   }
 
   Future<void> _resubmit(Map<String, dynamic> card) async {

@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/server_config.dart';
@@ -10,7 +13,9 @@ import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
 import 'package:dna/island_app/world_import_sink.dart';
+import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
+import 'package:dna/pages/world_editor_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
 
@@ -163,7 +168,9 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       // 3) 落盘。重新生成 id 由实现方负责（本地 id 与社区 id 是两套）。
       await sink.importWorld(world);
       if (!mounted) return;
-      _toast('已导入到「我的世界」');
+      // 告诉用户导入了多少内容 —— 只说「已导入」，用户还得自己回去找。
+      final int count = world.entries.length;
+      _toast(count > 0 ? '已导入到「我的世界」：$count 个词条' : '已导入到「我的世界」');
       await _refreshQuiet();
     } catch (e) {
       if (!mounted) return;
@@ -270,6 +277,50 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     }
   }
 
+  /// 当前登录用户是否就是作者（只有作者能编辑）。
+  bool get _isMine {
+    final String me = (AuthSession.instance.user?['username'] ?? '').toString();
+    final String author = _detail?.authorUsername ?? '';
+    return me.isNotEmpty && me == author;
+  }
+
+  /// 编辑：拉自己的原文（**不记复制**）→ 解析 → 完整编辑器 → 保存 = 整份替换并重新提审。
+  Future<void> _edit() async {
+    final WorldCardSummary? d = _detail;
+    if (d == null) return;
+    try {
+      final String text = await ApiClient.instance.getWorldSource(d.id);
+      final ExportImportResult<World> parsed =
+          WorldExportImportService.importWorld(text);
+      final World? world = parsed.data;
+      if (world == null) {
+        _toast('这个世界的格式无法识别，暂时不能编辑');
+        return;
+      }
+      if (!mounted) return;
+      // 候选标签由社区页拉好传进去（编辑器本身不请求社区接口）。
+      final List<String> suggestions = await loadWorldTagSuggestions();
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => WorldEditorPage(
+            world: world,
+            title: '编辑世界卡',
+            tagSuggestions: suggestions,
+            saveLabel: '保存并重新提审',
+            onSave: (World edited) async {
+              await ApiClient.instance
+                  .updateWorld(d.id, jsonEncode(edited.toJson()));
+            },
+          ),
+        ),
+      );
+      if (mounted) await _load();
+    } catch (e) {
+      _toast('打开编辑器失败：$e');
+    }
+  }
+
   void _toast(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
@@ -294,9 +345,20 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
             onSelected: (String value) {
               if (value == 'link') _copyLink();
               if (value == 'report') _openReport();
+              if (value == 'edit') _edit();
             },
-            itemBuilder: (_) => const <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
+            itemBuilder: (_) => <PopupMenuEntry<String>>[
+              if (_isMine)
+                const PopupMenuItem<String>(
+                  value: 'edit',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.edit_outlined, size: 20),
+                    title: Text('编辑'),
+                  ),
+                ),
+              const PopupMenuItem<String>(
                 value: 'link',
                 child: ListTile(
                   dense: true,
@@ -305,7 +367,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
                   title: Text('复制链接'),
                 ),
               ),
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 value: 'report',
                 child: ListTile(
                   dense: true,
@@ -353,39 +415,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: <Widget>[
-        if (d.statusLabel.isNotEmpty) ...<Widget>[
-          _statusBanner(context, d),
-          AppSpacing.hMd,
-        ],
-        if (d.summary.isNotEmpty) ...<Widget>[
-          Text(d.summary, style: theme.textTheme.bodyMedium),
-          AppSpacing.hMd,
-        ],
-        if (meta.isNotEmpty)
-          Text(
-            meta.join(' · '),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        if (d.authorName.isNotEmpty || d.updatedAt != null) ...<Widget>[
-          AppSpacing.hSm,
-          _authorRow(context, d),
-        ],
-        if (d.tags.isNotEmpty) ...<Widget>[
-          AppSpacing.hMd,
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: <Widget>[
-              for (final String tag in d.tags)
-                Chip(
-                  label: Text(tag),
-                  visualDensity: VisualDensity.compact,
-                ),
-            ],
-          ),
-        ],
+        _headCard(context, d, meta),
         AppSpacing.hLg,
         ..._entriesSection(context, d),
         if (d.sampleEntry != null) ...<Widget>[
@@ -403,6 +433,73 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         ],
         AppSpacing.hXl,
       ],
+    );
+  }
+
+  /// 资料卡头部：状态 / 名称 / 统计 / 简介 / 标签 / 作者。
+  ///
+  /// 详情页此前是一屏文章式排版，读起来像公告；世界书是**可以下载使用的资料**，
+  /// 头部应该先给身份与统计，再往下才是目录。
+  Widget _headCard(
+    BuildContext context,
+    WorldCardSummary d,
+    List<String> meta,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: AppRadius.mdAll,
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (d.statusLabel.isNotEmpty) ...<Widget>[
+            _statusBanner(context, d),
+            AppSpacing.hMd,
+          ],
+          Text(
+            d.name,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: AppWeight.medium,
+            ),
+          ),
+          if (meta.isNotEmpty) ...<Widget>[
+            AppSpacing.hXs,
+            Text(
+              meta.join(' · '),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (d.summary.isNotEmpty) ...<Widget>[
+            AppSpacing.hSm,
+            Text(d.summary, style: theme.textTheme.bodyMedium),
+          ],
+          if (d.tags.isNotEmpty) ...<Widget>[
+            AppSpacing.hSm,
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: <Widget>[
+                for (final String tag in d.tags)
+                  Chip(
+                    label: Text(tag),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ],
+          if (d.authorName.isNotEmpty || d.updatedAt != null) ...<Widget>[
+            AppSpacing.hSm,
+            _authorRow(context, d),
+          ],
+        ],
+      ),
     );
   }
 

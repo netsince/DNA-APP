@@ -24,6 +24,7 @@ class WorldCardSummary {
     this.isHidden = false,
     this.entryNames = const <String>[],
     this.entryIndex = const <WorldEntryPreview>[],
+    this.previewNames = const <String>[],
     this.sampleEntry,
   });
 
@@ -63,6 +64,12 @@ class WorldCardSummary {
 
   /// 详情页才有：词条名预览（列表项为空）。
   final List<String> entryNames;
+
+  /// 列表卡片用的词条名快照（后端发布/编辑时算好的前 8 条）。
+  ///
+  /// 卡片上要显示几个词条名，但列表接口**不能去解析 payload**（一页 20 个世界、
+  /// 每个几百 KB），所以服务端存了一份快照。
+  final List<String> previewNames;
 
   /// 详情页才有：词条索引（名字 + 人物/名词 + 触发词）。
   ///
@@ -111,6 +118,10 @@ class WorldCardSummary {
       entryNames: names is List
           ? names.whereType<String>().toList()
           : const <String>[],
+      previewNames: (json['preview_names'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          const <String>[],
       entryIndex: index is List
           ? index
               .whereType<Map>()
@@ -141,7 +152,7 @@ class WorldCardSummary {
 
   /// 状态徽章文案（仅「我的世界卡」用）。返回空串表示不需要徽章。
   String get statusLabel {
-    if (status == 'pending') return '审核中';
+    if (status == 'pending') return '待审核';
     if (status == 'rejected') return '已拒绝';
     if (status == 'deleted') return '已撤回';
     if (isHidden) return '已下架';

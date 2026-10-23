@@ -9,6 +9,7 @@ import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/teahouse_compose_page.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
+import 'package:dna/island_app/widgets/report_sheet.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/comment_section.dart';
@@ -678,7 +679,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _ReportSheet(
+      builder: (_) => ReportSheet(
+        title: '举报角色卡',
         reasons: reasons,
         onSubmitted: (key, detail) =>
             Navigator.of(context).pop((key: key, detail: detail)),
@@ -2109,102 +2111,4 @@ class _ErrorBody extends StatelessWidget {
 
 
 
-/// 举报底部表单：选择原因（可选补充说明）后提交。
-class _ReportSheet extends StatefulWidget {
-  const _ReportSheet({required this.reasons, required this.onSubmitted});
 
-  final List<({String key, String label})> reasons;
-  final void Function(String key, String detail) onSubmitted;
-
-  @override
-  State<_ReportSheet> createState() => _ReportSheetState();
-}
-
-class _ReportSheetState extends State<_ReportSheet> {
-  String? _selected;
-  final TextEditingController _detailCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _detailCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                '举报角色卡',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      for (final r in widget.reasons)
-                        InkWell(
-                          onTap: () => setState(() => _selected = r.key),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: <Widget>[
-                                Icon(
-                                  _selected == r.key
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  size: 20,
-                                  color: _selected == r.key
-                                      ? scheme.primary
-                                      : scheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(r.label),
-                              ],
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _detailCtrl,
-                        minLines: 1,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          hintText: '补充说明（可选）',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _selected == null
-                    ? null
-                    : () =>
-                        widget.onSubmitted(_selected!, _detailCtrl.text.trim()),
-                child: const Text('提交举报'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
