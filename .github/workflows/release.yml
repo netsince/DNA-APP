@@ -1,11 +1,13 @@
 name: Release
 
+# 只在「发布 release」时构建一次。
+#
+# 以前同时监听 release: published 和 push: tags: v*，打 tag 再发 release 会各触发一次，
+# 同一个版本白白构建两遍（22 个版本共 44 次运行，其中一半是重复构建）。
+# 现在只认 release 事件；手动补构建请用「Manual Build」那个 workflow。
 on:
   release:
     types: [published]
-  push:
-    tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -29,161 +31,25 @@ jobs:
             echo "has-secrets=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
-    name: Build ${{ matrix.platform }} ${{ matrix.arch }} (${{ matrix.type }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Android: fat APK + split-per-abi
-          - { platform: android, runner: ubuntu-latest, type: release }
-          - { platform: android, runner: ubuntu-latest, type: debug }
-          # Linux (x64 only — default; linux-arm64 is experimental)
-          - { platform: linux,   runner: ubuntu-latest, type: release, arch: x64 }
-          - { platform: linux,   runner: ubuntu-latest, type: debug,   arch: x64 }
-          # Windows amd64 (x64) — host build on the x64 runner
-          - { platform: windows, runner: windows-latest, type: release, arch: amd64, winarch: x64 }
-          - { platform: windows, runner: windows-latest, type: debug,   arch: amd64, winarch: x64 }
-          # Windows arm64 — host build on the Windows-on-Arm runner
-          #   (windows-11-arm, public preview, free for public repos)
-          - { platform: windows, runner: windows-11-arm, type: release, arch: arm64, winarch: arm64 }
-          - { platform: windows, runner: windows-11-arm, type: debug,   arch: arm64, winarch: arm64 }
-          # Web
-          - { platform: web, runner: ubuntu-latest, type: release }
-          # macOS Intel (x64) — must run on an Intel runner (macos-15-intel),
-          #   since `flutter build macos` only builds the host architecture
-          - { platform: macos,   runner: macos-15-intel, type: release, arch: x64 }
-          - { platform: macos,   runner: macos-15-intel, type: debug,   arch: x64 }
-          # macOS Apple Silicon (arm64) — runs on the Apple Silicon runner
-          - { platform: macos,   runner: macos-latest, type: release, arch: arm64 }
-          - { platform: macos,   runner: macos-latest, type: debug,   arch: arm64 }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        if: matrix.platform == 'android'
-        with:
-          distribution: zulu
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+  # 正式包：每次 release 都构建，只出 release 产物。
+  # 平台矩阵与构建步骤在 build-platforms.yml 里定义，这里只传类型。
+  build-release:
+    uses: ./.github/workflows/build-platforms.yml
+    with:
+      type: release
+    secrets: inherit
 
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-
-      - run: flutter pub get
-
-      # ---- Android signing: 还原稳定密钥，保证跨构建签名一致 ----
-      - name: Restore Android signing keystore
-        if: matrix.platform == 'android'
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-        run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "::warning::未配置 Android 签名 Secret，回退使用默认 debug keystore。"
-            exit 0
-          fi
-          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
-          printf 'storeFile=upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
-
-      # ---- Android: fat APK + split-per-abi APKs ----
-      - name: Build Android APK (fat, ${{ matrix.type }})
-        if: matrix.platform == 'android'
-        run: flutter build apk --${{ matrix.type }}
-      - name: Build Android APK (split-per-abi, ${{ matrix.type }})
-        if: matrix.platform == 'android'
-        run: flutter build apk --${{ matrix.type }} --split-per-abi
-
-      # ---- Linux ----
-      - name: Build Linux (${{ matrix.arch }}, ${{ matrix.type }})
-        if: matrix.platform == 'linux'
-        run: flutter build linux --${{ matrix.type }}
-
-      # ---- Windows (host arch = x64) ----
-      - name: Build Windows (${{ matrix.arch }}, ${{ matrix.type }})
-        if: matrix.platform == 'windows'
-        env:
-          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
-        run: flutter build windows --${{ matrix.type }}
-
-      # ---- macOS (host arch only; x64 on Intel runner, arm64 on Apple Silicon runner) ----
-      - name: Build macOS (${{ matrix.arch }}, ${{ matrix.type }})
-        if: matrix.platform == 'macos'
-        run: flutter build macos --${{ matrix.type }}
-
-      # ---- Web ----
-      - name: Build Web (${{ matrix.type }})
-        if: matrix.platform == 'web'
-        run: flutter build web --${{ matrix.type }}
-
-      # ---- Package & Upload ----
-      - name: Upload Android
-        if: matrix.platform == 'android'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          overwrite_files: true
-          fail_on_unmatched_files: false
-          files: |
-            build/app/outputs/flutter-apk/app-${{ matrix.type }}.apk
-            build/app/outputs/flutter-apk/app-*-${{ matrix.type }}.apk
-
-      - name: Package Linux
-        if: matrix.platform == 'linux'
-        run: zip -r dna-linux-${{ matrix.arch }}-${{ matrix.type }}.zip build/linux/x64/${{ matrix.type }}/bundle
-      - name: Upload Linux
-        if: matrix.platform == 'linux'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          overwrite_files: true
-          fail_on_unmatched_files: false
-          files: dna-linux-${{ matrix.arch }}-${{ matrix.type }}.zip
-
-      - name: Package Windows
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: Compress-Archive -Path "build\windows\${{ matrix.winarch }}\runner\${{ matrix.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip"
-      - name: Upload Windows
-        if: matrix.platform == 'windows'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          overwrite_files: true
-          fail_on_unmatched_files: false
-          files: dna-windows-${{ matrix.arch }}-${{ matrix.type }}.zip
-
-      - name: Package macOS
-        if: matrix.platform == 'macos'
-        run: zip -r dna-macos-${{ matrix.arch }}-${{ matrix.type }}.zip build/macos/Build/Products/${{ matrix.type }}
-      - name: Upload macOS
-        if: matrix.platform == 'macos'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          overwrite_files: true
-          fail_on_unmatched_files: false
-          files: dna-macos-${{ matrix.arch }}-${{ matrix.type }}.zip
-
-      - name: Package Web
-        if: matrix.platform == 'web'
-        run: zip -r dna-web-${{ matrix.type }}.zip build/web
-      - name: Upload Web
-        if: matrix.platform == 'web'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          overwrite_files: true
-          fail_on_unmatched_files: false
-          files: dna-web-${{ matrix.type }}.zip
+  # 调试包：只有 pre-release 才构建。
+  #
+  # 用 release 的 prerelease 标志判断，比解析 tag 名可靠
+  #（实测 v0.3.3-pre1 = true、v0.3.2 = false）。
+  # 正式版不再出 debug，macOS / Windows 的排队压力直接少一半。
+  build-debug:
+    if: github.event.release.prerelease == true
+    uses: ./.github/workflows/build-platforms.yml
+    with:
+      type: debug
+    secrets: inherit
 
   ios:
     name: Build iOS (requires signing secrets)

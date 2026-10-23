@@ -1,0 +1,164 @@
+name: Build platforms
+
+# 可复用的平台构建。矩阵与构建步骤只在这里定义一次：
+#   - release.yml 用它出正式包；
+#   - pre-release 时再用同一份定义多出一套 debug 包。
+# 不要在调用方复制这份矩阵 —— 之前 Windows arm64 的坑就是因为配置散在多处。
+on:
+  workflow_call:
+    inputs:
+      type:
+        description: '构建类型：release 或 debug'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} ${{ matrix.arch }} (${{ inputs.type }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Android: fat APK + split-per-abi
+          - { platform: android, runner: ubuntu-latest }
+          # Linux (x64 only — linux-arm64 is experimental)
+          - { platform: linux,   runner: ubuntu-latest, arch: x64 }
+          # Windows amd64 (x64) — host build on the x64 runner
+          #   windows arm64 已移除：windows-11-arm 上那两个 job 每次都在 20~30 秒内失败
+          - { platform: windows, runner: windows-latest, arch: amd64, winarch: x64 }
+          # Web
+          - { platform: web, runner: ubuntu-latest }
+          # macOS Intel (x64) — 必须跑在 Intel runner 上（flutter build macos 只构建宿主架构）
+          - { platform: macos,   runner: macos-15-intel, arch: x64 }
+          # macOS Apple Silicon (arm64) — 跑在 Apple Silicon runner 上
+          - { platform: macos,   runner: macos-latest,   arch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        if: matrix.platform == 'android'
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - run: flutter pub get
+
+      # ---- Android signing: 还原稳定密钥，保证跨构建签名一致 ----
+      - name: Restore Android signing keystore
+        if: matrix.platform == 'android'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo '::warning::未配置 Android 签名 Secret，回退使用默认 debug keystore。'
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storeFile=upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+
+      # ---- Android: fat APK + split-per-abi APKs ----
+      - name: Build Android APK (fat, ${{ inputs.type }})
+        if: matrix.platform == 'android'
+        run: flutter build apk --${{ inputs.type }}
+      - name: Build Android APK (split-per-abi, ${{ inputs.type }})
+        if: matrix.platform == 'android'
+        run: flutter build apk --${{ inputs.type }} --split-per-abi
+
+      # ---- Linux ----
+      - name: Build Linux (${{ matrix.arch }}, ${{ inputs.type }})
+        if: matrix.platform == 'linux'
+        run: flutter build linux --${{ inputs.type }}
+
+      # ---- Windows (host arch = x64) ----
+      - name: Build Windows (${{ matrix.arch }}, ${{ inputs.type }})
+        if: matrix.platform == 'windows'
+        env:
+          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+        run: flutter build windows --${{ inputs.type }}
+
+      # ---- macOS (host arch only; x64 on Intel runner, arm64 on Apple Silicon runner) ----
+      - name: Build macOS (${{ matrix.arch }}, ${{ inputs.type }})
+        if: matrix.platform == 'macos'
+        run: flutter build macos --${{ inputs.type }}
+
+      # ---- Web ----
+      - name: Build Web (${{ inputs.type }})
+        if: matrix.platform == 'web'
+        run: flutter build web --${{ inputs.type }}
+
+      # ---- Package & Upload ----
+      - name: Upload Android
+        if: matrix.platform == 'android'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: |
+            build/app/outputs/flutter-apk/app-${{ inputs.type }}.apk
+            build/app/outputs/flutter-apk/app-*-${{ inputs.type }}.apk
+
+      - name: Package Linux
+        if: matrix.platform == 'linux'
+        run: zip -r dna-linux-${{ matrix.arch }}-${{ inputs.type }}.zip build/linux/x64/${{ inputs.type }}/bundle
+      - name: Upload Linux
+        if: matrix.platform == 'linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-linux-${{ matrix.arch }}-${{ inputs.type }}.zip
+
+      - name: Package Windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path "build\windows\${{ matrix.winarch }}\runner\${{ inputs.type }}\*" -DestinationPath "dna-windows-${{ matrix.arch }}-${{ inputs.type }}.zip"
+      - name: Upload Windows
+        if: matrix.platform == 'windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-windows-${{ matrix.arch }}-${{ inputs.type }}.zip
+
+      - name: Package macOS
+        if: matrix.platform == 'macos'
+        run: zip -r dna-macos-${{ matrix.arch }}-${{ inputs.type }}.zip build/macos/Build/Products/${{ inputs.type }}
+      - name: Upload macOS
+        if: matrix.platform == 'macos'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-macos-${{ matrix.arch }}-${{ inputs.type }}.zip
+
+      - name: Package Web
+        if: matrix.platform == 'web'
+        run: zip -r dna-web-${{ inputs.type }}.zip build/web
+      - name: Upload Web
+        if: matrix.platform == 'web'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          overwrite_files: true
+          fail_on_unmatched_files: false
+          files: dna-web-${{ inputs.type }}.zip
