@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/app_drawer.dart';
@@ -8,6 +8,7 @@ import 'package:dna/island_app/articles_page.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/card_publish_source.dart';
+import 'package:dna/island_app/ta_import_sink.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/explore_body.dart';
 import 'package:dna/island_app/home_body.dart';
@@ -48,6 +49,7 @@ class RootShell extends StatefulWidget {
     this.worldImportSink,
     this.worldPublishSource,
     this.cardPublishSource,
+    this.taImportSink,
   });
 
   /// 「返回主应用」回调。
@@ -68,6 +70,9 @@ class RootShell extends StatefulWidget {
 
   /// 取本地角色卡（发布角色卡用）。为空时发布页只给「新建 / 导入」两条路。
   final CardPublishSource? cardPublishSource;
+
+  /// 「导入社区角色卡到本地」的落地。为空时详情页不显示导入入口。
+  final TaImportSink? taImportSink;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -117,6 +122,7 @@ class _RootShellState extends State<RootShell> {
         builder: (_) => CardDetailPage(
           cardId: id,
           cardExporter: ApiClient.instance.exportCard,
+          cardImporter: widget.taImportSink?.importTa,
           cardHider: ApiClient.instance.toggleCardHidden,
         ),
       ),

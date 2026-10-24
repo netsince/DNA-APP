@@ -1,8 +1,9 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/card_publish_source.dart';
+import 'package:dna/island_app/ta_import_sink.dart';
 import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/server_setup_page.dart';
@@ -72,6 +73,23 @@ class _MainAppWorldBridge implements WorldImportSink, WorldPublishSource {
     // 后端分配的 UUID，两套 id 直接混用会撞（本地已有同 id 的世界会被覆盖）。
     final World local = world.copyWith(id: newId());
     await controller.upsertWorld(local);
+    return local.id;
+  }
+}
+
+/// 主应用侧的「导入社区角色卡」落地。
+///
+/// **必须换 id**：本地卡的 id 由客户端生成，社区卡是后端 UUID，
+/// 直接用会把本地同名卡覆盖掉。
+class _MainAppTaImportBridge implements TaImportSink {
+  _MainAppTaImportBridge(this.controller);
+
+  final AppController controller;
+
+  @override
+  Future<String> importTa(TA ta) async {
+    final TA local = ta.copyWith(id: newId());
+    await controller.upsertTa(local);
     return local.id;
   }
 }
@@ -178,6 +196,7 @@ class _CommunityBodyState extends State<CommunityBody> {
         worldImportSink: _MainAppWorldBridge(widget.controller),
         worldPublishSource: _MainAppWorldBridge(widget.controller),
         cardPublishSource: _MainAppCardBridge(widget.controller),
+        taImportSink: _MainAppTaImportBridge(widget.controller),
       ),
     );
   }

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/models/ta.dart';
+import 'package:dna/services/ta_export_import_service.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/teahouse_compose_page.dart';
@@ -258,6 +260,9 @@ typedef ReportSubmitter = Future<void> Function({
 /// 复制/导出角色卡：返回可写入剪贴板的角色卡 JSON 包字符串（需登录）。
 typedef CardExporter = Future<String> Function(String cardId);
 
+/// 「直接导入到本地」回调：把社区角色卡解析后落进本地库（id 由实现方重新生成）。
+typedef CardImporter = Future<String> Function(TA ta);
+
 /// 剪贴板写入函数（便于测试注入）。默认使用 [Clipboard.setData]。
 typedef ClipboardWriter = Future<void> Function(String text);
 
@@ -286,6 +291,7 @@ class CardDetailPage extends StatefulWidget {
     this.reasonsLoader,
     this.reportSubmitter,
     this.cardExporter,
+    this.cardImporter,
     this.clipboardWriter,
     this.isLoggedIn,
     this.isOwner,
@@ -323,6 +329,9 @@ class CardDetailPage extends StatefulWidget {
 
   /// 复制/导出角色卡回调；为 null 时使用 [ApiClient.instance.exportCard]。
   final CardExporter? cardExporter;
+
+  /// 「直接导入到本地」；为 null 时导入入口隐藏（独立运行/旧调用方）。
+  final CardImporter? cardImporter;
 
   /// 剪贴板写入回调；为 null 时使用 [Clipboard.setData]。
   final ClipboardWriter? clipboardWriter;
@@ -449,6 +458,61 @@ class _CardDetailPageState extends State<CardDetailPage> {
     } catch (_) {
       if (!mounted) return;
       _showSnack('复制失败，请重试');
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
+  }
+
+  /// 导入回调的快捷读取（供 action 区判断主按钮形态）。
+  CardImporter? get _importer => widget.cardImporter;
+
+  /// 直接导入到本地角色卡库。
+  ///
+  /// 走与「复制」**同一个**导出接口（复制量照常 +1、留溯源记录），
+  /// 再解析 JSON 包落进本地库（id 由主应用重新生成）。没有本地库可写时
+  /// （cardImporter 为 null）不显示这个入口。
+  Future<void> _importCard() async {
+    if (!_loggedIn) {
+      AuthGuard.require(context, message: '请先登录后再导入');
+      return;
+    }
+    final CardImporter? importer = widget.cardImporter;
+    if (importer == null) {
+      _showSnack('当前环境不支持导入');
+      return;
+    }
+    if (_copying) return;
+    setState(() => _copying = true);
+    try {
+      final exporter = widget.cardExporter ?? ApiClient.instance.exportCard;
+      final pkg = await exporter(widget.cardId);
+      final parsed = TaExportImportService.importCharacter(pkg);
+      TA? ta = parsed.data?.ta;
+      if (ta == null) {
+        if (!mounted) return;
+        _showSnack(parsed.message ?? '无法识别这份角色卡');
+        return;
+      }
+      // 把导出包里的内嵌图片逐槽落到本地存储 —— toTA() 出来的 images 是空的，
+      // 不补这一步导入进来的卡就没图（编辑器的导入流程也是这么做的）。
+      final ExportImportResult<TA> restored =
+          await TaExportImportService.restoreTaImages(
+        ta,
+        jsonDecode(pkg) as Map<String, dynamic>,
+      );
+      if (restored.success && restored.data != null) {
+        ta = restored.data;
+      }
+      if (ta == null) {
+        _showSnack('导入失败，请重试');
+        return;
+      }
+      await importer(ta);
+      if (!mounted) return;
+      _showSnack('已导入到本地角色卡：${ta.name}');
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('导入失败，请重试');
     } finally {
       if (mounted) setState(() => _copying = false);
     }
@@ -758,6 +822,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
               onSelected: (v) {
                 if (v == 'toggle_hidden') _toggleHidden();
                 if (v == 'copy_link') _copyCardLink();
+                if (v == 'import_ta') _importCard();
+                if (v == 'copy_card') _copyCard();
                 if (v == 'teahouse') _quoteToTeahouse();
                 if (v == 'report') _openReport();
               },
@@ -779,6 +845,31 @@ class _CardDetailPageState extends State<CardDetailPage> {
                       ],
                     ),
                   ),
+                // 直接导入：只在有本地库可写（社区嵌进主应用）时出现。
+                if (widget.cardImporter != null)
+                  PopupMenuItem<String>(
+                    value: 'import_ta',
+                    enabled: !_copying,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(Icons.download_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        const Text('导入到本地'),
+                      ],
+                    ),
+                  ),
+                // 复制：从主按钮挪进菜单（主位让给「导入到本地」）。
+                PopupMenuItem<String>(
+                  value: 'copy_card',
+                  enabled: !_copying,
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.content_copy, size: 20),
+                      const SizedBox(width: 12),
+                      const Text('复制卡片'),
+                    ],
+                  ),
+                ),
                 PopupMenuItem<String>(
                   value: 'copy_link',
                   enabled: !_copyingLink,
@@ -1529,12 +1620,31 @@ class _ActionsBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // 复制角色卡：将角色卡 JSON 包写入剪贴板（对齐网页版「复制卡片」）。
-          AsyncActionButton(
-            variant: AsyncButtonVariant.tonal,
-            tooltip: '复制卡片',
-            onPressed: page._copyCard,
-            icon: const Icon(Icons.content_copy, size: 18),
+          // 主按钮：**导入到本地**（社区嵌主应用时）；复制挪进「⋯」菜单。
+          // 没有本地库可写时（独立运行）退回原来的复制按钮。
+          if (page._importer != null)
+            AsyncActionButton(
+              variant: AsyncButtonVariant.tonal,
+              tooltip: '导入到本地',
+              onPressed: page._importCard,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              loadingSize: 18,
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.surfaceContainerHigh,
+                foregroundColor: scheme.onSurfaceVariant,
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size.square(40),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            )
+          else
+            // 复制角色卡：将角色卡 JSON 包写入剪贴板（对齐网页版「复制卡片」）。
+            AsyncActionButton(
+              variant: AsyncButtonVariant.tonal,
+              tooltip: '复制卡片',
+              onPressed: page._copyCard,
+              icon: const Icon(Icons.content_copy, size: 18),
             loadingSize: 18,
             style: FilledButton.styleFrom(
               backgroundColor: scheme.surfaceContainerHigh,
