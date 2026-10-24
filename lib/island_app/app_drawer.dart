@@ -42,6 +42,7 @@ class AppDrawerContent extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelect,
+    this.onPlusHubTap,
     this.onShowAnnouncement,
     this.onOpenArticles,
     this.onOpenRecommend,
@@ -74,6 +75,12 @@ class AppDrawerContent extends StatelessWidget {
 
   /// 「通知」回调（项上带未读角标）。
   final VoidCallback? onOpenNotifications;
+
+  /// 「发布」格子的覆盖回调。
+  ///
+  /// 传了就走它（打开「＋」三选一枢纽），不再直接切到角色卡发布页 ——
+  /// 与底栏「＋」同源，两条入口行为一致。不传保持旧行为。
+  final VoidCallback? onPlusHubTap;
 
   /// 「我的发布」回调。
   final VoidCallback? onOpenMyCards;
@@ -198,7 +205,11 @@ class AppDrawerContent extends StatelessWidget {
       leading: Icon(icon),
       title: Text(label),
       selected: selected == target,
-      onTap: () => onSelect(target),
+      // 「发布」格子在给了枢纽回调时改走枢纽（与底栏「＋」同源），
+      // 其余格子照常导航。
+      onTap: (target == AppNavTarget.upload && onPlusHubTap != null)
+          ? onPlusHubTap!
+          : () => onSelect(target),
     );
   }
 

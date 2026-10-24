@@ -288,6 +288,9 @@ class _RootShellState extends State<RootShell> {
     final drawerContent = AppDrawerContent(
       selected: _page,
       onSelect: _onSelectNav,
+      // 侧栏「发布」与底栏「＋」同源：都打开三选一枢纽。
+      // 注意：抽屉不是路由，收它必须走 closeDrawer；在这里 pop 会把整个社区弹回去。
+      onPlusHubTap: _togglePlusHub,
       onShowAnnouncement: _showAnnouncement,
       onOpenArticles: _openArticles,
       onOpenRecommend: _openRecommend,

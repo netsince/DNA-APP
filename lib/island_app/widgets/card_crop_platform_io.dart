@@ -1,7 +1,9 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:dna/services/crop_page.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_cropper/image_cropper.dart';
 
 import 'card_crop_page.dart';
@@ -21,6 +23,16 @@ Future<Uint8List?> openCropPage(
   // 自由剪图：不传 aspectRatio（uCrop / TOCropViewController 即进入自由裁剪），
   // 同时解除 lockAspectRatio。注意这里必须在 await 之前读，保证与用户点击时的开关一致。
   final bool freeRatio = FreeImageCrop.enabled;
+  // 桌面端没有原生裁剪器（image_cropper 只实现了 Android/iOS/Web），走自建裁剪页。
+  if (!kIsWeb &&
+      (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    return showFlutterCropPage(
+      context,
+      source: sourceBytes,
+      aspect: freeRatio ? null : aspect.ratio,
+    );
+  }
+
   final dir = await Directory.systemTemp.createTemp('dnaisland_crop');
   final file = File('${dir.path}${Platform.pathSeparator}source_${DateTime.now().millisecondsSinceEpoch}.png');
   await file.writeAsBytes(sourceBytes, flush: true);

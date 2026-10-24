@@ -185,7 +185,7 @@ class _TaEditorFormState extends State<TaEditorForm> {
   }
 
   Future<void> _pickImage(String slot, double aspect) async {
-    final PickedImage? picked = await widget.imagePicker.pickAndCrop(
+    final PickedImage? picked = await widget.imagePicker.pickAndCrop(context,
       aspect: FreeImageCrop.enabled ? null : aspect,
     );
     if (picked == null || picked.bytes.isEmpty) return;

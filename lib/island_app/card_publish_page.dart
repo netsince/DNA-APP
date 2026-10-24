@@ -423,6 +423,11 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
       return;
     }
     if (!mounted) return;
+    // 成功回执**当场弹**（此刻页面还在，SnackBar 一定可见），再返回；
+    // 之前是 pop 完才提示，被上一页的重建吞掉，看起来像没发出去。
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: FitText('已提交，等待审核')),
+    );
     Navigator.of(context).pop();
   }
 
@@ -462,11 +467,21 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
         appBar: AppBar(
           title: FitText(widget.title ?? '发布角色卡'),
           actions: <Widget>[
-            TextButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check, size: 18),
-              label: FitText(widget.saveLabel),
-            ),
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              TextButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.check, size: 18),
+                label: FitText(widget.saveLabel),
+              ),
           ],
         ),
         body: TaEditorForm(
@@ -475,9 +490,15 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
           imagePicker: const DefaultImagePickCapability(),
         ),
         floatingActionButton: AppEditorFab(
-          onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
-          label: FitText(widget.saveLabel),
+          onPressed: _saving ? () {} : () => _save(),
+          icon: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: _saving ? const FitText('发布中…') : FitText(widget.saveLabel),
         ),
       ),
     );
