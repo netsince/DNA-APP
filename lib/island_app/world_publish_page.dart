@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,10 +7,12 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
-import 'package:dna/pages/world_editor_page.dart';
+import 'package:dna/pages/world_editor/world_editor_form.dart';
 import 'package:dna/services/export_file_utils.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_editor_frame.dart';
+import 'package:dna/widgets/fit_text.dart';
 
 /// 发布世界卡：选一个本地世界，**在完整世界观编辑器里**改完再发。
 ///
@@ -50,7 +52,7 @@ class _WorldPublishPageState extends State<WorldPublishPage> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => WorldEditorPage(
+        builder: (_) => CommunityWorldEditorPage(
           world: initial,
           title: '发布世界卡',
           tagSuggestions: suggestions,
@@ -287,6 +289,125 @@ class _WorldPublishPageState extends State<WorldPublishPage> {
               onTap: () => _openEditor(w),
             ),
       ],
+    );
+  }
+}
+
+/// 社区侧的世界观编辑页：社区壳自带 chrome，直接套共享表单。
+class CommunityWorldEditorPage extends StatefulWidget {
+  const CommunityWorldEditorPage({
+    super.key,
+    this.world,
+    this.title,
+    this.tagSuggestions = const <String>[],
+    this.saveLabel = '发布到社区',
+    required this.onSave,
+  });
+
+  final World? world;
+  final String? title;
+  final List<String> tagSuggestions;
+  final String saveLabel;
+  final Future<void> Function(World world) onSave;
+
+  @override
+  State<CommunityWorldEditorPage> createState() =>
+      _CommunityWorldEditorPageState();
+}
+
+class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
+  final WorldFormController _form = WorldFormController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _form.dispose();
+    super.dispose();
+  }
+
+  static String _errorText(Object e) {
+    final String text = e.toString();
+    return text.startsWith('Exception: ') ? text.substring(11) : text;
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final World world = _form.current();
+    if (world.name.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: FitText('请填写世界名称')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(world);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(_errorText(e))),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop || !mounted) return;
+    if (!_form.isDirty) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    final bool? discard = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const FitText('放弃修改？'),
+        content: const FitText('还有未保存的修改，返回会丢失。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const FitText('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const FitText('放弃'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || discard != true) return;
+    Navigator.of(context).pop(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: FitText(widget.title ?? '发布世界卡'),
+          actions: <Widget>[
+            TextButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check, size: 18),
+              label: FitText(widget.saveLabel),
+            ),
+          ],
+        ),
+        body: WorldEditorForm(
+          world: widget.world,
+          formController: _form,
+          tagSuggestions: widget.tagSuggestions,
+        ),
+        floatingActionButton: AppEditorFab(
+          onPressed: _save,
+          icon: const Icon(Icons.check),
+          label: FitText(widget.saveLabel),
+        ),
+      ),
     );
   }
 }

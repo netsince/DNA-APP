@@ -1,9 +1,7 @@
-// ignore_for_file: deprecated_member_use
+﻿// ignore_for_file: deprecated_member_use
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
-import 'package:dna/theme/tokens.dart';
 
 import '../island_app/api/client.dart';
 import '../models/world.dart';
@@ -11,18 +9,16 @@ import '../services/export_file_utils.dart';
 import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
-import '../widgets/adaptive_text_field.dart';
-import '../widgets/tag_input.dart';
-import 'package:dna/widgets/export_import/transport_source_dialog.dart';
-import 'package:dna/widgets/fit_text.dart';
 import '../widgets/app_editor_frame.dart';
+import '../widgets/fit_text.dart';
+import 'package:dna/widgets/export_import/transport_source_dialog.dart';
+import 'world_editor/world_editor_form.dart';
 
-/// 世界编辑与创建页面。
+/// 世界观编辑器**外壳**：顶栏、菜单、保存按钮、导入导出、导航都在这里。
 ///
-/// 采用「渐进式分层设计」：
-/// 1. 核心必填信息（世界名称、世界背景）置顶突出；
-/// 2. 高级选项（简介、标签、违禁词）默认折叠；
-/// 3. 子词条管理改为「卡片列表 + 独立弹窗编辑」，区分基础触发与高级规则。
+/// 表单本体在 [WorldEditorForm]（只有字段与词条），通过 [WorldFormController] 取值/回填。
+/// 这样「怎么存、按钮叫什么、要不要校验」只由宿主决定，表单不再自带一套行为 ——
+/// 之前社区里出现「按钮写保存、点下去却发布」就是两边混在一起导致的。
 class WorldEditorPage extends StatefulWidget {
   const WorldEditorPage({
     super.key,
@@ -34,28 +30,21 @@ class WorldEditorPage extends StatefulWidget {
     this.saveLabel = '保存',
   });
 
-  /// 本地世界库。社区发布/编辑世界卡时**不传**（那边零状态依赖）。
+  /// 本地世界库。社区发布/编辑世界卡时**不传**。
   final AppController? controller;
 
   final World? world;
 
-  /// 保存回调。给了它就用它，不再写本地库 —— 社区发布/编辑走这条路：
-  /// 编辑器只是「把 World 交出去」，至于发到社区还是存本地，由调用方决定。
+  /// 保存回调。给了它就用它，不再写本地库。
   final Future<void> Function(World world)? onSave;
 
   /// 顶栏标题；为空时按「创建世界 / 编辑世界」自动判断。
   final String? title;
 
-  /// 标签候选（热门标签）。
-  ///
-  /// **由调用方注入，编辑器自己不拉**：这是社区的「热门标签」，本体编辑器打开时
-  /// 不该去请求社区接口 —— 既违反本体离线可用的前提，也不受「关闭社区」开关的
-  /// 约束。本体不传（空），社区发布页拉好再传进来。
+  /// 标签候选，由调用方注入（表单自己不拉社区接口）。
   final List<String> tagSuggestions;
 
-  /// 保存按钮的文案。**必须跟着行为走**：
-  /// 本体是「保存」到本地库；社区发布是「发布到社区」；社区编辑是「保存并重新提审」。
-  /// 之前统一写「保存世界」，在社区里点一下就直接发布了，文案和行为对不上。
+  /// 保存按钮文案：本体「保存」/ 社区「发布到社区」/ 编辑「保存并重新提审」。
   final String saveLabel;
 
   @override
@@ -63,107 +52,31 @@ class WorldEditorPage extends StatefulWidget {
 }
 
 class _WorldEditorPageState extends State<WorldEditorPage> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _summaryController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _forbiddenWordsController;
-
-  /// 标签用 chips 编辑（与角色卡编辑器、社区发布页共用 TagInput）。
-  late List<String> _tags;
-
-  late String _worldId;
-  late List<WorldEntry> _entries;
-
-  @override
-  void initState() {
-    super.initState();
-    final World? world = widget.world;
-    // id 可能是空串（手写 JSON / 第三方转换），空就生成一个新的。
-    final String incomingId = world?.id ?? '';
-    _worldId = incomingId.isEmpty ? newId() : incomingId;
-    _nameController = TextEditingController(text: world?.name ?? '');
-    _summaryController = TextEditingController(text: world?.summary ?? '');
-    _descriptionController = TextEditingController(text: world?.description ?? '');
-    _tags = List<String>.from(world?.tags ?? const <String>[]);
-    _forbiddenWordsController = TextEditingController(
-      text: (world?.forbiddenWords ?? <String>[]).join(', '),
-    );
-    _entries = List<WorldEntry>.from(world?.entries ?? <WorldEntry>[]);
-  }
+  final WorldFormController _form = WorldFormController();
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _summaryController.dispose();
-    _descriptionController.dispose();
-    _forbiddenWordsController.dispose();
+    _form.dispose();
     super.dispose();
   }
 
-  List<String> _parseForbiddenWords(String raw) {
-    return raw
-        .split(RegExp(r'[,，\n]'))
-        .map((String e) => e.trim())
-        .where((String e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-  }
+  /// 世界观导出扩展名。
+  static const String _fileExt = 'dnaworld';
 
-  String _entryNameById(String id) {
-    for (final WorldEntry entry in _entries) {
-      if (entry.id == id) {
-        return entry.name.isEmpty ? '未命名词条' : entry.name;
-      }
-    }
-    return '未知词条';
-  }
-
-  WorldEntry _withoutRelationTarget(WorldEntry entry, String targetId) {
-    if (entry.relation?.targetId != targetId) {
-      return entry;
-    }
-    return WorldEntry(
-      id: entry.id,
-      name: entry.name,
-      description: entry.description,
-      type: entry.type,
-      gender: entry.gender,
-      age: entry.age,
-      status: entry.status,
-      relation: null,
-    );
-  }
-
-  void _removeEntry(WorldEntry entry) {
-    setState(() {
-      _entries = _entries.where((WorldEntry item) => item.id != entry.id).toList();
-      _entries = _entries
-          .map((WorldEntry item) => _withoutRelationTarget(item, entry.id))
-          .toList();
-    });
-  }
-
-  World _buildCurrentWorld() {
-    return World(
-      id: _worldId,
-      name: _nameController.text.trim(),
-      summary: _summaryController.text.trim(),
-      description: _descriptionController.text.trim(),
-      tags: _tags,
-      forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
-      entries: _entries,
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: FitText(text)),
     );
   }
 
   Future<void> _save() async {
-    final String name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请填写世界名称')),
-      );
+    final World world = _form.current();
+    // 名称必填由**宿主**决定（表单只交值）。
+    if (world.name.trim().isEmpty) {
+      _snack('请填写世界名称');
       return;
     }
-    final World world = _buildCurrentWorld();
     final Future<void> Function(World)? onSave = widget.onSave;
     if (onSave != null) {
       await onSave(world);
@@ -174,9 +87,8 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     Navigator.of(context).pop();
   }
 
-  /// 复制到剪贴板
+  /// 导出：询问目的地（剪贴板 / 文件）后导出当前表单内容。
   Future<void> _copyToClipboard() async {
-    // 询问导出目的地(剪贴板 / 文件)
     final ExportTarget? target = await showExportTargetDialog(
       context: context,
       title: '导出世界观',
@@ -184,14 +96,12 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     );
     if (target == null || !mounted) return;
 
-    final World currentWorld = _buildCurrentWorld();
+    final World currentWorld = _form.current();
     final ExportImportResult<String> result =
         WorldExportImportService.exportWorld(currentWorld);
     if (!mounted) return;
     if (!result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(result.message ?? '导出失败')),
-      );
+      _snack(result.message ?? '导出失败');
       return;
     }
 
@@ -199,20 +109,12 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       final ExportImportResult<void> copyResult =
           await WorldExportImportService.copyToClipboard(result.data!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: FitText(
-            copyResult.success
-                ? '已复制到剪贴板，可以粘贴分享'
-                : (copyResult.message ?? '复制到剪贴板失败'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _snack(copyResult.success
+          ? '已复制到剪贴板，可以粘贴分享'
+          : (copyResult.message ?? '复制到剪贴板失败'));
       return;
     }
 
-    // 导出为文件
     final ExportImportResult<String?> fileResult =
         await ExportFileUtils.exportText(
       content: result.data!,
@@ -226,25 +128,13 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     );
     if (!mounted) return;
     if (!fileResult.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(fileResult.message ?? '导出到文件失败')),
-      );
+      _snack(fileResult.message ?? '导出到文件失败');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: FitText(
-          fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    _snack(fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}');
   }
 
-  /// 世界观导出扩展名。
-  static const String _fileExt = 'dnaworld';
-
-  /// 从剪贴板 / 文件导入
+  /// 导入：解析后回填表单；有本地库时顺带落盘（社区模式只回填，不建本地世界）。
   Future<void> _importFromClipboard() async {
     final ImportSource? source = await showImportSourceDialog(
       context: context,
@@ -259,9 +149,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
           await WorldExportImportService.pasteFromClipboard();
       if (!mounted) return;
       if (!pasteResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
-        );
+        _snack(pasteResult.message ?? '读取剪贴板失败');
         return;
       }
       content = pasteResult.data;
@@ -273,20 +161,15 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       );
       if (!mounted) return;
       if (!fileResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: FitText(fileResult.message ?? '读取文件失败')),
-        );
+        _snack(fileResult.message ?? '读取文件失败');
         return;
       }
-      if (fileResult.data == null) return; // 用户取消
+      if (fileResult.data == null) return;
       content = fileResult.data;
     }
 
     if (content == null || content.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('没有可导入的内容')),
-      );
+      _snack('没有可导入的内容');
       return;
     }
 
@@ -294,111 +177,80 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         WorldExportImportService.importWorld(content);
     if (!mounted) return;
     if (!importResult.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(importResult.message ?? '导入失败')),
-      );
+      _snack(importResult.message ?? '导入失败');
       return;
     }
 
     World worldToImport = importResult.data!;
     final AppController? controller = widget.controller;
     if (controller != null) {
-      final World? existing = controller.getWorldById(worldToImport.id);
-      if (existing != null) {
+      if (controller.getWorldById(worldToImport.id) != null) {
         worldToImport = worldToImport.copyWith(id: newId());
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: FitText('ID 与已有世界冲突，已自动创建为新世界')),
-        );
+        _snack('ID 与已有世界冲突，已自动创建为新世界');
       }
       await controller.upsertWorld(worldToImport);
     }
     if (!mounted) return;
-
-    setState(() {
-      _worldId = worldToImport.id;
-      _nameController.text = worldToImport.name;
-      _summaryController.text = worldToImport.summary;
-      _descriptionController.text = worldToImport.description;
-      _tags = List<String>.from(worldToImport.tags);
-      _forbiddenWordsController.text = worldToImport.forbiddenWords.join(', ');
-      _entries = List<WorldEntry>.from(worldToImport.entries);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: FitText('导入成功')),
-    );
+    _form.reset(worldToImport);
+    _snack('导入成功');
   }
 
-  /// 发布到社区。
-  ///
-  /// 先落盘再发：社区读的是**本地世界**，不存的话发布页里根本看不到它。
-  ///
-  /// 发的是**裸 World.toJson()**，不是 exportWorld 的带信封格式 —— 服务端只读
-  /// 顶层的 name / summary / tags / entries，套一层 world:{...} 它就读不到了。
+  /// 发布到社区：先落盘（社区读的是本地世界），再提交。
   Future<void> _publishToCommunity() async {
-    final World current = _buildCurrentWorld();
+    final World current = _form.current();
     if (current.name.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('先给世界起个名字')),
-      );
+      _snack('先给世界起个名字');
       return;
     }
     try {
-      // 菜单只在 controller 非空时出现（社区编辑器走 onSave，没有本地库）。
       await widget.controller!.upsertWorld(current);
       final Map<String, dynamic> result =
           await ApiClient.instance.publishWorld(jsonEncode(current.toJson()));
       if (!mounted) return;
       final bool reused = result['reused'] == true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: FitText(
-            reused ? '这个世界之前已经提交过，正在审核中' : '已提交，等待审核',
-          ),
-        ),
-      );
+      _snack(reused ? '这个世界之前已经提交过，正在审核中' : '已提交，等待审核');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText('发布失败：$e')),
-      );
+      _snack('发布失败：$e');
     }
   }
 
-  /// 弹出词条创建/编辑弹窗
-  void _openEntryEditor({WorldEntry? entryToEdit, int? editIndex}) {
-    showModalBottomSheet<void>(
+  /// 返回时若还有未保存修改，先确认；没有修改就直接走。
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop) return;
+    if (!mounted) return;
+    if (!_form.isDirty) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    final bool? discard = await showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const FitText('放弃修改？'),
+        content: const FitText('还有未保存的修改，返回会丢失。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const FitText('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const FitText('放弃'),
+          ),
+        ],
       ),
-      builder: (BuildContext ctx) {
-        return _WorldEntryModal(
-          initialEntry: entryToEdit,
-          availableEntries: _entries,
-          onSave: (WorldEntry savedEntry) {
-            setState(() {
-              if (editIndex != null && editIndex >= 0 && editIndex < _entries.length) {
-                _entries[editIndex] = savedEntry;
-              } else {
-                _entries.add(savedEntry);
-              }
-            });
-          },
-        );
-      },
     );
+    if (!mounted || discard != true) return;
+    Navigator.of(context).pop(result);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final bool isNew = widget.world == null;
-
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
       appBar: AppBar(
         title: FitText(widget.title ?? (isNew ? '创建世界' : '编辑世界')),
         actions: <Widget>[
@@ -437,9 +289,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
                   ],
                 ),
               ),
-              // 只有本地编辑器才有「发布到社区」；社区里的发布/编辑走 onSave，
-              // 再挂一个「发布到社区」会变成循环。
-              // 而且必须跟着「社区」开关走：关掉社区后不该还留一个点了就报错的入口。
+              // 「发布到社区」只在本地编辑器出现，且跟着「社区」开关走。
               if (widget.controller != null &&
                   widget.controller!.settings.enableCommunity)
                 const PopupMenuItem<String>(
@@ -461,789 +311,16 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: AppEditorLayout.bodyPadding(context),
-        children: <Widget>[
-          // ===== 1. 世界核心信息卡片 =====
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.public, color: theme.colorScheme.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('世界核心设定', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '设定该世界的名称与通用规则，对话时将作为基础背景注入。',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: '世界名称 *',
-                      hintText: '例如：赛博朋克2077、提瓦特大陆、暗夜修道院',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.badge_outlined),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(
-                      labelText: '世界背景 / 通用法则',
-                      hintText: '描述该世界的时代背景、地理风貌、核心力量法则或全局设定...',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.auto_stories_outlined),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // 高级与展示选项（折叠）
-                  Theme(
-                    data: theme.copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: FitText(
-                        '展示备注与违禁词（选填）',
-                        style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
-                      ),
-                      leading: Icon(Icons.tune, color: theme.colorScheme.primary, size: 18),
-                      childrenPadding: const EdgeInsets.only(top: 8, bottom: 4),
-                      children: <Widget>[
-                        TextField(
-                          controller: _summaryController,
-                          decoration: InputDecoration(
-                            labelText: '简介 / 备注',
-                            hintText: '用于在世界列表中展示的简短一句话介绍',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        AdaptiveTextField(
-                          controller: _forbiddenWordsController,
-                          decoration: InputDecoration(
-                            labelText: '禁止输出词语',
-                            hintText: '强制要求 AI 绝不提及的词汇，用逗号或换行分隔',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // 标签**不再埋在折叠项里**：埋着就没人填，社区筛选条也就永远是空的。
-                  FitText('分类标签', style: theme.textTheme.labelLarge),
-                  const SizedBox(height: 6),
-                  TagInput(
-                    tags: _tags,
-                    suggestions: widget.tagSuggestions,
-                    hintText: '例如：科幻, 废土, 魔法（回车或逗号添加）',
-                    onChanged: (List<String> next) => setState(() => _tags = next),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ===== 2. 动态词条库 (World Entries) =====
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(Icons.library_books_outlined, color: theme.colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  FitText('动态词条库', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: FitText(
-                      '${_entries.length}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: AppWeight.medium,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _openEntryEditor(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const FitText('添加词条'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          FitText(
-            '当对话中提到词条名称或别名时，会自动向 AI 注入对应设定。',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-          ),
-          const SizedBox(height: 12),
-
-          if (_entries.isEmpty)
-            Card(
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  style: BorderStyle.solid,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-                child: Column(
-                  children: <Widget>[
-                    Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
-                    const SizedBox(height: 8),
-                    FitText('暂无词条', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.outline)),
-                    const SizedBox(height: 4),
-                    FitText(
-                      '点击下方按钮添加地点、物品、人物或专有名词设定',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => _openEntryEditor(),
-                      icon: const Icon(Icons.add),
-                      label: const FitText('创建第一个词条'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _entries.length,
-              separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 8),
-              itemBuilder: (BuildContext context, int index) {
-                final WorldEntry entry = _entries[index];
-                return _WorldEntryCard(
-                  entry: entry,
-                  relationTargetName: entry.relation != null ? _entryNameById(entry.relation!.targetId) : null,
-                  onEdit: () => _openEntryEditor(entryToEdit: entry, editIndex: index),
-                  onDelete: () => _removeEntry(entry),
-                );
-              },
-            ),
-
-          const SizedBox(height: 24),
-        ],
+      body: WorldEditorForm(
+        world: widget.world,
+        formController: _form,
+        tagSuggestions: widget.tagSuggestions,
       ),
       floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
-        label: const FitText('保存世界'),
+        label: FitText(widget.saveLabel),
       ),
-    );
-  }
-}
-
-/// 词条卡片
-class _WorldEntryCard extends StatelessWidget {
-  const _WorldEntryCard({
-    required this.entry,
-    this.relationTargetName,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final WorldEntry entry;
-  final String? relationTargetName;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final bool isPerson = entry.type == WorldEntryType.person;
-
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-      ),
-      child: InkWell(
-        onTap: onEdit,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(
-                    isPerson ? Icons.person_outline : Icons.bookmark_outline,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: FitText(
-                      entry.name.isEmpty ? '未命名词条' : entry.name,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    onPressed: onEdit,
-                    tooltip: '编辑',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: onDelete,
-                    tooltip: '删除',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-              if (entry.description.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 4),
-                FitText(
-                  entry.description,
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: <Widget>[
-                  _BadgeChip(label: isPerson ? '人物' : '名词'),
-                  if (isPerson && entry.gender != null)
-                    _BadgeChip(
-                      label: entry.gender == WorldPersonGender.male
-                          ? '男'
-                          : entry.gender == WorldPersonGender.female
-                              ? '女'
-                              : '其他',
-                    ),
-                  if (isPerson && (entry.age ?? '').isNotEmpty)
-                    _BadgeChip(label: '${entry.age}岁'),
-                  if (entry.keys.isNotEmpty)
-                    _BadgeChip(
-                      label: '${entry.keys.length}个别名',
-                      color: theme.colorScheme.secondaryContainer,
-                      textColor: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  if ((entry.keyRegex ?? '').isNotEmpty)
-                    _BadgeChip(label: '正则匹配', color: theme.colorScheme.tertiaryContainer),
-                  if (entry.recursive)
-                    const _BadgeChip(label: '递归扫描'),
-                  if (entry.cooldownRounds > 0)
-                    _BadgeChip(label: '冷却${entry.cooldownRounds}轮'),
-                  if (entry.delayRounds > 0)
-                    _BadgeChip(label: '延迟${entry.delayRounds}轮'),
-                  if (entry.decorator == 'activate')
-                    const _BadgeChip(label: '强制激活'),
-                  if (entry.decorator == 'dont_activate')
-                    const _BadgeChip(label: '禁止激活'),
-                ],
-              ),
-              if (entry.relation != null && relationTargetName != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.link, size: 14, color: theme.colorScheme.outline),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: FitText(
-                          '关联: $relationTargetName · ${entry.relation!.content}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BadgeChip extends StatelessWidget {
-  const _BadgeChip({required this.label, this.color, this.textColor});
-
-  final String label;
-  final Color? color;
-  final Color? textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color ?? theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: FitText(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: textColor ?? theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-/// 词条编辑弹窗（底部抽屉）
-class _WorldEntryModal extends StatefulWidget {
-  const _WorldEntryModal({
-    this.initialEntry,
-    required this.availableEntries,
-    required this.onSave,
-  });
-
-  final WorldEntry? initialEntry;
-  final List<WorldEntry> availableEntries;
-  final ValueChanged<WorldEntry> onSave;
-
-  @override
-  State<_WorldEntryModal> createState() => _WorldEntryModalState();
-}
-
-class _WorldEntryModalState extends State<_WorldEntryModal> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _keysController;
-  late final TextEditingController _regexController;
-  late final TextEditingController _ageController;
-  late final TextEditingController _relationController;
-  late final TextEditingController _cooldownController;
-  late final TextEditingController _delayController;
-  late final TextEditingController _orderController;
-
-  late WorldEntryType _type;
-  late WorldPersonGender _gender;
-  late WorldPersonStatus _status;
-  String? _relationTargetId;
-  late bool _caseSensitive;
-  late bool _matchWholeWords;
-  late bool _recursive;
-  late String _decorator;
-
-  @override
-  void initState() {
-    super.initState();
-    final WorldEntry? e = widget.initialEntry;
-    _nameController = TextEditingController(text: e?.name ?? '');
-    _descriptionController = TextEditingController(text: e?.description ?? '');
-    _keysController = TextEditingController(text: (e?.keys ?? <String>[]).join(', '));
-    _regexController = TextEditingController(text: e?.keyRegex ?? '');
-    _ageController = TextEditingController(text: e?.age ?? '');
-    _relationController = TextEditingController(text: e?.relation?.content ?? '');
-    _cooldownController = TextEditingController(
-      text: (e?.cooldownRounds ?? 0) > 0 ? '${e!.cooldownRounds}' : '',
-    );
-    _delayController = TextEditingController(
-      text: (e?.delayRounds ?? 0) > 0 ? '${e!.delayRounds}' : '',
-    );
-    // 排序：0 是默认值，显示成空更干净。
-    _orderController = TextEditingController(
-      text: (e?.order ?? 0) > 0 ? '${e!.order}' : '',
-    );
-
-    _type = e?.type ?? WorldEntryType.noun;
-    _gender = e?.gender ?? WorldPersonGender.other;
-    _status = e?.status ?? WorldPersonStatus.normal;
-    _relationTargetId = e?.relation?.targetId;
-    _caseSensitive = e?.caseSensitive ?? false;
-    _matchWholeWords = e?.matchWholeWords ?? false;
-    _recursive = e?.recursive ?? false;
-    _decorator = e?.decorator ?? 'none';
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _keysController.dispose();
-    _regexController.dispose();
-    _ageController.dispose();
-    _relationController.dispose();
-    _cooldownController.dispose();
-    _delayController.dispose();
-    _orderController.dispose();
-    super.dispose();
-  }
-
-  List<String> _parseKeys(String raw) {
-    return raw
-        .split(RegExp(r'[,，]'))
-        .map((String e) => e.trim())
-        .where((String e) => e.isNotEmpty)
-        .toList();
-  }
-
-  void _submit() {
-    final String name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请填写词条名称')),
-      );
-      return;
-    }
-
-    final String relContent = _relationController.text.trim();
-    WorldEntryRelation? relation;
-    if (_type == WorldEntryType.person && _relationTargetId != null && relContent.isNotEmpty) {
-      relation = WorldEntryRelation(targetId: _relationTargetId!, content: relContent);
-    }
-
-    final WorldEntry entry = WorldEntry(
-      id: widget.initialEntry?.id ?? newId(),
-      name: name,
-      description: _descriptionController.text.trim(),
-      type: _type,
-      gender: _type == WorldEntryType.person ? _gender : null,
-      age: _type == WorldEntryType.person ? _ageController.text.trim() : null,
-      status: _type == WorldEntryType.person ? _status : null,
-      relation: relation,
-      keys: _parseKeys(_keysController.text),
-      keyRegex: _regexController.text.trim().isEmpty ? null : _regexController.text.trim(),
-      caseSensitive: _caseSensitive,
-      matchWholeWords: _matchWholeWords,
-      recursive: _recursive,
-      // 排序：预算裁剪时按 order 升序注入，越小越靠前。
-      order: (int.tryParse(_orderController.text.trim()) ?? 0).clamp(0, 9999),
-      cooldownRounds: (int.tryParse(_cooldownController.text.trim()) ?? 0).clamp(0, 100),
-      delayRounds: (int.tryParse(_delayController.text.trim()) ?? 0).clamp(0, 100),
-      decorator: _decorator == 'none' ? null : _decorator,
-    );
-
-    widget.onSave(entry);
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final bool isEditing = widget.initialEntry != null;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          // 顶部把手与标题
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              FitText(
-                isEditing ? '编辑词条' : '新建词条',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  // 词条类型选择
-                  SegmentedButton<WorldEntryType>(
-                    segments: const <ButtonSegment<WorldEntryType>>[
-                      ButtonSegment<WorldEntryType>(
-                        value: WorldEntryType.noun,
-                        label: FitText('名词 / 地点 / 物品'),
-                        icon: Icon(Icons.bookmark_outline),
-                      ),
-                      ButtonSegment<WorldEntryType>(
-                        value: WorldEntryType.person,
-                        label: FitText('人物 / 角色'),
-                        icon: Icon(Icons.person_outline),
-                      ),
-                    ],
-                    selected: <WorldEntryType>{_type},
-                    onSelectionChanged: (Set<WorldEntryType> val) {
-                      setState(() => _type = val.first);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 词条名称
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: '词条名称（主触发词）*',
-                      hintText: '例如：圣剑·誓约、帝国第一军校、艾莲娜',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.title),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 词条描述
-                  AdaptiveTextField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: '设定描述 / 内容 *',
-                      hintText: '输入该词条的背景、功能、来历或人物特征...',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.notes),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 附加别名
-                  TextField(
-                    controller: _keysController,
-                    decoration: const InputDecoration(
-                      labelText: '附加触发词 / 别名（逗号分隔）',
-                      hintText: '例如：黄金圣剑, 圣剑（提到这些词也会激活本条目）',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-
-                  // 人物专属字段
-                  if (_type == WorldEntryType.person) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: DropdownButtonFormField<WorldPersonGender>(
-                            value: _gender,
-                            items: const <DropdownMenuItem<WorldPersonGender>>[
-                              DropdownMenuItem(value: WorldPersonGender.male, child: FitText('男')),
-                              DropdownMenuItem(value: WorldPersonGender.female, child: FitText('女')),
-                              DropdownMenuItem(value: WorldPersonGender.other, child: FitText('其他')),
-                            ],
-                            onChanged: (v) => setState(() => _gender = v ?? WorldPersonGender.other),
-                            decoration: const InputDecoration(labelText: '性别', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _ageController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: '年龄', hintText: '例如：24', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DropdownButtonFormField<WorldPersonStatus>(
-                            value: _status,
-                            items: const <DropdownMenuItem<WorldPersonStatus>>[
-                              DropdownMenuItem(value: WorldPersonStatus.normal, child: FitText('正常')),
-                              DropdownMenuItem(value: WorldPersonStatus.dead, child: FitText('死亡')),
-                            ],
-                            onChanged: (v) => setState(() => _status = v ?? WorldPersonStatus.normal),
-                            decoration: const InputDecoration(labelText: '状态', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _relationTargetId,
-                      items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: null, child: FitText('无人物关联')),
-                        ...widget.availableEntries
-                            .where((WorldEntry e) => e.id != widget.initialEntry?.id)
-                            .map(
-                              (WorldEntry e) => DropdownMenuItem<String>(
-                                value: e.id,
-                                child: FitText(e.name.isEmpty ? '未命名词条' : e.name),
-                              ),
-                            ),
-                      ],
-                      onChanged: (String? v) => setState(() => _relationTargetId = v),
-                      decoration: const InputDecoration(labelText: '关联其他词条', border: OutlineInputBorder(), isDense: true),
-                    ),
-                    if (_relationTargetId != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _relationController,
-                        decoration: const InputDecoration(
-                          labelText: '关联关系描述',
-                          hintText: '例如：导师、宿敌、挚友',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ],
-                  ],
-
-                  const SizedBox(height: 8),
-
-                  // 进阶触发规则（折叠）
-                  Theme(
-                    data: theme.copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: FitText(
-                        '高级触发规则（进阶选项）',
-                        style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
-                      ),
-                      leading: Icon(Icons.settings_suggest_outlined, color: theme.colorScheme.primary, size: 18),
-                      childrenPadding: const EdgeInsets.only(top: 4, bottom: 8),
-                      children: <Widget>[
-                        TextField(
-                          controller: _regexController,
-                          decoration: const InputDecoration(
-                            labelText: '正则匹配规则（可选）',
-                            hintText: '例如：\\b雨夜\\b',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            FilterChip(
-                              label: const FitText('大小写敏感'),
-                              selected: _caseSensitive,
-                              onSelected: (v) => setState(() => _caseSensitive = v),
-                            ),
-                            FilterChip(
-                              label: const FitText('全词匹配'),
-                              selected: _matchWholeWords,
-                              onSelected: (v) => setState(() => _matchWholeWords = v),
-                            ),
-                            FilterChip(
-                              label: const FitText('递归联动扫描'),
-                              selected: _recursive,
-                              onSelected: (v) => setState(() => _recursive = v),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _orderController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '排序',
-                                  hintText: '越小越靠前',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _cooldownController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '冷却轮数',
-                                  hintText: '触发后静默轮数',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _delayController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '延迟轮数',
-                                  hintText: '提及后延迟触发',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: _decorator,
-                          items: const <DropdownMenuItem<String>>[
-                            DropdownMenuItem<String>(value: 'none', child: FitText('正常激活')),
-                            DropdownMenuItem<String>(value: 'activate', child: FitText('强制常驻激活（跳过冷却）')),
-                            DropdownMenuItem<String>(value: 'dont_activate', child: FitText('禁止激活')),
-                          ],
-                          onChanged: (String? v) => setState(() => _decorator = v ?? 'none'),
-                          decoration: const InputDecoration(
-                            labelText: '激活装饰符',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: FilledButton.icon(
-                      onPressed: _submit,
-                      icon: const Icon(Icons.check),
-                      label: FitText(isEditing ? '保存修改' : '添加词条'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

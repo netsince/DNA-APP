@@ -5,7 +5,7 @@ void main() {
   late WordPieceTokenizer tok;
   setUpAll(() {
     tok = WordPieceTokenizer.fromFile(
-      r'D:\duetnurturingally\dna-client\modelwksps\models\tokenizer\tokenizer.json',
+      r'D:\duetnurturingally\dna-client\local\modelwksps\models\tokenizer\tokenizer.json',
     );
   });
 

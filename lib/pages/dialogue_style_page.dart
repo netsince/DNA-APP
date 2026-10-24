@@ -1,16 +1,15 @@
-// ignore_for_file: deprecated_member_use
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
-import 'package:dna/theme/tokens.dart';
-
-import '../models/dialogue_style.dart';
 import '../models/ta.dart';
 import '../state/app_controller.dart';
-import '../widgets/adaptive_text_field.dart';
-import 'package:dna/widgets/fit_text.dart';
 import '../widgets/app_editor_frame.dart';
+import '../widgets/fit_text.dart';
+import 'dialogue_style/dialogue_style_form.dart';
 
-/// 角色对话风格（Few-shot 示例）配置页。
+/// 角色对话风格（Few-shot 示例）配置页 —— **外壳**。
+///
+/// 表单本体在 [DialogueStyleForm]（只有各轮输入输出），通过
+/// [DialogueStyleFormController] 取值 / 追加一轮。
 class DialogueStylePage extends StatefulWidget {
   const DialogueStylePage({
     super.key,
@@ -24,8 +23,7 @@ class DialogueStylePage extends StatefulWidget {
 
   final TA ta;
 
-  /// 给了它就用它保存；否则写本地库。保存成功后一律把改好的 TA pop 回去，
-  /// 让调用方（社区编辑器）能拿到结果 —— 它没有本地库可回查。
+  /// 给了它就用它保存；否则写本地库。保存成功后一律把改好的 TA pop 回去。
   final Future<void> Function(TA ta)? onSave;
 
   @override
@@ -33,53 +31,81 @@ class DialogueStylePage extends StatefulWidget {
 }
 
 class _DialogueStylePageState extends State<DialogueStylePage> {
-  late List<DialogueTurn> _turns;
+  final DialogueStyleFormController _form = DialogueStyleFormController();
+  bool _saving = false;
 
   @override
-  void initState() {
-    super.initState();
-    _turns = List<DialogueTurn>.from(widget.ta.dialogueStyle);
-    if (_turns.isEmpty) {
-      _turns = <DialogueTurn>[const DialogueTurn(user: '', assistant: '')];
-    }
+  void dispose() {
+    _form.dispose();
+    super.dispose();
   }
 
-  void _addTurn() {
-    setState(() => _turns = <DialogueTurn>[..._turns, const DialogueTurn(user: '', assistant: '')]);
-  }
-
-  void _removeTurn(int index) {
-    if (_turns.length <= 1) {
-      return;
-    }
-    setState(() {
-      _turns = <DialogueTurn>[
-        ..._turns.take(index),
-        ..._turns.skip(index + 1),
-      ];
-    });
+  /// 异常 → 给用户看的一句话。
+  static String _errorText(Object e) {
+    final String text = e.toString();
+    return text.startsWith('Exception: ') ? text.substring(11) : text;
   }
 
   Future<void> _save() async {
-    final TA updated =
-        widget.ta.copyWith(dialogueStyle: List<DialogueTurn>.from(_turns));
-    final Future<void> Function(TA ta)? onSave = widget.onSave;
-    if (onSave != null) {
-      await onSave(updated);
-    } else {
-      await widget.controller!.upsertTa(updated);
-    }
-    if (!mounted) {
+    if (_saving) {
       return;
     }
+    final TA updated = widget.ta.copyWith(dialogueStyle: _form.current());
+    final Future<void> Function(TA ta)? onSave = widget.onSave;
+    setState(() => _saving = true);
+    try {
+      if (onSave != null) {
+        await onSave(updated);
+      } else {
+        await widget.controller!.upsertTa(updated);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(_errorText(e))),
+      );
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pop(updated);
+  }
+
+  /// 返回时若还有未保存修改，先确认；没有修改就直接走。
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop) return;
+    if (!mounted) return;
+    if (!_form.isDirty) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    final bool? discard = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const FitText('放弃修改？'),
+        content: const FitText('还有未保存的修改，返回会丢失。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const FitText('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const FitText('放弃'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || discard != true) return;
+    Navigator.of(context).pop(result);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
       appBar: AppBar(
         title: const FitText('对话风格（语气范例）'),
         actions: <Widget>[
@@ -90,128 +116,15 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: AppEditorLayout.bodyPadding(context),
-        itemCount: _turns.length + 1,
-        itemBuilder: (BuildContext context, int index) {
-          if (index == 0) {
-            return Card(
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-              ),
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
-                        const SizedBox(width: 4),
-                        FitText(
-                          '对话风格说明',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: AppWeight.medium,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    FitText(
-                      '每轮示例包含【你的提问】与【TA的回答】。AI 会模仿示例中的用词、口吻、动作描写与语气习惯。',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final int turnIndex = index - 1;
-          final DialogueTurn turn = _turns[turnIndex];
-
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      FitText(
-                        '范例第 ${turnIndex + 1} 轮',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
-                      ),
-                      if (_turns.length > 1)
-                        IconButton(
-                          onPressed: () => _removeTurn(turnIndex),
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          tooltip: '删除此轮',
-                          visualDensity: VisualDensity.compact,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 1. 用户发言（我一句）
-                  TextFormField(
-                    initialValue: turn.user,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: '你的发言（输入）',
-                      hintText: '例如：今天天气真好，一起去散步吗？',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.person_outline, size: 20),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                    onChanged: (String value) {
-                      _turns[turnIndex] = _turns[turnIndex].copyWith(user: value);
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 2. 角色回答（你一句）
-                  AdaptiveTextField(
-                    key: ValueKey<String>('assist_${turnIndex}_${turn.assistant.hashCode}'),
-                    controller: TextEditingController(text: turn.assistant),
-                    minLines: 2,
-                    maxLines: 6,
-                    decoration: InputDecoration(
-                      labelText: 'TA 的回答 / 语气范例（输出）',
-                      hintText: '例如：哼，既然你都邀请了，本小姐就勉为其难陪你走走吧。',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.smart_toy_outlined, size: 20),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                    onChanged: (String value) {
-                      _turns[turnIndex] = _turns[turnIndex].copyWith(assistant: value);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      body: DialogueStyleForm(
+        initial: widget.ta.dialogueStyle,
+        formController: _form,
       ),
       floatingActionButton: AppEditorFab(
-        onPressed: _addTurn,
+        onPressed: _form.addTurn,
         icon: const Icon(Icons.add),
         label: const FitText('添加对话范例'),
+      ),
       ),
     );
   }

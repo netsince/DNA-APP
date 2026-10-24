@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_source.dart';
 import 'package:dna/models/ta.dart';
-import 'package:dna/pages/ta_editor_page.dart';
+import 'package:dna/pages/ta_editor/ta_editor_form.dart';
+import 'package:dna/services/image_pick_capability.dart';
+import 'package:dna/widgets/app_editor_frame.dart';
+import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/services/export_file_utils.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
@@ -55,9 +59,33 @@ class _CardPublishBodyState extends State<CardPublishBody> {
     );
   }
 
+  /// 发布前的前置校验：**只作用于「发到社区」这条路径**。
+  ///
+  /// 口径与网页版发布表单一致（表单里只有「名称」是 required）。
+  /// 服务端 create_card_from_payload 也会拦，这里只是少跑一趟网络、
+  /// 并把话说得更好懂。
+  ///
+  /// 注意：**不要**把这条规则塞进 TaEditorPage —— 那个编辑器本体也在用，
+  /// 本地角色卡允许叫空名，不该被社区的规则管住。
+  String? _validateForCommunity(TA ta) {
+    if (ta.name.trim().isEmpty) {
+      return '请填写角色卡名称';
+    }
+    return null;
+  }
+
   /// 列表行：点一下就发。失败把服务端的原话带回来（图片比例、字段校验等）。
   Future<void> _publishExisting(TA ta) async {
     if (_publishingId != null) return;
+    if (!AuthSession.instance.isLoggedIn) {
+      _toast('请先登录后再发布');
+      return;
+    }
+    final String? invalid = _validateForCommunity(ta);
+    if (invalid != null) {
+      _toast(invalid);
+      return;
+    }
     setState(() => _publishingId = ta.id);
     try {
       await _publish(ta);
@@ -73,19 +101,34 @@ class _CardPublishBodyState extends State<CardPublishBody> {
 
   /// 新建 / 编辑：打开软件本体的角色编辑器，保存 = 发布。
   Future<void> _openEditor(TA? initial) async {
+    bool published = false;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TaEditorPage(
+        builder: (_) => CommunityCardEditorPage(
           ta: initial,
           title: initial == null ? '发布角色卡' : '编辑并发布',
           saveLabel: '发布到社区',
           onSave: (TA ta) async {
+            if (!AuthSession.instance.isLoggedIn) {
+              // 抛给编辑器统一展示：它会保持页面不关闭，并把这句话弹出来。
+              throw Exception('请先登录后再发布');
+            }
+            final String? invalid = _validateForCommunity(ta);
+            if (invalid != null) {
+              throw Exception(invalid);
+            }
             await _publish(ta);
-            if (mounted) _toast('已提交，等待审核');
+            published = true;
           },
         ),
       ),
     );
+    // 回执放在编辑器**关闭之后**。以前是在编辑器还开着的时候 toast，
+    // 紧接着就 pop，那句「已提交」用户根本来不及看见 —— 看起来就像没发布。
+    if (!mounted) return;
+    if (published) {
+      _toast('已提交，等待审核');
+    }
   }
 
   /// 快速导出 JSON（复制到剪贴板，不弹文件框）。
@@ -327,3 +370,117 @@ class CardPublishPage extends StatelessWidget {
     );
   }
 }
+
+/// 社区侧的**角色卡编辑页**：社区壳自带 chrome，直接套共享表单。
+///
+/// 不复用本体编辑器外壳 —— 那边是「存本地」，这边是「发社区」，
+/// 按钮文案与校验规则本就不同；共用的是**怎么编辑**（[TaEditorForm]）。
+class CommunityCardEditorPage extends StatefulWidget {
+  const CommunityCardEditorPage({
+    super.key,
+    this.ta,
+    this.title,
+    this.saveLabel = '发布到社区',
+    required this.onSave,
+  });
+
+  final TA? ta;
+  final String? title;
+  final String saveLabel;
+  final Future<void> Function(TA ta) onSave;
+
+  @override
+  State<CommunityCardEditorPage> createState() =>
+      _CommunityCardEditorPageState();
+}
+
+class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
+  final TaFormController _form = TaFormController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _form.dispose();
+    super.dispose();
+  }
+
+  static String _errorText(Object e) {
+    final String text = e.toString();
+    return text.startsWith('Exception: ') ? text.substring(11) : text;
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(_form.current());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(_errorText(e))),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop || !mounted) return;
+    if (!_form.isDirty) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    final bool? discard = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const FitText('放弃修改？'),
+        content: const FitText('还有未保存的修改，返回会丢失。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const FitText('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const FitText('放弃'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || discard != true) return;
+    Navigator.of(context).pop(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: FitText(widget.title ?? '发布角色卡'),
+          actions: <Widget>[
+            TextButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check, size: 18),
+              label: FitText(widget.saveLabel),
+            ),
+          ],
+        ),
+        body: TaEditorForm(
+          ta: widget.ta,
+          formController: _form,
+          imagePicker: const DefaultImagePickCapability(),
+        ),
+        floatingActionButton: AppEditorFab(
+          onPressed: _save,
+          icon: const Icon(Icons.save_outlined),
+          label: FitText(widget.saveLabel),
+        ),
+      ),
+    );
+  }
+}
+

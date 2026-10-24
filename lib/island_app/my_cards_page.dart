@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/models/ta.dart';
-import 'package:dna/pages/ta_editor_page.dart';
+import 'package:dna/island_app/card_publish_page.dart';
+
 
 /// 「我的角色卡」管理页：分页列出自己发布的角色卡。
 ///
@@ -88,7 +89,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => TaEditorPage(
+          builder: (_) => CommunityCardEditorPage(
             ta: ta,
             title: '编辑角色卡',
             saveLabel: '保存并重新提审',

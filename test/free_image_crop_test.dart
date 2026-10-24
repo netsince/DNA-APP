@@ -146,6 +146,8 @@ void main() {
       for (final File f in dartFiles()) {
         final String src = f.readAsStringSync();
         if (!src.contains('cropImage(')) continue;
+        // 能力层只负责执行裁剪；锁不锁比例由调用方（表单）决定。
+        if (f.path.endsWith('image_pick_capability.dart')) continue;
         if (!src.contains('FreeImageCrop')) {
           offenders.add(f.path);
         }
@@ -198,14 +200,20 @@ void main() {
       expect(stub.contains('FreeImageCrop.enabled'), isTrue);
     });
 
-    test('TA 编辑器自己调裁剪器，也必须读开关', () {
-      final String ta = File('lib/pages/ta_editor_page.dart').readAsStringSync();
-      expect(ta.contains('FreeImageCrop.enabled'), isTrue);
+    test('TA 表单决定比例时读开关，能力层只执行', () {
+      // 裁剪器本体已挪进 ImagePickCapability；比例该不该锁由表单决定。
+      final String form = File(
+        'lib/pages/ta_editor/ta_editor_form.dart',
+      ).readAsStringSync();
+      expect(form.contains('FreeImageCrop.enabled'), isTrue);
       expect(
-        RegExp(r'aspectRatio:\s*ratio\s*,').hasMatch(ta),
+        form.contains('lockAspectRatio: true'),
         isFalse,
-        reason: 'TA 编辑器不能无条件传固定比例',
+        reason: '不能无条件锁死比例',
       );
+      final String cap = File('lib/services/image_pick_capability.dart')
+          .readAsStringSync();
+      expect(cap.contains('cropImage('), isTrue, reason: '裁剪器应只在能力层调用');
     });
   });
 }

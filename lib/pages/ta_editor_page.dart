@@ -1,34 +1,16 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_cropper/image_cropper.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path;
+﻿import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
-import '../models/dialogue_style.dart';
-import '../services/export_file_utils.dart';
-import '../services/image_storage.dart';
-import '../services/ta_service.dart';
-import '../utils/platform_capabilities.dart';
-import '../widgets/adaptive_text_field.dart';
-import '../widgets/tag_input.dart';
-import 'ta_editor/image_slot.dart';
-import 'package:dna/services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
-import '../utils/id_utils.dart';
-import '../utils/ui_feedback.dart';
-import 'dialogue_style_page.dart';
-import 'package:dna/island_app/widgets/card_crop_page.dart' show FreeImageCrop;
-import 'package:dna/widgets/export_import/transport_source_dialog.dart';
-import 'package:dna/widgets/fit_text.dart';
-import 'package:dna/widgets/seed_input_field.dart';
 import '../widgets/app_editor_frame.dart';
+import '../widgets/fit_text.dart';
+import '../services/image_pick_capability.dart';
+import 'ta_editor/ta_editor_form.dart';
 
+/// 角色卡编辑器**外壳**：顶栏、菜单、保存按钮、导航都在这里。
+///
+/// 表单本体在 [TaEditorForm]（只有字段与图片槽），通过 [TaFormController] 取值。
+/// 存本地还是发社区、按钮叫什么、要不要校验，全归宿主决定 —— 表单不再自带行为。
 class TaEditorPage extends StatefulWidget {
   const TaEditorPage({
     super.key,
@@ -44,13 +26,13 @@ class TaEditorPage extends StatefulWidget {
 
   final TA? ta;
 
-  /// 保存回调。给了它就用它，不再写本地库 —— 社区发布/编辑走这条路。
+  /// 保存回调。给了它就用它，不再写本地库。
   final Future<void> Function(TA ta)? onSave;
 
   /// 顶栏标题；为空时按「创建TA / 编辑TA」自动判断。
   final String? title;
 
-  /// 保存按钮文案。**必须跟着行为走**：本体是「保存」，社区是「发布到社区」。
+  /// 保存按钮文案：本体「保存」/ 社区「发布到社区」。
   final String saveLabel;
 
   @override
@@ -58,484 +40,116 @@ class TaEditorPage extends StatefulWidget {
 }
 
 class _TaEditorPageState extends State<TaEditorPage> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _personaController;
-  late final TextEditingController _introController;
-  late final TextEditingController _openingController;
+  final TaFormController _form = TaFormController();
 
-  /// 标签用 chips 编辑（与社区角色卡发布页、世界编辑器共用 TagInput）。
-  late List<String> _tags;
-
-  late final TextEditingController _seedController;
-  late final TextEditingController _authorNoteController;
-  late final TextEditingController _authorIntervalController;
-
-  late String _gender;
-  late String _taId;
-  Map<String, String> _images = <String, String>{};
-  final Set<String> _obsoleteImageRefs = <String>{};
-  List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
-  String? _musicPath;
-
-  @override
-  void initState() {
-    super.initState();
-    final TA? ta = widget.ta;
-    _taId = ta?.id ?? newId();
-    _nameController = TextEditingController(text: ta?.name ?? '');
-    _personaController = TextEditingController(text: ta?.persona ?? '');
-    _introController = TextEditingController(text: ta?.intro ?? '');
-    _openingController = TextEditingController(text: ta?.opening ?? '');
-    _tags = List<String>.from(ta?.tags ?? const <String>[]);
-    _seedController =
-        TextEditingController(text: ta?.voiceSeed?.toString() ?? '');
-    _authorNoteController = TextEditingController(text: ta?.authorNote ?? '');
-    _authorIntervalController =
-        TextEditingController(text: ta?.authorNoteInterval.toString() ?? '0');
-    _gender = ta?.gender ?? '无性';
-    _images = Map<String, String>.from(ta?.images ?? <String, String>{});
-    _dialogueStyle = List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
-    _musicPath = ta?.musicPath;
-  }
+  /// 保存 / 发布进行中：防止连点重复提交，也用来在失败后复位。
+  bool _saving = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _personaController.dispose();
-    _introController.dispose();
-    _openingController.dispose();
-    _seedController.dispose();
-    _authorNoteController.dispose();
-    _authorIntervalController.dispose();
+    _form.dispose();
     super.dispose();
   }
 
-  Future<void> _pickImage(String slot, CropAspectRatio ratio) async {
-    final ImagePicker picker = ImagePicker();
-    // 不传 imageQuality：GIF 若经 image_picker 重编码会丢失逐帧动画。
-    final XFile? picked =
-        await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) {
-      return;
-    }
-    final bool isGif = picked.name.toLowerCase().endsWith('.gif');
-
-    // 裁剪仅 IO 平台可用（image_cropper 无 Web 实现）；Web 上直接用原图。
-    // GIF 跳过裁剪/压缩：image_cropper 会重编码，导致动态 GIF 退化为静态帧。
-    CroppedFile? cropped;
-    if (!isGif && !kIsWeb && !Platform.isWindows) {
-      try {
-        cropped = await ImageCropper().cropImage(
-          sourcePath: picked.path,
-          // 打开「自由剪图」后不锁比例（见 FreeImageCrop）；默认按槽位比例裁剪。
-          aspectRatio: FreeImageCrop.enabled ? null : ratio,
-          compressQuality: 95,
-          uiSettings: <PlatformUiSettings>[
-            AndroidUiSettings(
-              toolbarTitle: '裁剪图片',
-              lockAspectRatio: !FreeImageCrop.enabled,
-            ),
-            IOSUiSettings(
-              title: '裁剪图片',
-              aspectRatioLockEnabled: !FreeImageCrop.enabled,
-              resetAspectRatioEnabled: FreeImageCrop.enabled,
-            ),
-          ],
-        );
-      } on MissingPluginException {
-        cropped = null;
-      } on PlatformException {
-        cropped = null;
-      } catch (_) {
-        cropped = null;
-      }
-    }
-
-    final XFile source = cropped == null ? picked : XFile(cropped.path);
-    final Uint8List bytes = await source.readAsBytes();
-    final String ext = path.extension(source.name);
-    final String? oldRef = _images[slot];
-    // 有本地库走 controller（顺带记归属）；社区里没有本地库，直接落平台存储 ——
-    // 两者底层是同一个 ImageStorage.saveBytes。
-    final AppController? controller = widget.controller;
-    final String storedPath = controller != null
-        ? await controller.storeTaImageBytes(
-            taId: _taId,
-            slot: slot,
-            bytes: bytes,
-            ext: ext.isEmpty ? null : ext,
-          )
-        : await ImageStorage.instance.saveBytes(
-            taId: _taId,
-            slot: slot,
-            bytes: bytes,
-            ext: ext.isEmpty ? null : ext,
-          );
-
-    if (!mounted) {
-      return;
-    }
-    // 旧图片引用在保存 TA 后被替换，先记录，待保存成功再清理磁盘文件
-    if (oldRef != null && oldRef.isNotEmpty && oldRef != storedPath) {
-      _obsoleteImageRefs.add(oldRef);
-    }
-    setState(() {
-      _images = Map<String, String>.from(_images)..[slot] = storedPath;
-    });
-  }
-
-  /// 在文件管理器中挑选背景音乐并拷贝到应用私有目录。
-  ///
-  /// 默认限制 10MB 以内（可在设置中解锁）。背景音乐不会随角色卡导出，
-  /// 仅供本地聊天时循环播放。
-  Future<void> _pickMusic() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: <String>['mp3', 'm4a', 'aac', 'ogg', 'wav'],
-    );
-    if (result == null || result.files.isEmpty) return;
-    final String sourcePath = result.files.single.path ?? '';
-    if (sourcePath.isEmpty) return;
-
-    // 背景音乐只在本地有意义（不随角色卡导出），社区模式下这段 UI 也不会出现。
-    final bool unlocked =
-        widget.controller?.settings.bgmSizeLimitUnlocked ?? false;
-    final String? stored = await TaService().storeMusic(
-      sourcePath: sourcePath,
-      taId: _taId,
-      oldMusicPath: _musicPath,
-      sizeLimitUnlocked: unlocked,
-    );
-    if (stored == null) {
-      if (mounted) {
-        showSnack(
-          context,
-          unlocked
-              ? '无法保存该背景音乐，请确认文件为支持的音频格式。'
-              : '背景音乐大小不能超过 10MB，可在设置中解锁限制。',
-        );
-      }
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _musicPath = stored;
-    });
-  }
-
-  /// 清除当前角色的背景音乐并删除本地文件。
-  Future<void> _clearMusic() async {
-    final String? old = _musicPath;
-    setState(() {
-      _musicPath = null;
-    });
-    await TaService().deleteMusic(old);
-  }
-
-  int? _parseSeed() {
-    final String raw = _seedController.text.trim();
-    if (raw.isEmpty) return null;
-    return int.tryParse(raw);
-  }
-
-  TA _buildCurrentTA() {
-    return TA(
-      id: _taId,
-      name: _nameController.text.trim(),
-      gender: _gender,
-      persona: _personaController.text.trim(),
-      intro: _introController.text.trim(),
-      opening: _openingController.text.trim(),
-      tags: _tags,
-      images: _images,
-      dialogueStyle: _dialogueStyle,
-      voiceSeed: _parseSeed(),
-      authorNote: _authorNoteController.text.trim().isEmpty
-          ? null
-          : _authorNoteController.text.trim(),
-      authorNoteInterval: int.tryParse(_authorIntervalController.text.trim()) ?? 0,
-      musicPath: _musicPath,
-    );
+  /// 异常 → 给用户看的一句话。
+  static String _errorText(Object e) {
+    final String text = e.toString();
+    return text.startsWith('Exception: ') ? text.substring(11) : text;
   }
 
   Future<void> _save() async {
-    final TA ta = _buildCurrentTA();
-    final Future<void> Function(TA)? onSave = widget.onSave;
-    if (onSave != null) {
-      await onSave(ta);
-    } else {
-      await widget.controller!.upsertTa(ta);
-    }
-    // 保存成功后清理被替换掉的旧图片文件，避免磁盘/IndexedDB 堆积
-    if (_obsoleteImageRefs.isNotEmpty) {
-      for (final String ref in _obsoleteImageRefs) {
-        await ImageStorage.instance.delete(ref);
-      }
-      _obsoleteImageRefs.clear();
-    }
-    if (!mounted) {
+    if (_saving) {
       return;
     }
+    final TA ta = _form.current();
+    final Future<void> Function(TA)? onSave = widget.onSave;
+    setState(() => _saving = true);
+    try {
+      if (onSave != null) {
+        await onSave(ta);
+      } else {
+        await widget.controller!.upsertTa(ta);
+      }
+    } catch (e) {
+      // 失败必须让用户看见原因，并且**不关闭**页面。
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: FitText(_errorText(e))),
+      );
+      return;
+    }
+    await _form.afterSave();
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 
-  // ========== 导出导入功能 ==========
-
-  Future<void> _showExportDialog() async {
-    bool compressImages = true;
-
-    // 询问导出目的地(剪贴板 / 文件),并保留原有的「压缩图片」选项。
-    final ExportTarget? target = await showExportTargetDialog(
+  /// 返回时若还有未保存修改，先确认；没有修改就直接走。
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop) return;
+    if (!mounted) return;
+    if (!_form.isDirty) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    final bool? discard = await showDialog<bool>(
       context: context,
-      title: '导出角色',
-      description: '导出内容包含文字设定与图片。'
-          '注：背景音乐仅保存在本机，不会随角色卡导出。',
-      extraOptions: StatefulBuilder(
-        builder: (BuildContext ctx, StateSetter setSB) => CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const FitText('压缩图片'),
-          subtitle: const FitText('减小导出文件大小（推荐）'),
-          value: compressImages,
-          onChanged: (bool? value) => setSB(() => compressImages = value ?? true),
-        ),
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const FitText('放弃修改？'),
+        content: const FitText('还有未保存的修改，返回会丢失。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const FitText('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const FitText('放弃'),
+          ),
+        ],
       ),
     );
-
-    if (target == null || !mounted) return;
-
-    showSnack(context, '正在导出...');
-
-    final currentTA = _buildCurrentTA();
-    final result = await TaExportImportService.exportCharacter(
-      currentTA,
-      compressImages: compressImages,
-    );
-
-    if (!mounted) return;
-
-    if (!result.success) {
-      showSnack(context, result.message ?? '导出失败');
-      return;
-    }
-
-    if (target == ExportTarget.clipboard) {
-      // 复制到剪贴板(原有行为)
-      final copyResult =
-          await TaExportImportService.copyToClipboard(result.data!);
-      if (!mounted) return;
-      showSnack(
-        context,
-        copyResult.success ? '已复制到剪贴板，可以粘贴分享' : '导出完成，但复制到剪贴板失败',
-        behavior: SnackBarBehavior.floating,
-      );
-      return;
-    }
-
-    // 导出为文件
-    final fileResult = await ExportFileUtils.exportText(
-      content: result.data!,
-      fileName: ExportFileUtils.buildFileName(
-        name: currentTA.name,
-        fallbackName: '角色',
-        ext: _fileExt,
-      ),
-      ext: _fileExt,
-      dialogTitle: '导出角色卡',
-    );
-    if (!mounted) return;
-    if (!fileResult.success) {
-      showSnack(context, fileResult.message ?? '导出到文件失败');
-      return;
-    }
-    showSnack(
-      context,
-      fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
-      behavior: SnackBarBehavior.floating,
-    );
+    if (!mounted || discard != true) return;
+    Navigator.of(context).pop(result);
   }
-
-  /// 角色卡导出扩展名。
-  static const String _fileExt = 'dnata';
-
-  Future<void> _showImportDialog() async {
-    final ImportSource? source = await showImportSourceDialog(
-      context: context,
-      title: '导入角色',
-      description: '支持本应用导出的角色卡，以及酒馆（SillyTavern）角色卡 JSON。',
-    );
-
-    if (source == null || !mounted) return;
-
-    // 取得导入内容:剪贴板或文件
-    final String? content;
-    if (source == ImportSource.clipboard) {
-      final pasteResult = await TaExportImportService.pasteFromClipboard();
-      if (!mounted) return;
-      if (!pasteResult.success) {
-        showSnack(context, pasteResult.message ?? '读取剪贴板失败');
-        return;
-      }
-      content = pasteResult.data;
-    } else {
-      final fileResult = await ExportFileUtils.importText(
-        exts: const <String>[_fileExt, 'json'],
-        dialogTitle: '选择角色卡文件',
-      );
-      if (!mounted) return;
-      if (!fileResult.success) {
-        showSnack(context, fileResult.message ?? '读取文件失败');
-        return;
-      }
-      if (fileResult.data == null) return; // 用户取消
-      content = fileResult.data;
-    }
-
-    if (content == null || content.isEmpty) {
-      if (!mounted) return;
-      showSnack(context, '没有可导入的内容');
-      return;
-    }
-
-    // 解析导入数据
-    final importResult = TaExportImportService.importCharacter(content);
-
-    if (!importResult.success) {
-      if (!mounted) return;
-      showSnack(context, importResult.message ?? '导入失败');
-      return;
-    }
-
-    final importedTA = importResult.data!.ta;
-
-    // 检查ID冲突：永不覆盖，命中则自动改用新 ID 导入为新角色。
-    // 社区模式没有本地库，不存在冲突，直接用它自己的 id。
-    TA taToImport = importedTA;
-    final existingTA = widget.controller?.getTaById(importedTA.id);
-    if (existingTA != null) {
-      taToImport = TA(
-        id: newId(),
-        name: importedTA.name,
-        gender: importedTA.gender,
-        persona: importedTA.persona,
-        intro: importedTA.intro,
-        opening: importedTA.opening,
-        tags: importedTA.tags,
-        images: importedTA.images,
-        dialogueStyle: importedTA.dialogueStyle,
-        archived: importedTA.archived,
-        originalLink: importedTA.originalLink,
-        voiceSeed: importedTA.voiceSeed,
-        authorNote: importedTA.authorNote,
-        authorNoteInterval: importedTA.authorNoteInterval,
-      );
-      if (!mounted) return;
-      showSnack(context, 'ID 与已有角色冲突，已自动创建为新角色');
-    }
-
-    if (!mounted) return;
-    // 永不覆盖已有角色，故图片回落始终为空（图片从导入包内恢复）
-    await _importWithImages(taToImport, {}, content);
-  }
-
-  Future<void> _importWithImages(
-    TA ta,
-    Map<String, String> existingImages,
-    String content,
-  ) async {
-    showSnack(context, '正在导入图片...');
-
-    final Map<String, String> newImages = {};
-
-    // 从导出包中恢复图片（仅本应用格式内嵌图片；酒馆角色卡无此结构，跳过）
-    try {
-      final decoded = jsonDecode(content);
-      if (decoded is Map<String, dynamic> &&
-          (decoded.containsKey('character') || decoded.containsKey('exportType'))) {
-        final package = ExportPackage.fromJson(decoded);
-
-        for (final entry in package.character.images.entries) {
-          final slot = entry.key;
-          final imageInfo = entry.value;
-
-          if (imageInfo.data != null && imageInfo.data!.isNotEmpty) {
-            final saveResult =
-                await TaExportImportService.saveImageToStorage(
-              imageInfo.data!,
-              taId: ta.id,
-              slot: slot,
-            );
-            if (saveResult.success) {
-              newImages[slot] = saveResult.data!;
-            }
-          } else if (existingImages.containsKey(slot)) {
-            newImages[slot] = existingImages[slot]!;
-          }
-        }
-      }
-    } catch (_) {
-      // 非本应用格式（如酒馆角色卡）无内嵌图片，忽略
-    }
-
-    // 更新TA并保存（originalLink 已在 importCharacter 阶段设置）
-    final finalTA = ta.copyWith(images: newImages);
-    // 有本地库就落库；社区模式只回填当前表单，等用户点「发布到社区」再提交。
-    await widget.controller?.upsertTa(finalTA);
-
-    if (!mounted) return;
-
-    // 更新当前页面状态
-    setState(() {
-      _taId = finalTA.id;
-      _nameController.text = finalTA.name;
-      _gender = finalTA.gender;
-      _personaController.text = finalTA.persona;
-      _introController.text = finalTA.intro;
-      _openingController.text = finalTA.opening;
-      _tags = List<String>.from(finalTA.tags);
-      _seedController.text = finalTA.voiceSeed?.toString() ?? '';
-      _authorNoteController.text = finalTA.authorNote ?? '';
-      _authorIntervalController.text = finalTA.authorNoteInterval.toString();
-      _images = Map<String, String>.from(finalTA.images);
-      _dialogueStyle = List<DialogueTurn>.from(finalTA.dialogueStyle);
-    });
-
-    showSnack(context, '导入成功');
-  }
-
-  // ========== 构建UI ==========
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
       appBar: AppBar(
-        title: FitText(widget.title ?? (widget.ta == null ? '创建TA' : '编辑TA')),
+        title: FitText(
+          widget.title ?? (widget.ta == null ? '创建TA' : '编辑TA'),
+        ),
         actions: <Widget>[
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (String value) {
               switch (value) {
                 case 'export':
-                  _showExportDialog();
+                  _form.exportViaDialog();
                   break;
                 case 'import':
-                  _showImportDialog();
+                  _form.importViaDialog();
                   break;
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
                 value: 'export',
                 child: Row(
-                  children: [
+                  children: <Widget>[
                     Icon(Icons.upload_outlined),
                     SizedBox(width: 8),
                     FitText('导出角色'),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              const PopupMenuItem<String>(
                 value: 'import',
                 child: Row(
-                  children: [
+                  children: <Widget>[
                     Icon(Icons.download_outlined),
                     SizedBox(width: 8),
                     FitText('导入角色'),
@@ -547,324 +161,23 @@ class _TaEditorPageState extends State<TaEditorPage> {
           IconButton(
             onPressed: _save,
             icon: const Icon(Icons.save_outlined),
-            tooltip: '保存',
+            tooltip: widget.saveLabel,
           ),
         ],
       ),
-      body: ListView(
-        padding: AppEditorLayout.bodyPadding(context),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('TA形象', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '建议上传全套 3 种比例立绘，分别用于头像、横版名片与全屏背景。',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Theme.of(context).colorScheme.outline),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: ImageSlot(
-                          title: '1:1 头像',
-                          subtitle: '聊天头像',
-                          ref: _images['square'],
-                          aspectRatio: 1.0,
-                          onTap: () => _pickImage(
-                            'square',
-                            const CropAspectRatio(ratioX: 1, ratioY: 1),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ImageSlot(
-                          title: '16:9 背景',
-                          subtitle: '横版名片',
-                          ref: _images['landscape'],
-                          aspectRatio: 16 / 9,
-                          onTap: () => _pickImage(
-                            'landscape',
-                            const CropAspectRatio(ratioX: 16, ratioY: 9),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ImageSlot(
-                          title: '9:16 立绘',
-                          subtitle: '全屏背景',
-                          ref: _images['portrait'],
-                          aspectRatio: 9 / 16,
-                          onTap: () => _pickImage(
-                            'portrait',
-                            const CropAspectRatio(ratioX: 9, ratioY: 16),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('人设栏目', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: '名字 *',
-                      hintText: '例如：艾莲娜、卡特',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _gender,
-                    decoration: const InputDecoration(
-                      labelText: '性别',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem(value: '男', child: FitText('男')),
-                      DropdownMenuItem(value: '女', child: FitText('女')),
-                      DropdownMenuItem(value: '无性', child: FitText('无性')),
-                      DropdownMenuItem(value: '其他', child: FitText('其他')),
-                    ],
-                    onChanged: (String? value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() => _gender = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _personaController,
-                    minLines: 4,
-                    maxLines: 12,
-                    decoration: const InputDecoration(
-                      labelText: '设定（角色人设，发送给 AI）*',
-                      hintText: '描述 TA 的性格、身世背景、内在原则、核心能力与说话口吻等（作为核心系统提示词注入）',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _introController,
-                    maxLines: 1,
-                    decoration: const InputDecoration(
-                      labelText: '介绍（卡片简介，仅对外展示）',
-                      hintText: '在角色列表和名片上对外展示的简短一句话介绍',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AdaptiveTextField(
-                    controller: _openingController,
-                    minLines: 2,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: '开场白（可选）',
-                      hintText: '初次开启会话时 TA 发送的第一条打招呼消息',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Theme.of(context).dividerColor),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: const Icon(Icons.chat_bubble_outline),
-                    title: const FitText('对话风格（语气范例）'),
-                    subtitle: FitText(
-                      _dialogueStyle.isEmpty
-                          ? '提供几句问答示例，教 AI 模仿特定的说话习惯'
-                          : '已配置 ${_dialogueStyle.length} 组问答示例',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () async {
-                      final TA current = _buildCurrentTA();
-                      // 子页保存后会把改好的 TA pop 回来；社区模式没有本地库可回查，
-                      // 所以优先用它，其次才回查本地库。
-                      final TA? result = await Navigator.of(context).push<TA>(
-                        MaterialPageRoute<TA>(
-                          builder: (BuildContext context) => DialogueStylePage(
-                            controller: widget.controller,
-                            ta: current,
-                          ),
-                        ),
-                      );
-                      if (!mounted) {
-                        return;
-                      }
-                      final TA? updated =
-                          result ?? widget.controller?.getTaById(_taId);
-                      setState(() {
-                        _dialogueStyle = List<DialogueTurn>.from(
-                          updated?.dialogueStyle ?? _dialogueStyle,
-                        );
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  ExpansionTile(
-                    shape: const Border(),
-                    tilePadding: EdgeInsets.zero,
-                    childrenPadding: const EdgeInsets.only(top: 8),
-                    leading: const Icon(Icons.tune),
-                    title: const FitText('高级选项'),
-                    subtitle: const FitText('语音合成 Seed、作者注释与注入间隔'),
-                    children: <Widget>[
-                      const SizedBox(height: 8),
-                      SeedInputField(
-                        controller: _seedController,
-                        label: '语音合成 Seed（可选）',
-                        hint: '留空则用全局 seed',
-                        enabled: PlatformCapabilities.ttsSupported,
-                      ),
-                      const SizedBox(height: 4),
-                      FitText(
-                        '该角色固定音色，未设置时使用全局语音合成 seed。',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 12),
-                      AdaptiveTextField(
-                        controller: _authorNoteController,
-                        minLines: 2,
-                        maxLines: 6,
-                        decoration: const InputDecoration(
-                          labelText: '作者注释（可选）',
-                          hintText: '该角色始终希望强调的内容，按间隔深度注入对话。留空则不注入。',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _authorIntervalController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: '注入间隔（每多少条历史消息注入一次）',
-                          hintText: '0 表示禁用',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      FitText(
-                        '作者注释会随角色卡导出/导入。留空则该角色不注入作者注释。',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 背景音乐是纯本地功能（不随角色卡导出），社区编辑器里没有本地库，整块隐藏。
-          if (widget.controller != null)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('背景音乐', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '进入聊天时循环播放该角色的背景音乐。音乐仅保存在本机，'
-                    '不会随角色卡导出/分享。默认上限 10MB（可在设置中解锁）。',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _musicPath == null
-                            ? FitText('未设置背景音乐',
-                                style: TextStyle(color: Theme.of(context).colorScheme.outline))
-                            : FitText(
-                                path.basename(_musicPath!),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                      ),
-                      IconButton(
-                        tooltip: '选择背景音乐',
-                        onPressed: _pickMusic,
-                        icon: const Icon(Icons.music_note),
-                      ),
-                      if (_musicPath != null)
-                        IconButton(
-                          tooltip: '清除背景音乐',
-                          onPressed: _clearMusic,
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('标签', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  TagInput(
-                    tags: _tags,
-                    hintText: '例如：治愈, 暖心, 励志（回车或逗号添加）',
-                    onChanged: (List<String> next) => setState(() {
-                      _tags = next;
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      body: TaEditorForm(
+        ta: widget.ta,
+        formController: _form,
+        imagePicker: const DefaultImagePickCapability(),
+        bgmSizeLimitUnlocked:
+            widget.controller?.settings.bgmSizeLimitUnlocked ?? false,
       ),
       floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.save_outlined),
-        label: const FitText('保存TA'),
+        label: FitText(widget.saveLabel),
+      ),
       ),
     );
   }
 }
-
-

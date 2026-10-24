@@ -90,23 +90,32 @@ void main() {
   });
 
   test('所有编辑器正文都收进内容列(防止新增编辑器漏掉)', () {
-    const List<String> editors = <String>[
-      'ta_editor_page',
+    // 拆成「表单 / 外壳」后：正文在表单，保存按钮在外壳，两边各自守。
+    const List<String> bodies = <String>[
+      'ta_editor/ta_editor_form',
+      'world_editor/world_editor_form',
+      'dialogue_style/dialogue_style_form',
       'identity_editor_page',
-      'world_editor_page',
       'conversation_create_page',
       'group_create_page',
       'conversation_edit_page',
       'group_edit_page',
-      'dialogue_style_page',
     ];
-    for (final String name in editors) {
+    for (final String name in bodies) {
       final String src = File('lib/pages/$name.dart').readAsStringSync();
       expect(
         src.contains('AppEditorLayout.bodyPadding'),
         isTrue,
         reason: '$name 的正文没有收进内容列(桌面宽窗口下会通栏铺开)',
       );
+    }
+    const List<String> shells = <String>[
+      'ta_editor_page',
+      'world_editor_page',
+      'dialogue_style_page',
+    ];
+    for (final String name in shells) {
+      final String src = File('lib/pages/$name.dart').readAsStringSync();
       expect(
         src.contains('AppEditorFab'),
         isTrue,

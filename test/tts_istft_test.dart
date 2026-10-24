@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// 这里刻意**自带一份独立的 radix-2 FFT / rfft** 来做正变换,而不是复用
 /// tts_math 里的实现 —— 复用的话两边共用一个 bug,测试就白写了。
 ///
-/// 历史:这组测试替换掉了原先读 `modelwksps/istft_ref.json` 的版本。那份
+/// 历史:这组测试替换掉了原先读 `local/modelwksps/istft_ref.json` 的版本。那份
 /// 参考数据是本地生成物(该目录被 .gitignore 忽略),而且与真实约定不符
 /// (它的 real/imag 是 512×20 = 10240,而 513 bins 下帧数不是整数),
 /// 所以它既跑不了、也测不出真问题。

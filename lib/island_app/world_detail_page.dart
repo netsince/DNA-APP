@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +15,7 @@ import 'package:dna/island_app/widgets/report_sheet.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
-import 'package:dna/pages/world_editor_page.dart';
+import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
 
@@ -303,7 +303,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => WorldEditorPage(
+          builder: (_) => CommunityWorldEditorPage(
             world: world,
             title: '编辑世界卡',
             tagSuggestions: suggestions,
