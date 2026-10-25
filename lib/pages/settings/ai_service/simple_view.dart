@@ -145,11 +145,26 @@ class AiServiceSimpleView extends StatelessWidget {
             ),
       children: <Widget>[
         AppSpacing.hMd,
+        // 开关放在列表**上面**：列表不限高时它自己会变得很长，
+        // 开关跟在列表后面会被推到很下面、想关掉得先翻很久。
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const FitText('模型列表不限高'),
+          subtitle: const FitText('列表随模型数量变长，由整页滚动'),
+          value: contract.controller.settings.unboundedModelList,
+          onChanged: (bool v) async {
+            await contract.controller.saveUnboundedModelList(v);
+          },
+        ),
+        AppSpacing.hSm,
         ModelPicker(
           models: contract.models,
           selectedModel: contract.selectedModel,
           loading: contract.loadingModels,
           error: contract.modelsError,
+          // 列表高度策略由上面的开关决定：关着限高 240，开着随模型数量变长。
+          unbounded: contract.controller.settings.unboundedModelList,
           onReload: contract.onFetchModels,
           onSelect: (String model) {
             contract.onPickModel(model);

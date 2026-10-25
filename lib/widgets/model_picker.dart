@@ -18,6 +18,9 @@ const double kModelListInlineMaxHeight = 240;
 ///   且父级 Column 的高度有界（OOBE 的步骤卡片就是这种）；
 /// * false —— 列表限高 [kModelListInlineMaxHeight] 并加描边，供本身可滚动的
 ///   页面内嵌（设置页）。
+///
+/// [unbounded] 只影响 `fill: false`：打开后不再封顶，列表高度由模型数量决定
+/// （整页滚动），对应设置项「模型列表不限高」。
 class ModelPicker extends StatelessWidget {
   const ModelPicker({
     super.key,
@@ -29,6 +32,7 @@ class ModelPicker extends StatelessWidget {
     required this.onCustom,
     this.error,
     this.fill = false,
+    this.unbounded = false,
     this.emptyTitle = '暂无可用模型',
     this.emptyDescription = '点「刷新模型列表」重新拉取，或使用自定义模型。',
     this.reloadLabel = '刷新模型列表',
@@ -58,6 +62,13 @@ class ModelPicker extends StatelessWidget {
 
   /// 列表区高度策略（见类注释）。
   final bool fill;
+
+  /// 列表是否不封顶（高度随模型数量增长，由外层页面滚动）。
+  ///
+  /// 仅在 [fill] 为 false 时有意义：内置（设置页）时列表默认限高
+  /// [kModelListInlineMaxHeight]，模型一多就得在小窗口里翻；
+  /// 打开后整块铺开，模型列表有多长、组件就有多长。
+  final bool unbounded;
 
   /// 空态标题（列表为空且未选定模型时）。
   final String emptyTitle;
@@ -182,13 +193,16 @@ class ModelPicker extends StatelessWidget {
       ),
     );
 
-    return fill
-        ? Expanded(child: list)
-        : ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxHeight: kModelListInlineMaxHeight,
-            ),
-            child: list,
-          );
+    if (fill) {
+      return Expanded(child: list);
+    }
+    if (unbounded) {
+      // 不封顶：交给模型数量决定高度（shrinkWrap 的 ListView 已在上方开启）。
+      return list;
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: kModelListInlineMaxHeight),
+      child: list,
+    );
   }
 }

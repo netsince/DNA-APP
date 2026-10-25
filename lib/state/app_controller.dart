@@ -551,6 +551,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「模型列表不限高」开关。
+  ///
+  /// 打开后模型选择组件的列表不再限高 240，改为随模型数量变长、
+  /// 由整页滚动（见 [ModelPicker]）。
+  Future<void> saveUnboundedModelList(bool value) async {
+    _settings = _settings.copyWith(unboundedModelList: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);

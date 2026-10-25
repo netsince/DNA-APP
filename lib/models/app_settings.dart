@@ -31,6 +31,7 @@ class AppSettings {
     required this.autoBackup,
     required this.showSplashAnimation,
     this.autoOpenLastChat = false,
+    this.unboundedModelList = false,
     required this.showBottomNav,
     this.showExitToMainApp = true,
     required this.chatQuickSidebar,
@@ -112,6 +113,7 @@ class AppSettings {
       autoBackup: true,
       showSplashAnimation: true,
       autoOpenLastChat: false,
+      unboundedModelList: false,
       showBottomNav: true,
       showExitToMainApp: true,
       chatQuickSidebar: true,
@@ -248,6 +250,13 @@ class AppSettings {
   /// 它只控制**启动时自动跳转**这一件事。指针（上次会话 id）总是记录，
   /// 关掉的人将来也能用别的入口消费它（比如「我家」顶部的继续条）。
   final bool autoOpenLastChat;
+
+  /// 模型选择组件里的列表是否**不封顶**（高度随模型数量增长）。
+  ///
+  /// 关闭（默认）时列表限高 240px、内部滚动 —— 模型选择区始终是页面里
+  /// 一小块，不会把下面的设置顶到屏幕外。
+  /// 打开后列表完整铺开、由整页滚动：模型多的时候不用在一个小窗口里翻。
+  final bool unboundedModelList;
 
   /// 是否在启动时自动检查更新。默认开启。
   ///
@@ -460,6 +469,7 @@ class AppSettings {
       'autoBackup': autoBackup,
       'showSplashAnimation': showSplashAnimation,
       'autoOpenLastChat': autoOpenLastChat,
+      'unboundedModelList': unboundedModelList,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
       'showExitToMainApp': showExitToMainApp,
@@ -554,6 +564,7 @@ class AppSettings {
       autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       autoOpenLastChat: (json['autoOpenLastChat'] as bool?) ?? false,
+      unboundedModelList: (json['unboundedModelList'] as bool?) ?? false,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? true,
       showExitToMainApp: (json['showExitToMainApp'] as bool?) ?? true,
@@ -671,6 +682,7 @@ class AppSettings {
     bool? autoBackup,
     bool? showSplashAnimation,
     bool? autoOpenLastChat,
+    bool? unboundedModelList,
     bool? updateCheckEnabled,
     bool? showBottomNav,
     bool? showExitToMainApp,
@@ -753,6 +765,7 @@ class AppSettings {
       autoBackup: autoBackup ?? this.autoBackup,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       autoOpenLastChat: autoOpenLastChat ?? this.autoOpenLastChat,
+      unboundedModelList: unboundedModelList ?? this.unboundedModelList,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showExitToMainApp: showExitToMainApp ?? this.showExitToMainApp,
