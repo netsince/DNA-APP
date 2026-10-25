@@ -35,6 +35,7 @@ class SettingsService {
   static const String _requireNameToDeleteKey = 'require_name_to_delete';
   static const String _allowDeleteMessageKey = 'allow_delete_message';
   static const String _showSplashAnimationKey = 'show_splash_animation';
+  static const String _autoOpenLastChatKey = 'auto_open_last_chat';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
   static const String _sherpaModelSourceKey = 'sherpa_model_source';
@@ -147,6 +148,7 @@ class SettingsService {
       requireNameToDelete: prefs.getBool(_requireNameToDeleteKey) ?? true,
       allowDeleteMessage: prefs.getBool(_allowDeleteMessageKey) ?? false,
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
+      autoOpenLastChat: prefs.getBool(_autoOpenLastChatKey) ?? false,
       appIcon: prefs.getString(_appIconKey) ?? 'default',
       snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
       sherpaModelSource:
@@ -264,6 +266,7 @@ class SettingsService {
     await prefs.setBool(_requireNameToDeleteKey, settings.requireNameToDelete);
     await prefs.setBool(_allowDeleteMessageKey, settings.allowDeleteMessage);
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
+    await prefs.setBool(_autoOpenLastChatKey, settings.autoOpenLastChat);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
     await prefs.setString(_sherpaModelSourceKey, settings.sherpaModelSource);

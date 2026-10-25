@@ -6,12 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
 import 'pages/auth_page.dart';
+import 'pages/chat_page.dart';
 import 'state/app_controller.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
 import 'island_app/community_preload.dart';
 import 'pages/oobe_page.dart';
 import 'pages/splash_page.dart';
+import 'services/resume_service.dart';
+import 'utils/ui_feedback.dart';
 import 'widgets/app_section.dart';
 import 'services/app_icon_service.dart';
 import 'services/auto_backup_service.dart';
@@ -392,6 +395,15 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _hasBeenPaused = false;
   DateTime? _pausedTime;
 
+  /// 本次冷启动是否已经尝试过「自动继续上次聊天」。
+  ///
+  /// 只尝试**一次**：从聊天页返回、切后台再回前台都不重试 ——
+  /// 否则"回来一下又被弹走"会变成日常。
+  bool _autoResumeTried = false;
+
+  /// 自动续玩"成功确认"的定时器（见 ResumeService.confirmAttempt）。
+  Timer? _resumeConfirmTimer;
+
   /// 本次页面加载（冷启动/刷新）已展示过网页版提示。
   /// 刷新页面会重建整个 Dart 应用，static 状态随之重置，
   /// 因此「网页彻底关闭再打开」时仍会再次提示。
@@ -414,6 +426,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     // 社区（岛）的隐藏预热：首屏之后在后台把岛的初始化与「推荐」首屏数据
     // 做掉，用户点「社区」时不再转圈。关闭社区时不预热。
     _scheduleCommunityPreload();
+    // 自动续玩：关掉开场动画时首帧就能尝试；开着的话等 _onSplashComplete。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _maybeAutoResume();
+    });
     // 网页版每次打开页面（冷启动/刷新）只弹一次预览提示。
     if (kIsWeb && !_webNoticeShown) {
       _webNoticeShown = true;
@@ -490,6 +506,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _resumeConfirmTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
@@ -559,12 +576,97 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       setState(() => _showSplash = false);
     }
     _scheduleCommunityPreload();
+    // 开屏结束到主界面是 500ms 的淡出（见 build 里的 AnimatedSwitcher）。
+    // 等它落定再推聊天页，否则"主界面淡入"和"聊天页滑入"两段动画叠一起。
+    Timer(const Duration(milliseconds: 520), () {
+      if (mounted) _maybeAutoResume();
+    });
   }
 
   void _onAuthPassed() {
     if (mounted) {
       setState(() => _authPassed = true);
     }
+    // 应用锁通过可能就是自动续玩的最后一道闸门。
+    _maybeAutoResume();
+  }
+
+  /// 「自动继续上次聊天」的闸门。
+  ///
+  /// 判断本身在 [shouldAutoResume] 里（纯函数，可单测）；这里只负责
+  /// "条件不够就先等着" —— 开屏结束、解锁通过都会把这里再叫一次。
+  /// 注意：条件不满足时**不置位** `_autoResumeTried`，所以不会被提前消费。
+  void _maybeAutoResume() {
+    if (!mounted) return;
+    final AppController controller = widget.controller;
+    if (!shouldAutoResume(
+      enabled: controller.settings.autoOpenLastChat,
+      splashDone: !_showSplash,
+      oobeCompleted: _showHome,
+      authRequired: _requireAuth,
+      authPassed: _authPassed,
+      alreadyAttempted: _autoResumeTried,
+    )) {
+      return;
+    }
+    _autoResumeTried = true;
+    unawaited(_autoResume());
+  }
+
+  /// 真正把用户送回上次那场会话。
+  ///
+  /// 三步都不能省：先消化"上一次没走完的尝试"，再解析目标（失效静默放弃），
+  /// 最后推之前立旗子、成功后清旗子 —— 这是防止"崩溃会话把用户焊死在里面"
+  /// 的唯一保险（见 ResumeService）。
+  Future<void> _autoResume() async {
+    final ResumeService resume = ResumeService.instance;
+
+    // ① 上次自动续玩没走到 confirm 就整进程没了 ⇒ 记一次失败。
+    final int failures = await resume.consumeStaleAttempt();
+    if (failures >= ResumeService.maxStartupFailures) {
+      await widget.controller.saveAutoOpenLastChat(false);
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            showSnack(context, '上次的聊天打不开，已暂停自动继续');
+          }
+        });
+      }
+      return;
+    }
+
+    // ② 指针 → 可打开的目标；会话或角色任一没了就静默放弃（不弹窗）。
+    final String? saved = await resume.lastConversationId();
+    final ResumeTarget? target = resolveResumeTarget(
+      conversationId: saved,
+      conversations: widget.controller.conversations,
+      tas: widget.controller.tas,
+    );
+    if (!mounted) return;
+    if (target == null) {
+      if (saved != null) {
+        await resume.clearLast();
+      }
+      return;
+    }
+
+    // ③ 推入用的路由与手动点进聊天完全一致（MaterialPageRoute），
+    //    否则"自动进入"会长得像另一个功能。
+    await resume.beginAttempt(target.conversationId);
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => ChatPage(
+          controller: widget.controller,
+          conversationId: target.conversationId,
+          isGroup: target.isGroup,
+        ),
+      ),
+    );
+    _resumeConfirmTimer?.cancel();
+    _resumeConfirmTimer = Timer(ResumeService.confirmDelay, () {
+      unawaited(resume.confirmAttempt());
+    });
   }
 
   @override

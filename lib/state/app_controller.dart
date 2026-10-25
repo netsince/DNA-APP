@@ -541,6 +541,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「打开应用时自动回到上次的聊天」开关。
+  ///
+  /// 关掉后启动不再自动跳转，但「上次聊天」指针仍会继续记录
+  /// （见 ResumeService），只是没有入口消费它。
+  Future<void> saveAutoOpenLastChat(bool value) async {
+    _settings = _settings.copyWith(autoOpenLastChat: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);

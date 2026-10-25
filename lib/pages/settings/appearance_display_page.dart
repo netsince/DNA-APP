@@ -37,6 +37,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
 
   // ---- 应用与启动 ----
   bool _showSplash = true;
+  bool _autoOpenLastChat = false;
   bool _showBottomNav = false;
   bool _enableCommunity = true;
   bool _showExitToMainApp = true;
@@ -68,6 +69,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     _fontFamilyMode = s.fontFamilyMode;
 
     _showSplash = s.showSplashAnimation;
+    _autoOpenLastChat = s.autoOpenLastChat;
     _showBottomNav = s.showBottomNav;
     _enableCommunity = s.enableCommunity;
     _showExitToMainApp = s.showExitToMainApp;
@@ -473,6 +475,18 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                   setState(() => _showSplash = v);
                   widget.controller
                       .saveSplashAnimation(showSplashAnimation: v);
+                },
+              ),
+              // 续玩型：开应用直接落回上次那场会话。
+              // 指针由聊天页在打开/切换会话时记录（ResumeService），本开关
+              // 只决定"启动时要不要自动跳"，关掉不会丢指针。
+              SettingSwitch(
+                title: '自动继续上次聊天',
+                subtitle: '开应用直接回到上次那场聊天。',
+                value: _autoOpenLastChat,
+                onChanged: (bool v) {
+                  setState(() => _autoOpenLastChat = v);
+                  widget.controller.saveAutoOpenLastChat(v);
                 },
               ),
               SettingSwitch(

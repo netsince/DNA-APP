@@ -27,6 +27,7 @@ import '../services/bgm_player.dart';
 import '../services/image_storage.dart';
 import '../services/llm_request.dart';
 import '../services/llm_stream_chunk.dart';
+import '../services/resume_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../widgets/conversation_export_import_dialogs.dart';
@@ -301,6 +302,10 @@ class _ChatPageState extends State<ChatPage>
       (conversationId == widget.conversationId && widget.isGroup);
 
   void _rememberCurrentConversation() {
+    // 「上次聊天」指针的**唯一写入点**：打开聊天页、页内切换会话都经过这里
+    // （见 ResumeService 的类注释）。群聊也记 —— 续玩要能回到群聊，不只是 1:1。
+    unawaited(ResumeService.instance.rememberOpened(_conversationId));
+
     final Conversation? current = _conversationById(_conversationId);
     if (current != null && !current.isGroup) {
       _fixedConversationByTa[current.taId] = current.id;

@@ -30,6 +30,7 @@ class AppSettings {
     required this.allowDeleteMessage,
     required this.autoBackup,
     required this.showSplashAnimation,
+    this.autoOpenLastChat = false,
     required this.showBottomNav,
     this.showExitToMainApp = true,
     required this.chatQuickSidebar,
@@ -110,6 +111,7 @@ class AppSettings {
       allowDeleteMessage: false,
       autoBackup: true,
       showSplashAnimation: true,
+      autoOpenLastChat: false,
       showBottomNav: true,
       showExitToMainApp: true,
       chatQuickSidebar: true,
@@ -236,7 +238,16 @@ class AppSettings {
   /// 静默生成一份全量备份，保留最近 5 天，全程无提示。
   final bool autoBackup;
 
+  /// 是否播放启动开屏动画。
   final bool showSplashAnimation;
+
+  /// 打开应用时是否**自动回到上一次打开的那场会话**（续玩型）。
+  ///
+  /// 默认关闭：这个动作会打断「开应用去干别的事」的场景，交给用户自己开。
+  ///
+  /// 它只控制**启动时自动跳转**这一件事。指针（上次会话 id）总是记录，
+  /// 关掉的人将来也能用别的入口消费它（比如「我家」顶部的继续条）。
+  final bool autoOpenLastChat;
 
   /// 是否在启动时自动检查更新。默认开启。
   ///
@@ -448,6 +459,7 @@ class AppSettings {
       'allowDeleteMessage': allowDeleteMessage,
       'autoBackup': autoBackup,
       'showSplashAnimation': showSplashAnimation,
+      'autoOpenLastChat': autoOpenLastChat,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
       'showExitToMainApp': showExitToMainApp,
@@ -541,6 +553,7 @@ class AppSettings {
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       autoBackup: (json['autoBackup'] as bool?) ?? true,
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      autoOpenLastChat: (json['autoOpenLastChat'] as bool?) ?? false,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? true,
       showExitToMainApp: (json['showExitToMainApp'] as bool?) ?? true,
@@ -657,6 +670,7 @@ class AppSettings {
     bool? allowDeleteMessage,
     bool? autoBackup,
     bool? showSplashAnimation,
+    bool? autoOpenLastChat,
     bool? updateCheckEnabled,
     bool? showBottomNav,
     bool? showExitToMainApp,
@@ -738,6 +752,7 @@ class AppSettings {
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       autoBackup: autoBackup ?? this.autoBackup,
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+      autoOpenLastChat: autoOpenLastChat ?? this.autoOpenLastChat,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showExitToMainApp: showExitToMainApp ?? this.showExitToMainApp,
