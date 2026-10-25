@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/tokens.dart';
+
 /// 标签输入：输入后回车 / 逗号落成可移除的 chips。
 ///
 /// 与社区角色卡发布页原来那个私有实现是同一套交互，抽成公共组件后角色卡
@@ -113,7 +115,10 @@ class _TagInputState extends State<TagInput> {
         const SizedBox(height: 4),
         Text(
           '点击标签上的 × 可移除（最多 ${widget.maxTags} 个）',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          style: TextStyle(
+          fontSize: AppFontSize.caption,
+          color: cs.onSurfaceVariant,
+        ),
         ),
         if (suggestions.isNotEmpty) ...<Widget>[
           const SizedBox(height: 10),

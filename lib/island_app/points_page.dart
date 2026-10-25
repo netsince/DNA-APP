@@ -10,6 +10,7 @@ import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 积分明细分页加载回调（默认走 [ApiClient.getPoints]）。
 typedef PointsLoader = Future<PointsData> Function({int page});
@@ -265,7 +266,7 @@ class _PointsBodyState extends State<PointsBody> {
                           child: Text(
                             source,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: AppFontSize.tiny,
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
@@ -394,7 +395,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
             ),
             child: const Text(
               '一次最多兑换 50 个兑换码；每分钟最多兑换 2 次；连续多次兑换失败将临时禁用兑换 1 小时。',
-              style: TextStyle(fontSize: 12, height: 1.5),
+              style: TextStyle(fontSize: AppFontSize.caption, height: AppLineHeight.body),
             ),
           ),
           const SizedBox(height: 16),
@@ -481,7 +482,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
                   trailing: Text(
                     (r['message'] ?? '').toString(),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppFontSize.caption,
                       color: r['ok'] == true
                           ? scheme.onSurfaceVariant
                           : scheme.error,

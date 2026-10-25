@@ -5,6 +5,7 @@ import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 我的处罚加载回调（默认走 [ApiClient.getPunishments]）。
 typedef PunishmentsLoader = Future<PunishmentsData> Function();
@@ -228,7 +229,7 @@ class _PunishmentCard extends StatelessWidget {
                   child: Text(
                     _statusLabel(),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppFontSize.caption,
                       color: _statusColor(context),
                     ),
                   ),
@@ -246,13 +247,13 @@ class _PunishmentCard extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
+                  ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.body),
             ),
             if (appealed) ...<Widget>[
               const SizedBox(height: 8),
               Text(
                 '已提交申诉，等待处理',
-                style: TextStyle(fontSize: 12, color: scheme.primary),
+                style: TextStyle(fontSize: AppFontSize.caption, color: scheme.primary),
               ),
             ] else if (canAppeal) ...<Widget>[
               const SizedBox(height: 10),

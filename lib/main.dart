@@ -8,6 +8,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'pages/auth_page.dart';
 import 'pages/chat_page.dart';
 import 'state/app_controller.dart';
+import 'theme/font_scale.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
 import 'island_app/community_preload.dart';
@@ -165,6 +166,24 @@ class _DnaAppState extends State<DnaApp> {
       themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
       theme: _buildTheme(lightColorScheme, _fontFamily),
       darkTheme: _buildTheme(darkColorScheme, _fontFamily),
+      // 全局字号档位：0 = 跟随系统（原样放行），1..5 = 绝对倍率。
+      //
+      // 挂在 MaterialApp.builder（位于 Navigator 之上）⇒ 所有路由一起变，
+      // **包括社区那一整块岛**（它内嵌在主应用里、共享同一个 MaterialApp）。
+      // 社区这次不做豁免：只豁免"不该动的布局"，字本身跟着放大。
+      builder: (BuildContext context, Widget? child) {
+        final Widget content = child ?? const SizedBox.shrink();
+        final TextScaler? scaler = AppFontScale.textScalerOf(
+          widget.controller.settings.fontSizeStep,
+        );
+        if (scaler == null) {
+          return content;
+        }
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: scaler),
+          child: content,
+        );
+      },
       home: AppRoot(controller: widget.controller),
     );
   }

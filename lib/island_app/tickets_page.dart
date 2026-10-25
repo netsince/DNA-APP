@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
 String ticketStatusLabel(String status) => switch (status) {
@@ -730,7 +731,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
             const SizedBox(height: 4),
             Text(time,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant, fontSize: 10)),
+                    color: scheme.onSurfaceVariant, fontSize: AppFontSize.tiny)),
           ],
         ),
       ),

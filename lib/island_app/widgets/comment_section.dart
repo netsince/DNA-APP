@@ -14,6 +14,7 @@ import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
+import '../../theme/tokens.dart';
 
 /// 评论列表加载（GET /cards/`id`/comments）。
 typedef CommentLoader = Future<CommentPage> Function(
@@ -908,7 +909,7 @@ Widget _tag(String text, Color bg, Color fg) => Container(
         color: bg,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: fg)),
+      child: Text(text, style: TextStyle(fontSize: AppFontSize.tiny, color: fg)),
     );
 
 String _formatTime(String iso) {

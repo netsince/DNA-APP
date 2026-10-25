@@ -252,7 +252,7 @@ class _CardPublishBodyState extends State<CardPublishBody> {
                   controller: _jsonController,
                   minLines: 6,
                   maxLines: 12,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppFontSize.caption),
                   decoration: const InputDecoration(
                     hintText: '在此粘贴角色卡 JSON（.dnacard 信封或酒馆角色卡）…',
                     border: OutlineInputBorder(),

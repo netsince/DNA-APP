@@ -3,6 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/site_config.dart';
+import '../theme/tokens.dart';
 
 /// 关站页：站点维护中说明 + 公告，点击“好的”返回首页。
 class ShutdownPage extends StatelessWidget {
@@ -23,7 +24,7 @@ class ShutdownPage extends StatelessWidget {
               const SizedBox(height: 16),
               const Text(
                 '站点维护中',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: AppFontSize.title, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
               if (cfg.shutdownMessage.isNotEmpty)

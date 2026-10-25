@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
+import 'package:dna/theme/font_scale.dart';
 import 'package:dna/theme/tokens.dart';
 
 import '../../services/app_icon_service.dart';
@@ -38,6 +39,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   // ---- 应用与启动 ----
   bool _showSplash = true;
   bool _autoOpenLastChat = false;
+  int _fontSizeStep = AppFontScale.followSystem;
   bool _showBottomNav = false;
   bool _enableCommunity = true;
   bool _showExitToMainApp = true;
@@ -70,6 +72,7 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
 
     _showSplash = s.showSplashAnimation;
     _autoOpenLastChat = s.autoOpenLastChat;
+    _fontSizeStep = AppFontScale.clampStep(s.fontSizeStep);
     _showBottomNav = s.showBottomNav;
     _enableCommunity = s.enableCommunity;
     _showExitToMainApp = s.showExitToMainApp;
@@ -295,6 +298,43 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                     ? '思源黑体：中英混排不跳字体、字重真实，跨设备一致。'
                     : '系统字体：跟随手机主题设置，换字体后应用一起变。',
                 style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+              AppSpacing.hLg,
+              // 全局字号：0 跟随系统，1..5 从最小到最大。
+              // 主应用与社区共用一个倍率 —— 社区不再单独适配字号体系。
+              FitText(
+                '字号',
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
+              ),
+              AppSpacing.hXs,
+              FitText(
+                '0 为跟随系统；往右依次放大，社区一起变。',
+                style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Slider(
+                      value: _fontSizeStep.toDouble(),
+                      min: 0,
+                      max: AppFontScale.maxStep.toDouble(),
+                      divisions: AppFontScale.maxStep,
+                      label: AppFontScale.labelOf(_fontSizeStep),
+                      onChanged: (double v) =>
+                          setState(() => _fontSizeStep = v.round()),
+                      onChangeEnd: (double v) =>
+                          widget.controller.saveFontSizeStep(v.round()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 76,
+                    child: FitText(
+                      AppFontScale.labelOf(_fontSizeStep),
+                      textAlign: TextAlign.right,
+                      style: ts.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

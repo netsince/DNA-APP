@@ -37,6 +37,7 @@ class SettingsService {
   static const String _showSplashAnimationKey = 'show_splash_animation';
   static const String _autoOpenLastChatKey = 'auto_open_last_chat';
   static const String _unboundedModelListKey = 'unbounded_model_list';
+  static const String _fontSizeStepKey = 'font_size_step';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
   static const String _sherpaModelSourceKey = 'sherpa_model_source';
@@ -151,6 +152,7 @@ class SettingsService {
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
       autoOpenLastChat: prefs.getBool(_autoOpenLastChatKey) ?? false,
       unboundedModelList: prefs.getBool(_unboundedModelListKey) ?? false,
+      fontSizeStep: prefs.getInt(_fontSizeStepKey) ?? 0,
       appIcon: prefs.getString(_appIconKey) ?? 'default',
       snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
       sherpaModelSource:
@@ -270,6 +272,7 @@ class SettingsService {
     await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
     await prefs.setBool(_autoOpenLastChatKey, settings.autoOpenLastChat);
     await prefs.setBool(_unboundedModelListKey, settings.unboundedModelList);
+    await prefs.setInt(_fontSizeStepKey, settings.fontSizeStep);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
     await prefs.setString(_sherpaModelSourceKey, settings.sherpaModelSource);

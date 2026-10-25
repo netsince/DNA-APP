@@ -6,6 +6,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 「刷一刷」横向翻页式角色卡浏览。
 ///
@@ -351,7 +352,7 @@ class _SwipeCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white,
-                          height: 1.4,
+                          height: AppLineHeight.title,
                         ),
                       ),
                     ],
@@ -388,7 +389,7 @@ class _SwipeCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         const Text(
                           '点按查看详情',
-                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                          style: TextStyle(color: Colors.white54, fontSize: AppFontSize.caption),
                         ),
                       ],
                     ),

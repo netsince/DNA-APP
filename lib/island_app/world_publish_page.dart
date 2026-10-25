@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -229,7 +229,7 @@ class _WorldPublishPageState extends State<WorldPublishPage> {
                   controller: _jsonController,
                   minLines: 6,
                   maxLines: 12,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppFontSize.caption),
                   decoration: const InputDecoration(
                     hintText: '在此粘贴导出的世界 JSON（.dnaworld 信封或裸 World JSON）…',
                     border: OutlineInputBorder(),

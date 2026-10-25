@@ -7,6 +7,7 @@ import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
+import '../../theme/tokens.dart';
 
 /// 茶馆帖子卡片（Feed / 收藏 / 话题 / 搜索结果共用）。
 ///
@@ -342,7 +343,7 @@ class _ExpandableContentState extends State<_ExpandableContent> {
           widget.content,
           maxLines: expanded ? null : 6,
           overflow: expanded ? null : TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+          style: theme.textTheme.bodyMedium?.copyWith(height: AppLineHeight.body),
         ),
         if (long)
           InkWell(

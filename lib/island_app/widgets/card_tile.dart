@@ -4,6 +4,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import '../../theme/tokens.dart';
 
 /// 单张角色卡组件：封面 + 名称 + 作者 + 简介 + 观看/复制数。
 ///
@@ -128,7 +129,7 @@ class CardTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                  ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.title),
             ),
           ],
           const SizedBox(height: 8),

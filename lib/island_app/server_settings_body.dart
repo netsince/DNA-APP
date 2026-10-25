@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/widgets/server_address_form.dart';
+import '../theme/tokens.dart';
 
 /// 服务器设置（后端地址）内容，无脚手架，由 [RootShell] 承载。
 class ServerSettingsBody extends StatefulWidget {
@@ -83,7 +84,7 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
             padding: const EdgeInsets.all(16),
             children: [
               const Text('DNAISLAND 后端地址',
-                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16)),
+                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: AppFontSize.subtitle)),
               const SizedBox(height: 8),
               const Text(
                   'DNAISLAND 是开源项目，默认使用官方服务器；你也可以填写自建服务器的地址。',

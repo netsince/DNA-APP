@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/save_image.dart';
+import '../theme/tokens.dart';
 
 /// 生图相关页面共用的工具与组件。
 ///
@@ -110,7 +111,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('生图预览', style: TextStyle(fontSize: 16)),
+        title: const Text('生图预览', style: TextStyle(fontSize: AppFontSize.subtitle)),
         actions: <Widget>[
           if (widget.urls.length > 1)
             Center(
@@ -118,7 +119,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(
                   '${_current + 1}/${widget.urls.length}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: const TextStyle(color: Colors.white70, fontSize: AppFontSize.caption),
                 ),
               ),
             ),
@@ -167,7 +168,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
                 padding: const EdgeInsets.all(kPagePadding),
                 child: Text(
                   '提示词：${widget.prompt}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: const TextStyle(color: Colors.white70, fontSize: AppFontSize.caption),
                 ),
               ),
             )
@@ -428,7 +429,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
           ),
           child: Text(badge.label,
               style: TextStyle(
-                  color: badge.fg, fontSize: 12, fontWeight: FontWeight.w500)),
+                  color: badge.fg, fontSize: AppFontSize.caption, fontWeight: FontWeight.w500)),
         ),
         _chip(scheme, '尺寸 $_size'),
         _chip(scheme, '$_count 张'),
@@ -444,7 +445,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
         borderRadius: BorderRadius.circular(kRadiusSm),
       ),
       child: Text(text,
-          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: AppFontSize.caption)),
     );
   }
 
@@ -465,14 +466,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
               const SizedBox(width: 6),
               Text('提示词 Prompt',
                   style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppFontSize.caption,
                       fontWeight: FontWeight.w500,
                       color: scheme.onSurfaceVariant)),
               const Spacer(),
               TextButton.icon(
                 onPressed: _prompt.isEmpty ? null : _copyPrompt,
                 icon: const Icon(Icons.copy_rounded, size: 14),
-                label: const Text('复制', style: TextStyle(fontSize: 12)),
+                label: const Text('复制', style: TextStyle(fontSize: AppFontSize.caption)),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: Size.zero,
@@ -484,7 +485,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
           const SizedBox(height: 6),
           SelectableText(
             _prompt.isEmpty ? '（无提示词）' : _prompt,
-            style: const TextStyle(fontSize: 13, height: 1.5),
+            style: const TextStyle(fontSize: AppFontSize.body, height: AppLineHeight.body),
           ),
         ],
       ),
@@ -513,7 +514,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
             const SizedBox(width: 6),
             Text('所用参考图（${_refs.length} 张）',
                 style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppFontSize.caption,
                     fontWeight: FontWeight.w500,
                     color: scheme.onSurfaceVariant)),
           ],
@@ -563,7 +564,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
           Expanded(
             child: SelectableText(
               _error,
-              style: TextStyle(color: scheme.onErrorContainer, fontSize: 13),
+              style: TextStyle(color: scheme.onErrorContainer, fontSize: AppFontSize.body),
             ),
           ),
         ],

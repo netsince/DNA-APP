@@ -4,6 +4,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/image_gen_detail_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
+import '../theme/tokens.dart';
 
 /// 生成失败记录页（App 端）：列出自己**所有失败的生成**及其完整信息。
 ///
@@ -208,7 +209,7 @@ class ImageGenFailedCard extends StatelessWidget {
                       '失败',
                       style: TextStyle(
                         color: scheme.onErrorContainer,
-                        fontSize: 11,
+                        fontSize: AppFontSize.tiny,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -218,7 +219,7 @@ class ImageGenFailedCard extends StatelessWidget {
                     Text(
                       _createdAt,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: AppFontSize.tiny,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
@@ -229,7 +230,7 @@ class ImageGenFailedCard extends StatelessWidget {
                 _prompt.isEmpty ? '（无提示词）' : _prompt,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, height: 1.4),
+                style: const TextStyle(fontSize: AppFontSize.body, height: AppLineHeight.title),
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -282,7 +283,7 @@ class ImageGenFailedCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: scheme.onErrorContainer,
-                      fontSize: 12,
+                      fontSize: AppFontSize.caption,
                     ),
                   ),
                 ),
@@ -303,7 +304,7 @@ class ImageGenFailedCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        style: TextStyle(fontSize: AppFontSize.tiny, color: scheme.onSurfaceVariant),
       ),
     );
   }

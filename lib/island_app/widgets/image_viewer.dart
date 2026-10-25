@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'drag_scroll_behavior.dart';
 import '../utils/save_image.dart';
+import '../../theme/tokens.dart';
 
 /// 基于生态名库 [extended_image] 构建的高品质全屏图片查看器。
 ///
@@ -219,7 +220,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                                 '图片加载失败',
                                 style: TextStyle(
                                   color: Colors.white38,
-                                  fontSize: 13,
+                                  fontSize: AppFontSize.caption,
                                 ),
                               ),
                             ],
@@ -287,7 +288,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                               '${_currentIndex + 1} / ${widget.urls.length}',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: AppFontSize.caption,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -340,7 +341,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                         '双击放大 · 下滑拖拽退出',
                         style: TextStyle(
                           color: Colors.white54,
-                          fontSize: 12,
+                          fontSize: AppFontSize.caption,
                         ),
                       ),
                     ),

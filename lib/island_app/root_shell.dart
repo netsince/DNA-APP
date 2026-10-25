@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/app_drawer.dart';
@@ -29,6 +29,7 @@ import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/island_app/worlds_body.dart';
 import 'package:dna/island_app/widgets/plus_hub.dart';
 import 'package:dna/island_app/widgets/drag_scroll_behavior.dart';
+import '../theme/tokens.dart';
 
 /// 顶部内容 tab：推荐 / 刷一刷 / 探索。
 enum _TopTab { recommend, swipe, explore }
@@ -597,7 +598,7 @@ class _RootShellState extends State<RootShell> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: AppFontSize.tiny,
                 color: color,
                 fontWeight: FontWeight.w500,
               ),

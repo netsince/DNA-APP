@@ -544,7 +544,7 @@ class AppController extends ChangeNotifier {
   /// 保存「打开应用时自动回到上次的聊天」开关。
   ///
   /// 关掉后启动不再自动跳转，但「上次聊天」指针仍会继续记录
-  /// （见 ResumeService），只是没有入口消费它。
+  /// （见 [ResumeService]），只是没有入口消费它。
   Future<void> saveAutoOpenLastChat(bool value) async {
     _settings = _settings.copyWith(autoOpenLastChat: value);
     await _settingsService.save(_settings);
@@ -557,6 +557,16 @@ class AppController extends ChangeNotifier {
   /// 由整页滚动（见 [ModelPicker]）。
   Future<void> saveUnboundedModelList(bool value) async {
     _settings = _settings.copyWith(unboundedModelList: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存「全局字号档位」（0 = 跟随系统，1..5 从最小到最大）。
+  ///
+  /// 存完立刻生效：DnaApp 用 settings 重建 MaterialApp，
+  /// MediaQuery.textScaler 随之改变，主应用与社区一起变。
+  Future<void> saveFontSizeStep(int step) async {
+    _settings = _settings.copyWith(fontSizeStep: step);
     await _settingsService.save(_settings);
     notifyListeners();
   }

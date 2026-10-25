@@ -16,6 +16,7 @@ import 'package:dna/island_app/points_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/points_format.dart';
+import '../theme/tokens.dart';
 
 /// 生图工作台（App 端）：提示词 + 模型 + 张数 + 宽高比 + 参考图，
 /// 提交生成任务后轮询完成，下方展示历史生成记录。
@@ -477,7 +478,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
               size: 26, color: scheme.onSurfaceVariant),
           const SizedBox(height: 6),
           Text('生成失败',
-              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant)),
           if (model.isNotEmpty) ...<Widget>[
             const SizedBox(height: 2),
             Text(
@@ -485,7 +486,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: AppFontSize.tiny,
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),
@@ -762,7 +763,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           left: 2,
           bottom: 0,
           child: Text('图片${index + 1}',
-              style: TextStyle(fontSize: 10, color: scheme.onSurface)),
+              style: TextStyle(fontSize: AppFontSize.tiny, color: scheme.onSurface)),
         ),
       ],
     );

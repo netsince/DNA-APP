@@ -30,6 +30,7 @@ import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
+import '../theme/tokens.dart';
 
 /// 「我」页面：未登录时显示登录表单；已登录时显示个人主页。
 class MePage extends StatelessWidget {
@@ -789,7 +790,7 @@ class _ProfileViewState extends State<ProfileView> {
                 bio,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurface,
-                      height: 1.5,
+                      height: AppLineHeight.body,
                     ),
               ),
             if (location.isNotEmpty || join.isNotEmpty)
@@ -1208,12 +1209,12 @@ class _ProfileViewState extends State<ProfileView> {
               w.summary,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
             ),
           if (meta.isNotEmpty)
             Text(
               meta,
-              style: TextStyle(fontSize: 12, color: scheme.outline),
+              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.outline),
             ),
           if (status.isNotEmpty)
             Padding(
@@ -1616,13 +1617,13 @@ class _CommentTile extends StatelessWidget {
               child: Text(
                 cardName.isEmpty ? '未知卡片' : cardName,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               time,
-              style: TextStyle(fontSize: 12, color: scheme.outline),
+              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.outline),
             ),
           ],
         ),

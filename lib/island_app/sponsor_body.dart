@@ -5,6 +5,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 赞助页面（无脚手架，由 [RootShell] 承载）。
 ///
@@ -109,7 +110,7 @@ class _SponsorBodyState extends State<SponsorBody> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       textStyle: const TextStyle(
-                        fontSize: 16,
+                        fontSize: AppFontSize.subtitle,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -245,7 +246,7 @@ class _HeaderCard extends StatelessWidget {
               style: {
                 'body': Style(
                   margin: Margins.zero,
-                  fontSize: FontSize(14.5),
+                  fontSize: FontSize(AppFontSize.body),
                   lineHeight: const LineHeight(1.65),
                   color: scheme.onSurface,
                 ),
@@ -305,7 +306,7 @@ class _SponsorChip extends StatelessWidget {
                   child: Text(
                     amount,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppFontSize.caption,
                       fontWeight: FontWeight.w500,
                       color: scheme.onPrimaryContainer,
                     ),
@@ -356,7 +357,7 @@ class _EmptySponsor extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
+                    ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.body),
               ),
             ],
           ),

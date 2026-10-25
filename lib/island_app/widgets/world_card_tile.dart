@@ -82,7 +82,7 @@ class WorldCardTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
-                      height: 1.3,
+                      height: AppLineHeight.title,
                     ),
                   ),
                 ],
@@ -109,7 +109,7 @@ class WorldCardTile extends StatelessWidget {
                         Text(
                           '#$t',
                           style: TextStyle(
-                            fontSize: AppFontSize.caption - 1,
+                            fontSize: AppFontSize.tiny,
                             color: cs.onSurfaceVariant,
                           ),
                         ),
@@ -184,7 +184,7 @@ class _EntryChip extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: AppFontSize.caption - 1,
+          fontSize: AppFontSize.tiny,
           color: muted ? cs.onSurfaceVariant : cs.onSurface,
         ),
       ),
@@ -224,7 +224,7 @@ class _StatusPill extends StatelessWidget {
         decoration: BoxDecoration(color: bg, borderRadius: AppRadius.xsAll),
         child: Text(
           label,
-          style: TextStyle(fontSize: AppFontSize.caption - 1, color: fg),
+          style: TextStyle(fontSize: AppFontSize.tiny, color: fg),
         ),
       ),
     );

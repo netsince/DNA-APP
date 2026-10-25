@@ -32,6 +32,7 @@ class AppSettings {
     required this.showSplashAnimation,
     this.autoOpenLastChat = false,
     this.unboundedModelList = false,
+    this.fontSizeStep = 0,
     required this.showBottomNav,
     this.showExitToMainApp = true,
     required this.chatQuickSidebar,
@@ -114,6 +115,7 @@ class AppSettings {
       showSplashAnimation: true,
       autoOpenLastChat: false,
       unboundedModelList: false,
+      fontSizeStep: 0,
       showBottomNav: true,
       showExitToMainApp: true,
       chatQuickSidebar: true,
@@ -257,6 +259,12 @@ class AppSettings {
   /// 一小块，不会把下面的设置顶到屏幕外。
   /// 打开后列表完整铺开、由整页滚动：模型多的时候不用在一个小窗口里翻。
   final bool unboundedModelList;
+
+  /// 全局字号档位（0 = 跟随系统，1..5 从最小到最大）。
+  ///
+  /// 取值语义见 AppFontScale。这里刻意存**档位序号**而不是倍率：
+  /// 倍率表将来可能调整，档位名（小/标准/大）才是用户签下的约。
+  final int fontSizeStep;
 
   /// 是否在启动时自动检查更新。默认开启。
   ///
@@ -470,6 +478,7 @@ class AppSettings {
       'showSplashAnimation': showSplashAnimation,
       'autoOpenLastChat': autoOpenLastChat,
       'unboundedModelList': unboundedModelList,
+      'fontSizeStep': fontSizeStep,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
       'showExitToMainApp': showExitToMainApp,
@@ -565,6 +574,7 @@ class AppSettings {
       showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
       autoOpenLastChat: (json['autoOpenLastChat'] as bool?) ?? false,
       unboundedModelList: (json['unboundedModelList'] as bool?) ?? false,
+      fontSizeStep: (json['fontSizeStep'] as int?) ?? 0,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? true,
       showExitToMainApp: (json['showExitToMainApp'] as bool?) ?? true,
@@ -683,6 +693,7 @@ class AppSettings {
     bool? showSplashAnimation,
     bool? autoOpenLastChat,
     bool? unboundedModelList,
+    int? fontSizeStep,
     bool? updateCheckEnabled,
     bool? showBottomNav,
     bool? showExitToMainApp,
@@ -766,6 +777,7 @@ class AppSettings {
       showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
       autoOpenLastChat: autoOpenLastChat ?? this.autoOpenLastChat,
       unboundedModelList: unboundedModelList ?? this.unboundedModelList,
+      fontSizeStep: fontSizeStep ?? this.fontSizeStep,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
       showExitToMainApp: showExitToMainApp ?? this.showExitToMainApp,

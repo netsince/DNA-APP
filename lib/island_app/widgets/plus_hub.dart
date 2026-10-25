@@ -260,7 +260,7 @@ class PlusHubButton extends StatelessWidget {
                     Text(
                       title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 18,
+                        fontSize: AppFontSize.title,
                         fontWeight: AppWeight.medium,
                       ),
                     ),

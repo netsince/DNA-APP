@@ -11,6 +11,7 @@ import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 首页内容（Hero + 随机推荐角色卡）。不含脚手架/侧边栏，由 [RootShell] 承载。
 ///
@@ -425,7 +426,7 @@ class _HeroBanner extends StatelessWidget {
             subtitle,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: scheme.onSurfaceVariant,
-                  height: 1.5,
+                  height: AppLineHeight.body,
                 ),
           ),
         ],

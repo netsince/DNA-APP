@@ -19,6 +19,7 @@ import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import '../theme/tokens.dart';
 
 /// 角色卡详情数据模型（对应后端 `GET /api/v1/cards/<id>` 的 data）。
 class CardDetail {
@@ -1796,7 +1797,7 @@ class _ContentSection extends StatelessWidget {
             child: Text(
               body,
               style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.7,
+                height: AppLineHeight.reading,
                 wordSpacing: 0,
               ),
             ),
@@ -1876,7 +1877,7 @@ class _AuthorNoteSection extends StatelessWidget {
             child: Text(
               note,
               style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.7,
+                height: AppLineHeight.reading,
                 wordSpacing: 0,
               ),
             ),
@@ -1982,7 +1983,7 @@ class _ChatBubble extends StatelessWidget {
         text,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: textColor,
-          height: 1.5,
+          height: AppLineHeight.body,
         ),
       ),
     );
@@ -1993,7 +1994,7 @@ class _ChatBubble extends StatelessWidget {
             backgroundColor: theme.colorScheme.primary,
             child: Text(
               avatarLabel!,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: const TextStyle(color: Colors.white, fontSize: AppFontSize.caption),
             ),
           )
         : null;

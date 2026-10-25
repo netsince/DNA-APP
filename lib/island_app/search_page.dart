@@ -14,6 +14,7 @@ import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
+import '../theme/tokens.dart';
 
 /// 搜索结果类型。
 enum SearchTab { all, cards, worlds, users, posts }
@@ -636,7 +637,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(
                   s.$2,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: AppFontSize.body,
                     fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
                     color: selected
                         ? Theme.of(context).colorScheme.primary
@@ -735,7 +736,7 @@ class _SearchPageState extends State<SearchPage> {
         w.summary.isEmpty ? meta : '${w.summary}\n$meta',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+        style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
       ),
       isThreeLine: w.summary.isNotEmpty,
       trailing: const Icon(Icons.chevron_right),

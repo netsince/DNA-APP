@@ -5,6 +5,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../theme/tokens.dart';
 
 /// 探索角色卡分页加载回调（默认走 [ApiClient.getExploreCards]）。
 typedef ExploreCardsLoader =
@@ -254,7 +255,7 @@ class _ExploreBodyState extends State<ExploreBody> {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(
               child: Text('到底啦',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: TextStyle(fontSize: AppFontSize.caption, color: Colors.grey)),
             ),
           ),
         ));
@@ -372,7 +373,7 @@ class _FilterBar extends StatelessWidget {
               )
             else
               const Text('筛选',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: TextStyle(fontSize: AppFontSize.caption, color: Colors.grey)),
             const SizedBox(width: 4),
             // 性别：全部 + 各性别。
             _FilterPill(
