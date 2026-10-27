@@ -106,12 +106,26 @@ void main() {
   });
 
   group('结构约束', () {
-    test('设置页把开关值真的传给了 ModelPicker', () {
+    test('精简模式把开关值真的传给了 ModelPicker', () {
       final String src =
           File('lib/pages/settings/ai_service/simple_view.dart')
               .readAsStringSync();
       expect(src.contains('unbounded:'), isTrue);
-      expect(src.contains('saveUnboundedModelList'), isTrue);
+    });
+
+    test('开关住在「界面模式」分区，不在模型列表旁边', () {
+      final String more =
+          File('lib/pages/settings/ai_service_more_page.dart')
+              .readAsStringSync();
+      expect(more.contains('模型列表不限高'), isTrue);
+      expect(more.contains('saveUnboundedModelList'), isTrue);
+
+      // 反证：模型选择区里不该再出现这个开关的文案与写入调用。
+      final String simple =
+          File('lib/pages/settings/ai_service/simple_view.dart')
+              .readAsStringSync();
+      expect(simple.contains('模型列表不限高'), isFalse,
+          reason: '开关已挪到「界面模式」，不要在模型列表里再出现一份');
     });
   });
 }

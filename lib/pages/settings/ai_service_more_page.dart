@@ -142,6 +142,14 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
                   onChanged: (bool v) =>
                       widget.controller.toggleSimpleModelMode(v),
                 ),
+                // 模型选择在精简模式里的显示方式：列表要不要跟着模型数量变长。
+                SettingSwitch(
+                  title: '模型列表不限高',
+                  subtitle: '模型多时列表会变长',
+                  value: widget.controller.settings.unboundedModelList,
+                  onChanged: (bool v) =>
+                      widget.controller.saveUnboundedModelList(v),
+                ),
               ],
             ),
             AppSpacing.hLg,

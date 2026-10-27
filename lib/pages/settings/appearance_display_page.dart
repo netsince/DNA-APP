@@ -218,13 +218,6 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 '强调色',
                 style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
               ),
-              AppSpacing.hXs,
-              FitText(
-                _accentMode == 'auto'
-                    ? '自动取色：聊天页会提取角色立绘主色，沉浸感更强。'
-                    : '自定义：全局统一使用你挑选的主题色。',
-                style: ts.bodySmall?.copyWith(color: cs.outline),
-              ),
               AppSpacing.hSm,
               SegmentedButton<String>(
                 segments: const <ButtonSegment<String>>[
@@ -275,7 +268,6 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
           SettingSection(
             title: '字体',
             icon: Icons.text_fields,
-            description: '跟随系统字体，或改用内置思源黑体。',
             children: <Widget>[
               SegmentedButton<String>(
                 segments: const <ButtonSegment<String>>[
@@ -292,24 +284,12 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                 onSelectionChanged: (Set<String> val) =>
                     _selectFontFamily(val.first),
               ),
-              AppSpacing.hXs,
-              FitText(
-                _fontFamilyMode == AppFont.modeSourceHan
-                    ? '思源黑体：中英混排不跳字体、字重真实，跨设备一致。'
-                    : '系统字体：跟随手机主题设置，换字体后应用一起变。',
-                style: ts.bodySmall?.copyWith(color: cs.outline),
-              ),
               AppSpacing.hLg,
               // 全局字号：0 跟随系统，1..5 从最小到最大。
               // 主应用与社区共用一个倍率 —— 社区不再单独适配字号体系。
               FitText(
                 '字号',
                 style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
-              ),
-              AppSpacing.hXs,
-              FitText(
-                '0 为跟随系统；往右依次放大，社区一起变。',
-                style: ts.bodySmall?.copyWith(color: cs.outline),
               ),
               Row(
                 children: <Widget>[
@@ -347,13 +327,6 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
               FitText(
                 '聊天输入栏样式',
                 style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
-              ),
-              AppSpacing.hXs,
-              FitText(
-                _chatInputStyle == 'classic'
-                    ? '经典：下划线输入框，按钮独立排在框外。'
-                    : '胶囊：输入框与按钮合成一条悬浮胶囊。',
-                style: ts.bodySmall?.copyWith(color: cs.outline),
               ),
               AppSpacing.hSm,
               SegmentedButton<String>(
