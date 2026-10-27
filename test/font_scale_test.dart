@@ -192,18 +192,34 @@ void main() {
           reason: '行高必须走 AppLineHeight 三档：\n${offenders.join('\n')}');
     });
 
-    test('textScaler 只在 font_scale.dart 里被构造（唯一注入源）', () {
+    test('倍率只允许出自 AppFontScale（两个合法构造点：令牌 + 过渡插值）', () {
+      // 只有两个地方可以构造 TextScaler：
+      //  · theme/font_scale.dart      —— 档位 → 倍率的唯一来源
+      //  · widgets/animated_font_scale.dart —— 换档时在**两个 AppFontScale 值之间**插值
+      // 其余任何地方自己拼 TextScaler，都会绕开档位体系、让"跟随系统"失效。
+      const Set<String> allowed = <String>{
+        'theme/font_scale.dart',
+        'widgets/animated_font_scale.dart',
+      };
       final List<String> offenders = <String>[];
       for (final FileSystemEntity e in Directory('lib').listSync(recursive: true)) {
         if (e is! File || !e.path.endsWith('.dart')) continue;
-        if (e.path.replaceAll('\\', '/').endsWith('theme/font_scale.dart')) {
-          continue;
-        }
+        final String path = e.path.replaceAll('\\', '/');
+        if (allowed.any(path.endsWith)) continue;
         if (e.readAsStringSync().contains('TextScaler.linear')) {
-          offenders.add(e.path);
+          offenders.add(path);
         }
       }
       expect(offenders, isEmpty, reason: '倍率只允许由 AppFontScale 产出');
+    });
+
+    test('过渡插值的两端必须取自 AppFontScale（不许自己写死倍率）', () {
+      final String src =
+          File('lib/widgets/animated_font_scale.dart').readAsStringSync();
+      expect(src.contains('AppFontScale.scaleOf'), isTrue);
+      // 插值只允许作用在"当前值 → 目标值"之间，不允许出现字面量倍率。
+      expect(RegExp(r'TextScaler\.linear\(\s*[0-9]').hasMatch(src), isFalse,
+          reason: '过渡组件里不许出现写死的倍率');
     });
   });
 }
