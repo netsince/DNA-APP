@@ -8,7 +8,6 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'pages/auth_page.dart';
 import 'pages/chat_page.dart';
 import 'state/app_controller.dart';
-import 'theme/font_scale.dart';
 import 'widgets/animated_font_scale.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';

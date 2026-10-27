@@ -92,6 +92,8 @@ void main() {
           body: TaListBody(
             controller: c,
             showArchived: archived,
+            // 这些用例的 TA 都没有标签 ⇒ 不会渲染筛选条，瀑布流布局不受影响。
+            selectedTag: ValueNotifier<String?>(null),
             onCreateTa: () {},
           ),
         ),

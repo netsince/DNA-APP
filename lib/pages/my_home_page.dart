@@ -10,6 +10,8 @@ import '../widgets/app_icon_flight.dart';
 import '../widgets/app_section.dart';
 import '../widgets/ta_avatar.dart';
 import '../widgets/ta_cover.dart';
+import 'my_home/ta_tag_filter.dart';
+import 'my_home/tag_filter_bar.dart';
 import 'ta_editor_page.dart';
 import 'ta_showcase_page.dart';
 import 'package:dna/widgets/app_empty_state.dart';
@@ -18,6 +20,9 @@ import 'package:dna/widgets/fit_text.dart';
 /// 我家栏目装配。
 SectionPageData myHomeSection(AppController controller) {
   final ValueNotifier<bool> showArchived = ValueNotifier<bool>(false);
+
+  /// 标签筛选的当前选择（null = 全部）。住在装配闭包里 ⇒ 切栏目回来还在。
+  final ValueNotifier<String?> selectedTag = ValueNotifier<String?>(null);
 
   void createTa(BuildContext context) {
     Navigator.of(context).push(
@@ -60,6 +65,7 @@ SectionPageData myHomeSection(AppController controller) {
       builder: (BuildContext context, bool archived, Widget? _) => TaListBody(
         controller: controller,
         showArchived: archived,
+        selectedTag: selectedTag,
         onCreateTa: () => createTa(context),
       ),
     ),
@@ -94,11 +100,16 @@ class TaListBody extends StatefulWidget {
     super.key,
     required this.controller,
     required this.showArchived,
+    required this.selectedTag,
     required this.onCreateTa,
   });
 
   final AppController controller;
   final bool showArchived;
+
+  /// 标签筛选的选择（null = 全部）。由栏目装配持有，切栏目不丢。
+  final ValueNotifier<String?> selectedTag;
+
   final VoidCallback onCreateTa;
 
   @override
@@ -115,13 +126,17 @@ class _TaListBodyState extends State<TaListBody> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.controller,
+      // 两个重建源合成一个入口：TA 数据变了、或筛选选择变了。
+      listenable: Listenable.merge(<Listenable>[
+        widget.controller,
+        widget.selectedTag,
+      ]),
       builder: (BuildContext context, Widget? _) {
-        final List<TA> tas = widget.controller.tas
+        final List<TA> all = widget.controller.tas
             .where((TA t) => t.archived == widget.showArchived)
             .toList();
 
-        if (tas.isEmpty) {
+        if (all.isEmpty) {
           return AppEmptyState(
             icon: widget.showArchived
                 ? Icons.archive_outlined
@@ -133,12 +148,27 @@ class _TaListBodyState extends State<TaListBody> {
           );
         }
 
+        // 标签与可用性都从**当前视图**（我家 / 归档）算，两边的标签体系互不干扰。
+        final List<String> tags = collectTags(all);
+        final bool untagged = hasUntagged(all);
+        // 选择可能失效（标签被改掉、对应 TA 被归档）：渲染成「全部」即可。
+        // 刻意不在 build 里改状态 —— 那会引发连锁重建。
+        final String? selection = effectiveTagSelection(
+          widget.selectedTag.value,
+          tags,
+          untaggedPresent: untagged,
+        );
+        final List<TA> tas = filterTasByTag(all, selection);
+
         // 归档列表不参与排序(归档的 TA 不在「我家」顺序里)。
-        final bool canReorder = !widget.showArchived;
+        // 有筛选时也不排序：排序动的是全局顺序，在"只看某个标签"的视图里
+        // 拖动会让用户以为只改了这一段。
+        final bool canReorder = !widget.showArchived && selection == null;
         if (_reordering && canReorder) {
           return _buildReorderList(context, tas);
         }
-        return LayoutBuilder(
+
+        final Widget wall = LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) =>
               SingleChildScrollView(
                 padding: AppInsets.card,
@@ -149,6 +179,22 @@ class _TaListBodyState extends State<TaListBody> {
                   canReorder,
                 ),
               ),
+        );
+
+        // 一个标签都没有：不渲染筛选条，页面保持原样。
+        if (tags.isEmpty) {
+          return wall;
+        }
+        return Column(
+          children: <Widget>[
+            TagFilterBar(
+              tags: tags,
+              selected: selection,
+              untaggedPresent: untagged,
+              onSelect: (String? tag) => widget.selectedTag.value = tag,
+            ),
+            Expanded(child: wall),
+          ],
         );
       },
     );
