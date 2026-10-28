@@ -52,6 +52,33 @@ abstract final class AppFontScale {
   /// 档位对应的倍率；跟随系统时返回 null。
   static double? scaleOf(int step) => _scales[clampStep(step)];
 
+  ///最终有效倍率的上下限（系统 ×应用之后封顶）。
+  ///
+  ///下限0.8：再小中文就看不清了；系统本来就调得小、应用又选「小」也不会跌破。
+  ///上限2.0：系统2.0 ×应用1.45会得出2.9，那种字号下任何固定高度容器都会炸。
+  static const double minEffectiveScale = 0.8;
+  static const double maxEffectiveScale = 2.0;
+
+  ///把「系统字号」与「应用档位」合成最终倍率。
+  ///
+  /// **组合而不是替换**：MediaQuery.textScaler是系统的无障碍通道，应用内档位是
+  ///设计偏好，两者语义不同，通用做法是相乘（微信、浏览器都是这个模型）。早先的
+  ///实现是「1..5档直接覆盖系统值」，结果用户系统已放大1.5、应用再选「超大」，
+  ///得到的反而比系统还小 ——在无障碍上说不通。
+  ///
+  /// [systemFactor]是系统倍率（以正文为基准线性化后的值）；非法值按1.0处理。
+  static double resolveScale({
+    required int step,
+    required double systemFactor,
+  }) {
+    final double app = scaleOf(step) ?? 1.0;
+    final double system = systemFactor > 0 ? systemFactor : 1.0;
+    final double total = app * system;
+    if (total < minEffectiveScale) return minEffectiveScale;
+    if (total > maxEffectiveScale) return maxEffectiveScale;
+    return total;
+  }
+
   /// 档位名；越界自动夹取（旧备份 / 手改偏好文件都不会崩）。
   static String labelOf(int step) => labels[clampStep(step)];
 

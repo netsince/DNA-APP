@@ -61,7 +61,8 @@ void main() {
 
     test('1..5 严格递增（从最小到最大）', () {
       final List<double> scales = <double>[
-        for (int i = 1; i <= AppFontScale.maxStep; i++) AppFontScale.scaleOf(i)!,
+        for (int i = 1; i <= AppFontScale.maxStep; i++)
+          AppFontScale.scaleOf(i)!,
       ];
       expect(scales.length, AppFontScale.maxStep);
       for (int i = 1; i < scales.length; i++) {
@@ -82,7 +83,10 @@ void main() {
     test('越界档位夹到合法范围（旧备份/手改偏好不崩）', () {
       expect(AppFontScale.clampStep(-3), 0);
       expect(AppFontScale.clampStep(99), AppFontScale.maxStep);
-      expect(AppFontScale.labelOf(99), AppFontScale.labelOf(AppFontScale.maxStep));
+      expect(
+        AppFontScale.labelOf(99),
+        AppFontScale.labelOf(AppFontScale.maxStep),
+      );
       expect(AppFontScale.scaleOf(-1), isNull);
     });
 
@@ -114,18 +118,18 @@ void main() {
   });
 
   group('注入', () {
-    testWidgets('选 3 档：主界面拿到 1.15 倍的 textScaler（社区同一个值）', (WidgetTester tester) async {
+    testWidgets('选 3 档：主界面拿到 1.15 倍的 textScaler（社区同一个值）', (
+      WidgetTester tester,
+    ) async {
       final AppController controller = await boot(fontSizeStep: 3);
       await tester.pumpWidget(DnaApp(controller: controller));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      final TextScaler scaler =
-          MediaQuery.textScalerOf(tester.element(find.byType(AppSectionShell)));
-      expect(
-        scaler.scale(100),
-        closeTo(AppFontScale.scaleOf(3)! * 100, 0.001),
+      final TextScaler scaler = MediaQuery.textScalerOf(
+        tester.element(find.byType(AppSectionShell)),
       );
+      expect(scaler.scale(100), closeTo(AppFontScale.scaleOf(3)! * 100, 0.001));
     });
 
     testWidgets('0 档（跟随系统）：不覆盖，沿用环境里的倍率', (WidgetTester tester) async {
@@ -134,8 +138,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      final TextScaler scaler =
-          MediaQuery.textScalerOf(tester.element(find.byType(AppSectionShell)));
+      final TextScaler scaler = MediaQuery.textScalerOf(
+        tester.element(find.byType(AppSectionShell)),
+      );
       expect(scaler.scale(100), closeTo(100, 0.001));
     });
 
@@ -147,8 +152,7 @@ void main() {
       await tester.pump();
 
       final Finder sliderFinder = find.byWidgetPredicate(
-        (Widget w) =>
-            w is Slider && w.max == AppFontScale.maxStep.toDouble(),
+        (Widget w) => w is Slider && w.max == AppFontScale.maxStep.toDouble(),
       );
       await tester.dragUntilVisible(
         sliderFinder,
@@ -169,27 +173,37 @@ void main() {
     test('lib 下不再出现裸数字 fontSize', () {
       final List<String> offenders = <String>[];
       final RegExp re = RegExp(r'fontSize: *[0-9]');
-      for (final FileSystemEntity e in Directory('lib').listSync(recursive: true)) {
+      for (final FileSystemEntity e in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
         if (e is! File || !e.path.endsWith('.dart')) continue;
         for (final RegExpMatch m in re.allMatches(e.readAsStringSync())) {
           offenders.add('${e.path}: ${m.group(0)}');
         }
       }
-      expect(offenders, isEmpty,
-          reason: '字号必须走 AppFontSize 六档：\n${offenders.join('\n')}');
+      expect(
+        offenders,
+        isEmpty,
+        reason: '字号必须走 AppFontSize 六档：\n${offenders.join('\n')}',
+      );
     });
 
     test('lib 下不再出现裸行高 height: 1.x', () {
       final List<String> offenders = <String>[];
       final RegExp re = RegExp(r'height: *1\.[0-9]');
-      for (final FileSystemEntity e in Directory('lib').listSync(recursive: true)) {
+      for (final FileSystemEntity e in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
         if (e is! File || !e.path.endsWith('.dart')) continue;
         for (final RegExpMatch m in re.allMatches(e.readAsStringSync())) {
           offenders.add('${e.path}: ${m.group(0)}');
         }
       }
-      expect(offenders, isEmpty,
-          reason: '行高必须走 AppLineHeight 三档：\n${offenders.join('\n')}');
+      expect(
+        offenders,
+        isEmpty,
+        reason: '行高必须走 AppLineHeight 三档：\n${offenders.join('\n')}',
+      );
     });
 
     test('倍率只允许出自 AppFontScale（两个合法构造点：令牌 + 过渡插值）', () {
@@ -202,7 +216,9 @@ void main() {
         'widgets/animated_font_scale.dart',
       };
       final List<String> offenders = <String>[];
-      for (final FileSystemEntity e in Directory('lib').listSync(recursive: true)) {
+      for (final FileSystemEntity e in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
         if (e is! File || !e.path.endsWith('.dart')) continue;
         final String path = e.path.replaceAll('\\', '/');
         if (allowed.any(path.endsWith)) continue;
@@ -214,12 +230,63 @@ void main() {
     });
 
     test('过渡插值的两端必须取自 AppFontScale（不许自己写死倍率）', () {
-      final String src =
-          File('lib/widgets/animated_font_scale.dart').readAsStringSync();
+      final String src = File(
+        'lib/widgets/animated_font_scale.dart',
+      ).readAsStringSync();
       expect(src.contains('AppFontScale.scaleOf'), isTrue);
       // 插值只允许作用在"当前值 → 目标值"之间，不允许出现字面量倍率。
-      expect(RegExp(r'TextScaler\.linear\(\s*[0-9]').hasMatch(src), isFalse,
-          reason: '过渡组件里不许出现写死的倍率');
+      expect(
+        RegExp(r'TextScaler\.linear\(\s*[0-9]').hasMatch(src),
+        isFalse,
+        reason: '过渡组件里不许出现写死的倍率',
+      );
+    });
+  });
+  group('组合与封顶 resolveScale', () {
+    test('系统1.0 ×3档(1.15) =1.15', () {
+      expect(
+        AppFontScale.resolveScale(step: 3, systemFactor: 1.0),
+        closeTo(1.15, 1e-9),
+      );
+    });
+
+    test('系统已放大时相乘，而不是覆盖', () {
+      expect(
+        AppFontScale.resolveScale(step: 3, systemFactor: 1.5),
+        closeTo(1.725, 1e-9),
+      );
+    });
+
+    test('0档 =纯系统值', () {
+      expect(
+        AppFontScale.resolveScale(step: 0, systemFactor: 1.3),
+        closeTo(1.3, 1e-9),
+      );
+    });
+
+    test('上限封顶：系统2.0 ×5档(1.45)不会给出2.9', () {
+      expect(
+        AppFontScale.resolveScale(step: 5, systemFactor: 2.0),
+        closeTo(AppFontScale.maxEffectiveScale, 1e-9),
+      );
+    });
+
+    test('下限封顶：系统0.5 ×1档(0.85)不会跌破0.8', () {
+      expect(
+        AppFontScale.resolveScale(step: 1, systemFactor: 0.5),
+        closeTo(AppFontScale.minEffectiveScale, 1e-9),
+      );
+    });
+
+    test('非法系统倍率按1.0处理（0 /负数）', () {
+      expect(
+        AppFontScale.resolveScale(step: 3, systemFactor: 0),
+        closeTo(1.15, 1e-9),
+      );
+      expect(
+        AppFontScale.resolveScale(step: 3, systemFactor: -2),
+        closeTo(1.15, 1e-9),
+      );
     });
   });
 }

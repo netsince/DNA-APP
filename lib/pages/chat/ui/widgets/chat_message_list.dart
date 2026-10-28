@@ -335,8 +335,8 @@ class ChatMessageList extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                 ],
-                RichText(
-                  text: _buildHighlightedText(
+                Text.rich(
+                  _buildHighlightedText(
                     context,
                     message.text,
                     searchQuery,

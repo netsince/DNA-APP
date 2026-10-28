@@ -163,11 +163,14 @@ Future<void> _pumpList(
   await tester.pump();
 }
 
-/// 收集**气泡内**正文的颜色。
+///收集**气泡内**正文的颜色。
 ///
-/// 注意范围:直接 find.byType(RichText) 会把 Text 内部生成的 RichText
-/// 一并收进来(深色主题下那些是浅色主题文字),断言会被无关文字带偏。
-/// 这里只取"底色等于气泡色"的容器内的文字。
+///范围限定:只取"底色等于气泡色"的容器内的文字。
+///
+///取的是 [Text.textSpan] ——也就是**调用方传进去的那棵树**。不能直接遍历
+/// RichText:正文改用 Text.rich后,Text会在我们传的 span外面再包一层
+/// "环境样式"根 span(颜色来自 DefaultTextStyle,深色主题下是浅色),
+///那一层不是正文,收进来会把断言带偏。
 List<Color> _bubbleTextColors(WidgetTester tester, Color bubbleColor) {
   final Finder bubble = find.byWidgetPredicate(
     (Widget w) =>
@@ -176,10 +179,14 @@ List<Color> _bubbleTextColors(WidgetTester tester, Color bubbleColor) {
         (w.decoration! as BoxDecoration).color == bubbleColor,
   );
   final List<Color> colors = <Color>[];
-  for (final RichText rich in tester.widgetList<RichText>(
-    find.descendant(of: bubble, matching: find.byType(RichText)),
+  for (final Text text in tester.widgetList<Text>(
+    find.descendant(of: bubble, matching: find.byType(Text)),
   )) {
-    _collect(rich.text, colors);
+    if (text is FitText) continue; //名字、字数标注等，不是正文
+    final InlineSpan? span = text.textSpan;
+    if (span != null) {
+      _collect(span, colors);
+    }
   }
   return colors;
 }

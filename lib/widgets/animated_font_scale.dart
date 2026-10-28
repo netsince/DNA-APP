@@ -19,11 +19,7 @@ import '../theme/tokens.dart';
 ///    要么原样放行 child，要么只包一层固定值的 MediaQuery。
 /// 3. 系统开了「减少动态效果」时直接跳到终值（无障碍设置优先）。
 class AnimatedFontScale extends StatefulWidget {
-  const AnimatedFontScale({
-    super.key,
-    required this.step,
-    required this.child,
-  });
+  const AnimatedFontScale({super.key, required this.step, required this.child});
 
   /// 当前档位（0 跟随系统，1..5 从最小到最大）。
   final int step;
@@ -92,7 +88,12 @@ class _AnimatedFontScaleState extends State<AnimatedFontScale>
   }
 
   /// 目标倍率：固定档位用它自己的值；0 档回到系统值。
-  double _target() => AppFontScale.scaleOf(widget.step) ?? _system;
+  ///目标倍率 =系统倍率 ×档位倍率（0档时档位倍率视作1.0），再按上下限封顶。
+  ///
+  ///这只是「动画要滚到的值」：0档静止时本组件不接管（见 _retarget），系统那个
+  ///可能是非线性的原始 scaler会原样透传，不会被这里的线性近似顶掉。
+  double _target() =>
+      AppFontScale.resolveScale(step: widget.step, systemFactor: _system);
 
   /// 当前正在显示的倍率（动画中按缓动曲线取中间值）。
   double _current() {
@@ -154,9 +155,9 @@ class _AnimatedFontScaleState extends State<AnimatedFontScale>
       child: widget.child,
       builder: (BuildContext context, Widget? child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(_current()),
-          ),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(_current())),
           child: child!,
         );
       },

@@ -27,10 +27,22 @@ class FitText extends Text {
     super.textHeightBehavior,
     super.selectionColor,
     this.contrastBackground,
+    this.minShrink = 0,
   });
 
   /// 所在容器的背景颜色。若提供，将自动根据其混合亮度计算最佳对比度文本颜色。
   final Color? contrastBackground;
+
+  ///短文本「缩小保单行」的下限（0 =不设下限，永远缩到装下为止）。
+  ///
+  /// `FitText`对6字以内的文本会套 FittedBox强制单行；空间不足时**无限缩小**，
+  ///于是字号调大后，窄容器里的短标签会「长到装不下就不再长」。
+  ///
+  ///设成0.85这类值时：若需要的缩放比低于该值就不缩了，交给正常换行 ——
+  ///宁可多一行，也不把字压成蚂蚁。
+  ///
+  /// **默认0保持既有行为**：全项目750余处调用观感不变，需要的地方再逐个开。
+  final double minShrink;
 
   static const int _shortThreshold = 6;
 
@@ -135,14 +147,59 @@ class FitText extends Text {
     );
 
     if (isShort && canWrap) {
-      // 空间不足时会换行，则缩小字号确保单行显示。
-      result = FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: _alignmentFor(textAlign),
-        child: result,
-      );
+      if (minShrink <= 0) {
+        //默认路径：与历史行为完全一致（无条件缩到装下为止）。
+        result = FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: _alignmentFor(textAlign),
+          child: result,
+        );
+      } else {
+        final Widget plain = result;
+        result = LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double available = constraints.maxWidth;
+            final double intrinsic = _intrinsicWidth(context, effectiveStyle);
+            if (available.isFinite && intrinsic > 0) {
+              final double ratio = available / intrinsic;
+              if (ratio < minShrink) {
+                //缩得太狠：保持原字号、允许换行。
+                return plain;
+              }
+            }
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: _alignmentFor(textAlign),
+              child: plain,
+            );
+          },
+        );
+      }
     }
     return result;
+  }
+
+  ///量出这段文字在当前样式 /当前字号倍率下的**单行**宽度。
+  ///
+  ///只用于测量，不参与绘制（绘制仍旧走 Text）——这是本文件被允许使用
+  /// TextPainter的唯一理由，见 test/text_scaling_guard_test.dart。
+  double _intrinsicWidth(BuildContext context, TextStyle? effectiveStyle) {
+    final TextStyle baseStyle =
+        (effectiveStyle ?? DefaultTextStyle.of(context).style).copyWith();
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: data ?? '', style: baseStyle),
+      textDirection:
+          textDirection ?? Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler:
+          textScaler ??
+          MediaQuery.maybeTextScalerOf(context) ??
+          TextScaler.noScaling,
+      maxLines: 1,
+      locale: locale,
+    )..layout();
+    final double width = painter.width;
+    painter.dispose();
+    return width;
   }
 
   static Alignment _alignmentFor(TextAlign? align) {

@@ -111,8 +111,8 @@ class StickerText extends StatelessWidget {
       // 无表情、无链接，直接返回文本（保留原样式与截断）。
       return Text(text, style: style, maxLines: maxLines, overflow: overflow);
     }
-    return RichText(
-      text: TextSpan(
+    return Text.rich(
+      TextSpan(
         children: tokens.expand<InlineSpan>((t) {
           if (t.stickerCode != null) {
             final url = StickerCatalog.instance.urlFor(t.stickerCode!);
