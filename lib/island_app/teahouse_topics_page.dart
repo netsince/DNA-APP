@@ -6,6 +6,7 @@ import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 
 /// 茶馆话题列表（GET /teahouse/topics）。
 class TeahouseTopicsPage extends StatefulWidget {
@@ -69,36 +70,38 @@ class _TeahouseTopicsPageState extends State<TeahouseTopicsPage> {
       body: _loading
           ? const LoadingState()
           : _error != null
-              ? ErrorState(message: _error!, onRetry: _load)
-              : _topics.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.tag,
-                      title: '暂无话题',
-                    )
-                  : AppRefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _topics.length,
-                        separatorBuilder: (_, _) =>
-                            Divider(height: 1, color: scheme.outlineVariant),
-                        itemBuilder: (context, i) {
-                          final t = _topics[i];
-                          final name = (t['name'] ?? '').toString();
-                          final count =
-                              (t['post_count'] as num?)?.toInt() ?? 0;
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(name.isNotEmpty ? name[0] : '#'),
-                            ),
-                            title: Text(name),
-                            subtitle: Text('$count 帖'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => _openTopic(t),
-                          );
-                        },
-                      ),
+          ? ErrorState(message: _error!, onRetry: _load)
+          : _topics.isEmpty
+          ? const EmptyState(icon: Icons.tag, title: '暂无话题')
+          : AppRefreshIndicator(
+              onRefresh: _load,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: wideInset(
+                    MediaQuery.sizeOf(context).width,
+                    maxWidth: WideContent.reading.maxWidth,
+                  ),
+                ),
+                itemCount: _topics.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: scheme.outlineVariant),
+                itemBuilder: (context, i) {
+                  final t = _topics[i];
+                  final name = (t['name'] ?? '').toString();
+                  final count = (t['post_count'] as num?)?.toInt() ?? 0;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      child: Text(name.isNotEmpty ? name[0] : '#'),
                     ),
+                    title: Text(name),
+                    subtitle: Text('$count 帖'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openTopic(t),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -153,8 +156,10 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
       _noMore = false;
     });
     try {
-      final r = await ApiClient.instance
-          .getTeahouseTopicPosts(widget.topicId, page: 1);
+      final r = await ApiClient.instance.getTeahouseTopicPosts(
+        widget.topicId,
+        page: 1,
+      );
       if (!mounted) return;
       setState(() {
         _posts = r.items.map((e) => TeaPost.fromJson(e)).toList();
@@ -175,11 +180,16 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
     if (_loading || _loadingMore || _noMore) return;
     setState(() => _loadingMore = true);
     try {
-      final r = await ApiClient.instance
-          .getTeahouseTopicPosts(widget.topicId, page: _page + 1);
+      final r = await ApiClient.instance.getTeahouseTopicPosts(
+        widget.topicId,
+        page: _page + 1,
+      );
       if (!mounted) return;
       setState(() {
-        _posts = <TeaPost>[..._posts, ...r.items.map((e) => TeaPost.fromJson(e))];
+        _posts = <TeaPost>[
+          ..._posts,
+          ...r.items.map((e) => TeaPost.fromJson(e)),
+        ];
         _page += 1;
         _loadingMore = false;
         if (!r.hasNext) _noMore = true;
@@ -191,9 +201,7 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
 
   void _openPost(int postId) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => TeahousePostPage(postId: postId),
-      ),
+      MaterialPageRoute<void>(builder: (_) => TeahousePostPage(postId: postId)),
     );
   }
 
@@ -201,8 +209,7 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
@@ -221,7 +228,10 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
     try {
       final r = await ApiClient.instance.toggleTeahouseLike(postId);
       if (!mounted) return;
-      _updatePost(postId, (s) => s.copyWith(liked: r.liked, likeCount: r.count));
+      _updatePost(
+        postId,
+        (s) => s.copyWith(liked: r.liked, likeCount: r.count),
+      );
     } catch (_) {
       _snack('操作失败，请重试');
     }
@@ -235,8 +245,10 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
     try {
       final r = await ApiClient.instance.toggleTeahouseFavorite(postId);
       if (!mounted) return;
-      _updatePost(postId,
-          (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount));
+      _updatePost(
+        postId,
+        (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
+      );
       _snack(r.favorited ? '已收藏' : '已取消收藏');
     } catch (_) {
       _snack('操作失败，请重试');
@@ -250,41 +262,47 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null && _posts.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(_error!),
-                      const SizedBox(height: 12),
-                      FilledButton(onPressed: _reload, child: const Text('重试')),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(_error!),
+                  const SizedBox(height: 12),
+                  FilledButton(onPressed: _reload, child: const Text('重试')),
+                ],
+              ),
+            )
+          : _posts.isEmpty
+          ? const Center(child: Text('该话题下还没有帖子'))
+          : AppRefreshIndicator(
+              onRefresh: _reload,
+              child: ListView.builder(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: wideInset(
+                    MediaQuery.sizeOf(context).width,
+                    maxWidth: WideContent.reading.maxWidth,
                   ),
-                )
-              : _posts.isEmpty
-                  ? const Center(child: Text('该话题下还没有帖子'))
-                  : AppRefreshIndicator(
-                      onRefresh: _reload,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _posts.length + (_loadingMore ? 1 : 0),
-                        itemBuilder: (context, i) {
-                          if (i >= _posts.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          final post = _posts[i];
-                          return TeahousePostTile(
-                            post: post,
-                            onTap: () => _openPost(post.idInt),
-                            onLike: () => _toggleLike(post.idInt),
-                            onFavorite: () => _toggleFavorite(post.idInt),
-                          );
-                        },
-                      ),
-                    ),
+                ),
+                itemCount: _posts.length + (_loadingMore ? 1 : 0),
+                itemBuilder: (context, i) {
+                  if (i >= _posts.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  final post = _posts[i];
+                  return TeahousePostTile(
+                    post: post,
+                    onTap: () => _openPost(post.idInt),
+                    onLike: () => _toggleLike(post.idInt),
+                    onFavorite: () => _toggleFavorite(post.idInt),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

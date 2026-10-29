@@ -8,6 +8,7 @@ import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
@@ -109,7 +110,10 @@ class _SearchPageState extends State<SearchPage> {
       });
       return;
     }
-    _suggestDebounce = Timer(const Duration(milliseconds: 300), () => _loadSuggest(q));
+    _suggestDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _loadSuggest(q),
+    );
   }
 
   Future<void> _loadSuggest(String q) async {
@@ -183,10 +187,16 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> _loadCards(String q, {bool reset = false}) async {
     try {
       final page = reset ? 1 : _cardsPage + 1;
-      final r = await ApiClient.instance.searchCards(q, page: page, sort: _sort);
+      final r = await ApiClient.instance.searchCards(
+        q,
+        page: page,
+        sort: _sort,
+      );
       if (!mounted) return;
       setState(() {
-        _cards = reset ? r.items : <Map<String, dynamic>>[..._cards, ...r.items];
+        _cards = reset
+            ? r.items
+            : <Map<String, dynamic>>[..._cards, ...r.items];
         _cardsPage = page;
         _cardsHasMore = r.hasNext;
         _cardsDone = true;
@@ -208,7 +218,9 @@ class _SearchPageState extends State<SearchPage> {
       final r = await ApiClient.instance.searchUsers(q, page: page);
       if (!mounted) return;
       setState(() {
-        _users = reset ? r.items : <Map<String, dynamic>>[..._users, ...r.items];
+        _users = reset
+            ? r.items
+            : <Map<String, dynamic>>[..._users, ...r.items];
         _usersPage = page;
         _usersHasMore = r.hasNext;
         _usersDone = true;
@@ -230,7 +242,9 @@ class _SearchPageState extends State<SearchPage> {
       final r = await ApiClient.instance.searchTeahousePosts(q, page: page);
       if (!mounted) return;
       setState(() {
-        _posts = reset ? r.items : <Map<String, dynamic>>[..._posts, ...r.items];
+        _posts = reset
+            ? r.items
+            : <Map<String, dynamic>>[..._posts, ...r.items];
         _postsPage = page;
         _postsHasMore = r.hasNext;
         _postsDone = true;
@@ -249,17 +263,21 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> _loadWorlds(String q, {bool reset = false}) async {
     try {
       final page = reset ? 1 : _worldsPage + 1;
-      final Map<String, dynamic> data =
-          await ApiClient.instance.getWorlds(page: page, query: q);
+      final Map<String, dynamic> data = await ApiClient.instance.getWorlds(
+        page: page,
+        query: q,
+      );
       if (!mounted) return;
       final Object? raw = data['items'];
       final List<WorldCardSummary> items = raw is List
           ? raw
-              .whereType<Map>()
-              .map((Map e) =>
-                  WorldCardSummary.fromJson(e.cast<String, dynamic>()))
-              .where((WorldCardSummary w) => w.id.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (Map e) =>
+                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                )
+                .where((WorldCardSummary w) => w.id.isNotEmpty)
+                .toList()
           : <WorldCardSummary>[];
       setState(() {
         _worlds = reset ? items : <WorldCardSummary>[..._worlds, ...items];
@@ -291,16 +309,28 @@ class _SearchPageState extends State<SearchPage> {
     if (!c.hasClients) return;
     final pos = c.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
-      if (_tab == SearchTab.cards && _cardsHasMore && !_cardsLoadingMore && !_loading) {
+      if (_tab == SearchTab.cards &&
+          _cardsHasMore &&
+          !_cardsLoadingMore &&
+          !_loading) {
         setState(() => _cardsLoadingMore = true);
         _loadCards(_query);
-      } else if (_tab == SearchTab.users && _usersHasMore && !_usersLoadingMore && !_loading) {
+      } else if (_tab == SearchTab.users &&
+          _usersHasMore &&
+          !_usersLoadingMore &&
+          !_loading) {
         setState(() => _usersLoadingMore = true);
         _loadUsers(_query);
-      } else if (_tab == SearchTab.posts && _postsHasMore && !_postsLoadingMore && !_loading) {
+      } else if (_tab == SearchTab.posts &&
+          _postsHasMore &&
+          !_postsLoadingMore &&
+          !_loading) {
         setState(() => _postsLoadingMore = true);
         _loadPosts(_query);
-      } else if (_tab == SearchTab.worlds && _worldsHasMore && !_worldsLoadingMore && !_loading) {
+      } else if (_tab == SearchTab.worlds &&
+          _worldsHasMore &&
+          !_worldsLoadingMore &&
+          !_loading) {
         setState(() => _worldsLoadingMore = true);
         _loadWorlds(_query);
       }
@@ -318,9 +348,8 @@ class _SearchPageState extends State<SearchPage> {
   void _openUser(Map<String, dynamic> user) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => UserProfilePage(
-          username: (user['username'] ?? '').toString(),
-        ),
+        builder: (_) =>
+            UserProfilePage(username: (user['username'] ?? '').toString()),
       ),
     );
   }
@@ -341,8 +370,7 @@ class _SearchPageState extends State<SearchPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   /// 更新搜索结果里某条帖的 stats。
@@ -354,8 +382,8 @@ class _SearchPageState extends State<SearchPage> {
             : int.tryParse('${p['id']}');
         if (pid != id) return p;
         final stats = <String, dynamic>{
-          if (p['stats'] is Map) ...((p['stats'] as Map).map(
-              (k, v) => MapEntry(k.toString(), v))),
+          if (p['stats'] is Map)
+            ...((p['stats'] as Map).map((k, v) => MapEntry(k.toString(), v))),
         };
         apply(stats);
         return <String, dynamic>{...p, 'stats': stats};
@@ -463,6 +491,12 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildSuggestPanel() {
     return Expanded(
       child: ListView(
+        padding: EdgeInsets.symmetric(
+          horizontal: wideInset(
+            MediaQuery.sizeOf(context).width,
+            maxWidth: WideContent.list.maxWidth,
+          ),
+        ),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: <Widget>[
           if (_suggestLoading)
@@ -485,34 +519,44 @@ class _SearchPageState extends State<SearchPage> {
             ),
           if (_suggestCards.isNotEmpty) ...<Widget>[
             const _SectionHeader('角色卡'),
-            ..._suggestCards.map((c) => ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.badge_outlined, size: 20),
-                  title: Text((c['name'] ?? '').toString(),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: const Icon(Icons.north_west, size: 16),
-                  onTap: () => _openCard(c),
-                )),
+            ..._suggestCards.map(
+              (c) => ListTile(
+                dense: true,
+                leading: const Icon(Icons.badge_outlined, size: 20),
+                title: Text(
+                  (c['name'] ?? '').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.north_west, size: 16),
+                onTap: () => _openCard(c),
+              ),
+            ),
           ],
           if (_suggestUsers.isNotEmpty) ...<Widget>[
             const _SectionHeader('作者'),
-            ..._suggestUsers.map((u) => ListTile(
-                  dense: true,
-                  leading: Avatar(
-                    avatar: (u['avatar'] ?? '').toString(),
-                    radius: 18,
-                  ),
-                  title: UserBadge(
-                    name: (u['nickname'] ?? '').toString(),
-                    isSponsor: u['is_sponsor'] == true,
-                    verified: u['verified'] == true,
-                    verifiedLabel: (u['verified_label'] ?? '').toString(),
-                  ),
-                  subtitle: Text('@${u['username'] ?? ''}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: const Icon(Icons.north_west, size: 16),
-                  onTap: () => _openUser(u),
-                )),
+            ..._suggestUsers.map(
+              (u) => ListTile(
+                dense: true,
+                leading: Avatar(
+                  avatar: (u['avatar'] ?? '').toString(),
+                  radius: 18,
+                ),
+                title: UserBadge(
+                  name: (u['nickname'] ?? '').toString(),
+                  isSponsor: u['is_sponsor'] == true,
+                  verified: u['verified'] == true,
+                  verifiedLabel: (u['verified_label'] ?? '').toString(),
+                ),
+                subtitle: Text(
+                  '@${u['username'] ?? ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.north_west, size: 16),
+                onTap: () => _openUser(u),
+              ),
+            ),
           ],
         ],
       ),
@@ -541,17 +585,20 @@ class _SearchPageState extends State<SearchPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Icon(t.$3,
-                          size: 16,
-                          color: selected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant),
+                      Icon(
+                        t.$3,
+                        size: 16,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         t.$2,
                         style: TextStyle(
-                          fontWeight:
-                              selected ? FontWeight.w500 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w500
+                              : FontWeight.w500,
                           color: selected
                               ? Theme.of(context).colorScheme.primary
                               : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -599,10 +646,12 @@ class _SearchPageState extends State<SearchPage> {
 
     switch (_tab) {
       case SearchTab.cards:
-        return Column(children: <Widget>[
-          _buildSortBar(),
-          Expanded(child: _cardResults()),
-        ]);
+        return Column(
+          children: <Widget>[
+            _buildSortBar(),
+            Expanded(child: _cardResults()),
+          ],
+        );
       case SearchTab.worlds:
         return _worldResults();
       case SearchTab.users:
@@ -681,10 +730,7 @@ class _SearchPageState extends State<SearchPage> {
             ),
           );
         }
-        return CardTile(
-          card: _cards[i],
-          onTap: () => _openCard(_cards[i]),
-        );
+        return CardTile(card: _cards[i], onTap: () => _openCard(_cards[i]));
       },
     );
   }
@@ -736,7 +782,10 @@ class _SearchPageState extends State<SearchPage> {
         w.summary.isEmpty ? meta : '${w.summary}\n$meta',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
+        style: TextStyle(
+          fontSize: AppFontSize.caption,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
       isThreeLine: w.summary.isNotEmpty,
       trailing: const Icon(Icons.chevron_right),
@@ -753,24 +802,30 @@ class _SearchPageState extends State<SearchPage> {
       child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(8),
-      itemCount: _users.length + (_usersLoadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-      itemBuilder: (context, i) {
-        if (i >= _users.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+        padding: EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: wideInset(
+            MediaQuery.sizeOf(context).width,
+            maxWidth: WideContent.grid.maxWidth,
+          ),
+        ),
+        itemCount: _users.length + (_usersLoadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
+        itemBuilder: (context, i) {
+          if (i >= _users.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
-            ),
-          );
-        }
-        return _userTile(_users[i]);
-      },
+            );
+          }
+          return _userTile(_users[i]);
+        },
       ),
     );
   }
@@ -781,7 +836,8 @@ class _SearchPageState extends State<SearchPage> {
     final avatar = (u['avatar'] ?? '').toString();
     final verified = u['verified'] == true;
     final isFollowing = u['is_following'] == true;
-    final isSelf = u['username'] == (AuthSession.instance.user?['username'] ?? '');
+    final isSelf =
+        u['username'] == (AuthSession.instance.user?['username'] ?? '');
     return ListTile(
       leading: Stack(
         alignment: Alignment.bottomRight,
@@ -790,8 +846,11 @@ class _SearchPageState extends State<SearchPage> {
           if (verified)
             Padding(
               padding: const EdgeInsets.only(right: 0, bottom: 0),
-              child: Icon(Icons.verified,
-                  size: 14, color: Theme.of(context).colorScheme.primary),
+              child: Icon(
+                Icons.verified,
+                size: 14,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
         ],
       ),
@@ -802,8 +861,11 @@ class _SearchPageState extends State<SearchPage> {
         verifiedLabel: (u['verified_label'] ?? '').toString(),
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
-      subtitle: Text('@$username',
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        '@$username',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: _loggedIn && !isSelf
           ? OutlinedButton(
               style: OutlinedButton.styleFrom(
@@ -872,34 +934,35 @@ class _SearchPageState extends State<SearchPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _posts.length + (_postsLoadingMore ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i >= _posts.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+        itemCount: _posts.length + (_postsLoadingMore ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i >= _posts.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
-            ),
+            );
+          }
+          final post = TeaPost.fromJson(_posts[i]);
+          return TeahousePostTile(
+            post: post,
+            onTap: () => _openPost(_posts[i]),
+            onLike: () => _togglePostLike(_posts[i]),
+            onFavorite: () => _togglePostFavorite(_posts[i]),
           );
-        }
-        final post = TeaPost.fromJson(_posts[i]);
-        return TeahousePostTile(
-          post: post,
-          onTap: () => _openPost(_posts[i]),
-          onLike: () => _togglePostLike(_posts[i]),
-          onFavorite: () => _togglePostFavorite(_posts[i]),
-        );
-      },
+        },
       ),
     );
   }
 
   Widget _allResults() {
-    final bool nothing = _cardsDone &&
+    final bool nothing =
+        _cardsDone &&
         _worldsDone &&
         _usersDone &&
         _postsDone &&
@@ -916,55 +979,83 @@ class _SearchPageState extends State<SearchPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: <Widget>[
-        if (_cards.isNotEmpty) ...<Widget>[
-          const _SectionHeader('角色卡'),
-          ..._cards.map((c) => ListTile(
+          if (_cards.isNotEmpty) ...<Widget>[
+            const _SectionHeader('角色卡'),
+            ..._cards.map(
+              (c) => ListTile(
                 leading: const Icon(Icons.badge_outlined),
-                title: Text((c['name'] ?? '').toString(),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text((c['intro'] ?? '').toString(),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                title: Text(
+                  (c['name'] ?? '').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  (c['intro'] ?? '').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openCard(c),
-              )),
+              ),
+            ),
+          ],
+          if (_worlds.isNotEmpty) ...<Widget>[
+            const _SectionHeader('世界卡'),
+            ..._worlds
+                .take(10)
+                .map(
+                  (w) => ListTile(
+                    leading: const Icon(Icons.public_outlined),
+                    title: Text(
+                      w.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      w.summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openWorld(w),
+                  ),
+                ),
+          ],
+          if (_users.isNotEmpty) ...<Widget>[
+            const _SectionHeader('用户'),
+            ..._users
+                .take(10)
+                .map(
+                  (u) => ListTile(
+                    leading: Avatar(avatar: (u['avatar'] ?? '').toString()),
+                    title: Text(
+                      (u['nickname'] ?? '').toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '@${u['username'] ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openUser(u),
+                  ),
+                ),
+          ],
+          if (_posts.isNotEmpty) ...<Widget>[
+            const _SectionHeader('茶馆帖'),
+            ..._posts.take(10).map((p) {
+              final post = TeaPost.fromJson(p);
+              return TeahousePostTile(
+                post: post,
+                onTap: () => _openPost(p),
+                onLike: () => _togglePostLike(p),
+                onFavorite: () => _togglePostFavorite(p),
+              );
+            }),
+          ],
         ],
-        if (_worlds.isNotEmpty) ...<Widget>[
-          const _SectionHeader('世界卡'),
-          ..._worlds.take(10).map((w) => ListTile(
-                leading: const Icon(Icons.public_outlined),
-                title: Text(w.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(w.summary,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _openWorld(w),
-              )),
-        ],
-        if (_users.isNotEmpty) ...<Widget>[
-          const _SectionHeader('用户'),
-          ..._users.take(10).map((u) => ListTile(
-                leading: Avatar(avatar: (u['avatar'] ?? '').toString()),
-                title: Text((u['nickname'] ?? '').toString(),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('@${u['username'] ?? ''}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _openUser(u),
-              )),
-        ],
-        if (_posts.isNotEmpty) ...<Widget>[
-          const _SectionHeader('茶馆帖'),
-          ..._posts.take(10).map((p) {
-            final post = TeaPost.fromJson(p);
-            return TeahousePostTile(
-              post: post,
-              onTap: () => _openPost(p),
-              onLike: () => _togglePostLike(p),
-              onFavorite: () => _togglePostFavorite(p),
-            );
-          }),
-        ],
-      ],
       ),
     );
   }
@@ -980,10 +1071,9 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Text(
         title,
-        style: Theme.of(context)
-            .textTheme
-            .labelLarge
-            ?.copyWith(fontWeight: FontWeight.w500),
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
       ),
     );
   }

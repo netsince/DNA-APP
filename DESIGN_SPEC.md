@@ -315,19 +315,19 @@ L6  模型专属采样                  model_sampler_settings
 - **不缩放布局尺寸**:间距、图标、固定高度都不跟随。所以新增"定高 + 内嵌文字"
   的容器时,必须在「超大」档下目视一次 —— `test/font_scale_smoke_test.dart`
   钉住了六个高频面(主界面/设置页/角色展示/角色编辑器/新建会话/聊天页)。
-- **系统 ×应用,再封顶**(不是覆盖):`MediaQuery.textScaler`是系统无障碍通道,
-应用内档位是设计偏好,通用做法是相乘(微信/浏览器同模型),最终倍率夹在
- `AppFontScale.minEffectiveScale`(0.8)与 `maxEffectiveScale`(2.0)之间。
-早先是「1..5档直接覆盖系统值」,导致用户系统已放大1.5、应用再选「超大」
-反而比系统更小 ——在无障碍上说不通。
-- **低层原语禁止使用**:应用层只允许 `Text` / `Text.rich` / `FitText`。
- `RichText`与 `TextPainter`默认 `TextScaler.noScaling`、不读 MediaQuery,
-一度导致聊天正文完全不跟随字号。现在由 `test/text_scaling_guard_test.dart`
-静态守住(唯一豁免:`fit_text.dart`里用 TextPainter **测量**单行宽度)。
-- **社区不做单独豁免**:岛内嵌在主应用里、共享同一个 `MaterialApp`。只在单独运行
-社区入口(`lib/island_app/main.dart`)时没有应用设置,字号回落到跟随系统。
-- **验收看「尺寸真的变了」**:`font_scale_smoke_test.dart`只证明「不溢出」,
- `font_scale_effect_test.dart`才证明「字号真的生效」(同一段文字在两档下比较高度)。
+- **系统 ×应用，再封顶**（不是覆盖）：`MediaQuery.textScaler`是系统无障碍通道，
+  应用内档位是设计偏好，通用做法是**相乘**（微信、浏览器都是这个模型），最终倍率夹在
+  `AppFontScale.minEffectiveScale`(0.8)与 `maxEffectiveScale`(2.0)之间。
+  早先是「1..5档直接覆盖系统值」，导致用户系统已放大1.5、应用再选「超大」，
+  得到的反而比系统更小 ——在无障碍上说不通。
+- **低层原语禁止使用**：应用层只允许 `Text` / `Text.rich` / `FitText`。
+  `RichText`与 `TextPainter`默认 `TextScaler.noScaling`、不读 `MediaQuery`，
+  一度导致聊天正文完全不跟随字号。现在由 `test/text_scaling_guard_test.dart`
+  静态守住（唯一豁免：`fit_text.dart`里用 `TextPainter` **测量**单行宽度）。
+- **社区不做单独豁免**：岛内嵌在主应用里、共享同一个 `MaterialApp`。只在单独运行
+  社区入口（`lib/island_app/main.dart`）时没有应用设置，字号回落到跟随系统。
+- **验收看「尺寸真的变了」**：`font_scale_smoke_test.dart`只证明「不溢出」，
+  `font_scale_effect_test.dart`才证明「字号真的生效」（同一段文字在两档下比较高度）。
 
 ### 3.2 `textTheme` 重映射表
 

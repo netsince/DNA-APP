@@ -16,6 +16,7 @@ import 'package:dna/island_app/points_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/points_format.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import '../theme/tokens.dart';
 
 /// 生图工作台（App 端）：提示词 + 模型 + 张数 + 宽高比 + 参考图，
@@ -105,13 +106,18 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       final meta = await ApiClient.instance.getImageGenMeta();
       if (!mounted) return;
       final models = (meta['models'] is List)
-          ? (meta['models'] as List).whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList()
+          ? (meta['models'] as List)
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         _models = models;
         _balance = parsePoints(meta['balance']);
         _maxRefs = (meta['max_references'] as num?)?.toInt() ?? 5;
-        _modelId ??= models.isNotEmpty ? (models.first['id'] as num?)?.toInt() : null;
+        _modelId ??= models.isNotEmpty
+            ? (models.first['id'] as num?)?.toInt()
+            : null;
         _loading = false;
       });
       await _loadLogs(reset: true);
@@ -129,7 +135,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
+      ..showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+      );
   }
 
   // ---------- 参考图 ----------
@@ -160,7 +168,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     for (final f in _refs) {
       try {
         final bytes = await f.readAsBytes();
-        final ext = f.name.contains('.') ? f.name.split('.').last.toLowerCase() : 'png';
+        final ext = f.name.contains('.')
+            ? f.name.split('.').last.toLowerCase()
+            : 'png';
         payload.add(<String, dynamic>{
           'filename': f.name,
           'mimetype': _mimeOf(ext),
@@ -209,7 +219,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       return;
     }
     // 预估算积分，点数不足先弹引导（对齐网页版：不足时给「去获取积分」）。
-    final model = _models.where((m) => (m['id'] as num?)?.toInt() == modelId).firstOrNull;
+    final model = _models
+        .where((m) => (m['id'] as num?)?.toInt() == modelId)
+        .firstOrNull;
     final perImage = parsePoints(model?['points_per_image']);
     final estimated = perImage * Decimal.fromInt(_count);
     if (estimated > Decimal.zero && _balance < estimated) {
@@ -247,7 +259,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('点数不足'),
-        content: Text('本次预计消耗 ${formatPoints(estimated)} 点，当前余额 ${formatPoints(_balance)} 点。'),
+        content: Text(
+          '本次预计消耗 ${formatPoints(estimated)} 点，当前余额 ${formatPoints(_balance)} 点。',
+        ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -269,7 +283,10 @@ class _ImageGenBodyState extends State<ImageGenBody> {
 
   // ---------- 轮询 ----------
   void _ensurePolling() {
-    _pollTimer ??= Timer.periodic(const Duration(seconds: 4), (_) => _pollTasks());
+    _pollTimer ??= Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => _pollTasks(),
+    );
     _pollTasks();
   }
 
@@ -278,7 +295,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     try {
       final tasks = await ApiClient.instance.getActiveImageGenTasks();
       if (!mounted) return;
-      final returned = tasks.map((t) => (t['id'] as num?)?.toInt() ?? -1).toSet();
+      final returned = tasks
+          .map((t) => (t['id'] as num?)?.toInt() ?? -1)
+          .toSet();
       for (final id in [..._activeTaskIds]) {
         if (!returned.contains(id)) {
           _activeTaskIds.remove(id);
@@ -326,8 +345,10 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     });
     try {
       final page = reset ? 1 : _logsPage + 1;
-      final result = await ApiClient.instance
-          .getImageGenLogs(page: page, includeFailed: true);
+      final result = await ApiClient.instance.getImageGenLogs(
+        page: page,
+        includeFailed: true,
+      );
       if (!mounted) return;
       setState(() {
         if (reset) _logs.clear();
@@ -354,15 +375,14 @@ class _ImageGenBodyState extends State<ImageGenBody> {
   /// 详情页的「同款生成」会把提示词 pop 回来，这里填进输入框。
   Future<void> _openLog(Map<String, dynamic> log) async {
     final String? prompt = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
-        builder: (_) => ImageGenDetailPage(log: log),
-      ),
+      MaterialPageRoute<String>(builder: (_) => ImageGenDetailPage(log: log)),
     );
     if (!mounted || prompt == null || prompt.isEmpty) return;
     setState(() {
       _promptController.text = prompt;
-      _promptController.selection =
-          TextSelection.collapsed(offset: _promptController.text.length);
+      _promptController.selection = TextSelection.collapsed(
+        offset: _promptController.text.length,
+      );
     });
     _snack('已填入原提示词，可直接再次生成');
   }
@@ -390,79 +410,103 @@ class _ImageGenBodyState extends State<ImageGenBody> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     final itemCount = logs.length + (addLoadingMore ? 1 : 0);
-    return MasonryGridView.count(
-      controller: controller,
-      shrinkWrap: shrinkWrap,
-      padding: const EdgeInsets.all(8),
-      crossAxisCount: 2,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      itemCount: itemCount,
-      itemBuilder: (context, i) {
-        if (i >= logs.length) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+
+    //列数按可用宽度自适应。**只有自己滚动的网格才走 LayoutBuilder**：
+    //shrinkWrap: true时网格嵌在别人的滚动体里，父级给的是无界高度，
+    //LayoutBuilder会把「无限高」原样传下去，MasonryGridView据此算出的
+    //内容高度严重偏小 ——外层列表的总滚动范围跟着变小，表现就是
+    //「桌面上只能看到前几个、拉不下去，窗口缩小反而能滚」。
+    Widget buildGrid(double width) {
+      final int columns = gridColumnsFor(width);
+      return MasonryGridView.count(
+        controller: controller,
+        shrinkWrap: shrinkWrap,
+        physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+        padding: const EdgeInsets.all(8),
+        crossAxisCount: columns,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        itemCount: itemCount,
+        itemBuilder: (context, i) {
+          if (i >= logs.length) {
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          final log = logs[i];
+          final firstImage = (log['first_image'] ?? '').toString();
+          final aspect = _logAspect(log);
+          // 失败记录没有产出图（接口带 include_failed=1 时才回来）：给占位卡片，
+          // 点进去能在详情页看到失败原因。
+          final bool failed = firstImage.isEmpty;
+          return InkWell(
+            onTap: () => onTap(log),
+            borderRadius: BorderRadius.circular(10),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: aspect,
+                child: failed
+                    ? _buildFailedCard(scheme, log)
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          ColoredBox(color: scheme.surfaceContainerHighest),
+                          Image(
+                            image: AuthNetworkImage(firstImage),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: scheme.surfaceContainerHighest,
+                            ),
+                            frameBuilder: (context, child, frame, sync) {
+                              if (frame == null) {
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: <Widget>[
+                                    child,
+                                    const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+                              return child;
+                            },
+                          ),
+                        ],
+                      ),
               ),
             ),
           );
-        }
-        final log = logs[i];
-        final firstImage = (log['first_image'] ?? '').toString();
-        final aspect = _logAspect(log);
-        // 失败记录没有产出图（接口带 include_failed=1 时才回来）：给占位卡片，
-        // 点进去能在详情页看到失败原因。
-        final bool failed = firstImage.isEmpty;
-        return InkWell(
-          onTap: () => onTap(log),
-          borderRadius: BorderRadius.circular(10),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: AspectRatio(
-              aspectRatio: aspect,
-              child: failed
-                  ? _buildFailedCard(scheme, log)
-                  : Stack(
-                fit: StackFit.expand,
-                children: <Widget>[
-                  ColoredBox(color: scheme.surfaceContainerHighest),
-                  Image(
-                    image: AuthNetworkImage(firstImage),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (_, _, _) =>
-                        ColoredBox(color: scheme.surfaceContainerHighest),
-                    frameBuilder: (context, child, frame, sync) {
-                      if (frame == null) {
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            child,
-                            const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return child;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+        },
+      );
+    }
+
+    //自己滚动的网格：用 LayoutBuilder拿可用宽度（此时高度有界，安全）。
+    if (!shrinkWrap) {
+      return LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) =>
+            buildGrid(constraints.maxWidth),
+      );
+    }
+
+    //嵌在别人滚动体里的网格：**不能**走 LayoutBuilder（父级高度无界，
+    //会把无限高传下去导致内容高度算小）。宽度取父级内容列的宽度。
+    return buildGrid(MediaQuery.sizeOf(context).width);
   }
 
   /// 失败记录的瀑布流卡片：没有产出图，用占位 + 「生成失败」，点进去看原因。
@@ -474,11 +518,19 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Icon(Icons.broken_image_outlined,
-              size: 26, color: scheme.onSurfaceVariant),
+          Icon(
+            Icons.broken_image_outlined,
+            size: 26,
+            color: scheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 6),
-          Text('生成失败',
-              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant)),
+          Text(
+            '生成失败',
+            style: TextStyle(
+              fontSize: AppFontSize.caption,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
           if (model.isNotEmpty) ...<Widget>[
             const SizedBox(height: 2),
             Text(
@@ -508,8 +560,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
             const Text('登录后即可使用生图'),
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: widget.onRequireLogin ??
-                  () => _snack('请先在侧边栏「我」页登录'),
+              onPressed: widget.onRequireLogin ?? () => _snack('请先在侧边栏「我」页登录'),
               child: const Text('去登录'),
             ),
           ],
@@ -554,13 +605,15 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       children: <Widget>[
         Icon(Icons.stars_outlined, color: scheme.primary),
         const SizedBox(width: 6),
-        Text('当前点数：${formatPoints(_balance)}',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          '当前点数：${formatPoints(_balance)}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const Spacer(),
         TextButton.icon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const PointsPage()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const PointsPage())),
           icon: const Icon(Icons.redeem_outlined, size: 18),
           label: const Text('获取点数'),
         ),
@@ -577,11 +630,12 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('生图工作台',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w500)),
+            Text(
+              '生图工作台',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _promptController,
@@ -618,9 +672,11 @@ class _ImageGenBodyState extends State<ImageGenBody> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.auto_awesome),
-                label: Text(_activeTaskIds.isNotEmpty
-                    ? '生成中…'
-                    : (_submitting ? '提交中…' : '生成')),
+                label: Text(
+                  _activeTaskIds.isNotEmpty
+                      ? '生成中…'
+                      : (_submitting ? '提交中…' : '生成'),
+                ),
               ),
             ),
             if (_activeTaskIds.isNotEmpty)
@@ -649,7 +705,10 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         final pts = parsePoints(m['points_per_image']);
         return DropdownMenuItem<int>(
           value: id,
-          child: Text('$name（${formatPoints(pts)} 点/张）', overflow: TextOverflow.ellipsis),
+          child: Text(
+            '$name（${formatPoints(pts)} 点/张）',
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       }).toList(),
       onChanged: (v) => setState(() => _modelId = v),
@@ -676,15 +735,25 @@ class _ImageGenBodyState extends State<ImageGenBody> {
 
   Widget _buildAspectSelector(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const aspects = <String>['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16'];
+    const aspects = <String>[
+      'auto',
+      '1:1',
+      '3:2',
+      '2:3',
+      '4:3',
+      '3:4',
+      '16:9',
+      '9:16',
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('宽高比',
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(color: scheme.onSurfaceVariant)),
+        Text(
+          '宽高比',
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,
@@ -706,11 +775,12 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('参考图（最多 $_maxRefs 张）',
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(color: scheme.onSurfaceVariant)),
+        Text(
+          '参考图（最多 $_maxRefs 张）',
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
         const SizedBox(height: 6),
         if (_refs.isNotEmpty)
           Wrap(
@@ -762,8 +832,13 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         Positioned(
           left: 2,
           bottom: 0,
-          child: Text('图片${index + 1}',
-              style: TextStyle(fontSize: AppFontSize.tiny, color: scheme.onSurface)),
+          child: Text(
+            '图片${index + 1}',
+            style: TextStyle(
+              fontSize: AppFontSize.tiny,
+              color: scheme.onSurface,
+            ),
+          ),
         ),
       ],
     );
@@ -773,11 +848,12 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
-        Text('我的生成记录',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w500)),
+        Text(
+          '我的生成记录',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+        ),
         Row(
           children: <Widget>[
             // 失败记录单独成页：失败后只能看到一句错误提示时，用户无从下手重试。
@@ -810,14 +886,15 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     BuildContext context, {
     required WidgetBuilder builder,
   }) async {
-    final String? prompt = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(builder: builder),
-    );
+    final String? prompt = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute<String>(builder: builder));
     if (!mounted || prompt == null || prompt.isEmpty) return;
     setState(() {
       _promptController.text = prompt;
-      _promptController.selection =
-          TextSelection.collapsed(offset: _promptController.text.length);
+      _promptController.selection = TextSelection.collapsed(
+        offset: _promptController.text.length,
+      );
     });
     _snack('已填入原提示词，可直接再次生成');
   }
@@ -913,8 +990,10 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
     });
     try {
       final page = reset ? 1 : _page + 1;
-      final result = await ApiClient.instance
-          .getImageGenLogs(page: page, includeFailed: true);
+      final result = await ApiClient.instance.getImageGenLogs(
+        page: page,
+        includeFailed: true,
+      );
       if (!mounted) return;
       setState(() {
         if (reset) _logs.clear();
@@ -937,9 +1016,7 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
   /// （历史全量页是盖在工作台之上的，所以先 pop 自己，提示词就能回填到输入框）。
   Future<void> _openLog(Map<String, dynamic> log) async {
     final String? prompt = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
-        builder: (_) => ImageGenDetailPage(log: log),
-      ),
+      MaterialPageRoute<String>(builder: (_) => ImageGenDetailPage(log: log)),
     );
     if (!mounted || prompt == null || prompt.isEmpty) return;
     Navigator.of(context).pop(prompt);

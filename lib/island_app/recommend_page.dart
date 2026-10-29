@@ -82,9 +82,8 @@ class _RecommendBodyState extends State<RecommendBody> {
   void _openUser(Map<String, dynamic> data) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => UserProfilePage(
-          username: (data['username'] ?? '').toString(),
-        ),
+        builder: (_) =>
+            UserProfilePage(username: (data['username'] ?? '').toString()),
       ),
     );
   }
@@ -98,20 +97,22 @@ class _RecommendBodyState extends State<RecommendBody> {
       return ErrorState(onRetry: _load);
     }
     if (_items.isEmpty) {
-      return const EmptyState(
-        icon: Icons.workspaces_outline,
-        title: '暂无推荐内容。',
-      );
+      return const EmptyState(icon: Icons.workspaces_outline, title: '暂无推荐内容。');
     }
     // 宽屏（横屏/桌面）自适应多列并排，窄屏保持单列；统一支持下拉刷新。
     return AppRefreshIndicator(
       onRefresh: _load,
+      //宽屏自适应多列；**手机竖屏也给双列** ——单列时一张3:4封面的卡片
+      //会横跨整屏、又高又大，正是用户反馈「一张卡占满很大屏幕」的成因。
+      //窄屏列宽下限放宽到150，保证390宽也能排下2列。
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth < 760) {
-            return _buildSingleColumn();
-          }
-          return _buildColumns(constraints.maxWidth);
+          final bool narrow = constraints.maxWidth < 600;
+          return _buildColumns(
+            constraints.maxWidth,
+            minColWidth: narrow ? 150 : 210,
+            maxColumns: narrow ? 2 : 6,
+          );
         },
       ),
     );
@@ -133,28 +134,17 @@ class _RecommendBodyState extends State<RecommendBody> {
     );
   }
 
-  /// 窄屏：单列列表。
-  Widget _buildSingleColumn() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: <Widget>[
-        for (final it in _items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _itemWidget(it),
-          ),
-      ],
-    );
-  }
-
-  /// 宽屏：自适应多列瀑布流（最多 6 列，交替放入当前最矮的列）。
+  ///瀑布流：自适应多列，交替放入当前最矮的列。
   ///
-  /// 列数随可用宽度增加：保证每列至少约 [minColWidth] 宽，卡片不会太小；
-  /// 列之间与卡片之间都保留 [gap] 间隔。
-  Widget _buildColumns(double width) {
+  ///手机竖屏也是**双列**（单列时3:4封面会横跨整屏、占满很大一块）；
+  ///桌面按宽度自然增加到6列。
+  Widget _buildColumns(
+    double width, {
+    double minColWidth = 210,
+    int maxColumns = 6,
+  }) {
     const double gap = 16;
-    const double minColWidth = 210;
-    final int columns = (width / minColWidth).floor().clamp(2, 6);
+    final int columns = (width / minColWidth).floor().clamp(2, maxColumns);
     final double colWidth = (width - 16 * 2 - gap * (columns - 1)) / columns;
     final List<List<Widget>> columnItems = <List<Widget>>[
       for (var i = 0; i < columns; i++) <Widget>[],
@@ -239,10 +229,9 @@ class _RecommendCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     note,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: scheme.onSurface),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: scheme.onSurface),
                   ),
                 ),
               ],
@@ -273,58 +262,79 @@ class _RecommendUser extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final username = (data['username'] ?? '').toString();
     final avatar = (data['avatar'] ?? '').toString();
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: <Widget>[
-              Avatar(avatar: avatar, radius: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    UserBadge.fromUser(
-                      data,
-                      fallbackName: username,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w500),
+    //窄列（手机双列时每列约170）放不下「头像+文字+箭头」的横排，
+    //换成头像在上、文字在下的竖排；宽列保持原来的横条。
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool narrow = constraints.maxWidth < 220;
+        return Card(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: narrow
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Avatar(avatar: avatar, radius: 20),
+                        const SizedBox(height: 8),
+                        _buildTexts(context, scheme, username, compact: true),
+                      ],
+                    )
+                  : Row(
+                      children: <Widget>[
+                        Avatar(avatar: avatar, radius: 24),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildTexts(context, scheme, username)),
+                        Icon(Icons.chevron_right, color: scheme.outlineVariant),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '@$username · $cardCount 张角色卡',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    if (note.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 6),
-                      Text(
-                        note,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: scheme.onSurface),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: scheme.outlineVariant),
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  ///创作者名称 / @用户名·卡数 /推荐语。窄列时推荐语只留1行，避免把卡片撑太高。
+  Widget _buildTexts(
+    BuildContext context,
+    ColorScheme scheme,
+    String username, {
+    bool compact = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        UserBadge.fromUser(
+          data,
+          fallbackName: username,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
         ),
-      ),
+        const SizedBox(height: 2),
+        Text(
+          '@$username · $cardCount张角色卡',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        if (note.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            note,
+            maxLines: compact ? 1 : 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurface),
+          ),
+        ],
+      ],
     );
   }
 }

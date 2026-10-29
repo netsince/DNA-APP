@@ -5,20 +5,27 @@ import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import '../theme/tokens.dart';
 
 /// 我的处罚加载回调（默认走 [ApiClient.getPunishments]）。
 typedef PunishmentsLoader = Future<PunishmentsData> Function();
 
 /// 处罚申诉回调（默认走 [ApiClient.submitPunishmentAppeal]）。
-typedef PunishmentAppealHandler = Future<Map<String, dynamic>> Function(
-  int punishmentId,
-  String appealReason,
-);
+typedef PunishmentAppealHandler =
+    Future<Map<String, dynamic>> Function(
+      int punishmentId,
+      String appealReason,
+    );
 
 /// 我的处罚页：处罚明细列表（对齐网页 /my/punishments）。
 class PunishmentsPage extends StatelessWidget {
-  const PunishmentsPage({super.key, this.loader, this.appealHandler, this.isLoggedIn});
+  const PunishmentsPage({
+    super.key,
+    this.loader,
+    this.appealHandler,
+    this.isLoggedIn,
+  });
 
   final PunishmentsLoader? loader;
   final PunishmentAppealHandler? appealHandler;
@@ -112,10 +119,8 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetContext) => _AppealSheet(
-        punishment: p,
-        handler: _appealHandler,
-      ),
+      builder: (sheetContext) =>
+          _AppealSheet(punishment: p, handler: _appealHandler),
     );
     if (updated == null) return;
     if (!mounted) return;
@@ -139,22 +144,27 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
       );
     }
     if (_items.isEmpty) {
-      return const EmptyState(
-        icon: Icons.gavel_outlined,
-        title: '暂无处罚记录',
-      );
+      return const EmptyState(icon: Icons.gavel_outlined, title: '暂无处罚记录');
     }
-    return AppRefreshIndicator(
-      onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) => _PunishmentCard(
-          p: _items[index],
-          onAppeal: () => _appeal(_items[index]),
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double inset = wideInset(
+          constraints.maxWidth,
+          maxWidth: WideContent.list.maxWidth,
+        );
+        return AppRefreshIndicator(
+          onRefresh: _load,
+          child: ListView.separated(
+            padding: EdgeInsets.fromLTRB(16 + inset, 16, 16 + inset, 16),
+            itemCount: _items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _PunishmentCard(
+              p: _items[index],
+              onAppeal: () => _appeal(_items[index]),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -211,10 +221,9 @@ class _PunishmentCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     (p['type_label'] ?? '处罚').toString(),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w500),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 Container(
@@ -244,16 +253,19 @@ class _PunishmentCard extends StatelessWidget {
             Text(
               '处罚时间 ${formatDateTime(created)}'
               '${expires.isNotEmpty ? '\n到期时间 ${formatDateTime(expires)}' : ''}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.body),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: AppLineHeight.body,
+              ),
             ),
             if (appealed) ...<Widget>[
               const SizedBox(height: 8),
               Text(
                 '已提交申诉，等待处理',
-                style: TextStyle(fontSize: AppFontSize.caption, color: scheme.primary),
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  color: scheme.primary,
+                ),
               ),
             ] else if (canAppeal) ...<Widget>[
               const SizedBox(height: 10),
@@ -331,10 +343,9 @@ class _AppealSheetState extends State<_AppealSheet> {
         children: <Widget>[
           Text(
             '申诉「${widget.punishment['type_label'] ?? ''}」',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 12),
           TextField(
