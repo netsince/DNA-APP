@@ -114,5 +114,4 @@ class AuthSession extends ChangeNotifier {
     await prefs.remove(_tokenKey);
     notifyListeners();
   }
-
 }

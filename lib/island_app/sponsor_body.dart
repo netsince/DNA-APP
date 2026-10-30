@@ -49,10 +49,12 @@ class _SponsorBodyState extends State<SponsorBody> {
         _url = (data['url'] ?? '').toString();
         _sponsors
           ..clear()
-          ..addAll((data['sponsors'] as List? ?? [])
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList());
+          ..addAll(
+            (data['sponsors'] as List? ?? [])
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList(),
+          );
         _loading = false;
       });
     } catch (e) {
@@ -91,13 +93,14 @@ class _SponsorBodyState extends State<SponsorBody> {
     final scheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double w =
-            constraints.maxWidth > 720 ? 720 : constraints.maxWidth;
+        final double w = constraints.maxWidth > 720
+            ? 720
+            : constraints.maxWidth;
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: w),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppInsets.card,
               children: <Widget>[
                 _HeaderCard(title: _title, content: _content),
                 if (_url.isNotEmpty) ...<Widget>[
@@ -107,7 +110,7 @@ class _SponsorBodyState extends State<SponsorBody> {
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
                       textStyle: const TextStyle(
                         fontSize: AppFontSize.subtitle,
@@ -121,24 +124,26 @@ class _SponsorBodyState extends State<SponsorBody> {
                 const SizedBox(height: 24),
                 Row(
                   children: <Widget>[
-                    Icon(Icons.volunteer_activism, size: 18, color: scheme.primary),
+                    Icon(
+                      Icons.volunteer_activism,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '感谢以下赞助者',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w500),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '正是他们让这个小岛得以持续运转，我们由衷感谢每一位支持者。',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (_sponsors.isEmpty)
@@ -148,11 +153,13 @@ class _SponsorBodyState extends State<SponsorBody> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _sponsors
-                        .map((s) => _SponsorChip(
-                              sponsor: s,
-                              onTap: () =>
-                                  _openProfile((s['username'] ?? '').toString()),
-                            ))
+                        .map(
+                          (s) => _SponsorChip(
+                            sponsor: s,
+                            onTap: () =>
+                                _openProfile((s['username'] ?? '').toString()),
+                          ),
+                        )
                         .toList(),
                   ),
                 const SizedBox(height: 32),
@@ -170,7 +177,7 @@ class _SponsorBodyState extends State<SponsorBody> {
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         children: <Widget>[
@@ -178,10 +185,9 @@ class _SponsorBodyState extends State<SponsorBody> {
           const SizedBox(height: 8),
           Text(
             '还没有赞助者，成为第一个支持者吧',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: scheme.onSurfaceVariant),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -211,7 +217,7 @@ class _HeaderCard extends StatelessWidget {
             scheme.surfaceContainerLow,
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
@@ -225,10 +231,9 @@ class _HeaderCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title.isEmpty ? '支持 DNAISLAND' : title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: AppWeight.medium,
+                  ),
                 ),
               ),
             ],
@@ -275,15 +280,17 @@ class _SponsorChip extends StatelessWidget {
     final amount = (sponsor['amount'] ?? '').toString();
     return Material(
       color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.4),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -297,11 +304,13 @@ class _SponsorChip extends StatelessWidget {
               if (amount.isNotEmpty) ...<Widget>[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
                   ),
                   child: Text(
                     amount,
@@ -333,7 +342,7 @@ class _EmptySponsor extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
@@ -345,19 +354,18 @@ class _EmptySponsor extends StatelessWidget {
               Text(
                 title.isEmpty ? '赞助' : title,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 content.trim().isEmpty ? '赞助功能暂未开放，敬请期待。' : content,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.body),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: AppLineHeight.body,
+                ),
               ),
             ],
           ),

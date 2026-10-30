@@ -137,7 +137,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
             ),
           _downloading
               ? const Padding(
-                  padding: EdgeInsets.all(14),
+                  padding: EdgeInsets.all(AppSpacing.md),
                   child: SizedBox(
                     width: 20,
                     height: 20,
@@ -189,7 +189,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
                         Icons.chevron_left,
                         _current > 0,
                         () => _pageController.previousPage(
-                          duration: const Duration(milliseconds: 200),
+                          duration: AppMotion.fast,
                           curve: Curves.easeOut,
                         ),
                       ),
@@ -197,7 +197,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
                         Icons.chevron_right,
                         _current < widget.urls.length - 1,
                         () => _pageController.nextPage(
-                          duration: const Duration(milliseconds: 200),
+                          duration: AppMotion.fast,
                           curve: Curves.easeOut,
                         ),
                       ),
@@ -229,7 +229,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
   ///桌面端的左右翻页按钮：半透明圆钮，首/末张时置灰不可点。
   Widget _pagerButton(IconData icon, bool enabled, VoidCallback onTap) {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
         child: Material(

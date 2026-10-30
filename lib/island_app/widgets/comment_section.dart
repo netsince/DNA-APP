@@ -17,26 +17,26 @@ import 'package:dna/island_app/widgets/sticker_text.dart';
 import '../../theme/tokens.dart';
 
 /// 评论列表加载（GET /cards/`id`/comments）。
-typedef CommentLoader = Future<CommentPage> Function(
-  String cardId, {
-  int page,
-  String sort,
-  bool onlyAuthor,
-});
+typedef CommentLoader =
+    Future<CommentPage> Function(
+      String cardId, {
+      int page,
+      String sort,
+      bool onlyAuthor,
+    });
 
 /// 发表评论（POST /cards/`id`/comments）。
-typedef CommentPoster = Future<int> Function(
-  String cardId,
-  String content, {
-  int? replyToId,
-  String? imageData,
-});
+typedef CommentPoster =
+    Future<int> Function(
+      String cardId,
+      String content, {
+      int? replyToId,
+      String? imageData,
+    });
 
 /// 评论点赞/取消。
-typedef CommentLiker = Future<({bool liked, int count})> Function(
-  String cardId,
-  int commentId,
-);
+typedef CommentLiker =
+    Future<({bool liked, int count})> Function(String cardId, int commentId);
 
 /// 评论置顶/取消（仅卡作者）。
 typedef CommentPinner = Future<bool> Function(String cardId, int commentId);
@@ -179,12 +179,12 @@ class _CommentSectionState extends State<CommentSection> {
         onlyAuthor: _onlyAuthor,
       );
       if (!mounted) return;
-        setState(() {
-          _items = <Comment>[..._items, ...page.items];
-          _page = page.page;
-          _total = page.total;
-          _hasNext = page.hasNext;
-        });
+      setState(() {
+        _items = <Comment>[..._items, ...page.items];
+        _page = page.page;
+        _total = page.total;
+        _hasNext = page.hasNext;
+      });
     } catch (_) {
       if (!mounted) return;
       _showSnack('加载更多失败，请重试');
@@ -211,15 +211,14 @@ class _CommentSectionState extends State<CommentSection> {
       if (ctx != null) {
         Scrollable.ensureVisible(
           ctx,
-          duration: const Duration(milliseconds: 400),
+          duration: AppMotion.transform,
           curve: Curves.easeOutCubic,
           alignment: 0.2,
         );
       } else if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          (idx * 120.0).clamp(
-              0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 400),
+          (idx * 120.0).clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: AppMotion.transform,
           curve: Curves.easeOutCubic,
         );
       }
@@ -247,7 +246,12 @@ class _CommentSectionState extends State<CommentSection> {
     }
     setState(() => _posting = true);
     try {
-      await _poster(widget.cardId, text, replyToId: replyId, imageData: imageData);
+      await _poster(
+        widget.cardId,
+        text,
+        replyToId: replyId,
+        imageData: imageData,
+      );
       if (!mounted) return;
       _controller.clear();
       _replyToId = null;
@@ -354,8 +358,8 @@ class _CommentSectionState extends State<CommentSection> {
   void _startReply(Comment c) {
     final name = c.author != null
         ? (c.author!.nickname.isNotEmpty
-            ? c.author!.nickname
-            : c.author!.username)
+              ? c.author!.nickname
+              : c.author!.username)
         : '用户';
     setState(() {
       _replyToId = c.id;
@@ -364,8 +368,7 @@ class _CommentSectionState extends State<CommentSection> {
     FocusScope.of(context).requestFocus(_focusNode);
   }
 
-  void _cancelReply() =>
-      setState(() => _replyToId = _replyToName = null);
+  void _cancelReply() => setState(() => _replyToId = _replyToName = null);
 
   Future<void> _like(Comment c) async {
     if (!_loggedIn) {
@@ -374,15 +377,24 @@ class _CommentSectionState extends State<CommentSection> {
     }
     final prevLiked = c.liked;
     final prevCount = c.likeCount;
-    _applyToTree(c.id, (x) => x.copyWith(
-          liked: !prevLiked,
-          likeCount: prevCount + (prevLiked ? -1 : 1),
-        ));
+    _applyToTree(
+      c.id,
+      (x) => x.copyWith(
+        liked: !prevLiked,
+        likeCount: prevCount + (prevLiked ? -1 : 1),
+      ),
+    );
     try {
       final res = await _liker(widget.cardId, c.id);
-      _applyToTree(c.id, (x) => x.copyWith(liked: res.liked, likeCount: res.count));
+      _applyToTree(
+        c.id,
+        (x) => x.copyWith(liked: res.liked, likeCount: res.count),
+      );
     } catch (_) {
-      _applyToTree(c.id, (x) => x.copyWith(liked: prevLiked, likeCount: prevCount));
+      _applyToTree(
+        c.id,
+        (x) => x.copyWith(liked: prevLiked, likeCount: prevCount),
+      );
       if (mounted) _showSnack('操作失败，请重试');
     }
   }
@@ -526,8 +538,9 @@ class _CommentSectionState extends State<CommentSection> {
             children: <Widget>[
               Text(
                 '评论（$_total）',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const Spacer(),
               ChoiceChip(
@@ -567,20 +580,14 @@ class _CommentSectionState extends State<CommentSection> {
           children: <Widget>[
             Text(_error!, style: theme.textTheme.bodyMedium),
             const SizedBox(height: 8),
-            FilledButton.tonal(
-              onPressed: _reload,
-              child: const Text('重试'),
-            ),
+            FilledButton.tonal(onPressed: _reload, child: const Text('重试')),
           ],
         ),
       );
     }
     if (_items.isEmpty) {
       return Center(
-        child: Text(
-          '还没有评论，来抢沙发~',
-          style: theme.textTheme.bodyMedium,
-        ),
+        child: Text('还没有评论，来抢沙发~', style: theme.textTheme.bodyMedium),
       );
     }
     return AppRefreshIndicator(
@@ -589,27 +596,27 @@ class _CommentSectionState extends State<CommentSection> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      children: <Widget>[
-        ..._items.map((c) => _buildComment(c, false)),
-        if (_hasNext)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: _loadingMore
-                ? const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+        children: <Widget>[
+          ..._items.map((c) => _buildComment(c, false)),
+          if (_hasNext)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: _loadingMore
+                  ? const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Center(
+                      child: TextButton(
+                        onPressed: _loadMore,
+                        child: const Text('加载更多评论'),
+                      ),
                     ),
-                  )
-                : Center(
-                    child: TextButton(
-                      onPressed: _loadMore,
-                      child: const Text('加载更多评论'),
-                    ),
-                  ),
-          ),
-      ],
+            ),
+        ],
       ),
     );
   }
@@ -648,7 +655,9 @@ class _CommentSectionState extends State<CommentSection> {
                       horizontal: 12,
                       vertical: 8,
                     ),
-                    counterText: _loggedIn ? '${_controller.text.length}/500' : '',
+                    counterText: _loggedIn
+                        ? '${_controller.text.length}/500'
+                        : '',
                   ),
                 ),
               ),
@@ -686,7 +695,7 @@ class _CommentSectionState extends State<CommentSection> {
               child: Row(
                 children: <Widget>[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
                     child: Image.file(
                       File(_image!.path),
                       width: 64,
@@ -708,8 +717,9 @@ class _CommentSectionState extends State<CommentSection> {
                   ),
                   Text(
                     '已添加图片，发送后随评论展示',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: scheme.outline),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.outline,
+                    ),
                   ),
                 ],
               ),
@@ -719,8 +729,9 @@ class _CommentSectionState extends State<CommentSection> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '登录后才可发表评论',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: scheme.outline),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.outline,
+                ),
               ),
             ),
         ],
@@ -737,11 +748,11 @@ class _CommentSectionState extends State<CommentSection> {
         : '用户';
     final focused = c.id == _focusId;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: AppMotion.medium,
       key: focused ? _focusKey(c.id) : null,
       decoration: BoxDecoration(
         color: focused ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(
         padding: EdgeInsets.only(top: 14, left: isReply ? 36 : 0),
@@ -749,98 +760,110 @@ class _CommentSectionState extends State<CommentSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Avatar(avatar: author?.avatar ?? '', radius: isReply ? 16 : 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Flexible(
-                      child: UserBadge(
-                        name: name,
-                        isSponsor: author?.isSponsor == true,
-                        style: theme.textTheme.labelLarge,
-                      ),
-                    ),
-                    if (c.isAuthor) ...<Widget>[
-                      const SizedBox(width: 6),
-                      _tag('作者', scheme.primaryContainer,
-                          scheme.onPrimaryContainer),
-                    ],
-                    if (c.isPinned) ...<Widget>[
-                      const SizedBox(width: 6),
-                      _tag('置顶', scheme.tertiaryContainer,
-                          scheme.onTertiaryContainer),
-                    ],
-                    const Spacer(),
-                    if (c.floor != null)
-                      Text(
-                        '#${c.floor}',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: scheme.outline),
-                      ),
-                  ],
-                ),
-                if (c.replyTo != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '回复 @${c.replyTo!.authorName}',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: scheme.outline),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: StickerText(c.content, style: theme.textTheme.bodyMedium),
-                ),
-                if (c.hasImage)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: _CommentImage(
-                      dataUrl: c.imageData,
-                      onTap: () => _openImage(c.imageData),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
                     children: <Widget>[
-                      _likeButton(comment: c, onTap: () => _like(c)),
-                      // 楼中楼最多两层：第二层回复不再提供「回复」入口。
-                      if (!isReply)
-                        TextButton(
-                          onPressed: () => _startReply(c),
-                          child: const Text('回复'),
+                      Flexible(
+                        child: UserBadge(
+                          name: name,
+                          isSponsor: author?.isSponsor == true,
+                          style: theme.textTheme.labelLarge,
                         ),
+                      ),
+                      if (c.isAuthor) ...<Widget>[
+                        const SizedBox(width: 6),
+                        _tag(
+                          '作者',
+                          scheme.primaryContainer,
+                          scheme.onPrimaryContainer,
+                        ),
+                      ],
+                      if (c.isPinned) ...<Widget>[
+                        const SizedBox(width: 6),
+                        _tag(
+                          '置顶',
+                          scheme.tertiaryContainer,
+                          scheme.onTertiaryContainer,
+                        ),
+                      ],
                       const Spacer(),
-                      if (c.isMine || _owner)
-                        _commentMenu(
-                          comment: c,
-                          owner: _owner,
-                          onPin: () => _pin(c),
-                          onDelete: () => _delete(c),
+                      if (c.floor != null)
+                        Text(
+                          '#${c.floor}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.outline,
+                          ),
                         ),
                     ],
                   ),
-                ),
-                if (c.replies.isNotEmpty)
-                  ...c.replies.map((r) => _buildComment(r, true)),
-                if (c.createdAt.isNotEmpty)
+                  if (c.replyTo != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '回复 @${c.replyTo!.authorName}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.outline,
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      _formatTime(c.createdAt),
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: scheme.outline),
+                    child: StickerText(
+                      c.content,
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ),
-              ],
+                  if (c.hasImage)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: _CommentImage(
+                        dataUrl: c.imageData,
+                        onTap: () => _openImage(c.imageData),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: <Widget>[
+                        _likeButton(comment: c, onTap: () => _like(c)),
+                        // 楼中楼最多两层：第二层回复不再提供「回复」入口。
+                        if (!isReply)
+                          TextButton(
+                            onPressed: () => _startReply(c),
+                            child: const Text('回复'),
+                          ),
+                        const Spacer(),
+                        if (c.isMine || _owner)
+                          _commentMenu(
+                            comment: c,
+                            owner: _owner,
+                            onPin: () => _pin(c),
+                            onDelete: () => _delete(c),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (c.replies.isNotEmpty)
+                    ...c.replies.map((r) => _buildComment(r, true)),
+                  if (c.createdAt.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _formatTime(c.createdAt),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.outline,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -848,15 +871,12 @@ class _CommentSectionState extends State<CommentSection> {
   /// 定位评论时给目标评论挂的 GlobalKey。
   GlobalKey _focusKey(int id) => GlobalKey(debugLabel: 'focus-$id');
 
-  Widget _likeButton({
-    required Comment comment,
-    required VoidCallback onTap,
-  }) {
+  Widget _likeButton({required Comment comment, required VoidCallback onTap}) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Row(
@@ -889,10 +909,7 @@ class _CommentSectionState extends State<CommentSection> {
             child: Text(comment.isPinned ? '取消置顶' : '置顶'),
           ),
         if (comment.isMine)
-          const PopupMenuItem<String>(
-            value: 'delete',
-            child: Text('删除'),
-          ),
+          const PopupMenuItem<String>(value: 'delete', child: Text('删除')),
       ],
       onSelected: (v) {
         if (v == 'pin') onPin();
@@ -904,13 +921,16 @@ class _CommentSectionState extends State<CommentSection> {
 
 /// 小标签（作者 / 置顶）。
 Widget _tag(String text, Color bg, Color fg) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(text, style: TextStyle(fontSize: AppFontSize.tiny, color: fg)),
-    );
+  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+  decoration: BoxDecoration(
+    color: bg,
+    borderRadius: BorderRadius.circular(AppRadius.xs),
+  ),
+  child: Text(
+    text,
+    style: TextStyle(fontSize: AppFontSize.tiny, color: fg),
+  ),
+);
 
 String _formatTime(String iso) {
   final t = DateTime.tryParse(iso);
@@ -938,10 +958,9 @@ class _CommentImage extends StatelessWidget {
     if (dataUrl == null || dataUrl.isEmpty) {
       return Text(
         '[图片]',
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall
-            ?.copyWith(color: Theme.of(context).colorScheme.outline),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.outline,
+        ),
       );
     }
     final comma = dataUrl.indexOf(',');
@@ -955,16 +974,15 @@ class _CommentImage extends StatelessWidget {
     if (bytes == null) {
       return Text(
         '[图片]',
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall
-            ?.copyWith(color: Theme.of(context).colorScheme.outline),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.outline,
+        ),
       );
     }
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: Image.memory(
           bytes,
           width: 180,

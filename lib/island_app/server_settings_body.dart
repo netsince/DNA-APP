@@ -64,9 +64,9 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
       _saving = false;
       _controller.text = base;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存服务器地址')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存服务器地址')));
   }
 
   void _useOfficial() {
@@ -81,14 +81,20 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
     return _loading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
-            padding: const EdgeInsets.all(16),
+            padding: AppInsets.card,
             children: [
-              const Text('DNAISLAND 后端地址',
-                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: AppFontSize.subtitle)),
+              const Text(
+                'DNAISLAND 后端地址',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: AppFontSize.subtitle,
+                ),
+              ),
               const SizedBox(height: 8),
               const Text(
-                  'DNAISLAND 是开源项目，默认使用官方服务器；你也可以填写自建服务器的地址。',
-                  style: TextStyle(color: Colors.grey)),
+                'DNAISLAND 是开源项目，默认使用官方服务器；你也可以填写自建服务器的地址。',
+                style: TextStyle(color: Colors.grey),
+              ),
               const SizedBox(height: 12),
               ServerAddressForm(
                 controller: _controller,

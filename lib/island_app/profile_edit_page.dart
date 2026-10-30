@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
@@ -171,7 +172,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: AppInsets.card,
                 children: <Widget>[
                   _avatarSection(context),
                   const SizedBox(height: 20),
@@ -253,13 +254,20 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           color: scheme.surfaceContainerHighest,
           shape: BoxShape.circle,
         ),
-        child: Icon(Icons.person_off_outlined,
-            color: scheme.onSurfaceVariant, size: 32),
+        child: Icon(
+          Icons.person_off_outlined,
+          color: scheme.onSurfaceVariant,
+          size: 32,
+        ),
       );
     } else if (_croppedAvatar != null) {
       preview = ClipOval(
-        child: Image.memory(_croppedAvatar!,
-            width: 80, height: 80, fit: BoxFit.cover),
+        child: Image.memory(
+          _croppedAvatar!,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
       );
     } else if (_existingAvatar.isNotEmpty) {
       preview = Avatar(avatar: _existingAvatar, radius: 40);
@@ -313,11 +321,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text,
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(fontWeight: FontWeight.w500)),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+    ),
+  );
 }

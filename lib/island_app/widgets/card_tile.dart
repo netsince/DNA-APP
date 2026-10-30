@@ -23,8 +23,7 @@ class CardTile extends StatelessWidget {
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            CardDetailPage(cardId: (card['id'] ?? '').toString()),
+        builder: (_) => CardDetailPage(cardId: (card['id'] ?? '').toString()),
       ),
     );
   }
@@ -70,8 +69,9 @@ class CardTile extends StatelessWidget {
     final intro = _str('intro');
     final cover = _cover();
 
-    final metaStyle = theme.textTheme.bodySmall
-        ?.copyWith(color: scheme.onSurfaceVariant);
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
 
     return InkWell(
       onTap: onTap ?? () => _openDetail(context),
@@ -112,8 +112,9 @@ class CardTile extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               if (gender.isNotEmpty) ...[
@@ -128,21 +129,29 @@ class CardTile extends StatelessWidget {
               intro,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant, height: AppLineHeight.title),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: AppLineHeight.title,
+              ),
             ),
           ],
           const SizedBox(height: 8),
           // 统计（观看/复制）与作者同一行，作者靠右。
           Row(
             children: <Widget>[
-              Icon(Icons.visibility_outlined,
-                  size: 14, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.visibility_outlined,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 3),
               Text(_fmtCount(card['view_count']), style: metaStyle),
               const SizedBox(width: 12),
-              Icon(Icons.content_copy,
-                  size: 14, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.content_copy,
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 3),
               Text(_fmtCount(card['copy_count']), style: metaStyle),
               const Spacer(),
@@ -181,14 +190,14 @@ class _PinBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
         color: scheme.inverseSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
       child: Text(
         '置顶',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.onInverseSurface,
-              fontWeight: FontWeight.w500,
-            ),
+          color: scheme.onInverseSurface,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -207,13 +216,13 @@ class _GenderBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
         color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.onPrimaryContainer,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: scheme.onPrimaryContainer),
       ),
     );
   }

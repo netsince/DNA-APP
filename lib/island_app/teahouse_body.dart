@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
@@ -290,14 +291,14 @@ class _TeahouseBodyState extends State<TeahouseBody>
               if (_loadingMore)
                 const SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: AppInsets.card,
                     child: Center(child: CircularProgressIndicator()),
                   ),
                 ),
               if (_noMore)
                 const SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: AppInsets.card,
                     child: Center(
                       child: Text(
                         '没有更多了',
@@ -490,7 +491,7 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
                 itemBuilder: (context, i) {
                   if (i >= _posts.length) {
                     return const Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(AppSpacing.md),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }

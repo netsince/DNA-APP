@@ -135,9 +135,9 @@ class _RootShellState extends State<RootShell> {
     _scaffoldKey.currentState?.closeDrawer();
     final cfg = SiteConfig.instance;
     if (!cfg.announcementEnabled || cfg.announcementContent.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无公告')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无公告')));
       return;
     }
     showModalBottomSheet<void>(
@@ -151,25 +151,25 @@ class _RootShellState extends State<RootShell> {
   /// 打开官方文章（文章列表）。
   void _openArticles() {
     _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ArticlesPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ArticlesPage()));
   }
 
   /// 打开站长推荐。
   void _openRecommend() {
     _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const RecommendPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const RecommendPage()));
   }
 
   /// 打开代理中转（BYOK 代理配置）。
   void _openProxy() {
     _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ProxyConfigPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ProxyConfigPage()));
   }
 
   /// 选中顶栏 tab：回到「推荐」页。
@@ -189,17 +189,17 @@ class _RootShellState extends State<RootShell> {
   /// 打开通知页（侧栏「我的」组，带未读角标）。
   void _openNotifications() {
     _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => NotificationsPage()));
   }
 
   /// 打开「我的发布」。
   void _openMyCards() {
     _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const MyCardsPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const MyCardsPage()));
   }
 
   /// 打开「我的收藏」。
@@ -349,24 +349,24 @@ class _RootShellState extends State<RootShell> {
 
           final Widget content = landscape
               ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      SizedBox(
-                        width: 260,
-                        child: SafeArea(bottom: false, child: drawerContent),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    SizedBox(
+                      width: 260,
+                      child: SafeArea(bottom: false, child: drawerContent),
+                    ),
+                    const VerticalDivider(width: 1, thickness: 1),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          topBar,
+                          Expanded(child: _body()),
+                        ],
                       ),
-                      const VerticalDivider(width: 1, thickness: 1),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            topBar,
-                            Expanded(child: _body()),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
+                    ),
+                  ],
+                )
               : _body();
 
           // ＋ 枢纽浮在**整个 Scaffold 之上**，连底栏一起糊；底部原来 ＋ 的位置
@@ -421,11 +421,7 @@ class _RootShellState extends State<RootShell> {
               ],
             ),
       title: _title(),
-      centerTitle: true,
-      actions: <Widget>[
-        _notificationButton(),
-        _searchButton(),
-      ],
+      actions: <Widget>[_notificationButton(), _searchButton()],
     );
   }
 
@@ -435,14 +431,14 @@ class _RootShellState extends State<RootShell> {
   }
 
   String _pageTitle(AppNavTarget p) => switch (p) {
-        AppNavTarget.recommend => '推荐',
-        AppNavTarget.worlds => '世界',
-        AppNavTarget.teahouse => '茶馆',
-        AppNavTarget.upload => '发布',
-        AppNavTarget.imagegen => '生图',
-        AppNavTarget.me => '我',
-        AppNavTarget.settings => '设置',
-      };
+    AppNavTarget.recommend => '推荐',
+    AppNavTarget.worlds => '世界',
+    AppNavTarget.teahouse => '茶馆',
+    AppNavTarget.upload => '发布',
+    AppNavTarget.imagegen => '生图',
+    AppNavTarget.me => '我',
+    AppNavTarget.settings => '设置',
+  };
 
   /// 底栏内容高度（不含系统底部安全区）。
   ///
@@ -508,7 +504,8 @@ class _RootShellState extends State<RootShell> {
   /// 瞬时的 —— 看着像按钮在打嗝。转成 × 的图标已经足够说明状态。
   Widget _plusItem() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool active = _plusOpen ||
+    final bool active =
+        _plusOpen ||
         _page == AppNavTarget.upload ||
         _page == AppNavTarget.imagegen;
     final Color color = active ? scheme.primary : scheme.onSurfaceVariant;
@@ -584,7 +581,7 @@ class _RootShellState extends State<RootShell> {
     final bool meWithAvatar =
         target == AppNavTarget.me && AuthSession.instance.isLoggedIn;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: AppMotion.fast,
       curve: Curves.easeOut,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -610,21 +607,21 @@ class _RootShellState extends State<RootShell> {
   }
 
   (IconData, String) _navMeta(AppNavTarget t) => switch (t) {
-        AppNavTarget.recommend => (Icons.home_outlined, '推荐'),
-        AppNavTarget.worlds => (Icons.public_outlined, '世界'),
-        AppNavTarget.teahouse => (Icons.local_cafe_outlined, '茶馆'),
-        AppNavTarget.upload => (Icons.upload_outlined, '上传'),
-        AppNavTarget.imagegen => (Icons.auto_awesome_outlined, '生图'),
-        AppNavTarget.me => (Icons.person_outline, '我'),
-        AppNavTarget.settings => (Icons.settings_outlined, '设置'),
-      };
+    AppNavTarget.recommend => (Icons.home_outlined, '推荐'),
+    AppNavTarget.worlds => (Icons.public_outlined, '世界'),
+    AppNavTarget.teahouse => (Icons.local_cafe_outlined, '茶馆'),
+    AppNavTarget.upload => (Icons.upload_outlined, '上传'),
+    AppNavTarget.imagegen => (Icons.auto_awesome_outlined, '生图'),
+    AppNavTarget.me => (Icons.person_outline, '我'),
+    AppNavTarget.settings => (Icons.settings_outlined, '设置'),
+  };
 
   Widget _hamburger() => Builder(
-        builder: (context) => IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
-      );
+    builder: (context) => IconButton(
+      icon: const Icon(Icons.menu),
+      onPressed: () => Scaffold.of(context).openDrawer(),
+    ),
+  );
 
   /// 居中顶栏 tab：推荐 / 刷一刷 / 探索。
   ///
@@ -655,7 +652,7 @@ class _RootShellState extends State<RootShell> {
     final selected = _tab == t;
     return InkWell(
       onTap: () => _selectTab(t),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Column(
@@ -664,11 +661,9 @@ class _RootShellState extends State<RootShell> {
             Text(
               label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: selected
-                        ? scheme.primary
-                        : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                  ),
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              ),
             ),
             const SizedBox(height: 3),
             Container(
@@ -676,7 +671,7 @@ class _RootShellState extends State<RootShell> {
               width: 20,
               decoration: BoxDecoration(
                 color: selected ? scheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(1),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
               ),
             ),
           ],
@@ -687,14 +682,14 @@ class _RootShellState extends State<RootShell> {
 
   /// 右侧搜索入口：打开全站搜索页。
   Widget _searchButton() => IconButton(
-        icon: const Icon(Icons.search),
-        tooltip: '搜索',
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const SearchPage()),
-          );
-        },
-      );
+    icon: const Icon(Icons.search),
+    tooltip: '搜索',
+    onPressed: () {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const SearchPage()));
+    },
+  );
 
   /// 右侧通知入口：带未读数角标。未登录时不显示。
   Widget _notificationButton() {
@@ -749,9 +744,9 @@ class _NotificationButtonState extends State<_NotificationButton> {
         child: const Icon(Icons.notifications_outlined),
       ),
       onPressed: () async {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => NotificationsPage()),
-        );
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => NotificationsPage()));
         // 从通知页回来，未读数可能已经清掉，刷新一次。
         if (mounted) _load();
       },
@@ -781,10 +776,9 @@ class AnnouncementSheet extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '站点公告',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
             ),

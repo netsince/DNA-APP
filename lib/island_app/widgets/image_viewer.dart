@@ -109,10 +109,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     final url = widget.urls[_currentIndex];
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已复制图片链接'),
-        duration: Duration(seconds: 2),
-      ),
+      const SnackBar(content: Text('已复制图片链接'), duration: Duration(seconds: 2)),
     );
   }
 
@@ -148,8 +145,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
               },
               itemBuilder: (context, index) {
                 final url = widget.urls[index];
-                final isHero = index == widget.initialIndex &&
-                    widget.heroTag != null;
+                final isHero =
+                    index == widget.initialIndex && widget.heroTag != null;
 
                 Widget item = ExtendedImage.network(
                   url,
@@ -175,7 +172,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   },
                   onDoubleTap: (ExtendedImageGestureState state) {
                     final pointerDownPosition = state.pointerDownPosition;
-                    final double? currentScale = state.gestureDetails?.totalScale;
+                    final double? currentScale =
+                        state.gestureDetails?.totalScale;
                     if (currentScale != null && currentScale > 1.2) {
                       state.reset();
                     } else {
@@ -191,9 +189,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                         final loadingProgress = state.loadingProgress;
                         final double? progress =
                             loadingProgress?.expectedTotalBytes != null
-                                ? loadingProgress!.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null;
+                            ? loadingProgress!.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null;
                         return Center(
                           child: SizedBox(
                             width: 36,
@@ -233,10 +231,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 );
 
                 if (isHero) {
-                  item = Hero(
-                    tag: widget.heroTag!,
-                    child: item,
-                  );
+                  item = Hero(tag: widget.heroTag!, child: item);
                 }
                 return item;
               },
@@ -244,7 +239,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
             // 顶部沉浸式 AppBar
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.fast,
               curve: Curves.easeInOut,
               top: _showControls ? 0 : -100,
               left: 0,
@@ -282,7 +277,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                             ),
                             decoration: BoxDecoration(
                               color: Colors.black45,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
                             ),
                             child: Text(
                               '${_currentIndex + 1} / ${widget.urls.length}',
@@ -319,7 +314,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
             // 底部提示栏
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.fast,
               curve: Curves.easeInOut,
               bottom: _showControls ? 0 : -80,
               left: 0,
@@ -404,7 +399,7 @@ class _VerticalDismissState extends State<_VerticalDismiss>
 
   late final AnimationController _settle = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 220),
+    duration: AppMotion.fast,
   )..addListener(() => setState(() => _dy = _settleFrom * (1 - _settle.value)));
 
   @override
@@ -467,7 +462,8 @@ class _VerticalDismissState extends State<_VerticalDismiss>
   void _onEnd(DragEndDetails details) {
     final double height = MediaQuery.sizeOf(context).height;
     final double vy = details.velocity.pixelsPerSecond.dy;
-    final bool shouldPop = !_horizontal &&
+    final bool shouldPop =
+        !_horizontal &&
         (_dy.abs() > height / _distanceRatio || vy.abs() > _flingVelocity);
     if (shouldPop) {
       setState(() => _popping = true);
@@ -486,25 +482,26 @@ class _VerticalDismissState extends State<_VerticalDismiss>
   @override
   Widget build(BuildContext context) {
     final double height = MediaQuery.sizeOf(context).height;
-    final double progress =
-        height <= 0 ? 0.0 : (_dy.abs() / height).clamp(0.0, 1.0);
+    final double progress = height <= 0
+        ? 0.0
+        : (_dy.abs() / height).clamp(0.0, 1.0);
     return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
       gestures: <Type, GestureRecognizerFactory>{
         _VerticalDismissRecognizer:
             GestureRecognizerFactoryWithHandlers<_VerticalDismissRecognizer>(
-          () => _VerticalDismissRecognizer(
-            canStart: () => !_isZoomed(),
-            debugOwner: this,
-          ),
-          (_VerticalDismissRecognizer instance) {
-            instance
-              ..onStart = _onStart
-              ..onUpdate = _onUpdate
-              ..onEnd = _onEnd
-              ..onCancel = _onCancel;
-          },
-        ),
+              () => _VerticalDismissRecognizer(
+                canStart: () => !_isZoomed(),
+                debugOwner: this,
+              ),
+              (_VerticalDismissRecognizer instance) {
+                instance
+                  ..onStart = _onStart
+                  ..onUpdate = _onUpdate
+                  ..onEnd = _onEnd
+                  ..onCancel = _onCancel;
+              },
+            ),
       },
       child: GestureDetector(
         onTap: widget.onTap,

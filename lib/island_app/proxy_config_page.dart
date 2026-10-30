@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
 
@@ -70,7 +71,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
+      ..showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+      );
   }
 
   Future<void> _save() async {
@@ -185,7 +188,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppInsets.card,
               children: <Widget>[
                 _infoBanner(context),
                 const SizedBox(height: 16),
@@ -201,10 +204,10 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
   Widget _infoBanner(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +232,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -238,7 +241,12 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
               if (_remarkController.text.isNotEmpty)
                 _labelRow(context, '备注', _remarkController.text),
               const Divider(height: 24),
-              _copyableRow(context, '对外 Base URL', _publicBaseUrl, () => _copy(_publicBaseUrl)),
+              _copyableRow(
+                context,
+                '对外 Base URL',
+                _publicBaseUrl,
+                () => _copy(_publicBaseUrl),
+              ),
               _copyableRow(context, '访问令牌', _token, () => _copy(_token)),
             ],
           ),
@@ -355,10 +363,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         title,
-        style: Theme.of(context)
-            .textTheme
-            .titleSmall
-            ?.copyWith(fontWeight: FontWeight.w500),
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -373,10 +380,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
             width: 110,
             child: Text(
               label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ),
           Expanded(
@@ -387,7 +393,12 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
     );
   }
 
-  Widget _copyableRow(BuildContext context, String label, String value, VoidCallback onCopy) {
+  Widget _copyableRow(
+    BuildContext context,
+    String label,
+    String value,
+    VoidCallback onCopy,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -397,10 +408,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
             width: 110,
             child: Text(
               label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ),
           Expanded(

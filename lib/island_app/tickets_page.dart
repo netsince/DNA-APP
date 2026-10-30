@@ -10,11 +10,11 @@ import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
 String ticketStatusLabel(String status) => switch (status) {
-      'open' => '待处理',
-      'replied' => '已回复',
-      'closed' => '已关闭',
-      _ => '待处理',
-    };
+  'open' => '待处理',
+  'replied' => '已回复',
+  'closed' => '已关闭',
+  _ => '待处理',
+};
 
 /// 我的工单入口页：列表 + 状态筛选 + 新建。
 class TicketsPage extends StatefulWidget {
@@ -49,7 +49,9 @@ class _TicketsPageState extends State<TicketsPage> {
     });
     try {
       final r = await ApiClient.instance.getMyTickets(
-          page: reset ? 1 : _page + 1, status: _status);
+        page: reset ? 1 : _page + 1,
+        status: _status,
+      );
       if (!mounted) return;
       setState(() {
         if (reset) _tickets.clear();
@@ -88,9 +90,9 @@ class _TicketsPageState extends State<TicketsPage> {
   }
 
   Future<void> _openNew() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const NewTicketPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const NewTicketPage()));
     if (mounted) _load(reset: true);
   }
 
@@ -98,7 +100,7 @@ class _TicketsPageState extends State<TicketsPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('我的工单'), centerTitle: true),
+      appBar: AppBar(title: const Text('我的工单')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openNew,
         icon: const Icon(Icons.add),
@@ -112,45 +114,48 @@ class _TicketsPageState extends State<TicketsPage> {
             child: _loading && _tickets.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _tickets.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            const Icon(Icons.support_agent,
-                                size: 40, color: Colors.grey),
-                            const SizedBox(height: 8),
-                            Text('暂无工单',
-                                style: TextStyle(
-                                    color: scheme.onSurfaceVariant)),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(
+                          Icons.support_agent,
+                          size: 40,
+                          color: Colors.grey,
                         ),
-                      )
-                    : AppRefreshIndicator(
-                        onRefresh: () => _load(reset: true),
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (n) {
-                            if (n.metrics.pixels >=
-                                n.metrics.maxScrollExtent - 400) {
-                              _load();
-                            }
-                            return false;
-                          },
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(8),
-                            itemCount: _tickets.length + (_loadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index >= _tickets.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(
-                                      child: CircularProgressIndicator()),
-                                );
-                              }
-                              return _ticketTile(_tickets[index]);
-                            },
-                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '暂无工单',
+                          style: TextStyle(color: scheme.onSurfaceVariant),
                         ),
+                      ],
+                    ),
+                  )
+                : AppRefreshIndicator(
+                    onRefresh: () => _load(reset: true),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (n) {
+                        if (n.metrics.pixels >=
+                            n.metrics.maxScrollExtent - 400) {
+                          _load();
+                        }
+                        return false;
+                      },
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        itemCount: _tickets.length + (_loadingMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index >= _tickets.length) {
+                            return const Padding(
+                              padding: AppInsets.card,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          return _ticketTile(_tickets[index]);
+                        },
                       ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -214,28 +219,33 @@ class _TicketsPageState extends State<TicketsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             if (preview.isNotEmpty)
-              Text(preview,
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             Row(
               children: <Widget>[
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: chipBg,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
                   ),
-                  child: Text(ticketStatusLabel(status),
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(color: chipFg)),
+                  child: Text(
+                    ticketStatusLabel(status),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: chipFg),
+                  ),
                 ),
                 const Spacer(),
-                Text(_fmtDate(updated),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant)),
+                Text(
+                  _fmtDate(updated),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ],
@@ -384,7 +394,7 @@ class _NewTicketPageState extends State<NewTicketPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: AppInsets.card,
           children: <Widget>[
             if (_categories.isNotEmpty) ...<Widget>[
               DropdownButtonFormField<int>(
@@ -431,9 +441,13 @@ class _NewTicketPageState extends State<NewTicketPage> {
               children: <Widget>[
                 if (_image != null)
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(File(_image!.path),
-                        width: 80, height: 80, fit: BoxFit.cover),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                    child: Image.file(
+                      File(_image!.path),
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 if (_image != null) const SizedBox(width: 12),
                 TextButton.icon(
@@ -498,9 +512,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         _ticket = d;
         _messages = messages is List
             ? messages
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                  .toList()
             : <Map<String, dynamic>>[];
         _loading = false;
       });
@@ -563,8 +577,11 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     }
     setState(() => _sending = true);
     try {
-      await ApiClient.instance.replyTicket(widget.ticketId,
-          content: content, imageData: image);
+      await ApiClient.instance.replyTicket(
+        widget.ticketId,
+        content: content,
+        imageData: image,
+      );
       if (!mounted) return;
       _replyController.clear();
       setState(() => _image = null);
@@ -613,26 +630,29 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     final status = (_ticket?['status'] ?? 'open').toString();
     return Scaffold(
       appBar: AppBar(
-        title: Text(title.isEmpty ? '工单详情' : title,
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        centerTitle: true,
+        title: Text(
+          title.isEmpty ? '工单详情' : title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: switch (status) {
                     'replied' => scheme.primaryContainer,
                     'closed' => scheme.surfaceContainerHighest,
                     _ => scheme.tertiaryContainer,
                   },
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
-                child: Text(ticketStatusLabel(status),
-                    style: Theme.of(context).textTheme.labelSmall),
+                child: Text(
+                  ticketStatusLabel(status),
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
               ),
             ),
           ),
@@ -646,12 +666,14 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                   Container(
                     width: double.infinity,
                     color: scheme.surfaceContainerHighest,
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
-                        Text('此工单已关闭',
-                            style: TextStyle(color: scheme.onSurfaceVariant)),
+                        Text(
+                          '此工单已关闭',
+                          style: TextStyle(color: scheme.onSurfaceVariant),
+                        ),
                         const SizedBox(width: 8),
                         TextButton(
                           onPressed: _reopen,
@@ -664,14 +686,13 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                   child: _messages.isEmpty
                       ? const Center(child: Text('暂无消息'))
                       : ListView.builder(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(AppSpacing.md),
                           itemCount: _messages.length,
                           itemBuilder: (context, index) =>
                               _messageBubble(_messages[index]),
                         ),
                 ),
-                if (!_closed)
-                  _replyBar(),
+                if (!_closed) _replyBar(),
               ],
             ),
     );
@@ -684,38 +705,34 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     final content = (m['content'] ?? '').toString();
     final sender = (m['sender_name'] ?? '').toString();
     final created = (m['created_at'] ?? '').toString();
-    final time = created.length >= 16
-        ? created.substring(0, 16)
-        : created;
+    final time = created.length >= 16 ? created.substring(0, 16) : created;
     final image = (m['image'] ?? '').toString();
 
     final bubbleColor = isUser
         ? scheme.primaryContainer
         : scheme.surfaceContainerHighest;
-    final textColor = isUser
-        ? scheme.onPrimaryContainer
-        : scheme.onSurface;
+    final textColor = isUser ? scheme.onPrimaryContainer : scheme.onSurface;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78),
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: bubbleColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
               isUser ? '我' : (sender.isEmpty ? '管理员' : sender),
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 4),
             if (content.isNotEmpty)
@@ -724,14 +741,18 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                   child: _TicketImage(image: image),
                 ),
               ),
             const SizedBox(height: 4),
-            Text(time,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant, fontSize: AppFontSize.tiny)),
+            Text(
+              time,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontSize: AppFontSize.tiny,
+              ),
+            ),
           ],
         ),
       ),
@@ -743,7 +764,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
           color: scheme.surface,
           border: Border(top: BorderSide(color: scheme.outlineVariant)),
@@ -815,15 +836,24 @@ class _TicketImage extends StatelessWidget {
           width: 180,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => const SizedBox(
-              width: 180, height: 120, child: Icon(Icons.broken_image)),
+            width: 180,
+            height: 120,
+            child: Icon(Icons.broken_image),
+          ),
         );
       } catch (_) {
         return const SizedBox(
-            width: 180, height: 120, child: Icon(Icons.broken_image));
+          width: 180,
+          height: 120,
+          child: Icon(Icons.broken_image),
+        );
       }
     }
     // 服务器相对路径（目前后端返回的是 data URL，这里作兜底）。
     return const SizedBox(
-        width: 180, height: 120, child: Icon(Icons.image_outlined));
+      width: 180,
+      height: 120,
+      child: Icon(Icons.image_outlined),
+    );
   }
 }

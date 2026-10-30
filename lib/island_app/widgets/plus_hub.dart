@@ -157,8 +157,8 @@ class _PlusHubOverlayState extends State<PlusHubOverlay>
                                 icon: Icons.badge_outlined,
                                 title: '发布角色卡',
                                 description: '创建与共享全新 AI 属性卡',
-                                onTap: () => widget
-                                    .onSelect(PlusHubChoice.publishCard),
+                                onTap: () =>
+                                    widget.onSelect(PlusHubChoice.publishCard),
                               ),
                               AppSpacing.hMd,
                               PlusHubButton(

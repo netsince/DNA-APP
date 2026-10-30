@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/teapost.dart';
@@ -289,7 +290,7 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
                 itemBuilder: (context, i) {
                   if (i >= _posts.length) {
                     return const Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(AppSpacing.md),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }

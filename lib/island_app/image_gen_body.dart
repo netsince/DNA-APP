@@ -422,7 +422,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         controller: controller,
         shrinkWrap: shrinkWrap,
         physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         crossAxisCount: columns,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
@@ -430,7 +430,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         itemBuilder: (context, i) {
           if (i >= logs.length) {
             return const Padding(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.all(AppSpacing.xl),
               child: Center(
                 child: SizedBox(
                   width: 22,
@@ -448,9 +448,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           final bool failed = firstImage.isEmpty;
           return InkWell(
             onTap: () => onTap(log),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
               child: AspectRatio(
                 aspectRatio: aspect,
                 child: failed
@@ -626,7 +626,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -806,7 +806,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     return Stack(
       children: <Widget>[
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.xs),
           child: Image.file(
             File(file.path),
             width: 64,
@@ -824,7 +824,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
                 color: scheme.error,
                 shape: BoxShape.circle,
               ),
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(AppSpacing.xxs),
               child: const Icon(Icons.close, size: 12, color: Colors.white),
             ),
           ),
@@ -903,7 +903,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     if (_logsLoading && _logs.isEmpty) {
       return const <Widget>[
         Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(AppSpacing.xl),
           child: Center(child: CircularProgressIndicator()),
         ),
       ];
@@ -911,7 +911,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
     if (_logs.isEmpty) {
       return const <Widget>[
         Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(AppSpacing.xl),
           child: Center(child: Text('还没有生成记录，填写提示词开始创作吧。')),
         ),
       ];
@@ -920,7 +920,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       _buildMasonry(context, _logs, onTap: _openLog, shrinkWrap: true),
       if (_logsLoadingMore)
         const Padding(
-          padding: EdgeInsets.all(12),
+          padding: EdgeInsets.all(AppSpacing.md),
           child: Center(
             child: SizedBox(
               width: 20,
@@ -1025,7 +1025,7 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('我的生图记录'), centerTitle: true),
+      appBar: AppBar(title: const Text('我的生图记录')),
       body: _buildBody(context),
     );
   }

@@ -78,13 +78,13 @@ class _Avatar extends StatelessWidget {
       final b64 = comma >= 0 ? a.substring(comma + 1) : a;
       try {
         final bytes = base64Decode(b64);
-        child = Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-        );
+        child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
       } catch (_) {
-        child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
+        child = Icon(
+          Icons.person,
+          size: radius,
+          color: scheme.onSurfaceVariant,
+        );
       }
     } else {
       child = Image.network(
@@ -139,7 +139,10 @@ class _LoginViewState extends State<_LoginView> {
   }
 
   Future<void> _openRegister() async {
-    await confirmOpenBrowser(context, ServerConfig.resolveUrl('/auth/register'));
+    await confirmOpenBrowser(
+      context,
+      ServerConfig.resolveUrl('/auth/register'),
+    );
   }
 
   @override
@@ -148,7 +151,7 @@ class _LoginViewState extends State<_LoginView> {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
@@ -160,19 +163,17 @@ class _LoginViewState extends State<_LoginView> {
               Text(
                 '登录 ${SiteConfig.instance.siteName}',
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 '登录后可查看个人主页',
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 28),
               TextField(
@@ -233,10 +234,8 @@ class _LoginViewState extends State<_LoginView> {
 }
 
 /// 个人主页加载回调（默认走 [ApiClient.getUserProfile]）。
-typedef ProfileLoader = Future<Map<String, dynamic>> Function(
-  String username, {
-  int page,
-});
+typedef ProfileLoader =
+    Future<Map<String, dynamic>> Function(String username, {int page});
 
 /// 关注/取关回调（返回是否「已关注」；默认走 [ApiClient.toggleFollow]）。
 typedef ProfileFollowToggler = Future<bool> Function(String username);
@@ -360,15 +359,18 @@ class _ProfileViewState extends State<ProfileView> {
     });
     try {
       final page = reset ? 1 : _commentsPage + 1;
-      final data = await (widget.commentsLoader ??
-          ApiClient.instance.getUserComments)(widget.username, page: page);
+      final data =
+          await (widget.commentsLoader ?? ApiClient.instance.getUserComments)(
+            widget.username,
+            page: page,
+          );
       if (!mounted) return;
       final rawItems = data['items'];
       final items = rawItems is List
           ? rawItems
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (reset) _comments.clear();
@@ -397,15 +399,19 @@ class _ProfileViewState extends State<ProfileView> {
     });
     try {
       final page = reset ? 1 : _teahousePage + 1;
-      final data = await (widget.teahouseLoader ??
-          ApiClient.instance.getUserTeahousePosts)(widget.username, page: page);
+      final data =
+          await (widget.teahouseLoader ??
+              ApiClient.instance.getUserTeahousePosts)(
+            widget.username,
+            page: page,
+          );
       if (!mounted) return;
       final rawItems = data['items'];
       final items = rawItems is List
           ? rawItems
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (reset) _teahouse.clear();
@@ -436,17 +442,22 @@ class _ProfileViewState extends State<ProfileView> {
     });
     try {
       final page = reset ? 1 : _worldsPage + 1;
-      final data = await (widget.worldsLoader ??
-          ApiClient.instance.getUserWorlds)(widget.username, page: page);
+      final data =
+          await (widget.worldsLoader ?? ApiClient.instance.getUserWorlds)(
+            widget.username,
+            page: page,
+          );
       if (!mounted) return;
       final rawItems = data['items'];
       final items = rawItems is List
           ? rawItems
-              .whereType<Map>()
-              .map((Map e) =>
-                  WorldCardSummary.fromJson(e.cast<String, dynamic>()))
-              .where((WorldCardSummary w) => w.id.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (Map e) =>
+                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                )
+                .where((WorldCardSummary w) => w.id.isNotEmpty)
+                .toList()
           : <WorldCardSummary>[];
       setState(() {
         if (reset) _worlds.clear();
@@ -474,16 +485,19 @@ class _ProfileViewState extends State<ProfileView> {
     });
     try {
       final page = reset ? 1 : _page + 1;
-      final data = await (widget.profileLoader ??
-          ApiClient.instance.getUserProfile)(widget.username, page: page);
+      final data =
+          await (widget.profileLoader ?? ApiClient.instance.getUserProfile)(
+            widget.username,
+            page: page,
+          );
       if (!mounted) return;
       final u = data['user'];
       final cards = data['cards'];
       final items = (cards is Map && cards['items'] is List)
           ? (cards['items'] as List)
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (u is Map) _user = u.map((k, v) => MapEntry(k.toString(), v));
@@ -513,10 +527,8 @@ class _ProfileViewState extends State<ProfileView> {
   void _openFollowList(bool followers) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => FollowListPage(
-          username: widget.username,
-          followers: followers,
-        ),
+        builder: (_) =>
+            FollowListPage(username: widget.username, followers: followers),
       ),
     );
   }
@@ -536,17 +548,17 @@ class _ProfileViewState extends State<ProfileView> {
   /// 关注 / 取消关注该主页用户（他人主页；未登录或关注自己时提示）。
   Future<void> _toggleFollow() async {
     if (!_loggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先登录后再关注')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先登录后再关注')));
       return;
     }
     setState(() => _followBusy = true);
     try {
       final following =
           await (widget.followToggler ?? ApiClient.instance.toggleFollow)(
-        widget.username,
-      );
+            widget.username,
+          );
       if (!mounted) return;
       setState(() {
         _isFollowing = following;
@@ -555,9 +567,9 @@ class _ProfileViewState extends State<ProfileView> {
       });
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('操作失败，请重试')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('操作失败，请重试')));
       }
     } finally {
       if (mounted) setState(() => _followBusy = false);
@@ -568,18 +580,19 @@ class _ProfileViewState extends State<ProfileView> {
   Future<void> _copyProfileLink() async {
     final url = ServerConfig.resolveUrl('/user/${widget.username}');
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('尚未配置服务器地址')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('尚未配置服务器地址')));
       return;
     }
-    final writer = widget.clipboardWriter ??
+    final writer =
+        widget.clipboardWriter ??
         (text) => Clipboard.setData(ClipboardData(text: text));
     await writer(url);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已复制主页链接')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已复制主页链接')));
     }
   }
 
@@ -639,7 +652,9 @@ class _ProfileViewState extends State<ProfileView> {
   Widget _buildHeader(BuildContext context, Map<String, dynamic>? u) {
     final scheme = Theme.of(context).colorScheme;
     final nickname = u != null ? (u['nickname'] ?? '').toString() : '';
-    final username = u != null ? (u['username'] ?? '').toString() : widget.username;
+    final username = u != null
+        ? (u['username'] ?? '').toString()
+        : widget.username;
     final uid = u != null ? (u['id'] ?? '').toString() : '';
     final verified = u != null && u['verified'] == true;
     final bio = u != null ? (u['bio'] ?? '').toString() : '';
@@ -671,20 +686,18 @@ class _ProfileViewState extends State<ProfileView> {
                       isSponsor: u != null && u['is_sponsor'] == true,
                       verified: verified,
                       badgeSize: 18,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w500),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       widget.isSelf
                           ? '@$username · UID $uid · 这是你'
                           : '@$username · UID $uid',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                     if (verified) ...<Widget>[
                       const SizedBox(height: 6),
@@ -783,15 +796,17 @@ class _ProfileViewState extends State<ProfileView> {
             const SizedBox(height: 16),
             _buildSelfEntries(context),
           ],
-          if (bio.isNotEmpty || location.isNotEmpty || join.isNotEmpty) ...<Widget>[
+          if (bio.isNotEmpty ||
+              location.isNotEmpty ||
+              join.isNotEmpty) ...<Widget>[
             const Divider(height: 28),
             if (bio.isNotEmpty)
               Text(
                 bio,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurface,
-                      height: AppLineHeight.body,
-                    ),
+                  color: scheme.onSurface,
+                  height: AppLineHeight.body,
+                ),
               ),
             if (location.isNotEmpty || join.isNotEmpty)
               Padding(
@@ -816,13 +831,14 @@ class _ProfileViewState extends State<ProfileView> {
   /// 认证徽章：展示管理员授予的认证说明（如「官方」「知名创作者」），缺省「认证」。
   Widget _verifiedBadge(BuildContext context, Map<String, dynamic>? u) {
     final scheme = Theme.of(context).colorScheme;
-    final label =
-        u != null ? (u['verified_label'] ?? '').toString().trim() : '';
+    final label = u != null
+        ? (u['verified_label'] ?? '').toString().trim()
+        : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -831,13 +847,10 @@ class _ProfileViewState extends State<ProfileView> {
           const SizedBox(width: 4),
           Text(
             label.isEmpty ? '认证' : label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w500,
-                ),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -856,7 +869,7 @@ class _ProfileViewState extends State<ProfileView> {
             height: 34,
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
           );
         }),
@@ -881,111 +894,79 @@ class _ProfileViewState extends State<ProfileView> {
       children: <Widget>[
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.redeem_outlined,
-            '我的点数',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => PointsPage(),
-                ),
-              );
-            },
-          ),
+          child: _entry(context, Icons.redeem_outlined, '我的点数', () {
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => PointsPage()));
+          }),
         ),
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.badge_outlined,
-            '我的角色卡',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const MyCardsPage()),
-              );
-            },
-          ),
+          child: _entry(context, Icons.badge_outlined, '我的角色卡', () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const MyCardsPage()),
+            );
+          }),
         ),
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.bookmark_outline,
-            '我的收藏',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MyCollectionsPage(
-                    title: '我的收藏',
-                    loader: ApiClient.instance.getMyFavorites,
-                  ),
+          child: _entry(context, Icons.bookmark_outline, '我的收藏', () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MyCollectionsPage(
+                  title: '我的收藏',
+                  loader: ApiClient.instance.getMyFavorites,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         ),
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.favorite_outline,
-            '我的点赞',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MyCollectionsPage(
-                    title: '我的点赞',
-                    loader: ApiClient.instance.getMyLikes,
-                  ),
+          child: _entry(context, Icons.favorite_outline, '我的点赞', () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MyCollectionsPage(
+                  title: '我的点赞',
+                  loader: ApiClient.instance.getMyLikes,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         ),
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.public_outlined,
-            '我的世界',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => WorldsListPage(
-                    title: '我的世界卡',
-                    emptyText: '你还没有发布过世界卡。',
-                    loader: (int page) =>
-                        ApiClient.instance.getMyWorlds(page: page),
-                    importSink: widget.importSink,
-                    // 自己的条目要能看出审核状态、要能撤回。
-                    manageable: true,
-                  ),
+          child: _entry(context, Icons.public_outlined, '我的世界', () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => WorldsListPage(
+                  title: '我的世界卡',
+                  emptyText: '你还没有发布过世界卡。',
+                  loader: (int page) =>
+                      ApiClient.instance.getMyWorlds(page: page),
+                  importSink: widget.importSink,
+                  // 自己的条目要能看出审核状态、要能撤回。
+                  manageable: true,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         ),
         SizedBox(
           width: 76,
-          child: _entry(
-            context,
-            Icons.bookmark_outline,
-            '世界收藏',
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => WorldsListPage(
-                    title: '我收藏的世界卡',
-                    emptyText: '还没有收藏任何世界卡。',
-                    loader: (int page) =>
-                        ApiClient.instance.getMyWorldFavorites(page: page),
-                    importSink: widget.importSink,
-                  ),
+          child: _entry(context, Icons.bookmark_outline, '世界收藏', () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => WorldsListPage(
+                  title: '我收藏的世界卡',
+                  emptyText: '还没有收藏任何世界卡。',
+                  loader: (int page) =>
+                      ApiClient.instance.getMyWorldFavorites(page: page),
+                  importSink: widget.importSink,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         ),
       ],
     );
@@ -1012,10 +993,9 @@ class _ProfileViewState extends State<ProfileView> {
               const SizedBox(height: 6),
               Text(
                 label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -1024,31 +1004,34 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  Widget _stat(BuildContext context, String label, int value, VoidCallback? onTap) {
+  Widget _stat(
+    BuildContext context,
+    String label,
+    int value,
+    VoidCallback? onTap,
+  ) {
     final scheme = Theme.of(context).colorScheme;
     final column = Column(
       children: <Widget>[
         Text(
           '$value',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w500),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );
     if (onTap == null) return column;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: column,
@@ -1065,10 +1048,9 @@ class _ProfileViewState extends State<ProfileView> {
         const SizedBox(width: 4),
         Text(
           text,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -1092,7 +1074,7 @@ class _ProfileViewState extends State<ProfileView> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: <Widget>[
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: AppInsets.card,
             sliver: ResponsiveCardGrid(
               cards: _cards,
               minColumnWidth: 180,
@@ -1118,7 +1100,11 @@ class _ProfileViewState extends State<ProfileView> {
       slivers: <Widget>[
         SliverFillRemaining(
           hasScrollBody: false,
-          child: EmptyState(icon: Icons.inbox_outlined, title: title, message: message),
+          child: EmptyState(
+            icon: Icons.inbox_outlined,
+            title: title,
+            message: message,
+          ),
         ),
       ],
     );
@@ -1178,7 +1164,7 @@ class _ProfileViewState extends State<ProfileView> {
         itemBuilder: (context, index) {
           if (index >= _worlds.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -1209,12 +1195,18 @@ class _ProfileViewState extends State<ProfileView> {
               w.summary,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           if (meta.isNotEmpty)
             Text(
               meta,
-              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.outline),
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                color: scheme.outline,
+              ),
             ),
           if (status.isNotEmpty)
             Padding(
@@ -1264,7 +1256,7 @@ class _ProfileViewState extends State<ProfileView> {
         itemBuilder: (context, index) {
           if (index >= _teahouse.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -1283,9 +1275,7 @@ class _ProfileViewState extends State<ProfileView> {
   /// 点击茶馆帖子：进入茶馆帖子详情页。
   void _openTeahousePost(int postId) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => TeahousePostPage(postId: postId),
-      ),
+      MaterialPageRoute<void>(builder: (_) => TeahousePostPage(postId: postId)),
     );
   }
 
@@ -1318,15 +1308,12 @@ class _ProfileViewState extends State<ProfileView> {
         itemBuilder: (context, index) {
           if (index >= _comments.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
           final c = _comments[index];
-          return _CommentTile(
-            comment: c,
-            onTap: () => _openCommentCard(c),
-          );
+          return _CommentTile(comment: c, onTap: () => _openCommentCard(c));
         },
       ),
     );
@@ -1372,10 +1359,8 @@ class _ProfileViewState extends State<ProfileView> {
       final commentId = rawId is int ? rawId : int.tryParse('$rawId');
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => CardDetailPage(
-            cardId: cardId,
-            focusCommentId: commentId,
-          ),
+          builder: (_) =>
+              CardDetailPage(cardId: cardId, focusCommentId: commentId),
         ),
       );
     }
@@ -1398,10 +1383,7 @@ class UserProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('@$username'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text('@$username')),
       body: ProfileView(username: username),
     );
   }
@@ -1453,9 +1435,9 @@ class _FollowListPageState extends State<FollowListPage> {
       final items = data['items'];
       final list = (items is List)
           ? items
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (reset) {
@@ -1490,10 +1472,7 @@ class _FollowListPageState extends State<FollowListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.followers ? '粉丝' : '关注'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.followers ? '粉丝' : '关注')),
       body: _buildBody(context),
     );
   }
@@ -1506,10 +1485,7 @@ class _FollowListPageState extends State<FollowListPage> {
       return ErrorState(onRetry: () => _load(reset: true));
     }
     if (_users.isEmpty) {
-      return const EmptyState(
-        icon: Icons.people_outline,
-        title: '暂无数据',
-      );
+      return const EmptyState(icon: Icons.people_outline, title: '暂无数据');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -1525,7 +1501,7 @@ class _FollowListPageState extends State<FollowListPage> {
         itemBuilder: (context, index) {
           if (index >= _users.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -1595,8 +1571,9 @@ class _CommentTile extends StatelessWidget {
     final avatar = author is Map ? (author['avatar'] ?? '').toString() : '';
     final content = (comment['content'] ?? '').toString();
     final replyTo = comment['reply_to'];
-    final replyName =
-        replyTo is Map ? (replyTo['author_name'] ?? '').toString() : '';
+    final replyName = replyTo is Map
+        ? (replyTo['author_name'] ?? '').toString()
+        : '';
     final card = comment['card'];
     final cardName = card is Map ? (card['name'] ?? '').toString() : '';
     final time = formatRelativeTime((comment['created_at'] ?? '').toString());
@@ -1605,8 +1582,11 @@ class _CommentTile extends StatelessWidget {
       leading: Avatar(avatar: avatar, radius: 18),
       title: replyName.isEmpty
           ? StickerText(content, maxLines: 3, overflow: TextOverflow.ellipsis)
-          : StickerText('回复 @$replyName：$content',
-              maxLines: 3, overflow: TextOverflow.ellipsis),
+          : StickerText(
+              '回复 @$replyName：$content',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Row(
@@ -1617,13 +1597,19 @@ class _CommentTile extends StatelessWidget {
               child: Text(
                 cardName.isEmpty ? '未知卡片' : cardName,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: AppFontSize.caption, color: scheme.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               time,
-              style: TextStyle(fontSize: AppFontSize.caption, color: scheme.outline),
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                color: scheme.outline,
+              ),
             ),
           ],
         ),
@@ -1670,4 +1656,3 @@ class _ReloadOnActiveState extends State<_ReloadOnActive> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
-

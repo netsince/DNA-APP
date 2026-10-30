@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/utils/external_link.dart';
@@ -36,7 +37,7 @@ class _AboutBodyState extends State<AboutBody> {
   Widget build(BuildContext context) {
     final cfg = SiteConfig.instance;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       children: [
         ListTile(
           leading: const Icon(Icons.new_releases),

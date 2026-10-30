@@ -57,10 +57,12 @@ class SiteConfig extends ChangeNotifier {
       heroSubtitle = hero['subtitle'] as String? ?? '';
       heroButtons = (hero['buttons'] as List? ?? [])
           .whereType<Map>()
-          .map((b) => {
-                'label': (b['label'] ?? '').toString(),
-                'url': (b['url'] ?? '').toString(),
-              })
+          .map(
+            (b) => {
+              'label': (b['label'] ?? '').toString(),
+              'url': (b['url'] ?? '').toString(),
+            },
+          )
           .toList();
 
       final agr = data['agreements'] as Map<String, dynamic>? ?? {};

@@ -132,10 +132,7 @@ class _FadeInNetworkImageState extends State<FadeInNetworkImage>
             child: Transform.scale(
               scale: scale,
               child: ImageFiltered(
-                imageFilter: ui.ImageFilter.blur(
-                  sigmaX: blur,
-                  sigmaY: blur,
-                ),
+                imageFilter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                 child: child,
               ),
             ),

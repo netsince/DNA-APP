@@ -17,17 +17,17 @@ mixin PostLikeFavMixin<T extends StatefulWidget> on State<T> {
 
   /// 切换点赞（已登录则调用，未登录弹「去登录」引导）。
   Future<void> togglePostLike(int postId) => _run(
-        postId,
-        () => ApiClient.instance.toggleTeahouseLike(postId),
-        onPostLikeResult,
-      );
+    postId,
+    () => ApiClient.instance.toggleTeahouseLike(postId),
+    onPostLikeResult,
+  );
 
   /// 切换收藏（已登录则调用，未登录弹「去登录」引导）。
   Future<void> togglePostFavorite(int postId) => _run(
-        postId,
-        () => ApiClient.instance.toggleTeahouseFavorite(postId),
-        (id, r) => onPostFavoriteResult(id, r.favorited),
-      );
+    postId,
+    () => ApiClient.instance.toggleTeahouseFavorite(postId),
+    (id, r) => onPostFavoriteResult(id, r.favorited),
+  );
 
   Future<void> _run<R>(
     int postId,
@@ -47,7 +47,6 @@ mixin PostLikeFavMixin<T extends StatefulWidget> on State<T> {
 
   void _postSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }

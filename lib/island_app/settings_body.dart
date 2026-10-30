@@ -21,8 +21,9 @@ class SettingsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double w =
-            constraints.maxWidth > 720 ? 720 : constraints.maxWidth;
+        final double w = constraints.maxWidth > 720
+            ? 720
+            : constraints.maxWidth;
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: w),

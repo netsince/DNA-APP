@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/me_page.dart';
@@ -20,7 +21,7 @@ class RecommendPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('站长推荐'), centerTitle: true),
+      appBar: AppBar(title: const Text('站长推荐')),
       body: RecommendBody(loader: loader),
     );
   }
@@ -171,7 +172,7 @@ class _RecommendBodyState extends State<RecommendBody> {
     }
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -219,7 +220,7 @@ class _RecommendCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: scheme.secondaryContainer.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,9 +271,9 @@ class _RecommendUser extends StatelessWidget {
         return Card(
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: narrow
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

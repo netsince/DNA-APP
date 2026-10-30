@@ -319,7 +319,8 @@ class _CardPublishBodyState extends State<CardPublishBody> {
       ),
       subtitle: Text(
         <String>[
-          if (ta.tags.isNotEmpty) ta.tags.take(3).map((String t) => '#$t').join(' '),
+          if (ta.tags.isNotEmpty)
+            ta.tags.take(3).map((String t) => '#$t').join(' '),
           if (ta.intro.isNotEmpty) ta.intro,
         ].join(' · '),
         maxLines: 1,
@@ -417,17 +418,17 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(_errorText(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: FitText(_errorText(e))));
       return;
     }
     if (!mounted) return;
     // 成功回执**当场弹**（此刻页面还在，SnackBar 一定可见），再返回；
     // 之前是 pop 完才提示，被上一页的重建吞掉，看起来像没发出去。
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: FitText('已提交，等待审核')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: FitText('已提交，等待审核')));
     Navigator.of(context).pop();
   }
 
@@ -504,4 +505,3 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
     );
   }
 }
-

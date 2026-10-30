@@ -15,8 +15,7 @@ import 'package:dna/island_app/server_config.dart';
 /// 用于加载需要登录才能访问的图片（如生图产出图/参考图 `/image-gen/output|reference/...`）。
 /// 复用 [ApiClient] 的 HttpClient（共享连接池），请求带 `Authorization: Bearer <token>`。
 class AuthNetworkImage extends ImageProvider<AuthNetworkImage> {
-  AuthNetworkImage(this.url)
-      : resolved = ServerConfig.resolveUrl(url);
+  AuthNetworkImage(this.url) : resolved = ServerConfig.resolveUrl(url);
 
   final String url;
   final String resolved;
@@ -27,7 +26,9 @@ class AuthNetworkImage extends ImageProvider<AuthNetworkImage> {
 
   @override
   ImageStreamCompleter loadImage(
-      AuthNetworkImage key, ImageDecoderCallback decode) {
+    AuthNetworkImage key,
+    ImageDecoderCallback decode,
+  ) {
     return MultiFrameImageStreamCompleter(
       codec: _loadAsync(decode),
       scale: 1.0,
@@ -62,8 +63,10 @@ Future<Uint8List> fetchAuthImageBytes(String url) async {
   }
   final response = await request.close();
   if (response.statusCode != 200) {
-    throw HttpException('图片加载失败：${response.statusCode}',
-        uri: Uri.parse(resolved));
+    throw HttpException(
+      '图片加载失败：${response.statusCode}',
+      uri: Uri.parse(resolved),
+    );
   }
   final builder = BytesBuilder(copy: false);
   await for (final chunk in response) {

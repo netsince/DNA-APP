@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
@@ -12,7 +13,11 @@ import 'package:dna/island_app/widgets/sticker_text.dart';
 ///
 /// 通过 [presetCardId]/[presetCardName] 支持从卡片详情「引用到茶馆」直接带卡。
 class TeahouseComposePage extends StatefulWidget {
-  const TeahouseComposePage({super.key, this.presetCardId, this.presetCardName});
+  const TeahouseComposePage({
+    super.key,
+    this.presetCardId,
+    this.presetCardName,
+  });
 
   final String? presetCardId;
   final String? presetCardName;
@@ -69,9 +74,9 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
       setState(() => _image = picked);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('选择图片失败')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('选择图片失败')));
     } finally {
       if (mounted) setState(() => _pickingImage = false);
     }
@@ -87,7 +92,9 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
     final start = sel.isValid ? sel.start : value.length;
     final end = sel.isValid ? sel.end : value.length;
     controller.text = value.replaceRange(start, end, token);
-    controller.selection = TextSelection.collapsed(offset: start + token.length);
+    controller.selection = TextSelection.collapsed(
+      offset: start + token.length,
+    );
   }
 
   /// 读取选中图片为 base64 data URL（与后端约定的 multipart/JSON 数据格式）。
@@ -146,13 +153,15 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
   Future<void> _submit() async {
     final content = _contentController.text.trim();
     if (content.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请输入正文内容')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入正文内容')));
       return;
     }
     if (!_loggedIn) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请先登录后再发帖')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先登录后再发帖')));
       return;
     }
     setState(() => _submitting = true);
@@ -166,13 +175,15 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
         topic: topic.isEmpty ? null : topic,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('发布成功')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('发布成功')));
       Navigator.of(context).pop(id);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('发布失败，请重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('发布失败，请重试')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -189,15 +200,12 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
             padding: const EdgeInsets.only(right: 8),
             child: _submitting
                 ? const Center(child: CircularProgressIndicator())
-                : FilledButton(
-                    onPressed: _submit,
-                    child: const Text('发布'),
-                  ),
+                : FilledButton(onPressed: _submit, child: const Text('发布')),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppInsets.card,
         children: <Widget>[
           // 关联角色卡（可选）。
           if (_linkedCardId != null) ...<Widget>[
@@ -231,11 +239,12 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
           ),
           const SizedBox(height: 4),
           // 关联角色卡搜索。
-          Text('关联角色卡（可选）',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(color: scheme.onSurfaceVariant)),
+          Text(
+            '关联角色卡（可选）',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+          ),
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
@@ -256,19 +265,26 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
             if (_cardResults.isEmpty)
               const Text('没有找到可关联的角色卡', style: TextStyle(color: Colors.grey))
             else
-              ..._cardResults.take(8).map((c) => ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.badge_outlined),
-                    title: Text((c['name'] ?? '').toString()),
-                    subtitle: Text((c['intro'] ?? '').toString(),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.add),
-                    onTap: () => setState(() {
-                      _linkedCardId = (c['id'] ?? '').toString();
-                      _linkedCardName = (c['name'] ?? '').toString();
-                      _cardResults = const <Map<String, dynamic>>[];
-                    }),
-                  )),
+              ..._cardResults
+                  .take(8)
+                  .map(
+                    (c) => ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.badge_outlined),
+                      title: Text((c['name'] ?? '').toString()),
+                      subtitle: Text(
+                        (c['intro'] ?? '').toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: const Icon(Icons.add),
+                      onTap: () => setState(() {
+                        _linkedCardId = (c['id'] ?? '').toString();
+                        _linkedCardName = (c['name'] ?? '').toString();
+                        _cardResults = const <Map<String, dynamic>>[];
+                      }),
+                    ),
+                  ),
           ],
           const SizedBox(height: 16),
           // 话题。
@@ -285,11 +301,12 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
           // 配图（单图）。
           Row(
             children: <Widget>[
-              Text('配图（可选，单图）',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: scheme.onSurfaceVariant)),
+              Text(
+                '配图（可选，单图）',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -304,7 +321,7 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
               alignment: Alignment.topRight,
               children: <Widget>[
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                   child: Image.file(
                     File(_image!.path),
                     height: 160,
@@ -314,9 +331,7 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
-                  ),
+                  style: IconButton.styleFrom(backgroundColor: Colors.black54),
                   onPressed: () => setState(() => _image = null),
                 ),
               ],
@@ -342,7 +357,7 @@ class _LinkedCardChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

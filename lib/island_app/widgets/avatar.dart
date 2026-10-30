@@ -24,13 +24,13 @@ class Avatar extends StatelessWidget {
       final b64 = comma >= 0 ? a.substring(comma + 1) : a;
       try {
         final bytes = base64Decode(b64);
-        child = Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-        );
+        child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
       } catch (_) {
-        child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
+        child = Icon(
+          Icons.person,
+          size: radius,
+          color: scheme.onSurfaceVariant,
+        );
       }
     } else {
       child = Image.network(

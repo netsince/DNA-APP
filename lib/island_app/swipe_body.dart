@@ -209,7 +209,7 @@ class _SwipeBodyState extends State<SwipeBody> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             child: const Text(
               '刷一刷',
@@ -322,7 +322,7 @@ class _SwipeCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
                             ),
                             child: Text(
                               gender,
@@ -389,7 +389,10 @@ class _SwipeCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         const Text(
                           '点按查看详情',
-                          style: TextStyle(color: Colors.white54, fontSize: AppFontSize.caption),
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: AppFontSize.caption,
+                          ),
                         ),
                       ],
                     ),

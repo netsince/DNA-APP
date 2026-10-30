@@ -128,8 +128,7 @@ class _WorldPublishPageState extends State<WorldPublishPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<World> worlds =
-        widget.source?.localWorlds() ?? const <World>[];
+    final List<World> worlds = widget.source?.localWorlds() ?? const <World>[];
     return Scaffold(
       appBar: AppBar(title: const Text('发布世界卡')),
       body: widget.source == null
@@ -334,9 +333,9 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
     if (_saving) return;
     final World world = _form.current();
     if (world.name.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请填写世界名称')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: FitText('请填写世界名称')));
       return;
     }
     setState(() => _saving = true);
@@ -345,9 +344,9 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(_errorText(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: FitText(_errorText(e))));
       return;
     }
     if (!mounted) return;

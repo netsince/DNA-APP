@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
@@ -9,11 +10,7 @@ import 'package:dna/island_app/widgets/state_views.dart';
 
 /// 文章分页加载回调（默认走 [ApiClient.getArticles]）。
 typedef ArticlesLoader =
-    Future<ArticlesData> Function({
-  int page,
-  String sort,
-  String query,
-});
+    Future<ArticlesData> Function({int page, String sort, String query});
 
 /// 文章详情加载回调（默认走 [ApiClient.getArticleDetail]）。
 typedef ArticleDetailLoader = Future<Map<String, dynamic>> Function(int id);
@@ -28,7 +25,7 @@ class ArticlesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('官方文章'), centerTitle: true),
+      appBar: AppBar(title: const Text('官方文章')),
       body: ArticlesBody(loader: loader, detailLoader: detailLoader),
     );
   }
@@ -148,7 +145,7 @@ class _ArticlesBodyState extends State<ArticlesBody> {
                       },
                     ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
             ),
             onSubmitted: (v) {
@@ -211,10 +208,9 @@ class _ArticlesBodyState extends State<ArticlesBody> {
             (a['title'] ?? '').toString(),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -226,18 +222,16 @@ class _ArticlesBodyState extends State<ArticlesBody> {
                     (a['summary'] ?? '').toString(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 const SizedBox(height: 4),
                 Text(
                   '${a['author_name'] ?? ''} · ${formatRelativeTime((a['created_at'] ?? '').toString())}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.outline),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: scheme.outline),
                 ),
               ],
             ),
@@ -255,7 +249,7 @@ class _ArticlesBodyState extends State<ArticlesBody> {
         height: 48,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.xs),
         ),
         child: Icon(
           Icons.article_outlined,
@@ -264,7 +258,7 @@ class _ArticlesBodyState extends State<ArticlesBody> {
       );
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Image.network(
         ServerConfig.resolveUrl(cover),
         width: 48,
@@ -301,12 +295,12 @@ class _SortPill extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: selected ? scheme.primary : scheme.outlineVariant,
           ),
@@ -314,11 +308,11 @@ class _SortPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
+            color: selected
+                ? scheme.onPrimaryContainer
+                : scheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+          ),
         ),
       ),
     );
@@ -374,7 +368,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('文章'), centerTitle: true),
+      appBar: AppBar(title: const Text('文章')),
       body: _buildBody(context),
     );
   }
@@ -396,24 +390,22 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
         children: <Widget>[
           Text(
             (a['title'] ?? '').toString(),
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           Text(
             '${a['author_name'] ?? ''}'
             '${(a['created_at'] ?? '').toString().isEmpty ? '' : ' · ${formatDateTime((a['created_at'] ?? '').toString())}'}',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: scheme.outline),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.outline),
           ),
           if (cover.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
               child: Image.network(
                 ServerConfig.resolveUrl(cover),
                 width: double.infinity,

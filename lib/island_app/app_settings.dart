@@ -9,7 +9,8 @@ class AppSettings extends ChangeNotifier {
   AppSettings._();
   static final AppSettings instance = AppSettings._();
 
-  static const String _themeModeKey = 'theme_mode'; // 'system' | 'light' | 'dark'
+  static const String _themeModeKey =
+      'theme_mode'; // 'system' | 'light' | 'dark'
   static const String _accentKey = 'accent_color'; // 缺失则“自动”
 
   ThemeMode _themeMode = ThemeMode.system;
@@ -36,14 +37,11 @@ class AppSettings extends ChangeNotifier {
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
     final prefs = await SharedPrefs.instance;
-    await prefs.setString(
-      _themeModeKey,
-      switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        _ => 'system',
-      },
-    );
+    await prefs.setString(_themeModeKey, switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      _ => 'system',
+    });
     notifyListeners();
   }
 

@@ -53,113 +53,113 @@ class WorldCardTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        world.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: AppWeight.medium,
-                        ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      world.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: AppWeight.medium,
                       ),
                     ),
-                    if (showStatus && world.statusLabel.isNotEmpty)
-                      _StatusPill(
-                        label: world.statusLabel,
-                        status: world.status,
-                        hidden: world.isHidden,
-                        onTap: onStatusTap,
+                  ),
+                  if (showStatus && world.statusLabel.isNotEmpty)
+                    _StatusPill(
+                      label: world.statusLabel,
+                      status: world.status,
+                      hidden: world.isHidden,
+                      onTap: onStatusTap,
+                    ),
+                ],
+              ),
+              if (world.summary.isNotEmpty) ...<Widget>[
+                AppSpacing.hXxs,
+                Text(
+                  world.summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: AppLineHeight.title,
+                  ),
+                ),
+              ],
+              if (world.previewNames.isNotEmpty) ...<Widget>[
+                AppSpacing.hXs,
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    for (final String n in world.previewNames.take(3))
+                      _EntryChip(name: n),
+                    if (world.entryCount > 3)
+                      _EntryChip(name: '+${world.entryCount - 3}', muted: true),
+                  ],
+                ),
+              ],
+              if (world.tags.isNotEmpty) ...<Widget>[
+                AppSpacing.hXs,
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    for (final String t in world.tags.take(3))
+                      Text(
+                        '#$t',
+                        style: TextStyle(
+                          fontSize: AppFontSize.tiny,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
-                if (world.summary.isNotEmpty) ...<Widget>[
-                  AppSpacing.hXxs,
-                  Text(
-                    world.summary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      height: AppLineHeight.title,
-                    ),
-                  ),
-                ],
-                if (world.previewNames.isNotEmpty) ...<Widget>[
-                  AppSpacing.hXs,
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: <Widget>[
-                      for (final String n in world.previewNames.take(3))
-                        _EntryChip(name: n),
-                      if (world.entryCount > 3)
-                        _EntryChip(name: '+${world.entryCount - 3}', muted: true),
-                    ],
-                  ),
-                ],
-                if (world.tags.isNotEmpty) ...<Widget>[
-                  AppSpacing.hXs,
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: <Widget>[
-                      for (final String t in world.tags.take(3))
-                        Text(
-                          '#$t',
-                          style: TextStyle(
-                            fontSize: AppFontSize.tiny,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-                AppSpacing.hXs,
-                Text(
-                  <String>[
-                    if (world.entryCount > 0) '${world.entryCount} 词条',
-                    if (world.sizeLabel.isNotEmpty) world.sizeLabel,
-                    if (world.copyCount > 0) '复制 ${world.copyCount}',
-                  ].join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+              ],
+              AppSpacing.hXs,
+              Text(
+                <String>[
+                  if (world.entryCount > 0) '${world.entryCount} 词条',
+                  if (world.sizeLabel.isNotEmpty) world.sizeLabel,
+                  if (world.copyCount > 0) '复制 ${world.copyCount}',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
-                if (world.authorName.isNotEmpty) ...<Widget>[
-                  AppSpacing.hXxs,
-                  Row(
-                    children: <Widget>[
-                      Avatar(avatar: world.authorAvatar, radius: 8),
-                      const SizedBox(width: AppSpacing.xs),
-                      Flexible(
-                        child: Text(
-                          world.authorName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+              ),
+              if (world.authorName.isNotEmpty) ...<Widget>[
+                AppSpacing.hXxs,
+                Row(
+                  children: <Widget>[
+                    Avatar(avatar: world.authorAvatar, radius: 8),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        world.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
-                      if (when.isNotEmpty)
-                        Text(
-                          ' · $when',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                    ),
+                    if (when.isNotEmpty)
+                      Text(
+                        ' · $when',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
-                    ],
-                  ),
-                ],
+                      ),
+                  ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -210,9 +210,10 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final (Color bg, Color fg) = switch (status) {
-      'approved' => hidden
-          ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
-          : (cs.primaryContainer, cs.onPrimaryContainer),
+      'approved' =>
+        hidden
+            ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
+            : (cs.primaryContainer, cs.onPrimaryContainer),
       'rejected' => (cs.errorContainer, cs.onErrorContainer),
       'deleted' => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
       _ => (cs.tertiaryContainer, cs.onTertiaryContainer),

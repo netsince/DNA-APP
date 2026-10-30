@@ -98,8 +98,9 @@ class _ServerSetupPageState extends State<ServerSetupPage> {
                 children: [
                   Text(
                     '设置服务器地址',
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w500),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text(

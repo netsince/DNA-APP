@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:dna/island_app/app_settings.dart';
 
@@ -23,15 +24,14 @@ class _AppearanceSettingsBodyState extends State<AppearanceSettingsBody> {
   ];
 
   Widget _sectionTitle(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(
-          text,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w500),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 8, bottom: 4),
+    child: Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+    ),
+  );
 
   Widget _colorDot(Color color) {
     final selected = AppSettings.instance.accentColor == color.toARGB32();
@@ -40,7 +40,7 @@ class _AppearanceSettingsBodyState extends State<AppearanceSettingsBody> {
         AppSettings.instance.setAccentColor(color.toARGB32());
         setState(() {});
       },
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Container(
         width: 36,
         height: 36,
@@ -99,15 +99,16 @@ class _AppearanceSettingsBodyState extends State<AppearanceSettingsBody> {
   @override
   Widget build(BuildContext context) {
     final settings = AppSettings.instance;
-    final customColor =
-        settings.accentColor == null ? null : Color(settings.accentColor!);
+    final customColor = settings.accentColor == null
+        ? null
+        : Color(settings.accentColor!);
     const themeChoices = <Map<String, Object>>[
       {'value': ThemeMode.system, 'label': '跟随系统'},
       {'value': ThemeMode.light, 'label': '亮色'},
       {'value': ThemeMode.dark, 'label': '暗色'},
     ];
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       children: <Widget>[
         _sectionTitle(context, '主题'),
         Wrap(
@@ -146,8 +147,7 @@ class _AppearanceSettingsBodyState extends State<AppearanceSettingsBody> {
               selected: settings.useCustomAccent,
               onSelected: (_) {
                 settings.setAccentColor(
-                  customColor?.toARGB32() ??
-                      _accentOptions.first.toARGB32(),
+                  customColor?.toARGB32() ?? _accentOptions.first.toARGB32(),
                 );
                 setState(() {});
               },

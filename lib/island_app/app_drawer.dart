@@ -97,11 +97,13 @@ class AppDrawerContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool hasMine = AuthSession.instance.isLoggedIn &&
+    final bool hasMine =
+        AuthSession.instance.isLoggedIn &&
         (onOpenNotifications != null ||
             onOpenMyCards != null ||
             onOpenMyFavorites != null);
-    final bool hasCommunity = onShowAnnouncement != null ||
+    final bool hasCommunity =
+        onShowAnnouncement != null ||
         onOpenArticles != null ||
         onOpenRecommend != null ||
         onOpenSponsor != null;
@@ -123,7 +125,11 @@ class AppDrawerContent extends StatelessWidget {
                 // ② 主导航。横屏靠它，竖屏是快捷切换 —— 一份内容两处都得对。
                 _navTile(AppNavTarget.recommend, Icons.home_outlined, '推荐'),
                 _navTile(AppNavTarget.worlds, Icons.public_outlined, '世界'),
-                _navTile(AppNavTarget.teahouse, Icons.local_cafe_outlined, '茶馆'),
+                _navTile(
+                  AppNavTarget.teahouse,
+                  Icons.local_cafe_outlined,
+                  '茶馆',
+                ),
                 _navTile(AppNavTarget.upload, Icons.upload_outlined, '发布'),
                 _navTile(
                   AppNavTarget.imagegen,
@@ -137,11 +143,7 @@ class AppDrawerContent extends StatelessWidget {
                   if (onOpenNotifications != null)
                     _NotificationTile(onTap: onOpenNotifications!),
                   if (onOpenMyCards != null)
-                    _actionTile(
-                      Icons.badge_outlined,
-                      '我的发布',
-                      onOpenMyCards!,
-                    ),
+                    _actionTile(Icons.badge_outlined, '我的发布', onOpenMyCards!),
                   if (onOpenMyFavorites != null)
                     _actionTile(
                       Icons.bookmark_outline,
@@ -182,11 +184,7 @@ class AppDrawerContent extends StatelessWidget {
                 // ⑤ 工具
                 if (onOpenProxy != null) ...<Widget>[
                   const SizedBox(height: AppSpacing.md),
-                  _actionTile(
-                    Icons.alt_route_outlined,
-                    '代理中转',
-                    onOpenProxy!,
-                  ),
+                  _actionTile(Icons.alt_route_outlined, '代理中转', onOpenProxy!),
                 ],
               ],
             ),
@@ -214,11 +212,7 @@ class AppDrawerContent extends StatelessWidget {
   }
 
   Widget _actionTile(IconData icon, String label, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: onTap,
-    );
+    return ListTile(leading: Icon(icon), title: Text(label), onTap: onTap);
   }
 
   /// 组标题。分组靠标题而不是分割线 —— 抽屉里两条 Divider 显得很碎。
@@ -278,7 +272,9 @@ class AppDrawerIdentity extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onPrimaryContainer.withValues(alpha: AppAlpha.muted),
+                  color: cs.onPrimaryContainer.withValues(
+                    alpha: AppAlpha.muted,
+                  ),
                 ),
               ),
               AppSpacing.hSm,
@@ -328,8 +324,9 @@ class AppDrawerIdentity extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onPrimaryContainer
-                            .withValues(alpha: AppAlpha.muted),
+                        color: cs.onPrimaryContainer.withValues(
+                          alpha: AppAlpha.muted,
+                        ),
                       ),
                     ),
                 ],
@@ -353,10 +350,7 @@ class AppDrawerIdentity extends StatelessWidget {
           ),
         ),
         AppSpacing.hMd,
-        FilledButton(
-          onPressed: onLogin,
-          child: const Text('登录'),
-        ),
+        FilledButton(onPressed: onLogin, child: const Text('登录')),
       ],
     );
   }

@@ -88,8 +88,9 @@ class WorldCardSummary {
     String authorUsername = '';
     String authorAvatar = '';
     if (author is Map) {
-      authorName =
-          (author['nickname'] ?? author['username'] ?? '').toString().trim();
+      authorName = (author['nickname'] ?? author['username'] ?? '')
+          .toString()
+          .trim();
       authorUsername = (author['username'] ?? '').toString().trim();
       authorAvatar = (author['avatar'] ?? '').toString();
     }
@@ -106,7 +107,8 @@ class WorldCardSummary {
       viewCount: _asInt(json['view_count']),
       favorited: json['favorited'] == true,
       favoriteCount: _asInt(json['favorite_count']),
-      tags: (json['tags'] as List?)?.whereType<String>().toList() ??
+      tags:
+          (json['tags'] as List?)?.whereType<String>().toList() ??
           const <String>[],
       authorName: authorName,
       authorUsername: authorUsername,
@@ -118,17 +120,18 @@ class WorldCardSummary {
       entryNames: names is List
           ? names.whereType<String>().toList()
           : const <String>[],
-      previewNames: (json['preview_names'] as List?)
-              ?.whereType<String>()
-              .toList() ??
+      previewNames:
+          (json['preview_names'] as List?)?.whereType<String>().toList() ??
           const <String>[],
       entryIndex: index is List
           ? index
-              .whereType<Map>()
-              .map((Map e) =>
-                  WorldEntryPreview.fromJson(e.cast<String, dynamic>()))
-              .where((WorldEntryPreview e) => e.name.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (Map e) =>
+                      WorldEntryPreview.fromJson(e.cast<String, dynamic>()),
+                )
+                .where((WorldEntryPreview e) => e.name.isNotEmpty)
+                .toList()
           : const <WorldEntryPreview>[],
       sampleEntry: sample is Map ? sample.cast<String, dynamic>() : null,
     );

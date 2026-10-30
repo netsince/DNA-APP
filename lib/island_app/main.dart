@@ -51,8 +51,9 @@ class _MyAppState extends State<MyApp> {
   Future<void> _init() async {
     await Future.wait([_settings.load(), ServerConfig.getBaseUrl()]);
     if (!ServerConfig.hasBaseUrl) {
-      final err =
-          await ApiClient.instance.validateServer(ServerConfig.defaultBaseUrl);
+      final err = await ApiClient.instance.validateServer(
+        ServerConfig.defaultBaseUrl,
+      );
       if (err == null) {
         await ServerConfig.setBaseUrl(ServerConfig.defaultBaseUrl);
       } else {
@@ -107,11 +108,7 @@ class _MyAppState extends State<MyApp> {
       brightness: brightness,
       pageTransitionsTheme: pageTransitionsTheme,
       // 二级页顶栏默认居中标题、无阴影（上滑时再浮现）。
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-      ),
+      appBarTheme: const AppBarTheme(elevation: 0, scrolledUnderElevation: 0.5),
       // 卡片默认统一圆角。
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
@@ -125,8 +122,10 @@ class _MyAppState extends State<MyApp> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(kRadiusSm),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
       // 统一的浮动 SnackBar。
       snackBarTheme: const SnackBarThemeData(

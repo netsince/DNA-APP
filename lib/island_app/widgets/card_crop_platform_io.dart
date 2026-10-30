@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -24,8 +24,7 @@ Future<Uint8List?> openCropPage(
   // 同时解除 lockAspectRatio。注意这里必须在 await 之前读，保证与用户点击时的开关一致。
   final bool freeRatio = FreeImageCrop.enabled;
   // 桌面端没有原生裁剪器（image_cropper 只实现了 Android/iOS/Web），走自建裁剪页。
-  if (!kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     return showFlutterCropPage(
       context,
       source: sourceBytes,
@@ -34,13 +33,17 @@ Future<Uint8List?> openCropPage(
   }
 
   final dir = await Directory.systemTemp.createTemp('dnaisland_crop');
-  final file = File('${dir.path}${Platform.pathSeparator}source_${DateTime.now().millisecondsSinceEpoch}.png');
+  final file = File(
+    '${dir.path}${Platform.pathSeparator}source_${DateTime.now().millisecondsSinceEpoch}.png',
+  );
   await file.writeAsBytes(sourceBytes, flush: true);
 
   try {
     final cropped = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatio: freeRatio ? null : CropAspectRatio(ratioX: aspect.ratio, ratioY: 1),
+      aspectRatio: freeRatio
+          ? null
+          : CropAspectRatio(ratioX: aspect.ratio, ratioY: 1),
       compressFormat: ImageCompressFormat.png,
       compressQuality: 92,
       uiSettings: <PlatformUiSettings>[

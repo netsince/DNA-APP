@@ -50,14 +50,14 @@ class TeahousePostTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: scheme.surface,
           border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +65,7 @@ class TeahousePostTile extends StatelessWidget {
             // 作者行。
             InkWell(
               onTap: onAuthorTap,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
@@ -80,14 +80,16 @@ class TeahousePostTile extends StatelessWidget {
                             name: authorName,
                             isSponsor: author?.isSponsor == true,
                             verified: author?.verified == true,
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w500),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           if (post.createdAt.isNotEmpty)
                             Text(
                               formatRelativeTime(post.createdAt),
-                              style: theme.textTheme.labelSmall
-                                  ?.copyWith(color: scheme.outline),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.outline,
+                              ),
                             ),
                         ],
                       ),
@@ -109,7 +111,7 @@ class TeahousePostTile extends StatelessWidget {
                   urls: <String>[ServerConfig.resolveUrl(imageUrl)],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                   child: Image.network(
                     ServerConfig.resolveUrl(imageUrl),
                     fit: BoxFit.cover,
@@ -136,18 +138,21 @@ class TeahousePostTile extends StatelessWidget {
                 children: post.stats.topics.map((t) {
                   return InkWell(
                     onTap: () => _openTopic(context, t.name),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 3),
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Text(
                         '#${t.name}',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: scheme.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   );
@@ -170,8 +175,9 @@ class TeahousePostTile extends StatelessWidget {
 
   void _openTopic(BuildContext context, String name) {
     // 话题跳转：先提示（Feed 的话题点击仅展示名称，不做跳转，避免额外导航）。
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('话题：#$name'), duration: Duration(seconds: 1)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('话题：#$name'), duration: Duration(seconds: 1)),
+    );
   }
 }
 
@@ -189,12 +195,12 @@ class _CardLinkChip extends StatelessWidget {
     final cover = card.cover;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: scheme.primaryContainer.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -219,8 +225,9 @@ class _CardLinkChip extends StatelessWidget {
                 card.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(color: scheme.onPrimaryContainer),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                ),
               ),
             ),
             const SizedBox(width: 4),
@@ -283,22 +290,25 @@ class _StatsRow extends StatelessWidget {
           context,
           stats.favorited ? Icons.bookmark : Icons.bookmark_border,
           stats.favorited ? 1 : 0,
-          color: stats.favorited
-              ? scheme.tertiary
-              : scheme.onSurfaceVariant,
+          color: stats.favorited ? scheme.tertiary : scheme.onSurfaceVariant,
           onTap: onFavorite,
         ),
       ],
     );
   }
 
-  Widget _stat(BuildContext context, IconData icon, int count,
-      {Color? color, VoidCallback? onTap}) {
+  Widget _stat(
+    BuildContext context,
+    IconData icon,
+    int count, {
+    Color? color,
+    VoidCallback? onTap,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Row(
@@ -343,12 +353,14 @@ class _ExpandableContentState extends State<_ExpandableContent> {
           widget.content,
           maxLines: expanded ? null : 6,
           overflow: expanded ? null : TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(height: AppLineHeight.body),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            height: AppLineHeight.body,
+          ),
         ),
         if (long)
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Text(

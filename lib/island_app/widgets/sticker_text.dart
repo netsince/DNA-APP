@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/external_link.dart';
@@ -92,7 +93,14 @@ class StickerCatalog {
 /// 若目录尚未加载完成或找不到该表情，则按纯文本回退显示原标记。
 /// [size] 为表情图片的宽高（默认 32）。
 class StickerText extends StatelessWidget {
-  const StickerText(this.text, {super.key, this.size = 32, this.style, this.maxLines, this.overflow});
+  const StickerText(
+    this.text, {
+    super.key,
+    this.size = 32,
+    this.style,
+    this.maxLines,
+    this.overflow,
+  });
 
   final String text;
   final double size;
@@ -104,9 +112,7 @@ class StickerText extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = _split(text);
     final parts0 = tokens.length == 1 ? _urlSplit(tokens.first.text) : null;
-    final hasUrl = parts0 == null
-        ? true
-        : parts0.any((p) => p.url != null);
+    final hasUrl = parts0 == null ? true : parts0.any((p) => p.url != null);
     if (tokens.length == 1 && !hasUrl) {
       // 无表情、无链接，直接返回文本（保留原样式与截断）。
       return Text(text, style: style, maxLines: maxLines, overflow: overflow);
@@ -240,7 +246,10 @@ class _StickerSheetState extends State<_StickerSheet>
   void initState() {
     super.initState();
     _series = List<Map<String, dynamic>>.from(StickerCatalog.instance._series);
-    _tab = TabController(length: _series.isEmpty ? 1 : _series.length, vsync: this);
+    _tab = TabController(
+      length: _series.isEmpty ? 1 : _series.length,
+      vsync: this,
+    );
     _load();
   }
 
@@ -254,7 +263,9 @@ class _StickerSheetState extends State<_StickerSheet>
     await StickerCatalog.instance.ensureLoaded();
     if (!mounted) return;
     setState(() {
-      _series = List<Map<String, dynamic>>.from(StickerCatalog.instance._series);
+      _series = List<Map<String, dynamic>>.from(
+        StickerCatalog.instance._series,
+      );
       _loaded = true;
       if (_series.isNotEmpty && _tab.length != _series.length) {
         _tab.dispose();
@@ -279,11 +290,12 @@ class _StickerSheetState extends State<_StickerSheet>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: <Widget>[
-                Text('表情包',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w500)),
+                Text(
+                  '表情包',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -296,9 +308,7 @@ class _StickerSheetState extends State<_StickerSheet>
           if (!_loaded)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_series.isEmpty)
-            const Expanded(
-              child: Center(child: Text('暂无可用的表情包')),
-            )
+            const Expanded(child: Center(child: Text('暂无可用的表情包')))
           else ...<Widget>[
             TabBar(
               controller: _tab,
@@ -306,9 +316,7 @@ class _StickerSheetState extends State<_StickerSheet>
               tabAlignment: TabAlignment.start,
               labelColor: scheme.primary,
               tabs: _series
-                  .map((s) => Tab(
-                        text: (s['name'] ?? '').toString(),
-                      ))
+                  .map((s) => Tab(text: (s['name'] ?? '').toString()))
                   .toList(),
             ),
             Expanded(
@@ -336,7 +344,7 @@ class _StickerGrid extends StatelessWidget {
         ? stickers.whereType<Map>().toList()
         : <Map<String, dynamic>>[];
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 72,
         mainAxisSpacing: 8,
@@ -348,9 +356,10 @@ class _StickerGrid extends StatelessWidget {
         final code = (st['code'] ?? '').toString();
         final url = (st['image_url'] ?? '').toString();
         return InkWell(
-          onTap: () => context.findAncestorStateOfType<_StickerSheetState>()!
+          onTap: () => context
+              .findAncestorStateOfType<_StickerSheetState>()!
               ._pick(code),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.xs),
           child: FadeInNetworkImage(
             url: ServerConfig.resolveUrl(url),
             fit: BoxFit.contain,

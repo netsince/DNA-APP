@@ -39,7 +39,10 @@ class ResponsiveCardGrid extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.crossAxisExtent;
-        final columns = (width ~/ minColumnWidth).clamp(_minColumns, maxColumns);
+        final columns = (width ~/ minColumnWidth).clamp(
+          _minColumns,
+          maxColumns,
+        );
         final cellWidth = (width - _spacing * (columns - 1)) / columns;
         final cellHeight = _cellHeight(cellWidth);
         return SliverGrid(

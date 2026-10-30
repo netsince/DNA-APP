@@ -30,7 +30,7 @@ class NotificationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('消息通知'), centerTitle: true),
+      appBar: AppBar(title: const Text('消息通知')),
       body: NotificationsBody(loader: loader, readAll: readAll),
     );
   }
@@ -128,9 +128,9 @@ class _NotificationsBodyState extends State<NotificationsBody> {
   /// 按关联类型决定跳到哪：角色卡 → 卡片详情，世界卡 → 世界卡详情。
   void _openRelated(String type, String id) {
     if (type == 'world') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => WorldDetailPage(id: id)),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => WorldDetailPage(id: id)));
       return;
     }
     _openCard(id);
@@ -214,12 +214,13 @@ class _NotificationsBodyState extends State<NotificationsBody> {
         final created = (n['created_at'] ?? '').toString();
         // 关联对象：优先用通用的 related_type / related_id；老服务端只给
         // related_card_id，回退成角色卡。
-        final String relatedType = (n['related_type'] ??
-                (n['related_card_id'] != null ? 'card' : ''))
+        final String relatedType =
+            (n['related_type'] ?? (n['related_card_id'] != null ? 'card' : ''))
+                .toString();
+        final String relatedId = (n['related_id'] ?? n['related_card_id'] ?? '')
             .toString();
-        final String relatedId =
-            (n['related_id'] ?? n['related_card_id'] ?? '').toString();
-        final bool canOpen = relatedId.isNotEmpty &&
+        final bool canOpen =
+            relatedId.isNotEmpty &&
             (relatedType == 'card' || relatedType == 'world');
         final scheme = Theme.of(context).colorScheme;
         return ListTile(

@@ -281,17 +281,16 @@ class ApiClient {
   Future<Map<String, dynamic>> _postJson(
     Uri target,
     Map<String, dynamic> body,
-  ) =>
-      _requestJson('POST', target, () async {
-        final request = await _client.postUrl(target);
-        // headers 必须在写入/发送请求之前设置（写入 body 会锁定请求头）。
-        _applyHeaders(request);
-        // 显式以 UTF-8 写入：HttpClient.write(String) 默认按 latin-1 编码，
-        // 中文字符会抛 "Contains invalid characters"。
-        request.headers.set('Content-Type', 'application/json; charset=utf-8');
-        request.add(utf8.encode(jsonEncode(body)));
-        return request;
-      });
+  ) => _requestJson('POST', target, () async {
+    final request = await _client.postUrl(target);
+    // headers 必须在写入/发送请求之前设置（写入 body 会锁定请求头）。
+    _applyHeaders(request);
+    // 显式以 UTF-8 写入：HttpClient.write(String) 默认按 latin-1 编码，
+    // 中文字符会抛 "Contains invalid characters"。
+    request.headers.set('Content-Type', 'application/json; charset=utf-8');
+    request.add(utf8.encode(jsonEncode(body)));
+    return request;
+  });
 
   /// 发送**原文** POST（请求体已经是 JSON 文本，不再 jsonEncode 一层）。
   ///
@@ -342,12 +341,7 @@ class ApiClient {
             await Future<void>.delayed(_retryDelay);
             continue;
           }
-          _logError(
-            method,
-            target,
-            statusCode: status,
-            responseBody: body,
-          );
+          _logError(method, target, statusCode: status, responseBody: body);
           throw _apiExceptionFrom(status, body);
         }
         return body;
@@ -369,11 +363,7 @@ class ApiClient {
         // —— 这些情况下请求确定没有送达服务端，重试是安全的。
         _abort(request);
         if (attempt < _maxAttempts) {
-          _logError(
-            method,
-            target,
-            error: '$e，稍后重试（$attempt/$_maxAttempts）',
-          );
+          _logError(method, target, error: '$e，稍后重试（$attempt/$_maxAttempts）');
           await Future<void>.delayed(_retryDelay);
           continue;
         }
@@ -434,7 +424,9 @@ class ApiClient {
     final buffer = StringBuffer()
       ..writeln('[API ERROR] $method ${target.toString()}')
       ..writeln('  请求内容: $method ${target.toString()}')
-      ..writeln('  响应头 statusCode: ${statusCode ?? (error is TimeoutException ? '超时' : '无')}');
+      ..writeln(
+        '  响应头 statusCode: ${statusCode ?? (error is TimeoutException ? '超时' : '无')}',
+      );
     if (responseBody != null) {
       buffer.writeln('  响应体: $responseBody');
     }
@@ -453,7 +445,8 @@ class ApiClient {
   /// 拉取公开站点配置（GET /api/v1/site-config）。
   ///
   /// 未配置服务器地址时抛出异常；网络/解析异常向上抛出由调用方决定降级。
-  Future<Map<String, dynamic>> getSiteConfig() async {    final base = await ServerConfig.getBaseUrl();
+  Future<Map<String, dynamic>> getSiteConfig() async {
+    final base = await ServerConfig.getBaseUrl();
     final uri = Uri.parse(base).replace(path: '/api/v1/site-config');
     if (base.isEmpty) {
       _logError('GET', uri, error: '未配置服务器地址，无法发起请求');
@@ -493,9 +486,9 @@ class ApiClient {
     final base = await ServerConfig.getBaseUrl();
     final uri = Uri.parse(base).replace(
       path: '/api/v1/cards/featured',
-      queryParameters: excludeIds.isEmpty ? null : {
-        'exclude': excludeIds.join(','),
-      },
+      queryParameters: excludeIds.isEmpty
+          ? null
+          : {'exclude': excludeIds.join(',')},
     );
     if (base.isEmpty) {
       _logError('GET', uri, error: '未配置服务器地址，无法发起请求');
@@ -505,9 +498,7 @@ class ApiClient {
     final list = data['data'];
     if (list is! List) return const [];
     return list.whereType<Map>().map((e) {
-      return e.map(
-        (k, v) => MapEntry(k.toString(), v),
-      );
+      return e.map((k, v) => MapEntry(k.toString(), v));
     }).toList();
   }
 
@@ -530,9 +521,7 @@ class ApiClient {
     final list = data['data'];
     if (list is! List) return const [];
     return list.whereType<Map>().map((e) {
-      return e.map(
-        (k, v) => MapEntry(k.toString(), v),
-      );
+      return e.map((k, v) => MapEntry(k.toString(), v));
     }).toList();
   }
 
@@ -618,8 +607,9 @@ class ApiClient {
   /// 我收藏的世界卡（GET `/api/v1/my/world-favorites`，需登录）。
   Future<Map<String, dynamic>> getMyWorldFavorites({int page = 1}) async {
     final data = await _getJson(
-      _apiUri('/api/v1/my/world-favorites')
-          .replace(queryParameters: {'page': '$page'}),
+      _apiUri(
+        '/api/v1/my/world-favorites',
+      ).replace(queryParameters: {'page': '$page'}),
     );
     final payload = data['data'];
     return payload is Map
@@ -637,11 +627,15 @@ class ApiClient {
     if (payload is! Map) return const <({String tag, int count})>[];
     final raw = payload['tags'];
     if (raw is! List) return const <({String tag, int count})>[];
-    return raw.whereType<Map>().map((Map e) {
-      final tag = (e['tag'] ?? '').toString();
-      final count = e['count'];
-      return (tag: tag, count: count is num ? count.toInt() : 0);
-    }).where((e) => e.tag.isNotEmpty).toList();
+    return raw
+        .whereType<Map>()
+        .map((Map e) {
+          final tag = (e['tag'] ?? '').toString();
+          final count = e['count'];
+          return (tag: tag, count: count is num ? count.toInt() : 0);
+        })
+        .where((e) => e.tag.isNotEmpty)
+        .toList();
   }
 
   /// 某个用户发布的世界卡（GET `/api/v1/users/<username>/worlds`）。
@@ -770,8 +764,9 @@ class ApiClient {
       if (gender.isNotEmpty) 'gender': gender,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
     };
-    final uri = _apiUri('/api/v1/cards/explore')
-        .replace(queryParameters: query);
+    final uri = _apiUri(
+      '/api/v1/cards/explore',
+    ).replace(queryParameters: query);
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('探索响应格式不正确');
@@ -960,7 +955,9 @@ class ApiClient {
   /// opening/original_link/cover_focus/seed/author_note/author_note_interval/
   /// tags(list)/dialogue_style(list[{user,assistant}])/images({slot: base64 data url})。
   /// 返回新卡 `id` 与 `status`（pending）。
-  Future<({String id, String status})> publishCard(Map<String, dynamic> payload) async {
+  Future<({String id, String status})> publishCard(
+    Map<String, dynamic> payload,
+  ) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
@@ -1040,8 +1037,9 @@ class ApiClient {
       'sort': sort,
       if (onlyAuthor) 'only_author': '1',
     };
-    final uri = _apiUri('/api/v1/cards/$cardId/comments')
-        .replace(queryParameters: query);
+    final uri = _apiUri(
+      '/api/v1/cards/$cardId/comments',
+    ).replace(queryParameters: query);
     final data = await _getJson(uri);
     final d = data['data'] is Map ? data['data'] as Map : data;
     return CommentPage.fromJson(Map<String, dynamic>.from(d));
@@ -1090,7 +1088,9 @@ class ApiClient {
     final d = data['data'];
     final liked = d is Map ? d['liked'] == true : false;
     final count = d is Map
-        ? (d['count'] is int ? d['count'] as int : int.tryParse('${d['count']}') ?? 0)
+        ? (d['count'] is int
+              ? d['count'] as int
+              : int.tryParse('${d['count']}') ?? 0)
         : 0;
     return (liked: liked, count: count);
   }
@@ -1125,15 +1125,23 @@ class ApiClient {
   /// `(items, page, pages, total, hasNext)`；字段缺失时给出安全默认值。
   ///
   /// 供各分页方法复用，避免重复写 `items is List ? ... : []` 的解析样板。
-  ({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})
-      _pageOf(Object? raw) {
-    final d = raw is Map ? raw.map((k, v) => MapEntry(k.toString(), v)) : <String, dynamic>{};
+  ({
+    List<Map<String, dynamic>> items,
+    int page,
+    int pages,
+    int total,
+    bool hasNext,
+  })
+  _pageOf(Object? raw) {
+    final d = raw is Map
+        ? raw.map((k, v) => MapEntry(k.toString(), v))
+        : <String, dynamic>{};
     final items = d['items'];
     final list = items is List
         ? items
-            .whereType<Map>()
-            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
     return (
       items: list,
@@ -1161,11 +1169,10 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址，无法登录');
     }
-    final data =
-        await _postJson(_apiUri('/api/v1/auth/token'), <String, dynamic>{
-      'identifier': identifier,
-      'password': password,
-    });
+    final data = await _postJson(
+      _apiUri('/api/v1/auth/token'),
+      <String, dynamic>{'identifier': identifier, 'password': password},
+    );
     // 后端统一 {"ok": true, "data": {...}}。
     final d = data['data'];
     if (d is! Map) throw Exception('登录响应格式不正确');
@@ -1200,8 +1207,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/users/$username')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/users/$username',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('用户主页响应格式不正确');
@@ -1216,8 +1224,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/users/$username/comments')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/users/$username/comments',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('用户评论响应格式不正确');
@@ -1233,8 +1242,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/users/$username/teahouse')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/users/$username/teahouse',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('用户茶馆帖子响应格式不正确');
@@ -1257,8 +1267,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/users/$username/$kind')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/users/$username/$kind',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('关注列表响应格式不正确');
@@ -1274,8 +1285,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/my/cards')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/my/cards',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('我的角色卡响应格式不正确');
@@ -1287,8 +1299,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/my/favorites')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/my/favorites',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('我的收藏响应格式不正确');
@@ -1300,8 +1313,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/my/likes')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/my/likes',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('我的点赞响应格式不正确');
@@ -1325,7 +1339,9 @@ class ApiClient {
   ///
   /// [payload]：nickname/bio/location/website/birthday/notify_like/avatar_data_url/remove_avatar。
   /// 返回更新后的资料。
-  Future<Map<String, dynamic>> updateMyProfile(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> updateMyProfile(
+    Map<String, dynamic> payload,
+  ) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
@@ -1342,13 +1358,22 @@ class ApiClient {
   /// 我的工单列表（GET `/api/v1/tickets`，需登录）。
   ///
   /// [status] 取 all/open/replied/closed。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getMyTickets({int page = 1, String status = 'all'}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  getMyTickets({int page = 1, String status = 'all'}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/tickets')
-        .replace(queryParameters: {'page': '$page', 'status': status});
+    final uri = _apiUri(
+      '/api/v1/tickets',
+    ).replace(queryParameters: {'page': '$page', 'status': status});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('工单列表响应格式不正确');
@@ -1365,9 +1390,9 @@ class ApiClient {
     final items = d is Map ? d['items'] : null;
     return items is List
         ? items
-            .whereType<Map>()
-            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
   }
 
@@ -1409,14 +1434,21 @@ class ApiClient {
   }
 
   /// 回复工单（POST `/api/v1/tickets/<id>/reply`，需登录）。
-  Future<void> replyTicket(int ticketId, {String content = '', String? imageData}) async {
+  Future<void> replyTicket(
+    int ticketId, {
+    String content = '',
+    String? imageData,
+  }) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(_apiUri('/api/v1/tickets/$ticketId/reply'), <String, dynamic>{
-      'content': content,
-      if (imageData != null && imageData.isNotEmpty) 'image_data': imageData,
-    });
+    await _postJson(
+      _apiUri('/api/v1/tickets/$ticketId/reply'),
+      <String, dynamic>{
+        'content': content,
+        if (imageData != null && imageData.isNotEmpty) 'image_data': imageData,
+      },
+    );
   }
 
   /// 关闭工单（POST `/api/v1/tickets/<id>/close`，需登录）。
@@ -1424,7 +1456,10 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(_apiUri('/api/v1/tickets/$ticketId/close'), <String, dynamic>{});
+    await _postJson(
+      _apiUri('/api/v1/tickets/$ticketId/close'),
+      <String, dynamic>{},
+    );
   }
 
   /// 重新打开工单（POST `/api/v1/tickets/<id>/reopen`，需登录）。
@@ -1432,7 +1467,10 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(_apiUri('/api/v1/tickets/$ticketId/reopen'), <String, dynamic>{});
+    await _postJson(
+      _apiUri('/api/v1/tickets/$ticketId/reopen'),
+      <String, dynamic>{},
+    );
   }
 
   // ========================================================================
@@ -1446,8 +1484,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/notifications')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/notifications',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('通知响应格式不正确');
@@ -1467,7 +1506,10 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(_apiUri('/api/v1/notifications/read-all'), <String, dynamic>{});
+    await _postJson(
+      _apiUri('/api/v1/notifications/read-all'),
+      <String, dynamic>{},
+    );
   }
 
   /// 拉取未读通知数（GET `/api/v1/notifications/unread-count`，需登录）。
@@ -1492,8 +1534,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri =
-        _apiUri('/api/v1/points').replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/points',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('积分响应格式不正确');
@@ -1522,11 +1565,13 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/articles').replace(queryParameters: <String, String>{
-      'page': '$page',
-      'sort': sort,
-      if (query.isNotEmpty) 'q': query,
-    });
+    final uri = _apiUri('/api/v1/articles').replace(
+      queryParameters: <String, String>{
+        'page': '$page',
+        'sort': sort,
+        if (query.isNotEmpty) 'q': query,
+      },
+    );
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('文章响应格式不正确');
@@ -1593,8 +1638,10 @@ class ApiClient {
   ///
   /// 返回 results（每码结果含 code/ok/message）、success_count、fail_count；
   /// 限流或失败时抛出异常。
-  Future<({List<Map<String, dynamic>> results, int successCount, int failCount})>
-      redeemPoints(List<String> codes) async {
+  Future<
+    ({List<Map<String, dynamic>> results, int successCount, int failCount})
+  >
+  redeemPoints(List<String> codes) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
@@ -1624,12 +1671,16 @@ class ApiClient {
   /// 拉取茶馆 Feed（GET `/api/v1/teahouse/posts`）。
   ///
   /// 支持 `sort`（hot/new）与可选 `topicId` 过滤。返回含 items（_teapost_item Map）。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getTeahousePosts({
-    int page = 1,
-    String sort = 'hot',
-    int? topicId,
-  }) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  getTeahousePosts({int page = 1, String sort = 'hot', int? topicId}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
@@ -1638,7 +1689,9 @@ class ApiClient {
       'sort': sort,
       if (topicId != null) 'topic_id': '$topicId',
     };
-    final uri = _apiUri('/api/v1/teahouse/posts').replace(queryParameters: query);
+    final uri = _apiUri(
+      '/api/v1/teahouse/posts',
+    ).replace(queryParameters: query);
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('茶馆 Feed 响应格式不正确');
@@ -1656,8 +1709,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/teahouse/posts/$postId')
-        .replace(queryParameters: {'page': '$page', 'sort': sort});
+    final uri = _apiUri(
+      '/api/v1/teahouse/posts/$postId',
+    ).replace(queryParameters: {'page': '$page', 'sort': sort});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('茶馆帖子详情响应格式不正确');
@@ -1672,19 +1726,32 @@ class ApiClient {
     final data = await _getJson(_apiUri('/api/v1/teahouse/topics'));
     final d = data['data'];
     final list = d is List
-        ? d.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList()
+        ? d
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
     return list;
   }
 
   /// 拉取某话题下的帖子（GET `/api/v1/teahouse/topics/<id>`）。
-  Future<({Map<String, dynamic>? topic, List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getTeahouseTopicPosts(int topicId, {int page = 1}) async {
+  Future<
+    ({
+      Map<String, dynamic>? topic,
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  getTeahouseTopicPosts(int topicId, {int page = 1}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/teahouse/topics/$topicId')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/teahouse/topics/$topicId',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('话题帖子响应格式不正确');
@@ -1704,13 +1771,22 @@ class ApiClient {
   }
 
   /// 拉取我收藏的茶馆帖子（GET `/api/v1/teahouse/favorites`，需登录）。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getTeahouseFavorites({int page = 1}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  getTeahouseFavorites({int page = 1}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/teahouse/favorites')
-        .replace(queryParameters: {'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/teahouse/favorites',
+    ).replace(queryParameters: {'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('茶馆收藏响应格式不正确');
@@ -1744,7 +1820,12 @@ class ApiClient {
   }
 
   /// 回复茶馆帖子（POST `/api/v1/teahouse/posts/<id>/reply`，需登录）。
-  Future<int> replyTeahousePost(int postId, String content, {String? cardId, String? topic}) async {
+  Future<int> replyTeahousePost(
+    int postId,
+    String content, {
+    String? cardId,
+    String? topic,
+  }) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
@@ -1753,7 +1834,10 @@ class ApiClient {
       if (cardId != null && cardId.isNotEmpty) 'card_id': cardId,
       if (topic != null && topic.isNotEmpty) 'topic': topic,
     };
-    final data = await _postJson(_apiUri('/api/v1/teahouse/posts/$postId/reply'), body);
+    final data = await _postJson(
+      _apiUri('/api/v1/teahouse/posts/$postId/reply'),
+      body,
+    );
     final d = data['data'];
     final id = d is Map ? d['id'] : null;
     return id is int ? id : int.tryParse('$id') ?? 0;
@@ -1764,24 +1848,40 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final data = await _postJson(_apiUri('/api/v1/teahouse/posts/$postId/like'), <String, dynamic>{});
+    final data = await _postJson(
+      _apiUri('/api/v1/teahouse/posts/$postId/like'),
+      <String, dynamic>{},
+    );
     final d = data['data'];
     return (
       liked: d is Map && d['liked'] == true,
-      count: d is Map ? (d['count'] is int ? d['count'] as int : int.tryParse('${d['count']}') ?? 0) : 0,
+      count: d is Map
+          ? (d['count'] is int
+                ? d['count'] as int
+                : int.tryParse('${d['count']}') ?? 0)
+          : 0,
     );
   }
 
   /// 收藏/取消收藏茶馆帖子（POST `/api/v1/teahouse/posts/<id>/favorite`，需登录）。
-  Future<({bool favorited, int count})> toggleTeahouseFavorite(int postId) async {
+  Future<({bool favorited, int count})> toggleTeahouseFavorite(
+    int postId,
+  ) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final data = await _postJson(_apiUri('/api/v1/teahouse/posts/$postId/favorite'), <String, dynamic>{});
+    final data = await _postJson(
+      _apiUri('/api/v1/teahouse/posts/$postId/favorite'),
+      <String, dynamic>{},
+    );
     final d = data['data'];
     return (
       favorited: d is Map && d['favorited'] == true,
-      count: d is Map ? (d['count'] is int ? d['count'] as int : int.tryParse('${d['count']}') ?? 0) : 0,
+      count: d is Map
+          ? (d['count'] is int
+                ? d['count'] as int
+                : int.tryParse('${d['count']}') ?? 0)
+          : 0,
     );
   }
 
@@ -1818,7 +1918,10 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(_apiUri('/api/v1/teahouse/posts/$postId/delete'), <String, dynamic>{});
+    await _postJson(
+      _apiUri('/api/v1/teahouse/posts/$postId/delete'),
+      <String, dynamic>{},
+    );
   }
 
   // ========================================================================
@@ -1826,13 +1929,22 @@ class ApiClient {
   // ========================================================================
 
   /// 搜索茶馆帖子（GET `/api/v1/teahouse/search`）。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      searchTeahousePosts(String query, {int page = 1}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  searchTeahousePosts(String query, {int page = 1}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/teahouse/search')
-        .replace(queryParameters: {'q': query, 'page': '$page'});
+    final uri = _apiUri(
+      '/api/v1/teahouse/search',
+    ).replace(queryParameters: {'q': query, 'page': '$page'});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('茶馆搜索响应格式不正确');
@@ -1842,17 +1954,32 @@ class ApiClient {
   /// 搜索角色卡（GET `/api/v1/cards/search`）。
   ///
   /// `sort` 取 relevance/hot/new；`tag` 可选标签过滤。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      searchCards(String query, {int page = 1, String sort = 'relevance', String? tag}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  searchCards(
+    String query, {
+    int page = 1,
+    String sort = 'relevance',
+    String? tag,
+  }) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/cards/search').replace(queryParameters: <String, String>{
-      'q': query,
-      'page': '$page',
-      'sort': sort,
-      if (tag != null && tag.isNotEmpty) 'tag': tag,
-    });
+    final uri = _apiUri('/api/v1/cards/search').replace(
+      queryParameters: <String, String>{
+        'q': query,
+        'page': '$page',
+        'sort': sort,
+        if (tag != null && tag.isNotEmpty) 'tag': tag,
+      },
+    );
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('角色卡搜索响应格式不正确');
@@ -1862,13 +1989,22 @@ class ApiClient {
   /// 搜索用户（GET `/api/v1/users/search`）。
   ///
   /// `sort` 取 relevance/new。返回 _user_public + is_following。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      searchUsers(String query, {int page = 1, String sort = 'relevance'}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  searchUsers(String query, {int page = 1, String sort = 'relevance'}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/users/search')
-        .replace(queryParameters: {'q': query, 'page': '$page', 'sort': sort});
+    final uri = _apiUri(
+      '/api/v1/users/search',
+    ).replace(queryParameters: {'q': query, 'page': '$page', 'sort': sort});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('用户搜索响应格式不正确');
@@ -1879,12 +2015,13 @@ class ApiClient {
   ///
   /// 返回匹配度最高的角色卡与作者，供输入时下拉展示。
   Future<({List<Map<String, dynamic>> cards, List<Map<String, dynamic>> users})>
-      getSearchSuggest(String query) async {
+  getSearchSuggest(String query) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/search/suggest')
-        .replace(queryParameters: {'q': query});
+    final uri = _apiUri(
+      '/api/v1/search/suggest',
+    ).replace(queryParameters: {'q': query});
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('搜索建议响应格式不正确');
@@ -1917,9 +2054,9 @@ class ApiClient {
     final series = data['series'];
     return series is List
         ? series
-            .whereType<Map>()
-            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
   }
 
@@ -1952,16 +2089,14 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final data = await _postJson(
-      _apiUri('/api/v1/proxy/config'),
-      <String, dynamic>{
-        'action': 'save',
-        'upstream_base_url': upstreamBaseUrl,
-        'upstream_api_key': upstreamApiKey,
-        'remark': remark,
-        'enabled': enabled,
-      },
-    );
+    final data =
+        await _postJson(_apiUri('/api/v1/proxy/config'), <String, dynamic>{
+          'action': 'save',
+          'upstream_base_url': upstreamBaseUrl,
+          'upstream_api_key': upstreamApiKey,
+          'remark': remark,
+          'enabled': enabled,
+        });
     final d = data['data'];
     if (d is! Map) throw Exception('保存代理配置响应格式不正确');
     return d.map((k, v) => MapEntry(k.toString(), v));
@@ -1986,10 +2121,9 @@ class ApiClient {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    await _postJson(
-      _apiUri('/api/v1/proxy/config'),
-      <String, dynamic>{'action': 'delete'},
-    );
+    await _postJson(_apiUri('/api/v1/proxy/config'), <String, dynamic>{
+      'action': 'delete',
+    });
   }
 
   // ========================================================================
@@ -2049,9 +2183,9 @@ class ApiClient {
     final tasks = d['tasks'];
     return tasks is List
         ? tasks
-            .whereType<Map>()
-            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
   }
 
@@ -2076,16 +2210,30 @@ class ApiClient {
   ///
   /// [status] 按状态过滤（`success` / `partial` / `failed`）。传 `failed` 时服务端只返回
   /// 失败记录 —— 「生成失败记录」页用它翻页，否则得先翻过一堆成功记录才凑得齐失败的那些。
-  Future<({List<Map<String, dynamic>> items, int page, int pages, int total, bool hasNext})>
-      getImageGenLogs({int page = 1, bool includeFailed = false, String? status}) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> items,
+      int page,
+      int pages,
+      int total,
+      bool hasNext,
+    })
+  >
+  getImageGenLogs({
+    int page = 1,
+    bool includeFailed = false,
+    String? status,
+  }) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
-    final uri = _apiUri('/api/v1/image-gen/logs').replace(queryParameters: {
-      'page': '$page',
-      if (includeFailed) 'include_failed': '1',
-      if (status != null && status.isNotEmpty) 'status': status,
-    });
+    final uri = _apiUri('/api/v1/image-gen/logs').replace(
+      queryParameters: {
+        'page': '$page',
+        if (includeFailed) 'include_failed': '1',
+        if (status != null && status.isNotEmpty) 'status': status,
+      },
+    );
     final data = await _getJson(uri);
     final d = data['data'];
     if (d is! Map) throw Exception('生图历史响应格式不正确');
@@ -2104,16 +2252,17 @@ class ApiClient {
       throw Exception('未配置服务器地址');
     }
     if (query.trim().isEmpty) return const <Map<String, dynamic>>[];
-    final uri = _apiUri('/api/v1/teahouse/card-search')
-        .replace(queryParameters: {'q': query});
+    final uri = _apiUri(
+      '/api/v1/teahouse/card-search',
+    ).replace(queryParameters: {'q': query});
     final data = await _getJson(uri);
     final d = data['data'];
     final items = d is Map ? d['items'] : null;
     return items is List
         ? items
-            .whereType<Map>()
-            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .toList()
         : <Map<String, dynamic>>[];
   }
 

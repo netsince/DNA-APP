@@ -193,8 +193,8 @@ class CommunityPreload {
     if (_needsSetup) return false;
     if (ServerConfig.cachedBaseUrl.isEmpty) return false;
     try {
-      final List<Map<String, dynamic>> cards =
-          await ApiClient.instance.getFeaturedCards();
+      final List<Map<String, dynamic>> cards = await ApiClient.instance
+          .getFeaturedCards();
       _featured = cards;
       _featuredAt = DateTime.now();
       _bootFailed = false;
@@ -227,7 +227,6 @@ class CommunityPreload {
     DateTime? fetchedAt,
   }) {
     _featured = cards;
-    _featuredAt = fetchedAt ??
-        (cards == null ? null : DateTime.now());
+    _featuredAt = fetchedAt ?? (cards == null ? null : DateTime.now());
   }
 }

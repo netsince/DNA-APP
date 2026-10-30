@@ -53,7 +53,7 @@ class _HomeBodyState extends State<HomeBody>
     // _contentIn 从未被访问），state 已 deactivated，查找 TickerMode 祖先会崩溃。
     _contentIn = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: AppMotion.transform,
       value: 1.0,
     );
     // 站点配置是后台异步加载的，可能在首页挂载后才到位；监听其变化，
@@ -104,10 +104,8 @@ class _HomeBodyState extends State<HomeBody>
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (_) => _AnnouncementSheet(
-          content: cfg.announcementContent,
-          onOpen: _open,
-        ),
+        builder: (_) =>
+            _AnnouncementSheet(content: cfg.announcementContent, onOpen: _open),
       );
     });
   }
@@ -144,8 +142,9 @@ class _HomeBodyState extends State<HomeBody>
     if (_loading || _loadingMore || _noMore) return;
     setState(() => _loadingMore = true);
     try {
-      final cards = await ApiClient.instance
-          .getFeaturedCards(excludeIds: _seenIds.toList());
+      final cards = await ApiClient.instance.getFeaturedCards(
+        excludeIds: _seenIds.toList(),
+      );
       if (!mounted) return;
       setState(() {
         _cards = <Map<String, dynamic>>[..._cards, ...cards];
@@ -172,11 +171,9 @@ class _HomeBodyState extends State<HomeBody>
       cb(id); // 交由外壳承载，横屏保留常驻侧边栏。
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CardDetailPage(cardId: id),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
   }
 
   void _onScrollNotification(ScrollNotification notification) {
@@ -204,9 +201,9 @@ class _HomeBodyState extends State<HomeBody>
       _contentIn.forward(from: 0);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('刷新失败，请稍后再试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
     }
   }
 
@@ -235,10 +232,9 @@ class _HomeBodyState extends State<HomeBody>
       sliver: SliverToBoxAdapter(
         child: Text(
           '为你推荐',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w500),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
         ),
       ),
     );
@@ -250,7 +246,7 @@ class _HomeBodyState extends State<HomeBody>
           // Hero 首次出现时的淡入 + 轻微上浮，柔和衔接。
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 500),
+            duration: AppMotion.medium,
             curve: Curves.easeOutCubic,
             builder: (context, v, child) => Opacity(
               opacity: v,
@@ -276,17 +272,19 @@ class _HomeBodyState extends State<HomeBody>
       slivers.add(_skeletonSliver(context));
     } else if (_error != null) {
       slivers.add(titleSliver);
-      slivers.add(SliverToBoxAdapter(
-        child: ErrorState(onRetry: _loadFeatured),
-      ));
+      slivers.add(
+        SliverToBoxAdapter(child: ErrorState(onRetry: _loadFeatured)),
+      );
     } else if (_cards.isEmpty) {
       slivers.add(titleSliver);
-      slivers.add(const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
-          child: Center(child: Text('暂无推荐内容')),
+      slivers.add(
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text('暂无推荐内容')),
+          ),
         ),
-      ));
+      );
     } else {
       slivers.add(titleSliver);
       // 内容整体淡入（骨架屏 → 真实网格）。
@@ -297,21 +295,20 @@ class _HomeBodyState extends State<HomeBody>
             opacity: _contentIn.value,
             sliver: SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: ResponsiveCardGrid(
-                cards: _cards,
-                onCardTap: _openCard,
-              ),
+              sliver: ResponsiveCardGrid(cards: _cards, onCardTap: _openCard),
             ),
           ),
         ),
       );
       if (_loadingMore) {
-        slivers.add(const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
+        slivers.add(
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
           ),
-        ));
+        );
       }
     }
 
@@ -336,10 +333,8 @@ class _HomeBodyState extends State<HomeBody>
                 runSpacing: spacing,
                 children: List<Widget>.generate(
                   columns * 3,
-                  (_) => SizedBox(
-                    width: itemWidth,
-                    child: const _SkeletonCard(),
-                  ),
+                  (_) =>
+                      SizedBox(width: itemWidth, child: const _SkeletonCard()),
                 ),
               );
             },
@@ -357,7 +352,7 @@ class _SkeletonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final block = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final radius = BorderRadius.circular(12);
+    final radius = BorderRadius.circular(AppRadius.sm);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -373,7 +368,7 @@ class _SkeletonCard extends StatelessWidget {
           height: 14,
           decoration: BoxDecoration(
             color: block,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
           ),
         ),
         const SizedBox(height: 6),
@@ -382,7 +377,7 @@ class _SkeletonCard extends StatelessWidget {
           height: 12,
           decoration: BoxDecoration(
             color: block,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
           ),
         ),
       ],
@@ -415,19 +410,18 @@ class _HeroBanner extends StatelessWidget {
         if (title.isNotEmpty)
           Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .displaySmall
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(
+              context,
+            ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w500),
           ),
         if (subtitle.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: AppLineHeight.body,
-                ),
+              color: scheme.onSurfaceVariant,
+              height: AppLineHeight.body,
+            ),
           ),
         ],
         if (buttons.isNotEmpty) ...[
@@ -481,10 +475,9 @@ class _AnnouncementSheet extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '站点公告',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w500),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],

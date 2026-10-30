@@ -57,10 +57,9 @@ class CardDetail {
     String? authorName;
     String? authorUsername;
     if (author is Map) {
-      authorName =
-          ((author['nickname'] ?? '').toString().isNotEmpty)
-              ? (author['nickname'] ?? '').toString()
-              : (author['display_name'] ?? '').toString();
+      authorName = ((author['nickname'] ?? '').toString().isNotEmpty)
+          ? (author['nickname'] ?? '').toString()
+          : (author['display_name'] ?? '').toString();
       authorUsername = (author['username'] ?? '').toString();
     }
 
@@ -77,10 +76,12 @@ class CardDetail {
     if (rawDialogue is List) {
       for (final turn in rawDialogue) {
         if (turn is Map) {
-          dialogue.add(DialogueTurn(
-            user: (turn['user'] ?? '').toString(),
-            assistant: (turn['assistant'] ?? '').toString(),
-          ));
+          dialogue.add(
+            DialogueTurn(
+              user: (turn['user'] ?? '').toString(),
+              assistant: (turn['assistant'] ?? '').toString(),
+            ),
+          );
         }
       }
     }
@@ -101,13 +102,21 @@ class CardDetail {
       intro: (m['intro'] ?? '').toString(),
       opening: (m['opening'] ?? '').toString(),
       originalLink: (m['original_link'] ?? '').toString(),
-      viewCount: (m['view_count'] is num) ? (m['view_count'] as num).toInt() : 0,
-      copyCount: (m['copy_count'] is num) ? (m['copy_count'] as num).toInt() : 0,
-      likeCount: (m['like_count'] is num) ? (m['like_count'] as num).toInt() : 0,
-      favoriteCount:
-          (m['favorite_count'] is num) ? (m['favorite_count'] as num).toInt() : 0,
-      commentCount:
-          (m['comment_count'] is num) ? (m['comment_count'] as num).toInt() : 0,
+      viewCount: (m['view_count'] is num)
+          ? (m['view_count'] as num).toInt()
+          : 0,
+      copyCount: (m['copy_count'] is num)
+          ? (m['copy_count'] as num).toInt()
+          : 0,
+      likeCount: (m['like_count'] is num)
+          ? (m['like_count'] as num).toInt()
+          : 0,
+      favoriteCount: (m['favorite_count'] is num)
+          ? (m['favorite_count'] as num).toInt()
+          : 0,
+      commentCount: (m['comment_count'] is num)
+          ? (m['comment_count'] as num).toInt()
+          : 0,
       liked: m['liked'] == true || m['liked'] == 1,
       favorited: m['favorited'] == true || m['favorited'] == 1,
       tags: tags,
@@ -121,10 +130,9 @@ class CardDetail {
       status: (m['status'] ?? 'approved').toString(),
       isHidden: m['is_hidden'] == true || m['is_hidden'] == 1,
       authorNote: (m['authorNote'] ?? '').toString(),
-      authorNoteInterval:
-          (m['authorNoteInterval'] is num)
-              ? (m['authorNoteInterval'] as num).toInt()
-              : (int.tryParse('${m['authorNoteInterval']}') ?? 0),
+      authorNoteInterval: (m['authorNoteInterval'] is num)
+          ? (m['authorNoteInterval'] as num).toInt()
+          : (int.tryParse('${m['authorNoteInterval']}') ?? 0),
     );
   }
 
@@ -180,7 +188,9 @@ class CardDetail {
 
   /// 是否启用封面 cover 模式（设置了封面焦点才会裁切填满，对齐网页版）。
   bool get coverEnabled =>
-      bannerPath != null && coverFocus.trim().isNotEmpty && coverFocus.contains(',');
+      bannerPath != null &&
+      coverFocus.trim().isNotEmpty &&
+      coverFocus.contains(',');
 
   /// 拷贝并覆盖点赞/收藏/隐藏等可变字段（其余保持不变）。
   CardDetail copyWith({
@@ -251,12 +261,13 @@ typedef ReportReasonsLoader =
 /// 两者不一致时 `widget.reportSubmitter ?? ApiClient.instance.submitReport`
 /// 的类型会退化成 `Function`，编译期不报错、调用时才抛 NoSuchMethodError ——
 /// 举报就这么坏过一次（调用处传位置参数，实现却只收命名参数）。
-typedef ReportSubmitter = Future<void> Function({
-  required String type,
-  required String id,
-  required String reason,
-  String? detail,
-});
+typedef ReportSubmitter =
+    Future<void> Function({
+      required String type,
+      required String id,
+      required String reason,
+      String? detail,
+    });
 
 /// 复制/导出角色卡：返回可写入剪贴板的角色卡 JSON 包字符串（需登录）。
 typedef CardExporter = Future<String> Function(String cardId);
@@ -372,6 +383,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   String _authorAvatar = '';
   String _authorNickname = '';
   bool _authorVerified = false;
+
   /// 作者是否为赞助者（昵称旁红星）。
   bool _authorIsSponsor = false;
   int _followerCount = 0;
@@ -451,7 +463,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
     try {
       final exporter = widget.cardExporter ?? ApiClient.instance.exportCard;
       final pkg = await exporter(widget.cardId);
-      final writer = widget.clipboardWriter ??
+      final writer =
+          widget.clipboardWriter ??
           (text) => Clipboard.setData(ClipboardData(text: text));
       await writer(pkg);
       if (!mounted) return;
@@ -498,9 +511,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       // 不补这一步导入进来的卡就没图（编辑器的导入流程也是这么做的）。
       final ExportImportResult<TA> restored =
           await TaExportImportService.restoreTaImages(
-        ta,
-        jsonDecode(pkg) as Map<String, dynamic>,
-      );
+            ta,
+            jsonDecode(pkg) as Map<String, dynamic>,
+          );
       if (restored.success && restored.data != null) {
         ta = restored.data;
       }
@@ -529,7 +542,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _showSnack('尚未配置服务器地址');
         return;
       }
-      final writer = widget.clipboardWriter ??
+      final writer =
+          widget.clipboardWriter ??
           (text) => Clipboard.setData(ClipboardData(text: text));
       await writer(url);
       if (!mounted) return;
@@ -548,10 +562,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
     if (d == null) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TeahouseComposePage(
-          presetCardId: d.id,
-          presetCardName: d.name,
-        ),
+        builder: (_) =>
+            TeahouseComposePage(presetCardId: d.id, presetCardName: d.name),
       ),
     );
   }
@@ -579,15 +591,15 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   Future<void> _toggleLike() => _toggle(
-        widget.likeToggler ?? ApiClient.instance.toggleCardLike,
-        (d, next, count) => _detail = d.copyWith(liked: next, likeCount: count),
-      );
+    widget.likeToggler ?? ApiClient.instance.toggleCardLike,
+    (d, next, count) => _detail = d.copyWith(liked: next, likeCount: count),
+  );
 
   Future<void> _toggleFavorite() => _toggle(
-        widget.favoriteToggler ?? ApiClient.instance.toggleCardFavorite,
-        (d, next, count) =>
-            _detail = d.copyWith(favorited: next, favoriteCount: count),
-      );
+    widget.favoriteToggler ?? ApiClient.instance.toggleCardFavorite,
+    (d, next, count) =>
+        _detail = d.copyWith(favorited: next, favoriteCount: count),
+  );
 
   /// 打开评论区：从底部弹出二级弹层（对齐网页版评论抽屉）。
   ///
@@ -624,8 +636,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       final avatar = user is Map ? (user['avatar'] ?? '').toString() : '';
       final nickname = user is Map
           ? ((user['nickname'] ?? '').toString().isNotEmpty
-              ? (user['nickname'] ?? '').toString()
-              : (user['display_name'] ?? '').toString())
+                ? (user['nickname'] ?? '').toString()
+                : (user['display_name'] ?? '').toString())
           : '';
       final follower = data['follower_count'];
       int cardCount = 0;
@@ -636,7 +648,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (!mounted) return;
       setState(() {
         _authorAvatar = avatar;
-        _authorNickname = nickname.isEmpty ? _detail!.authorName ?? '' : nickname;
+        _authorNickname = nickname.isEmpty
+            ? _detail!.authorName ?? ''
+            : nickname;
         _authorVerified = user is Map && user['verified'] == true;
         _authorIsSponsor = user is Map && user['is_sponsor'] == true;
         _followerCount = (follower is num) ? follower.toInt() : 0;
@@ -699,13 +713,20 @@ class _CardDetailPageState extends State<CardDetailPage> {
     if (images == null || images.isEmpty) {
       final banner = _detail?.bannerPath;
       if (banner != null) {
-        ImageViewerPage.open(context, urls: <String>[ServerConfig.resolveUrl(banner)]);
+        ImageViewerPage.open(
+          context,
+          urls: <String>[ServerConfig.resolveUrl(banner)],
+        );
       }
       return;
     }
     final urls = images.values.map((p) => ServerConfig.resolveUrl(p)).toList();
-    final resolvedTarget = targetUrl != null ? ServerConfig.resolveUrl(targetUrl) : null;
-    final initialIndex = resolvedTarget != null ? urls.indexOf(resolvedTarget) : 0;
+    final resolvedTarget = targetUrl != null
+        ? ServerConfig.resolveUrl(targetUrl)
+        : null;
+    final initialIndex = resolvedTarget != null
+        ? urls.indexOf(resolvedTarget)
+        : 0;
     ImageViewerPage.open(
       context,
       urls: urls,
@@ -770,9 +791,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildBody(context),
-    );
+    return Scaffold(body: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
@@ -913,10 +932,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                 constraints: BoxConstraints(maxWidth: maxWidth),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: _HeroBanner(
-                    detail: d,
-                    onTap: _openImageViewer,
-                  ),
+                  child: _HeroBanner(detail: d, onTap: _openImageViewer),
                 ),
               ),
             ),
@@ -1013,16 +1029,17 @@ class _CardDetailPageState extends State<CardDetailPage> {
     final u = _detail?.authorUsername;
     if (u == null || u.isEmpty) return;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => UserProfilePage(username: u),
-      ),
+      MaterialPageRoute<void>(builder: (_) => UserProfilePage(username: u)),
     );
   }
 
   /// 内容区块（简介/人格设定/开场白/对话示例/原始链接），窄屏与宽屏共用。
   ///
   /// [includeTags] 为 true 时包含标签区（窄屏），false 时标签由资料栏展示（宽屏）。
-  List<Widget> _contentSectionChildren(CardDetail d, {required bool includeTags}) {
+  List<Widget> _contentSectionChildren(
+    CardDetail d, {
+    required bool includeTags,
+  }) {
     return <Widget>[
       if (includeTags && (d.tags.isNotEmpty || _owner))
         _TagsSection(
@@ -1030,11 +1047,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
           statusBadge: _owner ? _StatusBadge(detail: d) : null,
         ),
       if (d.intro.isNotEmpty)
-        _ContentSection(
-          icon: Icons.notes_outlined,
-          title: '简介',
-          body: d.intro,
-        ),
+        _ContentSection(icon: Icons.notes_outlined, title: '简介', body: d.intro),
       if (d.persona.isNotEmpty)
         _ContentSection(
           icon: Icons.badge_outlined,
@@ -1051,10 +1064,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (d.dialogue.isNotEmpty)
         _DialogueSection(name: d.name, dialogue: d.dialogue),
       if (d.authorNote != null && d.authorNote!.isNotEmpty)
-        _AuthorNoteSection(
-          note: d.authorNote!,
-          interval: d.authorNoteInterval,
-        ),
+        _AuthorNoteSection(note: d.authorNote!, interval: d.authorNoteInterval),
       if (d.originalLink.isNotEmpty)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
@@ -1085,7 +1095,7 @@ class _HeroBanner extends StatelessWidget {
     final useFocus = detail.coverEnabled;
     final focus = useFocus ? _parseFocus(detail.coverFocus) : null;
     final image = ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: ColoredBox(
@@ -1112,7 +1122,7 @@ class _HeroBanner extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: scheme.surface.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1121,10 +1131,9 @@ class _HeroBanner extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     '查看原图',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(color: scheme.onSurface),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: scheme.onSurface),
                   ),
                 ],
               ),
@@ -1173,7 +1182,7 @@ class _ProfileCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final avatarPath = detail.avatarPath;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       child: SizedBox(
         width: 84,
         height: 84,
@@ -1189,8 +1198,9 @@ class _ProfileCard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     detail.name.isNotEmpty ? detail.name[0] : '?',
-                    style: theme.textTheme.headlineMedium
-                        ?.copyWith(color: scheme.onPrimaryContainer),
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ),
@@ -1234,16 +1244,21 @@ class _ProfileCard extends StatelessWidget {
         ),
     ];
 
-    final metaStyle =
-        theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
 
     // 统计：浏览 / 复制，居中或居左随布局变化。
     final stats = Row(
-      mainAxisAlignment:
-          centered ? MainAxisAlignment.center : MainAxisAlignment.start,
+      mainAxisAlignment: centered
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
       children: <Widget>[
-        Icon(Icons.visibility_outlined,
-            size: 16, color: scheme.onSurfaceVariant),
+        Icon(
+          Icons.visibility_outlined,
+          size: 16,
+          color: scheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text(_fmtCount(detail.viewCount), style: metaStyle),
         const SizedBox(width: 20),
@@ -1255,11 +1270,11 @@ class _ProfileCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: centered
           ? Column(
@@ -1269,8 +1284,9 @@ class _ProfileCard extends StatelessWidget {
                 Text(
                   detail.name,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (chips.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 10),
@@ -1301,15 +1317,12 @@ class _ProfileCard extends StatelessWidget {
                             detail.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w500),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: chips,
-                          ),
+                          Wrap(spacing: 8, runSpacing: 6, children: chips),
                         ],
                       ),
                     ),
@@ -1379,11 +1392,11 @@ class _AuthorSection extends StatelessWidget {
     final name = nickname.isNotEmpty ? nickname : username;
 
     final card = Container(
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1403,16 +1416,18 @@ class _AuthorSection extends StatelessWidget {
                           name: name,
                           isSponsor: isSponsor,
                           verified: verified,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w500),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '@$username',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -1468,19 +1483,16 @@ class _AuthorSection extends StatelessWidget {
         padding: const EdgeInsets.only(top: 12),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           child: InkWell(
             onTap: onTapAuthor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             child: card,
           ),
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: card,
-    );
+    return Padding(padding: const EdgeInsets.only(top: 12), child: card);
   }
 }
 
@@ -1521,11 +1533,7 @@ class _AuthorAvatar extends StatelessWidget {
       radius: radius,
       backgroundColor: scheme.surfaceContainerHighest,
       child: ClipOval(
-        child: SizedBox(
-          width: radius * 2,
-          height: radius * 2,
-          child: child,
-        ),
+        child: SizedBox(width: radius * 2, height: radius * 2, child: child),
       ),
     );
   }
@@ -1553,12 +1561,16 @@ class _AuthorStat extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(width: 4),
         Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -1614,8 +1626,9 @@ class _ActionsBar extends StatelessWidget {
               ),
               style: FilledButton.styleFrom(
                 foregroundColor: detail.favorited ? scheme.primary : null,
-                backgroundColor:
-                    detail.favorited ? scheme.primaryContainer : null,
+                backgroundColor: detail.favorited
+                    ? scheme.primaryContainer
+                    : null,
               ),
               child: Text('${detail.favoriteCount}'),
             ),
@@ -1646,16 +1659,16 @@ class _ActionsBar extends StatelessWidget {
               tooltip: '复制卡片',
               onPressed: page._copyCard,
               icon: const Icon(Icons.content_copy, size: 18),
-            loadingSize: 18,
-            style: FilledButton.styleFrom(
-              backgroundColor: scheme.surfaceContainerHigh,
-              foregroundColor: scheme.onSurfaceVariant,
-              visualDensity: VisualDensity.compact,
-              minimumSize: const Size.square(40),
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              loadingSize: 18,
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.surfaceContainerHigh,
+                foregroundColor: scheme.onSurfaceVariant,
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size.square(40),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1685,13 +1698,17 @@ class _TagsSection extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: tags
-                  .map((t) => _Chip(
-                        label: '#$t',
-                        background:
-                            Theme.of(context).colorScheme.surfaceContainerHigh,
-                        foreground:
-                            Theme.of(context).colorScheme.onSurfaceVariant,
-                      ))
+                  .map(
+                    (t) => _Chip(
+                      label: '#$t',
+                      background: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHigh,
+                      foreground: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant,
+                    ),
+                  )
                   .toList(),
             ),
         ],
@@ -1732,11 +1749,13 @@ class _StatusBadge extends StatelessWidget {
     chips.add(_Chip(label: label, background: bg, foreground: fg));
 
     if (detail.isHidden) {
-      chips.add(_Chip(
-        label: '已隐藏',
-        background: scheme.surfaceContainerHighest,
-        foreground: scheme.onSurfaceVariant,
-      ));
+      chips.add(
+        _Chip(
+          label: '已隐藏',
+          background: scheme.surfaceContainerHighest,
+          foreground: scheme.onSurfaceVariant,
+        ),
+      );
     }
 
     return Wrap(spacing: 8, runSpacing: 8, children: chips);
@@ -1764,7 +1783,7 @@ class _ContentSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1788,11 +1807,11 @@ class _ContentSection extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.all(14),
+            margin: const EdgeInsets.all(AppSpacing.md),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
               body,
@@ -1826,7 +1845,7 @@ class _AuthorNoteSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1848,11 +1867,13 @@ class _AuthorNoteSection extends StatelessWidget {
                 if (interval > 0) ...<Widget>[
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: scheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
                       '每 $interval 条注入',
@@ -1868,11 +1889,11 @@ class _AuthorNoteSection extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.all(14),
+            margin: const EdgeInsets.all(AppSpacing.md),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: scheme.tertiaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
               note,
@@ -1904,9 +1925,9 @@ class _DialogueSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1994,7 +2015,10 @@ class _ChatBubble extends StatelessWidget {
             backgroundColor: theme.colorScheme.primary,
             child: Text(
               avatarLabel!,
-              style: const TextStyle(color: Colors.white, fontSize: AppFontSize.caption),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: AppFontSize.caption,
+              ),
             ),
           )
         : null;
@@ -2002,17 +2026,16 @@ class _ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment:
-            alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
+        mainAxisAlignment: alignLeft
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: alignLeft
             ? <Widget>[
                 if (avatar != null) ...[avatar, const SizedBox(width: 8)],
                 Flexible(child: bubble),
               ]
-            : <Widget>[
-                Flexible(child: bubble),
-              ],
+            : <Widget>[Flexible(child: bubble)],
       ),
     );
   }
@@ -2038,7 +2061,7 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2049,10 +2072,9 @@ class _Chip extends StatelessWidget {
           ],
           Text(
             label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(color: foreground),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: foreground),
           ),
         ],
       ),
@@ -2082,7 +2104,7 @@ class _SkeletonBody extends StatelessWidget {
         SliverToBoxAdapter(
           child: Shimmer(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -2091,7 +2113,7 @@ class _SkeletonBody extends StatelessWidget {
                     height: 220,
                     decoration: BoxDecoration(
                       color: block,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2102,7 +2124,7 @@ class _SkeletonBody extends StatelessWidget {
                         height: 84,
                         decoration: BoxDecoration(
                           color: block,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -2115,7 +2137,9 @@ class _SkeletonBody extends StatelessWidget {
                               height: 18,
                               decoration: BoxDecoration(
                                 color: block,
-                                borderRadius: BorderRadius.circular(9),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.xs,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -2124,7 +2148,9 @@ class _SkeletonBody extends StatelessWidget {
                               height: 14,
                               decoration: BoxDecoration(
                                 color: block,
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.xs,
+                                ),
                               ),
                             ),
                           ],
@@ -2138,7 +2164,7 @@ class _SkeletonBody extends StatelessWidget {
                     height: 80,
                     decoration: BoxDecoration(
                       color: block,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -2147,7 +2173,7 @@ class _SkeletonBody extends StatelessWidget {
                     height: 120,
                     decoration: BoxDecoration(
                       color: block,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                   ),
                 ],
@@ -2191,7 +2217,11 @@ class _ErrorBody extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Icon(Icons.cloud_off_outlined, size: 40, color: scheme.outline),
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 40,
+                    color: scheme.outline,
+                  ),
                   const SizedBox(height: 8),
                   const Text('加载失败'),
                   const SizedBox(height: 4),
@@ -2202,10 +2232,9 @@ class _ErrorBody extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2219,7 +2248,3 @@ class _ErrorBody extends StatelessWidget {
     );
   }
 }
-
-
-
-

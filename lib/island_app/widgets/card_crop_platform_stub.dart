@@ -26,9 +26,7 @@ Future<Uint8List?> openCropPage(
           : CropAspectRatio(ratioX: aspect.ratio, ratioY: 1),
       compressFormat: ImageCompressFormat.png,
       compressQuality: 92,
-      uiSettings: <PlatformUiSettings>[
-        WebUiSettings(context: context),
-      ],
+      uiSettings: <PlatformUiSettings>[WebUiSettings(context: context)],
     );
     if (cropped == null) return null;
     return await cropped.readAsBytes();

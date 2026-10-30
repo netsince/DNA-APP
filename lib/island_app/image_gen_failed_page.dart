@@ -99,7 +99,7 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('生成失败记录'), centerTitle: true),
+      appBar: AppBar(title: const Text('生成失败记录')),
       body: _buildBody(context),
     );
   }
@@ -141,7 +141,7 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
         itemBuilder: (BuildContext context, int i) {
           if (i >= _logs.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(
                 child: SizedBox(
                   width: 22,
@@ -230,7 +230,10 @@ class ImageGenFailedCard extends StatelessWidget {
                 _prompt.isEmpty ? '（无提示词）' : _prompt,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: AppFontSize.body, height: AppLineHeight.title),
+                style: const TextStyle(
+                  fontSize: AppFontSize.body,
+                  height: AppLineHeight.title,
+                ),
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -259,8 +262,9 @@ class ImageGenFailedCard extends StatelessWidget {
                           child: Image(
                             image: AuthNetworkImage(_refs[i]),
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                ColoredBox(color: scheme.surfaceContainerHighest),
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: scheme.surfaceContainerHighest,
+                            ),
                           ),
                         ),
                       );
@@ -304,7 +308,10 @@ class ImageGenFailedCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: AppFontSize.tiny, color: scheme.onSurfaceVariant),
+        style: TextStyle(
+          fontSize: AppFontSize.tiny,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     );
   }

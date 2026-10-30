@@ -20,8 +20,7 @@ class AsyncActionButton extends StatefulWidget {
     this.loadingStrokeWidth = 2,
     this.enabled = true,
     this.tooltip,
-  }) : assert(child != null || icon != null,
-            'child 与 icon 至少提供一个');
+  }) : assert(child != null || icon != null, 'child 与 icon 至少提供一个');
 
   /// 点击后执行的异步操作。await 期间按钮禁用并显示加载圆圈。
   final Future<void> Function() onPressed;
@@ -113,17 +112,15 @@ class _AsyncActionButtonState extends State<AsyncActionButton> {
     if (content == null) return const SizedBox.shrink();
     // 用 FittedBox 兜底：按钮内容在极窄空间（如宽屏左栏 288px 内 4 个按钮）
     // 也能等比缩放容纳，避免 RenderFlex 溢出。
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: content,
-    );
+    return FittedBox(fit: BoxFit.scaleDown, child: content);
   }
 
   @override
   Widget build(BuildContext context) {
     final VoidCallback? onPressed = _canPress ? _handleTap : null;
-    final ButtonStyle style =
-        widget.style == null ? _baseStyle() : _baseStyle().merge(widget.style!);
+    final ButtonStyle style = widget.style == null
+        ? _baseStyle()
+        : _baseStyle().merge(widget.style!);
 
     final Widget button;
     switch (widget.variant) {

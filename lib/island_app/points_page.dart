@@ -41,7 +41,6 @@ class PointsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的点数'),
-        centerTitle: true,
         actions: <Widget>[
           TextButton.icon(
             onPressed: () {
@@ -140,7 +139,7 @@ class _PointsBodyState extends State<PointsBody> {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
+      margin: AppInsets.card,
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -164,7 +163,7 @@ class _PointsBodyState extends State<PointsBody> {
             formatPoints(_balance),
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
               color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
+              fontWeight: AppWeight.medium,
             ),
           ),
           if (SiteConfig.instance.redeemCodeUrl.isNotEmpty) ...<Widget>[
@@ -234,7 +233,9 @@ class _PointsBodyState extends State<PointsBody> {
                       ),
                     ),
                     Text(
-                      positive ? '+${formatPoints(delta)}' : formatPoints(delta),
+                      positive
+                          ? '+${formatPoints(delta)}'
+                          : formatPoints(delta),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: positive ? scheme.primary : scheme.error,
                         fontWeight: FontWeight.w500,
@@ -261,7 +262,7 @@ class _PointsBodyState extends State<PointsBody> {
                           ),
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                           child: Text(
                             source,
@@ -383,19 +384,22 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('兑换点数'), centerTitle: true),
+      appBar: AppBar(title: const Text('兑换点数')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppInsets.card,
         children: <Widget>[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: scheme.secondaryContainer.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(kRadiusSm),
             ),
             child: const Text(
               '一次最多兑换 50 个兑换码；每分钟最多兑换 2 次；连续多次兑换失败将临时禁用兑换 1 小时。',
-              style: TextStyle(fontSize: AppFontSize.caption, height: AppLineHeight.body),
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                height: AppLineHeight.body,
+              ),
             ),
           ),
           const SizedBox(height: 16),

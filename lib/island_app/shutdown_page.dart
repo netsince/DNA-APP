@@ -19,7 +19,7 @@ class ShutdownPage extends StatelessWidget {
         kind: WideContent.reading,
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -44,7 +44,7 @@ class ShutdownPage extends StatelessWidget {
                     cfg.announcementContent.isNotEmpty)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: AppInsets.card,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
@@ -52,9 +53,9 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
       final raw = data['items'];
       final items = raw is List
           ? raw
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (reset) _cards.clear();
@@ -76,57 +77,50 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
   void _openCard(String cardId) {
     if (cardId.isEmpty) return;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CardDetailPage(cardId: cardId),
-      ),
+      MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: cardId)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), centerTitle: true),
+      appBar: AppBar(title: Text(widget.title)),
       body: _loading && _cards.isEmpty
           ? const LoadingState()
           : _cards.isEmpty
-              ? const EmptyState(
-                  icon: Icons.inbox_outlined,
-                  title: '暂无内容',
-                )
-              : AppRefreshIndicator(
-                  onRefresh: () => _load(reset: true),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (n) {
-                      if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-                        _load();
-                      }
-                      return false;
-                    },
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: <Widget>[
-                        SliverPadding(
-                          padding: const EdgeInsets.all(12),
-                          sliver: ResponsiveCardGrid(
-                            cards: _cards,
-                            minColumnWidth: 180,
-                            maxColumns: 6,
-                            onCardTap: _openCard,
-                          ),
-                        ),
-                        if (_loadingMore)
-                          const SliverToBoxAdapter(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
-                      ],
+          ? const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容')
+          : AppRefreshIndicator(
+              onRefresh: () => _load(reset: true),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (n) {
+                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
+                    _load();
+                  }
+                  return false;
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: <Widget>[
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      sliver: ResponsiveCardGrid(
+                        cards: _cards,
+                        minColumnWidth: 180,
+                        maxColumns: 6,
+                        onCardTap: _openCard,
+                      ),
                     ),
-                  ),
+                    if (_loadingMore)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 }

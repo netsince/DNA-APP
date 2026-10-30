@@ -32,10 +32,12 @@ Map<String, dynamic> taToPublishPayload(
     'author_note_interval': ta.authorNoteInterval,
     'tags': List<String>.from(ta.tags),
     'dialogue_style': ta.dialogueStyle
-        .map((DialogueTurn d) => <String, String>{
-              'user': d.user,
-              'assistant': d.assistant,
-            })
+        .map(
+          (DialogueTurn d) => <String, String>{
+            'user': d.user,
+            'assistant': d.assistant,
+          },
+        )
         .toList(),
     'images': images,
   };
@@ -93,7 +95,8 @@ Future<TA> taFromCardDetail(Map<String, dynamic> detail) async {
     persona: (detail['persona'] ?? '').toString(),
     intro: (detail['intro'] ?? '').toString(),
     opening: (detail['opening'] ?? '').toString(),
-    tags: (detail['tags'] as List?)?.whereType<String>().toList() ??
+    tags:
+        (detail['tags'] as List?)?.whereType<String>().toList() ??
         const <String>[],
     images: images,
     dialogueStyle: dialogue,

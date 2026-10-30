@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 /// 举报底部表单：选择原因（可选补充说明）后提交。
 ///
@@ -36,7 +37,9 @@ class _ReportSheetState extends State<ReportSheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -47,8 +50,9 @@ class _ReportSheetState extends State<ReportSheet> {
             children: <Widget>[
               Text(
                 widget.title,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 12),
               Flexible(
@@ -59,7 +63,7 @@ class _ReportSheetState extends State<ReportSheet> {
                       for (final r in widget.reasons)
                         InkWell(
                           onTap: () => setState(() => _selected = r.key),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(AppRadius.xs),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Row(
@@ -98,8 +102,10 @@ class _ReportSheetState extends State<ReportSheet> {
               FilledButton(
                 onPressed: _selected == null
                     ? null
-                    : () =>
-                        widget.onSubmitted(_selected!, _detailCtrl.text.trim()),
+                    : () => widget.onSubmitted(
+                        _selected!,
+                        _detailCtrl.text.trim(),
+                      ),
                 child: const Text('提交举报'),
               ),
             ],

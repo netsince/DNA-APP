@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -59,8 +59,12 @@ class WorldsListPage extends StatefulWidget {
   final Future<void> Function(String id, String raw)? updater;
 
   /// 注入用：打开编辑器（测试替换）。默认 push 完整世界观编辑器。
-  final Future<void> Function(BuildContext context, World world, String worldId)?
-      editorOpener;
+  final Future<void> Function(
+    BuildContext context,
+    World world,
+    String worldId,
+  )?
+  editorOpener;
 
   @override
   State<WorldsListPage> createState() => _WorldsListPageState();
@@ -93,11 +97,13 @@ class _WorldsListPageState extends State<WorldsListPage> {
       final Object? raw = data['items'];
       final List<WorldCardSummary> got = raw is List
           ? raw
-              .whereType<Map>()
-              .map((Map e) =>
-                  WorldCardSummary.fromJson(e.cast<String, dynamic>()))
-              .where((WorldCardSummary w) => w.id.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (Map e) =>
+                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                )
+                .where((WorldCardSummary w) => w.id.isNotEmpty)
+                .toList()
           : <WorldCardSummary>[];
       if (!mounted) return;
       setState(() {
@@ -168,7 +174,8 @@ class _WorldsListPageState extends State<WorldsListPage> {
   /// 重新提审（被拒绝 / 已撤回的条目）。
   Future<void> _resubmit(WorldCardSummary item) async {
     try {
-      final resubmitter = widget.resubmitter ?? ApiClient.instance.resubmitWorld;
+      final resubmitter =
+          widget.resubmitter ?? ApiClient.instance.resubmitWorld;
       await resubmitter(item.id);
       if (!mounted) return;
       _snack('已重新提审，等待审核');
@@ -239,10 +246,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_failed && _items.isEmpty) {
-      return ErrorState(
-        message: '加载失败，请重试',
-        onRetry: () => _load(reset: true),
-      );
+      return ErrorState(message: '加载失败，请重试', onRetry: () => _load(reset: true));
     }
     if (_items.isEmpty) {
       return EmptyState(
@@ -312,14 +316,8 @@ class _WorldsListPageState extends State<WorldsListPage> {
                 }
               },
               itemBuilder: (_) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'open',
-                  child: Text('查看详情'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Text('编辑'),
-                ),
+                const PopupMenuItem<String>(value: 'open', child: Text('查看详情')),
+                const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
                 if (item.status == 'approved')
                   PopupMenuItem<String>(
                     value: 'hidden',
@@ -368,16 +366,20 @@ class WorldStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final (Color bg, Color fg) = switch (summary.status) {
-      'approved' => summary.isHidden
-          ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
-          : (cs.primaryContainer, cs.onPrimaryContainer),
+      'approved' =>
+        summary.isHidden
+            ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
+            : (cs.primaryContainer, cs.onPrimaryContainer),
       'rejected' => (cs.errorContainer, cs.onErrorContainer),
       'deleted' => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
       _ => (cs.tertiaryContainer, cs.onTertiaryContainer),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadius.xs),
+      ),
       child: Text(
         summary.statusLabel,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),

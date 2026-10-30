@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
@@ -100,7 +101,7 @@ class LoadMoreListView extends StatelessWidget {
         if (index >= itemCount) {
           // 触底加载条。
           return Padding(
-            padding: const EdgeInsets.all(16),
+            padding: AppInsets.card,
             child: Center(
               child:
                   loadingFooter ??

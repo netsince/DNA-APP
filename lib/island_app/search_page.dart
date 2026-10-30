@@ -110,10 +110,7 @@ class _SearchPageState extends State<SearchPage> {
       });
       return;
     }
-    _suggestDebounce = Timer(
-      const Duration(milliseconds: 300),
-      () => _loadSuggest(q),
-    );
+    _suggestDebounce = Timer(AppMotion.medium, () => _loadSuggest(q));
   }
 
   Future<void> _loadSuggest(String q) async {
@@ -449,7 +446,7 @@ class _SearchPageState extends State<SearchPage> {
               filled: true,
               fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
                 borderSide: BorderSide.none,
               ),
               prefixIcon: const Icon(Icons.search),
@@ -501,7 +498,7 @@ class _SearchPageState extends State<SearchPage> {
         children: <Widget>[
           if (_suggestLoading)
             const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(
                 child: SizedBox(
                   width: 20,
@@ -514,7 +511,7 @@ class _SearchPageState extends State<SearchPage> {
               _suggestCards.isEmpty &&
               _suggestUsers.isEmpty)
             const Padding(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.all(AppSpacing.xl),
               child: Center(child: Text('无匹配建议')),
             ),
           if (_suggestCards.isNotEmpty) ...<Widget>[
@@ -712,7 +709,7 @@ class _SearchPageState extends State<SearchPage> {
     return GridView.builder(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: AppInsets.card,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 220,
         mainAxisSpacing: 16,
@@ -750,7 +747,7 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (context, i) {
           if (i >= _worlds.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(
                 child: SizedBox(
                   width: 22,
@@ -814,7 +811,7 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (context, i) {
           if (i >= _users.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(
                 child: SizedBox(
                   width: 22,
@@ -938,7 +935,7 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (context, i) {
           if (i >= _posts.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: AppInsets.card,
               child: Center(
                 child: SizedBox(
                   width: 22,

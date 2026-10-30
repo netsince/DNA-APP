@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
@@ -79,17 +80,17 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
         _post = postRaw is Map ? TeaPost.fromJson(_asMap(postRaw)) : null;
         _chain = chainRaw is List
             ? chainRaw
-                .whereType<Map>()
-                .map((e) => TeaPost.fromJson(_asMap(e)))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => TeaPost.fromJson(_asMap(e)))
+                  .toList()
             : const <TeaPost>[];
         if (repliesRaw is Map) {
           final items = repliesRaw['items'];
           _replies = items is List
               ? items
-                  .whereType<Map>()
-                  .map((e) => TeaPost.fromJson(_asMap(e)))
-                  .toList()
+                    .whereType<Map>()
+                    .map((e) => TeaPost.fromJson(_asMap(e)))
+                    .toList()
               : const <TeaPost>[];
           _noMore = repliesRaw['has_next'] != true;
           _replyPage = (repliesRaw['page'] as num?)?.toInt() ?? 1;
@@ -122,9 +123,9 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
         final items = repliesRaw['items'];
         final newItems = items is List
             ? items
-                .whereType<Map>()
-                .map((e) => TeaPost.fromJson(_asMap(e)))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => TeaPost.fromJson(_asMap(e)))
+                  .toList()
             : const <TeaPost>[];
         setState(() {
           _replies = <TeaPost>[..._replies, ...newItems];
@@ -172,7 +173,9 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
     final start = sel.isValid ? sel.start : value.length;
     final end = sel.isValid ? sel.end : value.length;
     controller.text = value.replaceRange(start, end, token);
-    controller.selection = TextSelection.collapsed(offset: start + token.length);
+    controller.selection = TextSelection.collapsed(
+      offset: start + token.length,
+    );
   }
 
   Future<void> _toggleLike() async {
@@ -246,7 +249,10 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
     try {
       final r = await ApiClient.instance.toggleTeahouseFavorite(id);
       if (!mounted) return;
-      _updateReply(id, (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount));
+      _updateReply(
+        id,
+        (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
+      );
       _snack(r.favorited ? '已收藏' : '已取消收藏');
     } catch (_) {
       _snack('操作失败，请重试');
@@ -291,9 +297,9 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
               });
             } catch (_) {
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('选择图片失败')),
-                );
+                ScaffoldMessenger.of(
+                  ctx,
+                ).showSnackBar(const SnackBar(content: Text('选择图片失败')));
               }
             } finally {
               if (ctx.mounted) setSheetState(() => pickingImage = false);
@@ -311,8 +317,10 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Text('编辑帖子',
-                      style: TextStyle(fontWeight: FontWeight.w500)),
+                  const Text(
+                    '编辑帖子',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: contentController,
@@ -336,10 +344,9 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                   if (post.image != null || pickedImage != null) ...<Widget>[
                     _buildEditImagePreview(
                       context: context,
-                      existingUrl:
-                          post.image != null && pickedImage == null
-                              ? post.image!.url
-                              : null,
+                      existingUrl: post.image != null && pickedImage == null
+                          ? post.image!.url
+                          : null,
                       pickedImage: pickedImage,
                     ),
                     const SizedBox(height: 8),
@@ -353,10 +360,13 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                      strokeWidth: 2,
+                                    ),
                                   )
-                                : const Icon(Icons.add_photo_alternate_outlined,
-                                    size: 18),
+                                : const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 18,
+                                  ),
                             label: Text(
                               pickedImage != null ? '重新选择图片' : '更换图片',
                             ),
@@ -384,8 +394,10 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                   ] else
                     OutlinedButton.icon(
                       onPressed: pickingImage ? null : pick,
-                      icon: const Icon(Icons.add_photo_alternate_outlined,
-                          size: 18),
+                      icon: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 18,
+                      ),
                       label: const Text('添加配图'),
                     ),
                   const SizedBox(height: 12),
@@ -448,7 +460,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
   }) {
     if (pickedImage != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: Image.file(
           File(pickedImage.path),
           fit: BoxFit.cover,
@@ -461,7 +473,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
     final url = existingUrl;
     if (url == null || url.isEmpty) return const SizedBox.shrink();
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Image.network(
         ServerConfig.resolveUrl(url),
         fit: BoxFit.cover,
@@ -538,8 +550,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -557,10 +568,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                 if (v == 'delete') _deletePost();
               },
               itemBuilder: (_) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Text('编辑帖子'),
-                ),
+                const PopupMenuItem<String>(value: 'edit', child: Text('编辑帖子')),
                 const PopupMenuItem<String>(
                   value: 'delete',
                   child: Text('删除帖子'),
@@ -572,118 +580,124 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
       body: _loading
           ? const LoadingState()
           : _error != null && post == null
-              ? ErrorState(message: _error!, onRetry: _load)
-              : Column(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppRefreshIndicator(
-                        onRefresh: _load,
-                        child: ListView(
-                          controller: _scrollController,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 16),
-                          children: <Widget>[
-                          if (_chain.isNotEmpty) ...<Widget>[
-                            const _SectionLabel('原帖链'),
-                            ..._chain.map(
-                                (c) => _ChainTile(
-                                  post: c,
-                                  onTap: () => _openPost(c.idInt),
-                                )),
-                          ],
-                          if (post != null) ...<Widget>[
-                            const _SectionLabel('主帖'),
-                            TeahousePostTile(
-                              post: post,
-                              onTap: () {},
-                              onCardTap: post.card != null
-                                  ? () => _openCard(post.card!.id)
+          ? ErrorState(message: _error!, onRetry: _load)
+          : Column(
+              children: <Widget>[
+                Expanded(
+                  child: AppRefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 16),
+                      children: <Widget>[
+                        if (_chain.isNotEmpty) ...<Widget>[
+                          const _SectionLabel('原帖链'),
+                          ..._chain.map(
+                            (c) => _ChainTile(
+                              post: c,
+                              onTap: () => _openPost(c.idInt),
+                            ),
+                          ),
+                        ],
+                        if (post != null) ...<Widget>[
+                          const _SectionLabel('主帖'),
+                          TeahousePostTile(
+                            post: post,
+                            onTap: () {},
+                            onCardTap: post.card != null
+                                ? () => _openCard(post.card!.id)
+                                : null,
+                            onLike: _toggleLike,
+                            onFavorite: _toggleFavorite,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              children: <Widget>[
+                                _ActionButton(
+                                  icon: post.stats.liked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  label: '${post.stats.likeCount}',
+                                  active: post.stats.liked,
+                                  activeColor: scheme.error,
+                                  onTap: _toggleLike,
+                                ),
+                                const SizedBox(width: 12),
+                                _ActionButton(
+                                  icon: post.stats.favorited
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  label: '收藏',
+                                  active: post.stats.favorited,
+                                  activeColor: scheme.tertiary,
+                                  onTap: _toggleFavorite,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        _SectionLabel('回复 (${post?.stats.replyCount ?? 0})'),
+                        if (_replies.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(AppSpacing.xl),
+                            child: Center(child: Text('还没有回复')),
+                          )
+                        else
+                          ..._replies.map(
+                            (r) => TeahousePostTile(
+                              post: r,
+                              onTap: () => _openPost(r.idInt),
+                              onCardTap: r.card != null
+                                  ? () => _openCard(r.card!.id)
                                   : null,
-                              onLike: _toggleLike,
-                              onFavorite: _toggleFavorite,
+                              onLike: () => _toggleReplyLike(r.idInt),
+                              onFavorite: () => _toggleReplyFavorite(r.idInt),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                children: <Widget>[
-                                  _ActionButton(
-                                    icon: post.stats.liked
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    label: '${post.stats.likeCount}',
-                                    active: post.stats.liked,
-                                    activeColor: scheme.error,
-                                    onTap: _toggleLike,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _ActionButton(
-                                    icon: post.stats.favorited
-                                        ? Icons.bookmark
-                                        : Icons.bookmark_border,
-                                    label: '收藏',
-                                    active: post.stats.favorited,
-                                    activeColor: scheme.tertiary,
-                                    onTap: _toggleFavorite,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          _SectionLabel('回复 (${post?.stats.replyCount ?? 0})'),
-                          if (_replies.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Center(child: Text('还没有回复')),
-                            )
-                          else
-                            ..._replies.map((r) => TeahousePostTile(
-                                  post: r,
-                                  onTap: () => _openPost(r.idInt),
-                                  onCardTap: r.card != null
-                                      ? () => _openCard(r.card!.id)
-                                      : null,
-                                  onLike: () => _toggleReplyLike(r.idInt),
-                                  onFavorite: () =>
-                                      _toggleReplyFavorite(r.idInt),
-                                )),
-                          if (_loadingMore)
-                            const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        if (_loadingMore)
+                          const Padding(
+                            padding: EdgeInsets.all(AppSpacing.md),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
                                 ),
                               ),
-                            )
-                          else if (_noMore && _replies.isNotEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Center(
-                                child: Text('没有更多回复了',
-                                    style: TextStyle(color: Colors.grey)),
+                            ),
+                          )
+                        else if (_noMore && _replies.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(AppSpacing.md),
+                            child: Center(
+                              child: Text(
+                                '没有更多回复了',
+                                style: TextStyle(color: Colors.grey),
                               ),
                             ),
-                        ],
-                      ),
-                      ),
+                          ),
+                      ],
                     ),
-                    _ReplyBar(
-                      controller: _replyController,
-                      sending: _replying,
-                      onSend: _submitReply,
-                      onSticker: _openReplySticker,
-                    ),
-                  ],
+                  ),
                 ),
+                _ReplyBar(
+                  controller: _replyController,
+                  sending: _replying,
+                  onSend: _submitReply,
+                  onSticker: _openReplySticker,
+                ),
+              ],
+            ),
     );
   }
 
   void _openCard(String id) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
   }
 
   /// 打开另一条帖子的详情（原帖链/回复再点进去，像推特那样层层深入）。
@@ -728,13 +742,13 @@ class _ChainTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -747,12 +761,16 @@ class _ChainTile extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     post.author?.displayName ?? '未知用户',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 2),
-                  StickerText(post.content,
-                      maxLines: 3, overflow: TextOverflow.ellipsis),
+                  StickerText(
+                    post.content,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -781,12 +799,16 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = active ? (activeColor ?? scheme.primary) : scheme.onSurfaceVariant;
+    final color = active
+        ? (activeColor ?? scheme.primary)
+        : scheme.onSurfaceVariant;
     return TextButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18, color: color),
-      label: Text(label,
-          style: TextStyle(color: color, fontWeight: FontWeight.w500)),
+      label: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w500),
+      ),
       style: TextButton.styleFrom(
         foregroundColor: color,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -846,7 +868,7 @@ class _ReplyBar extends StatelessWidget {
             const SizedBox(width: 8),
             sending
                 ? const Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(AppSpacing.md),
                     child: SizedBox(
                       width: 20,
                       height: 20,

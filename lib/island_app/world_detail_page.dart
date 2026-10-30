@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -62,7 +62,8 @@ class WorldDetailPage extends StatefulWidget {
     required String id,
     required String reason,
     String? detail,
-  })? reportSubmitter;
+  })?
+  reportSubmitter;
 
   /// 收藏 toggle 回调；为空时走 [ApiClient.favoriteWorld]。
   final Future<Map<String, dynamic>> Function(String id)? favoriteToggler;
@@ -214,7 +215,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       return;
     }
     try {
-      final writer = widget.clipboardWriter ??
+      final writer =
+          widget.clipboardWriter ??
           (String text) => Clipboard.setData(ClipboardData(text: text));
       await writer(url);
       if (mounted) _toast('已复制网页链接');
@@ -261,8 +263,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     if (picked == null || !mounted) return;
 
     try {
-      final submit =
-          widget.reportSubmitter ?? ApiClient.instance.submitReport;
+      final submit = widget.reportSubmitter ?? ApiClient.instance.submitReport;
       await submit(
         type: 'world',
         id: widget.id,
@@ -309,8 +310,10 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
             tagSuggestions: suggestions,
             saveLabel: '保存并重新提审',
             onSave: (World edited) async {
-              await ApiClient.instance
-                  .updateWorld(d.id, jsonEncode(edited.toJson()));
+              await ApiClient.instance.updateWorld(
+                d.id,
+                jsonEncode(edited.toJson()),
+              );
             },
           ),
         ),
@@ -487,10 +490,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
               runSpacing: AppSpacing.xs,
               children: <Widget>[
                 for (final String tag in d.tags)
-                  Chip(
-                    label: Text(tag),
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  Chip(label: Text(tag), visualDensity: VisualDensity.compact),
               ],
             ),
           ],
@@ -512,10 +512,10 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       borderRadius: AppRadius.smAll,
       onTap: tappable
           ? () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => UserProfilePage(username: d.authorUsername),
-                ),
-              )
+              MaterialPageRoute<void>(
+                builder: (_) => UserProfilePage(username: d.authorUsername),
+              ),
+            )
           : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -562,14 +562,11 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     final String text = pending
         ? '这个世界卡还在审核中，目前只有你自己能看到'
         : rejected
-            ? '这个世界卡未通过审核，其他人看不到'
-            : '这个世界卡已被下架，其他人看不到';
+        ? '这个世界卡未通过审核，其他人看不到'
+        : '这个世界卡已被下架，其他人看不到';
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: AppRadius.smAll,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.smAll),
       child: Row(
         children: <Widget>[
           Icon(
@@ -621,7 +618,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
           spacing: AppSpacing.xs,
           runSpacing: AppSpacing.xs,
           children: <Widget>[
-            for (final String name in d.entryNames) _entryChip(context, name, const <String>[]),
+            for (final String name in d.entryNames)
+              _entryChip(context, name, const <String>[]),
           ],
         ),
       ];
@@ -631,21 +629,21 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     final List<WorldEntryPreview> hits = filter.isEmpty
         ? index
         : index
-            .where((WorldEntryPreview e) => e.searchText.contains(filter))
-            .toList();
-    final List<WorldEntryPreview> people =
-        hits.where((WorldEntryPreview e) => e.isPerson).toList();
-    final List<WorldEntryPreview> nouns =
-        hits.where((WorldEntryPreview e) => !e.isPerson).toList();
+              .where((WorldEntryPreview e) => e.searchText.contains(filter))
+              .toList();
+    final List<WorldEntryPreview> people = hits
+        .where((WorldEntryPreview e) => e.isPerson)
+        .toList();
+    final List<WorldEntryPreview> nouns = hits
+        .where((WorldEntryPreview e) => !e.isPerson)
+        .toList();
 
     return <Widget>[
       Row(
         children: <Widget>[
           Expanded(child: _sectionTitle(context, '包含的词条')),
           Text(
-            filter.isEmpty
-                ? '共 ${index.length} 条'
-                : '命中 ${hits.length} 条',
+            filter.isEmpty ? '共 ${index.length} 条' : '命中 ${hits.length} 条',
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -723,13 +721,16 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
         title: Text(
           label,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: AppWeight.medium,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
         ),
         subtitle: Text(
           '${items.length} 条',
-          style: TextStyle(fontSize: AppFontSize.caption, color: cs.onSurfaceVariant),
+          style: TextStyle(
+            fontSize: AppFontSize.caption,
+            color: cs.onSurfaceVariant,
+          ),
         ),
         children: <Widget>[
           Align(
@@ -779,9 +780,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     final ThemeData theme = Theme.of(context);
     return Text(
       text,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: AppWeight.medium,
-      ),
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: AppWeight.medium),
     );
   }
 
@@ -793,7 +792,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     final String type = (entry['type'] ?? '').toString();
     final List<String> keys =
         (entry['keys'] as List?)?.whereType<String>().toList() ??
-            const <String>[];
+        const <String>[];
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(

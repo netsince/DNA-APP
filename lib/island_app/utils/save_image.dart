@@ -42,7 +42,9 @@ Future<bool> saveImageAsPng(
     if (saved == null) return false; // 用户取消：不提示错误
     // Android 的 SAF 回的是 content:// URI，直接摆给用户看没意义；有真实路径才显示路径。
     messenger.showSnackBar(
-      SnackBar(content: Text(saved.contains('://') ? '已保存到你选择的位置' : '已保存：$saved')),
+      SnackBar(
+        content: Text(saved.contains('://') ? '已保存到你选择的位置' : '已保存：$saved'),
+      ),
     );
     return true;
   } catch (_) {
@@ -72,8 +74,10 @@ Uint8List pngBytesFrom(Uint8List bytes) {
 String pngFileName(String baseName) {
   // 先 trim 再替换：否则纯空格的名字会变成 "__" 而不是走兜底。
   final String trimmedInput = baseName.trim();
-  final String safe =
-      trimmedInput.replaceAll(RegExp(r'[^\w\u4e00-\u9fa5-]'), '_');
+  final String safe = trimmedInput.replaceAll(
+    RegExp(r'[^\w\u4e00-\u9fa5-]'),
+    '_',
+  );
   final String trimmed = safe.length > 30 ? safe.substring(0, 30) : safe;
   return '${trimmed.isEmpty ? 'artwork' : trimmed}.png';
 }
@@ -101,8 +105,9 @@ Future<String?> _savePngBytes(Uint8List bytes, String fileName) async {
     allowedExtensions: <String>['png'],
   );
   if (target == null) return null;
-  final String path =
-      target.toLowerCase().endsWith('.png') ? target : '$target.png';
+  final String path = target.toLowerCase().endsWith('.png')
+      ? target
+      : '$target.png';
   await File(path).writeAsBytes(bytes, flush: true);
   return path;
 }

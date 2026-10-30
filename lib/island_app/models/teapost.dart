@@ -10,14 +10,14 @@ class TeaPostAuthor {
   });
 
   factory TeaPostAuthor.fromJson(Map<String, dynamic> m) => TeaPostAuthor(
-        id: (m['id'] ?? 0).toString(),
-        username: (m['username'] ?? '').toString(),
-        nickname: (m['nickname'] ?? '').toString(),
-        avatar: (m['avatar'] ?? '').toString(),
-        verified: m['verified'] == true,
-        // 赞助者标记：昵称旁红星（与网页版同一字段；旧服务端缺失时为 false）。
-        isSponsor: m['is_sponsor'] == true,
-      );
+    id: (m['id'] ?? 0).toString(),
+    username: (m['username'] ?? '').toString(),
+    nickname: (m['nickname'] ?? '').toString(),
+    avatar: (m['avatar'] ?? '').toString(),
+    verified: m['verified'] == true,
+    // 赞助者标记：昵称旁红星（与网页版同一字段；旧服务端缺失时为 false）。
+    isSponsor: m['is_sponsor'] == true,
+  );
 
   final String id;
   final String username;
@@ -34,9 +34,9 @@ class TeaPostImage {
   const TeaPostImage({required this.id, required this.url});
 
   factory TeaPostImage.fromJson(Map<String, dynamic> m) => TeaPostImage(
-        id: (m['id'] ?? 0).toString(),
-        url: (m['url'] ?? '').toString(),
-      );
+    id: (m['id'] ?? 0).toString(),
+    url: (m['url'] ?? '').toString(),
+  );
 
   final String id;
   final String url;
@@ -85,9 +85,9 @@ class TeaPostTopic {
   const TeaPostTopic({required this.id, required this.name});
 
   factory TeaPostTopic.fromJson(Map<String, dynamic> m) => TeaPostTopic(
-        id: (m['id'] ?? 0).toString(),
-        name: (m['name'] ?? '').toString(),
-      );
+    id: (m['id'] ?? 0).toString(),
+    name: (m['name'] ?? '').toString(),
+  );
 
   final String id;
   final String name;
@@ -104,20 +104,23 @@ class TeaPostStats {
   });
 
   factory TeaPostStats.fromJson(Map<String, dynamic>? m) => TeaPostStats(
-        likeCount: m == null ? 0 : (m['like_count'] as num?)?.toInt() ?? 0,
-        liked: m != null && m['liked'] == true,
-        replyCount: m == null ? 0 : (m['reply_count'] as num?)?.toInt() ?? 0,
-        favorited: m != null && m['favorited'] == true,
-        topics: m == null
-            ? const <TeaPostTopic>[]
-            : (m['topics'] is List
-                ? (m['topics'] as List)
+    likeCount: m == null ? 0 : (m['like_count'] as num?)?.toInt() ?? 0,
+    liked: m != null && m['liked'] == true,
+    replyCount: m == null ? 0 : (m['reply_count'] as num?)?.toInt() ?? 0,
+    favorited: m != null && m['favorited'] == true,
+    topics: m == null
+        ? const <TeaPostTopic>[]
+        : (m['topics'] is List
+              ? (m['topics'] as List)
                     .whereType<Map>()
-                    .map((e) => TeaPostTopic.fromJson(
-                        e.map((k, v) => MapEntry(k.toString(), v))))
+                    .map(
+                      (e) => TeaPostTopic.fromJson(
+                        e.map((k, v) => MapEntry(k.toString(), v)),
+                      ),
+                    )
                     .toList()
-                : const <TeaPostTopic>[]),
-      );
+              : const <TeaPostTopic>[]),
+  );
 
   final int likeCount;
   final bool liked;
@@ -125,14 +128,18 @@ class TeaPostStats {
   final bool favorited;
   final List<TeaPostTopic> topics;
 
-  TeaPostStats copyWith({int? likeCount, bool? liked, int? replyCount, bool? favorited}) =>
-      TeaPostStats(
-        likeCount: likeCount ?? this.likeCount,
-        liked: liked ?? this.liked,
-        replyCount: replyCount ?? this.replyCount,
-        favorited: favorited ?? this.favorited,
-        topics: topics,
-      );
+  TeaPostStats copyWith({
+    int? likeCount,
+    bool? liked,
+    int? replyCount,
+    bool? favorited,
+  }) => TeaPostStats(
+    likeCount: likeCount ?? this.likeCount,
+    liked: liked ?? this.liked,
+    replyCount: replyCount ?? this.replyCount,
+    favorited: favorited ?? this.favorited,
+    topics: topics,
+  );
 }
 
 /// 茶馆帖子（对应后端 `_teapost_item`）。
@@ -161,25 +168,29 @@ class TeaPost {
       createdAt: (m['created_at'] ?? '').toString(),
       author: authorRaw is Map
           ? TeaPostAuthor.fromJson(
-              authorRaw.map((k, v) => MapEntry(k.toString(), v)))
+              authorRaw.map((k, v) => MapEntry(k.toString(), v)),
+            )
           : null,
       image: imageRaw is Map
           ? TeaPostImage.fromJson(
-              imageRaw.map((k, v) => MapEntry(k.toString(), v)))
+              imageRaw.map((k, v) => MapEntry(k.toString(), v)),
+            )
           : null,
       card: cardRaw is Map
           ? TeaPostCard.fromJson(
-              cardRaw.map((k, v) => MapEntry(k.toString(), v)))
+              cardRaw.map((k, v) => MapEntry(k.toString(), v)),
+            )
           : null,
       parentId: m['parent_id'] == null
           ? null
           : (m['parent_id'] is num
-              ? (m['parent_id'] as num).toInt()
-              : int.tryParse('${m['parent_id']}')),
+                ? (m['parent_id'] as num).toInt()
+                : int.tryParse('${m['parent_id']}')),
       isDeleted: m['is_deleted'] == true,
       isHidden: m['is_hidden'] == true,
       stats: TeaPostStats.fromJson(
-          statsRaw is Map ? Map<String, dynamic>.from(statsRaw) : null),
+        statsRaw is Map ? Map<String, dynamic>.from(statsRaw) : null,
+      ),
     );
   }
 
@@ -197,15 +208,15 @@ class TeaPost {
   int get idInt => int.tryParse(id) ?? 0;
 
   TeaPost copyWith({TeaPostStats? stats}) => TeaPost(
-        id: id,
-        content: content,
-        createdAt: createdAt,
-        author: author,
-        image: image,
-        card: card,
-        parentId: parentId,
-        isDeleted: isDeleted,
-        isHidden: isHidden,
-        stats: stats ?? this.stats,
-      );
+    id: id,
+    content: content,
+    createdAt: createdAt,
+    author: author,
+    image: image,
+    card: card,
+    parentId: parentId,
+    isDeleted: isDeleted,
+    isHidden: isHidden,
+    stats: stats ?? this.stats,
+  );
 }

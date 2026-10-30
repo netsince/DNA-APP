@@ -56,5 +56,9 @@ Future<Uint8List?> openCropPage(
   required Uint8List sourceBytes,
   required CropAspect aspect,
 }) {
-  return platform.openCropPage(context, sourceBytes: sourceBytes, aspect: aspect);
+  return platform.openCropPage(
+    context,
+    sourceBytes: sourceBytes,
+    aspect: aspect,
+  );
 }

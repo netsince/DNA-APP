@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
@@ -6,7 +7,6 @@ import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/island_app/card_publish_page.dart';
-
 
 /// 「我的角色卡」管理页：分页列出自己发布的角色卡。
 ///
@@ -42,14 +42,16 @@ class _MyCardsPageState extends State<MyCardsPage> {
       }
     });
     try {
-      final data = await ApiClient.instance.getMyCards(page: reset ? 1 : _page + 1);
+      final data = await ApiClient.instance.getMyCards(
+        page: reset ? 1 : _page + 1,
+      );
       if (!mounted) return;
       final raw = data['items'];
       final items = raw is List
           ? raw
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                .toList()
           : <Map<String, dynamic>>[];
       setState(() {
         if (reset) _cards.clear();
@@ -71,9 +73,9 @@ class _MyCardsPageState extends State<MyCardsPage> {
   void _openDetail(Map<String, dynamic> card) async {
     final id = (card['id'] ?? '').toString();
     if (id.isEmpty) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
     if (mounted) _load(reset: true);
   }
 
@@ -83,8 +85,8 @@ class _MyCardsPageState extends State<MyCardsPage> {
     final id = (card['id'] ?? '').toString();
     if (id.isEmpty) return;
     try {
-      final Map<String, dynamic> detail =
-          await ApiClient.instance.getCardDetail(id);
+      final Map<String, dynamic> detail = await ApiClient.instance
+          .getCardDetail(id);
       final TA ta = await taFromCardDetail(detail);
       if (!mounted) return;
       await Navigator.of(context).push(
@@ -161,23 +163,29 @@ class _MyCardsPageState extends State<MyCardsPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('我的角色卡'), centerTitle: true),
+      appBar: AppBar(title: const Text('我的角色卡')),
       body: LoadMoreListView(
         loading: _loading,
         itemCount: _cards.length,
         hasMore: !_noMore && _cards.isNotEmpty,
         onLoadMore: () => _load(),
         onRefresh: () => _load(reset: true),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         separatorBuilder: (_, _) => const SizedBox.shrink(),
         empty: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.badge_outlined, size: 40, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.badge_outlined,
+                size: 40,
+                color: scheme.onSurfaceVariant,
+              ),
               const SizedBox(height: 8),
-              Text('你还没有发布角色卡',
-                  style: TextStyle(color: scheme.onSurfaceVariant)),
+              Text(
+                '你还没有发布角色卡',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () {
@@ -208,14 +216,12 @@ class _MyCardsPageState extends State<MyCardsPage> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        title: Text(name,
-            maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             if (intro.isNotEmpty)
-              Text(intro,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(intro, maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -249,18 +255,23 @@ class _MyCardsPageState extends State<MyCardsPage> {
             }
           },
           itemBuilder: (context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(
-                value: 'detail', child: Text('查看详情')),
+            const PopupMenuItem<String>(value: 'detail', child: Text('查看详情')),
             const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
             if (rejected)
               const PopupMenuItem<String>(
-                  value: 'resubmit', child: Text('重新提审')),
+                value: 'resubmit',
+                child: Text('重新提审'),
+              ),
             // 只有「已通过」的卡能置顶（服务端同样校验）。
             if (status == 'approved')
               PopupMenuItem<String>(
-                  value: 'pin', child: Text(pinned ? '取消置顶' : '置顶到主页')),
+                value: 'pin',
+                child: Text(pinned ? '取消置顶' : '置顶到主页'),
+              ),
             PopupMenuItem<String>(
-                value: 'hidden', child: Text(hidden ? '取消隐藏' : '隐藏')),
+              value: 'hidden',
+              child: Text(hidden ? '取消隐藏' : '隐藏'),
+            ),
           ],
         ),
         onTap: () => _openDetail(card),
@@ -309,13 +320,12 @@ class MyCardsChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
-      child: Text(label,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: fg)),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
+      ),
     );
   }
 }

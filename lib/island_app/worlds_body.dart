@@ -27,10 +27,8 @@ class WorldsQuery {
 }
 
 /// 世界卡列表加载器（测试可注入）。返回分页对象（items / has_next）。
-typedef WorldsLoader = Future<Map<String, dynamic>> Function(
-  int page,
-  WorldsQuery query,
-);
+typedef WorldsLoader =
+    Future<Map<String, dynamic>> Function(int page, WorldsQuery query);
 
 /// 社区「世界」栏目：探索页形态 —— 排序 / 标签筛选 + 卡片网格 + 无限分页。
 ///
@@ -219,7 +217,9 @@ class _WorldsBodyState extends State<WorldsBody> {
       slivers.add(SliverToBoxAdapter(child: _skeleton(context)));
     } else if (_error != null) {
       slivers.add(
-        SliverToBoxAdapter(child: ErrorState(message: _error!, onRetry: _reload)),
+        SliverToBoxAdapter(
+          child: ErrorState(message: _error!, onRetry: _reload),
+        ),
       );
     } else if (_items.isEmpty) {
       slivers.add(
@@ -273,7 +273,9 @@ class _WorldsBodyState extends State<WorldsBody> {
       }
     }
 
-    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)));
+    slivers.add(
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+    );
     return slivers;
   }
 
@@ -359,8 +361,7 @@ class _WorldsBodyState extends State<WorldsBody> {
           final double width = constraints.maxWidth;
           final int columns = (width ~/ 220).clamp(2, 6);
           const double spacing = AppSpacing.md;
-          final double itemWidth =
-              (width - spacing * (columns - 1)) / columns;
+          final double itemWidth = (width - spacing * (columns - 1)) / columns;
 
           final List<List<Widget>> buckets = List<List<Widget>>.generate(
             columns,
@@ -371,10 +372,7 @@ class _WorldsBodyState extends State<WorldsBody> {
             buckets[i % columns].add(
               Padding(
                 padding: const EdgeInsets.only(bottom: spacing),
-                child: WorldCardTile(
-                  world: w,
-                  onTap: () => _openDetail(w),
-                ),
+                child: WorldCardTile(world: w, onTap: () => _openDetail(w)),
               ),
             );
           }
@@ -469,12 +467,12 @@ class _Pill extends StatelessWidget {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: selected ? scheme.primary : scheme.outlineVariant,
           ),
@@ -489,11 +487,11 @@ class _Pill extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? scheme.onPrimaryContainer
-                        : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                  ),
+                color: selected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              ),
             ),
           ],
         ),

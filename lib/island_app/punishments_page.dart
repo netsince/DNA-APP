@@ -36,7 +36,7 @@ class PunishmentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('我的处罚'), centerTitle: true),
+      appBar: AppBar(title: const Text('我的处罚')),
       body: PunishmentsBody(
         loader: loader,
         appealHandler: appealHandler,
@@ -212,7 +212,7 @@ class _PunishmentCard extends StatelessWidget {
     final appealed = p['appealed'] == true;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -233,7 +233,7 @@ class _PunishmentCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: _statusColor(context).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
                   ),
                   child: Text(
                     _statusLabel(),

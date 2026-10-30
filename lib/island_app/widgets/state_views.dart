@@ -1,6 +1,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 /// 全局统一的空态 / 错误态 / 加载中组件。
 ///
@@ -34,7 +35,7 @@ class EmptyState extends StatelessWidget {
     final iconSize = compact ? 32.0 : 44.0;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -43,20 +44,18 @@ class EmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w500),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             if (message != null && message!.isNotEmpty) ...<Widget>[
               const SizedBox(height: 4),
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
             if (actionLabel != null && onAction != null) ...<Widget>[
@@ -89,11 +88,15 @@ class ErrorState extends StatelessWidget {
     final iconSize = compact ? 32.0 : 40.0;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.cloud_off_outlined, size: iconSize, color: scheme.outline),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: iconSize,
+              color: scheme.outline,
+            ),
             const SizedBox(height: 8),
             Text(
               message,
@@ -128,10 +131,9 @@ class LoadingState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               message!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],

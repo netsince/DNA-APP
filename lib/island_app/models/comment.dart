@@ -91,9 +91,9 @@ class Comment {
     final rawReplies = mm['replies'];
     final replies = rawReplies is List
         ? rawReplies
-            .whereType<Map>()
-            .map((e) => Comment.fromJson(Map<String, dynamic>.from(e)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => Comment.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
         : <Comment>[];
     final rawId = mm['id'];
     final rawFloor = mm['floor'];
@@ -107,14 +107,16 @@ class Comment {
           : null,
       createdAt: (mm['created_at'] ?? '').toString(),
       author: mm['author'] is Map
-          ? CommentAuthor.fromJson(Map<String, dynamic>.from(mm['author'] as Map))
+          ? CommentAuthor.fromJson(
+              Map<String, dynamic>.from(mm['author'] as Map),
+            )
           : null,
       replyTo: mm['reply_to'] is Map
           ? CommentReplyTo.fromJson(
-              Map<String, dynamic>.from(mm['reply_to'] as Map))
+              Map<String, dynamic>.from(mm['reply_to'] as Map),
+            )
           : null,
-      likeCount:
-          rawLike is int ? rawLike : int.tryParse('$rawLike') ?? 0,
+      likeCount: rawLike is int ? rawLike : int.tryParse('$rawLike') ?? 0,
       liked: mm['liked'] == true,
       isPinned: mm['is_pinned'] == true,
       moderated: mm['moderated'] == true,
@@ -174,9 +176,9 @@ class CommentPage {
     final raw = mm['items'];
     final items = raw is List
         ? raw
-            .whereType<Map>()
-            .map((e) => Comment.fromJson(Map<String, dynamic>.from(e)))
-            .toList()
+              .whereType<Map>()
+              .map((e) => Comment.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
         : <Comment>[];
     int numOrZero(dynamic v) => v is int ? v : int.tryParse('$v') ?? 0;
     return CommentPage(

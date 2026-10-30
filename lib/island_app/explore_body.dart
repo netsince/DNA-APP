@@ -10,11 +10,11 @@ import '../theme/tokens.dart';
 /// 探索角色卡分页加载回调（默认走 [ApiClient.getExploreCards]）。
 typedef ExploreCardsLoader =
     Future<ExploreCardsPage> Function({
-  int page,
-  String sort,
-  String gender,
-  String? tag,
-});
+      int page,
+      String sort,
+      String gender,
+      String? tag,
+    });
 
 /// 探索页元数据（性别列表 + 热门标签）加载回调（默认走 [ApiClient.getExploreMeta]）。
 typedef ExploreMetaLoader = Future<ExploreMeta> Function();
@@ -25,7 +25,12 @@ typedef ExploreMetaLoader = Future<ExploreMeta> Function();
 /// （性别+排序、标签），下方卡片网格按宽度自适应列数，滚动到底自动加载更多。
 /// 筛选变化时重新拉取第一页；点卡片通过 [onOpenCard] 交给外壳打开内置详情页。
 class ExploreBody extends StatefulWidget {
-  const ExploreBody({super.key, this.onOpenCard, this.cardsLoader, this.metaLoader});
+  const ExploreBody({
+    super.key,
+    this.onOpenCard,
+    this.cardsLoader,
+    this.metaLoader,
+  });
 
   /// 打开角色卡详情：优先交给外壳（保留侧边栏）；未提供时回退为 push 内置详情页。
   final ValueChanged<String>? onOpenCard;
@@ -162,11 +167,9 @@ class _ExploreBodyState extends State<ExploreBody> {
       cb(id);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CardDetailPage(cardId: id),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
   }
 
   void _onScrollNotification(ScrollNotification notification) {
@@ -223,42 +226,50 @@ class _ExploreBodyState extends State<ExploreBody> {
     if (_loading) {
       slivers.add(_skeletonSliver(context));
     } else if (_error != null) {
-      slivers.add(SliverToBoxAdapter(
-        child: ErrorState(onRetry: _reload),
-      ));
+      slivers.add(SliverToBoxAdapter(child: ErrorState(onRetry: _reload)));
     } else if (_cards.isEmpty) {
-      slivers.add(const SliverToBoxAdapter(
-        child: EmptyState(
-          icon: Icons.search_off,
-          title: '没有符合条件的角色卡，换个筛选试试～',
-        ),
-      ));
-    } else {
-      slivers.add(SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: ResponsiveCardGrid(
-          cards: _cards,
-          onCardTap: _openCard,
-        ),
-      ));
-      if (_loadingMore) {
-        slivers.add(const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
+      slivers.add(
+        const SliverToBoxAdapter(
+          child: EmptyState(
+            icon: Icons.search_off,
+            title: '没有符合条件的角色卡，换个筛选试试～',
           ),
-        ));
-      }
-      if (_noMore && _cards.length > 24) {
-        slivers.add(const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-              child: Text('到底啦',
-                  style: TextStyle(fontSize: AppFontSize.caption, color: Colors.grey)),
+        ),
+      );
+    } else {
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: ResponsiveCardGrid(cards: _cards, onCardTap: _openCard),
+        ),
+      );
+      if (_loadingMore) {
+        slivers.add(
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
             ),
           ),
-        ));
+        );
+      }
+      if (_noMore && _cards.length > 24) {
+        slivers.add(
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Text(
+                  '到底啦',
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
       }
     }
 
@@ -282,10 +293,7 @@ class _ExploreBodyState extends State<ExploreBody> {
               runSpacing: spacing,
               children: List<Widget>.generate(
                 columns * 3,
-                (_) => SizedBox(
-                  width: itemWidth,
-                  child: const _SkeletonCard(),
-                ),
+                (_) => SizedBox(width: itemWidth, child: const _SkeletonCard()),
               ),
             );
           },
@@ -302,7 +310,7 @@ class _SkeletonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final block = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final radius = BorderRadius.circular(12);
+    final radius = BorderRadius.circular(AppRadius.sm);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -318,7 +326,7 @@ class _SkeletonCard extends StatelessWidget {
           height: 14,
           decoration: BoxDecoration(
             color: block,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
           ),
         ),
         const SizedBox(height: 6),
@@ -327,7 +335,7 @@ class _SkeletonCard extends StatelessWidget {
           height: 12,
           decoration: BoxDecoration(
             color: block,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
           ),
         ),
       ],
@@ -372,8 +380,13 @@ class _FilterBar extends StatelessWidget {
                 onTap: onClear,
               )
             else
-              const Text('筛选',
-                  style: TextStyle(fontSize: AppFontSize.caption, color: Colors.grey)),
+              const Text(
+                '筛选',
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  color: Colors.grey,
+                ),
+              ),
             const SizedBox(width: 4),
             // 性别：全部 + 各性别。
             _FilterPill(
@@ -474,8 +487,10 @@ class _HSliceScrollState extends State<_HSliceScroll> {
     if (event is PointerScrollEvent && _controller.hasClients) {
       final delta = event.scrollDelta.dy;
       if (delta == 0) return;
-      final target = (_controller.offset + delta)
-          .clamp(0.0, _controller.position.maxScrollExtent);
+      final target = (_controller.offset + delta).clamp(
+        0.0,
+        _controller.position.maxScrollExtent,
+      );
       if (target != _controller.offset) {
         _controller.jumpTo(target);
       }
@@ -518,12 +533,12 @@ class _FilterPill extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: selected ? scheme.primary : scheme.outlineVariant,
           ),
@@ -538,11 +553,11 @@ class _FilterPill extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? scheme.onPrimaryContainer
-                        : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                  ),
+                color: selected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              ),
             ),
           ],
         ),
