@@ -1,6 +1,7 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/state_views.dart';
 
 import 'package:dna/island_app/card_publish_source.dart';
 import 'package:dna/island_app/ta_import_sink.dart';
@@ -171,7 +172,7 @@ class _CommunityBodyState extends State<CommunityBody> {
   Widget _buildContent(BuildContext context) {
     final CommunityPreload preload = CommunityPreload.instance;
     if (!preload.isBooted) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
     if (preload.needsSetup) {
       return ServerSetupPage(

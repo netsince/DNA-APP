@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/state_views.dart';
 
 import '../theme/tokens.dart';
-import 'app_empty_state.dart';
 import 'config_status_banner.dart';
 import 'fit_text.dart';
 
@@ -132,12 +132,7 @@ class ModelPicker extends StatelessWidget {
       // 首次拉取（列表还空着）时先给转圈，别让用户盯着「暂无可用模型」发呆。
       // 已有列表时刷新则保留列表，只把按钮置灰 —— 比整块换成转圈更少跳变。
       if (loading) {
-        final Widget spinner = const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-            child: CircularProgressIndicator(),
-          ),
-        );
+        const Widget spinner = AppLoadingState();
         return fill ? Expanded(child: spinner) : spinner;
       }
       // 列表空但已选定模型（例如设置里存过一个模型、还没点过刷新）时，

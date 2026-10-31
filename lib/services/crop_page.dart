@@ -1,8 +1,9 @@
-﻿import 'dart:ui' as ui;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/state_views.dart';
 
 import 'crop_math.dart';
 
@@ -220,7 +221,7 @@ class _FlutterCropPageState extends State<FlutterCropPage> {
     }
     final ui.Image? image = _image;
     if (image == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints c) {

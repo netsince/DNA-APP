@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/state_views.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -77,7 +78,7 @@ class _LicensePageState extends State<LicensePage> {
   Widget _buildDoc(_LicenseDoc doc) {
     final String? text = _texts[doc.file];
     if (text == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
