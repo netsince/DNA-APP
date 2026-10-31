@@ -224,7 +224,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('还没有人发布世界卡'), findsOneWidget);
+      // FitText 内部会渲染不止一个 Text（FitText 本身也是一个 Text），所以用 findsWidgets。
+      expect(find.text('还没有人发布世界卡'), findsWidgets);
     });
 
     testWidgets('加载失败给错误态', (WidgetTester tester) async {
@@ -239,7 +240,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('世界列表加载失败，下拉重试'), findsOneWidget);
+      expect(find.text('世界列表加载失败，下拉重试'), findsWidgets);
     });
   });
 
