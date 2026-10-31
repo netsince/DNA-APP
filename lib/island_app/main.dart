@@ -9,6 +9,7 @@ import 'package:dna/island_app/shared_prefs.dart';
 import 'package:dna/island_app/shutdown_page.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 
 void main() async {
@@ -102,21 +103,33 @@ class _MyAppState extends State<MyApp> {
         TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
       },
     );
+    // 先算出配色，卡片描边要用它的 outlineVariant（与主程序同一套取色逻辑）。
+    final ColorScheme scheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: brightness,
+    );
     return ThemeData(
       useMaterial3: true,
-      colorSchemeSeed: seed,
-      brightness: brightness,
+      colorScheme: scheme,
+      // 字号体系与主程序共用同一份重映射：Material 默认的 titleLarge 是 22、
+      // headlineSmall 是 24，不重映射的话同一行代码在两边字号完全不同。
+      textTheme: AppTextStyles.buildTextTheme(
+        ThemeData(colorScheme: scheme).textTheme,
+      ),
       pageTransitionsTheme: pageTransitionsTheme,
-      // 二级页顶栏默认居中标题、无阴影（上滑时再浮现）。
+      // 顶栏：无阴影。标题对齐不再显式居中 ——统一跟主程序左对齐。
       appBarTheme: const AppBarTheme(elevation: 0, scrolledUnderElevation: 0.5),
-      // 卡片默认统一圆角。
+      // 卡片：扁平 + 细描边，与主程序 `main.dart` 的 cardTheme 同一套规范。
+      // 主程序的层级靠描边区分而不是阴影（见 AppBorder.cardShape）；
+      // 社区独立运行时若不跟上，同一张卡片在「App 内」和「独立运行」会长得不一样。
       cardTheme: CardThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kRadiusMd),
-        ),
-        elevation: 0,
+        elevation: AppElevation.flat,
+        margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+        shape: AppBorder.cardShape(scheme),
         clipBehavior: Clip.antiAlias,
       ),
+      // 分割线：缩进与列表项图标对齐（主程序同款 AppBorder.dividerIndent）。
+      dividerTheme: const DividerThemeData(indent: AppBorder.dividerIndent),
       // 输入框默认描边样式（圆角 + 描边），页面无需再写 border: OutlineInputBorder()。
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(

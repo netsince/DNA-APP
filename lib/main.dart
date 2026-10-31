@@ -324,71 +324,12 @@ class _DnaAppState extends State<DnaApp> {
   /// | `labelLarge`     | 14 | 按钮文字                   |
   /// | `labelMedium`    | 12 | 次要标签                   |
   /// | `labelSmall`     | 11 | 极小标注(时间戳、角标)     |
-  static TextTheme _buildTextTheme(TextTheme base) {
-    // 字重只用 400 / 500(内置字体的两个真实字重),禁止 w600/w700 合成加粗。
-    // 行高按中文阅读优化:标题紧凑(1.35)、正文宽松(1.55)。
-    const double hTitle = AppLineHeight.title;
-    const double hBody = AppLineHeight.body;
-    return base.copyWith(
-      // 大标题 24
-      headlineMedium: base.headlineMedium?.copyWith(
-        fontSize: AppFontSize.headline,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      // 页面标题 20
-      headlineSmall: base.headlineSmall?.copyWith(
-        fontSize: AppFontSize.title,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      // 小标题 16(此前为 22,是"字号过大"的主因)
-      titleLarge: base.titleLarge?.copyWith(
-        fontSize: AppFontSize.subtitle,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      titleMedium: base.titleMedium?.copyWith(
-        fontSize: AppFontSize.subtitle,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      titleSmall: base.titleSmall?.copyWith(
-        fontSize: AppFontSize.body,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      // 正文
-      bodyLarge: base.bodyLarge?.copyWith(
-        fontSize: AppFontSize.subtitle,
-        height: hBody,
-      ),
-      bodyMedium: base.bodyMedium?.copyWith(
-        fontSize: AppFontSize.body,
-        height: hBody,
-      ),
-      bodySmall: base.bodySmall?.copyWith(
-        fontSize: AppFontSize.caption,
-        height: hBody,
-      ),
-      // 标签
-      labelLarge: base.labelLarge?.copyWith(
-        fontSize: AppFontSize.body,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      labelMedium: base.labelMedium?.copyWith(
-        fontSize: AppFontSize.caption,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-      labelSmall: base.labelSmall?.copyWith(
-        fontSize: AppFontSize.tiny,
-        fontWeight: AppWeight.medium,
-        height: hTitle,
-      ),
-    );
-  }
+  /// 按 [AppFontSize] 六档重映射 Material `TextTheme`。
+  ///
+  /// 实现已下沉到 [AppTextStyles.buildTextTheme] ——主程序与社区共用同一份，
+  /// 否则两边对同一个 `titleLarge` 会得到 16 和 22 两种字号。
+  static TextTheme _buildTextTheme(TextTheme base) =>
+      AppTextStyles.buildTextTheme(base);
 }
 
 class AppRoot extends StatefulWidget {

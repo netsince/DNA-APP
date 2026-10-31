@@ -72,12 +72,17 @@ void main() {
     });
 
     test('textTheme 每个槽位都显式定义了行高', () {
-      final String main = File('lib/main.dart').readAsStringSync();
-      final RegExpMatch? m = RegExp(r'static TextTheme _buildTextTheme')
-          .firstMatch(main);
-      expect(m, isNotNull);
-      // 重映射段落应从 _buildTextTheme 开始到下一个顶层 } 结束。
-      final String body = main.substring(m!.start, main.indexOf('\n}', m.start));
+      // 实现已下沉到 `AppTextStyles.buildTextTheme`（tokens.dart），主程序与社区共用一份；
+      // 所以检查的是实现处，不是 main.dart 里的调用处。
+      final String tokens = File('lib/theme/tokens.dart').readAsStringSync();
+      final RegExpMatch? m = RegExp(
+        r'static TextTheme buildTextTheme',
+      ).firstMatch(tokens);
+      expect(m, isNotNull, reason: 'AppTextStyles.buildTextTheme 应当存在');
+      final String body = tokens.substring(
+        m!.start,
+        tokens.indexOf('\n  }', m.start),
+      );
       // 11 个槽位应各自带上 height。
       final int heights = RegExp(r'height:\s*h(Title|Body|Reading)')
           .allMatches(body)

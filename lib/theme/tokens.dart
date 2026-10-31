@@ -240,6 +240,86 @@ abstract final class AppTextStyles {
   /// 极小标注(时间戳、角标)。11px。
   static TextStyle tiny(ThemeData t) =>
       t.textTheme.labelSmall!.copyWith(fontSize: AppFontSize.tiny);
+
+  /// 把 Material 默认的 [TextTheme] 重映射到 [AppFontSize] 六档。
+  ///
+  /// | 槽位 | 字号 | 用途 |
+  /// |---|---|---|
+  /// | `headlineMedium` | 24 | 大标题(启动页、空状态) |
+  /// | `headlineSmall` | 20 | 页面标题(全屏页、OOBE) |
+  /// | `titleLarge` / `titleMedium` | 16 | 小标题(卡片分区、对话框) |
+  /// | `titleSmall` | 14 | 强调正文 |
+  /// | `bodyLarge` | 16 | 大号正文(输入框) |
+  /// | `bodyMedium` | 14 | 正文(默认) |
+  /// | `bodySmall` | 12 | 说明文字 |
+  /// | `labelLarge` | 14 | 按钮文字 |
+  /// | `labelMedium` | 12 | 次要标签 |
+  /// | `labelSmall` | 11 | 极小标注(时间戳、角标) |
+  ///
+  /// **主程序与社区必须都用这一个函数**：Material 默认的 `titleLarge` 是 22、
+  /// `headlineSmall` 是 24，不重映射的话同一行代码在两边的字号完全不同 ——
+  /// 这是「社区和主程序字号对不齐」的根因。
+  ///
+  /// 字重只用 400/500(内置字体的两个真实字重)，行高按中文阅读优化：
+  /// 标题紧凑([AppLineHeight.title])、正文宽松([AppLineHeight.body])。
+  static TextTheme buildTextTheme(TextTheme base) {
+    const double hTitle = AppLineHeight.title;
+    const double hBody = AppLineHeight.body;
+    return base.copyWith(
+      headlineMedium: base.headlineMedium?.copyWith(
+        fontSize: AppFontSize.headline,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      headlineSmall: base.headlineSmall?.copyWith(
+        fontSize: AppFontSize.title,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      titleLarge: base.titleLarge?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      titleMedium: base.titleMedium?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      titleSmall: base.titleSmall?.copyWith(
+        fontSize: AppFontSize.body,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      bodyLarge: base.bodyLarge?.copyWith(
+        fontSize: AppFontSize.subtitle,
+        height: hBody,
+      ),
+      bodyMedium: base.bodyMedium?.copyWith(
+        fontSize: AppFontSize.body,
+        height: hBody,
+      ),
+      bodySmall: base.bodySmall?.copyWith(
+        fontSize: AppFontSize.caption,
+        height: hBody,
+      ),
+      labelLarge: base.labelLarge?.copyWith(
+        fontSize: AppFontSize.body,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      labelMedium: base.labelMedium?.copyWith(
+        fontSize: AppFontSize.caption,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+      labelSmall: base.labelSmall?.copyWith(
+        fontSize: AppFontSize.tiny,
+        fontWeight: AppWeight.medium,
+        height: hTitle,
+      ),
+    );
+  }
 }
 
 /// 页面级内边距令牌。
@@ -333,6 +413,11 @@ abstract final class AppSize {
 
   /// 空状态图标。
   static const double iconEmpty = 48;
+
+  /// 紧凑空状态图标（嵌在卡片、网格、列表项里的空态）。
+  ///
+  /// 整页空态用 [iconEmpty]，一块区域里的空态用这一档 ——否则会喧宾夺主。
+  static const double iconEmptyCompact = 32;
 
   /// 单行列表项高度。
   static const double tileSingle = 56;

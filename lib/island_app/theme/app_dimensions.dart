@@ -1,28 +1,42 @@
-/// 全局统一的尺寸 token。
+/// 社区侧的尺寸常量。
 ///
-/// 各页面应复用这里的常量，避免圆角/内边距/间距数值散落各处造成观感不一致。
-/// 后续若要整体调整风格，只需改这一处。
+/// **本文件已改为对主程序令牌的转发**（`lib/theme/tokens.dart`），
+/// 不再自己维护一套数值 ——两套常量各自演化，正是社区和主程序观感对不齐的根源。
+///
+/// 旧名保留只为不动既有调用点；新代码请直接用 `AppRadius` / `AppSpacing` / `AppSize`。
+///
+/// 注意旧名和主程序档位**不是同一套命名**，映射关系见每个常量的注释。
 library;
 
-/// 圆角（radius）。
-const double kRadiusSm = 8; // 小：标签、徽章、输入框内部小块
-const double kRadiusMd = 12; // 中：卡片、菜单项、网格卡
-const double kRadiusLg = 16; // 大：重点大卡（余额卡、Hero 卡）
+import '../../theme/tokens.dart';
 
-/// 页面左右内边距。
-const double kPagePadding = 16;
+/// 圆角（小）—— 对应 `AppRadius.xs` = 8。
+const double kRadiusSm = AppRadius.xs;
 
-/// 卡片 / 元素之间的统一间距。
-const double kCardGap = 12;
+/// 圆角（中）—— 对应 `AppRadius.sm` = 12。
+const double kRadiusMd = AppRadius.sm;
 
-/// 列表内分割 / 分组间距。
-const double kListGap = 8;
+/// 圆角（大）—— 对应 `AppRadius.md` = 16。
+const double kRadiusLg = AppRadius.md;
 
-/// 大屏内容最大宽度（设置页、登录页等居中内容的上限）。
-const double kMaxContentWidth = 720;
+/// 页面左右内边距 —— 对应 `AppSpacing.lg` = 16。
+const double kPagePadding = AppSpacing.lg;
+
+/// 卡片 / 元素之间的统一间距 —— 对应 `AppSpacing.md` = 12。
+const double kCardGap = AppSpacing.md;
+
+/// 列表内分割 / 分组间距 —— 对应 `AppSpacing.sm` = 8。
+const double kListGap = AppSpacing.sm;
+
+/// 大屏内容最大宽度 —— 对应 `AppSize.editorMaxWidth` = 720。
+const double kMaxContentWidth = AppSize.editorMaxWidth;
 
 /// 网格卡片（CardTile）的封面宽高比（3:4）。
+///
+/// 这是业务比例不是设计令牌，主程序没有对应项，保留在社区。
 const double kCardAspectRatio = 3 / 4;
 
 /// 触底加载阈值（滚动距底部多少像素时触发加载更多）。
+///
+/// 这是交互参数不是视觉令牌，保留在社区。
 const double kLoadMoreThreshold = 400;
