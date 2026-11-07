@@ -1286,9 +1286,58 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 按 id 查会话：单聊与群聊一起查，找不到返回 null。
+  ///
+  /// 调用方常常只拿得到一个 id（搜索结果、自动续玩指针、深链），**不该由它自己
+  /// 判断这是单聊还是群聊** —— 判错就会走错写回分支，把群聊记录覆盖成单聊
+  /// （成员、群设定、说话人标注全丢）。类型由数据说了算，不由调用方猜。
+  Conversation? getConversationById(String id) {
+    for (final Conversation conversation in _conversations) {
+      if (conversation.id == id) {
+        return conversation;
+      }
+    }
+    for (final Conversation conversation in _groupConversations) {
+      if (conversation.id == id) {
+        return conversation;
+      }
+    }
+    return null;
+  }
+
+  /// 该 id 在库里是否已经是群聊（「群聊身份」一旦确立就不可逆）。
+  bool _isKnownGroupId(String id) =>
+      _groupConversations.any((Conversation item) => item.id == id);
+
+  /// 单聊形态的 payload 写到已有群聊 id 上时，把群聊专属字段还原回来。
+  ///
+  /// 依据很直接：单聊 payload **对群聊字段没有主张** —— 它的 `memberTaIds` 只有
+  /// 一个 taId、`groupName`/`groupPrompt` 恒为空。直接落库等于拿「没有意见」
+  /// 覆盖掉真实数据，所以这里以库里的旧值为准。
+  Conversation _restoreGroupFields(Conversation incoming) {
+    final Conversation? stored = getGroupById(incoming.id);
+    if (stored == null) {
+      return incoming.copyWith(isGroup: true);
+    }
+    return incoming.copyWith(
+      isGroup: true,
+      memberTaIds: stored.memberTaIds,
+      activeTaId: stored.activeTaId,
+      groupName: stored.groupName,
+      groupPrompt: stored.groupPrompt,
+    );
+  }
+
   Future<void> upsertConversation(Conversation conversation) async {
+    // 群聊身份由创建时决定，之后任何写回都必须保持 —— 见 [getConversationById]。
+    // 没有这道闸，一个拿不到 isGroup 的调用方会把群聊静默踩成单聊：
+    // Hive 按 id 覆盖，成员/群设定/说话人标注一起消失，且没有任何报错。
     if (conversation.isGroup) {
       await upsertGroupConversation(conversation);
+      return;
+    }
+    if (_isKnownGroupId(conversation.id)) {
+      await upsertGroupConversation(_restoreGroupFields(conversation));
       return;
     }
     final int index = _conversations.indexWhere((Conversation item) => item.id == conversation.id);

@@ -104,14 +104,10 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
 
   // ---------- 数据 ----------
 
-  Conversation? _conversationById(String id) {
-    for (final Conversation conversation in widget.controller.conversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
+  /// 按 id 查会话（单聊 + 群聊）。只查单聊列表时，群聊会返回 null，
+  /// 「当前是不是群聊」就判不出来 —— 判定逻辑见 [_taIdOfCurrentConversation]。
+  Conversation? _conversationById(String id) =>
+      widget.controller.getConversationById(id);
 
   /// 当前会话所属角色(群聊返回 null —— 侧栏不含群聊)。
   String? _taIdOfCurrentConversation() {

@@ -95,17 +95,12 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
     _lastAccentMode = widget.controller.settings.accentMode;
     _lastCustomAccentColor = widget.controller.settings.customAccentColor;
     widget.controller.addListener(_onSettingsChanged);
-    Conversation? existing;
-    if (widget.isGroup) {
-      existing = widget.controller.getGroupById(widget.conversationId);
-    } else {
-      for (final Conversation c in widget.controller.conversations) {
-        if (c.id == widget.conversationId) {
-          existing = c;
-          break;
-        }
-      }
-    }
+    // 单聊与群聊一起查：会话类型由数据说了算，不由调用方传进来的 isGroup 猜。
+    // 之前只在 widget.isGroup 为真时才查群聊列表，于是「搜索页点进群聊」
+    // （不传 isGroup）会查不到，落到下面那个空壳 Conversation 上 —— 而空壳的
+    // isGroup 是 false，后续任何一次写回都会把真实群聊覆盖成单聊。
+    final Conversation? existing =
+        widget.controller.getConversationById(widget.conversationId);
     _conversation = existing ??
         Conversation(
           id: widget.conversationId,

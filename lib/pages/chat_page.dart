@@ -312,14 +312,10 @@ class _ChatPageState extends State<ChatPage>
     }
   }
 
-  Conversation? _conversationById(String id) {
-    for (final Conversation conversation in widget.controller.conversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
+  /// 按 id 查会话（单聊 + 群聊）。侧栏、滑动、群聊判定都走这里，
+  /// 少查一半列表就会把群聊当成单聊渲染。
+  Conversation? _conversationById(String id) =>
+      widget.controller.getConversationById(id);
 
   /// 参与左右滑动的角色:与桌面侧栏左列同构 —— 按「我家」顺序,
   /// 只保留有非归档 1:1 会话的角色(群聊不参与)。

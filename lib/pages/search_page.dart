@@ -89,11 +89,17 @@ class _SearchPageState extends State<SearchPage> {
         );
       case SearchResultKind.conversation:
       case SearchResultKind.message:
+        // 群聊与单聊共用这一个入口：类型必须由数据查出来，不能默认 false，
+        // 否则点进群聊会以「单聊」打开，一旦发消息就把真实群聊覆盖掉。
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (BuildContext context) => ChatPage(
               controller: widget.controller,
               conversationId: result.conversationId!,
+              isGroup: widget.controller
+                      .getConversationById(result.conversationId!)
+                      ?.isGroup ??
+                  false,
             ),
           ),
         );
@@ -276,6 +282,9 @@ class _ResultSection extends StatelessWidget {
                   return ChatPage(
                     controller: controller,
                     conversationId: item.conversationId!,
+                    isGroup:
+                        controller.getConversationById(item.conversationId!)?.isGroup ??
+                            false,
                   );
               }
             },
