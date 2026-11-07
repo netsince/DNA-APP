@@ -971,7 +971,45 @@ class AppController extends ChangeNotifier {
   Future<void> deleteTa(String id) async {
     _tas = _tas.where((TA ta) => ta.id != id).toList();
     await _hiveService.deleteTa(id);
+    await _pruneTaFromGroups(id);
     notifyListeners();
+  }
+
+  /// 把被删角色从所有群聊里摘干净。
+  ///
+  /// 不摘的话群聊会一直留着一个死 id：界面上因为 [getTaById] 返回 null 而
+  /// 「看起来正常」，但 `activeTaId` 可能正指着它 —— 那个群聊就再也发不了言，
+  /// 而且没有任何一处会报错。这是删除操作**必须**自己收尾的部分。
+  Future<void> _pruneTaFromGroups(String taId) async {
+    bool changed = false;
+    final List<Conversation> updated = <Conversation>[];
+    for (final Conversation group in _groupConversations) {
+      final bool wasMember = group.memberTaIds.contains(taId);
+      final bool wasPrimary = group.taId == taId;
+      final bool wasActive = group.activeTaId == taId;
+      if (!wasMember && !wasPrimary && !wasActive) {
+        updated.add(group);
+        continue;
+      }
+      final List<String> members =
+          group.memberTaIds.where((String m) => m != taId).toList();
+      // 主角色 / 当前发言人被删时把指针挪到仍然存在的第一个成员。
+      // 成员清空时留空 —— 会话本身不删，历史记录还在（与「删角色不动对话」一致）。
+      final String? fallback = members.isEmpty ? null : members.first;
+      final Conversation next = group.copyWith(
+        memberTaIds: members,
+        taId: wasPrimary ? (fallback ?? '') : group.taId,
+        // 空串表示「已没有有效发言人」：copyWith 的 null 会被当成「不修改」，
+        // 传 null 等于永远清不掉这个死指针（同 identityId 的坑）。
+        activeTaId: wasActive ? (fallback ?? '') : group.activeTaId,
+      );
+      updated.add(next);
+      await _hiveService.upsertConversation(next);
+      changed = true;
+    }
+    if (changed) {
+      _groupConversations = updated;
+    }
   }
 
   /// 将 ZIP 字节写入 `<文档目录>/dna_backups/<baseName>_<时间戳>.zip`。

@@ -195,4 +195,49 @@ void main() {
       reason: '不能在单聊列表里造一个同 id 的空壳',
     );
   });
+
+  group('删除角色时清理群成员', () {
+    test('摘掉成员，并把主角色 / 当前发言人挪到剩下的成员', () async {
+      final AppController controller = await _boot(_RecordingHive(
+        tas: <TA>[_ta('a'), _ta('b')],
+        conversations: <Conversation>[_group('g1')],
+      ));
+
+      await controller.deleteTa('a');
+
+      final Conversation group = controller.groupConversations.single;
+      expect(group.memberTaIds, <String>['b']);
+      expect(group.taId, 'b', reason: '主角色被删后要指向还活着的人');
+      expect(group.activeTaId, 'b', reason: '当前发言人指着死 id 就再也发不了言');
+    });
+
+    test('成员被删光的群聊：成员表清空、会话本身保留', () async {
+      final AppController controller = await _boot(_RecordingHive(
+        tas: <TA>[_ta('a')],
+        conversations: <Conversation>[
+          _group('g1').copyWith(memberTaIds: <String>['a'], activeTaId: 'a'),
+        ],
+      ));
+
+      await controller.deleteTa('a');
+
+      expect(controller.groupConversations, hasLength(1), reason: '历史记录不能被连坐删掉');
+      final Conversation group = controller.groupConversations.single;
+      expect(group.memberTaIds, isEmpty);
+      expect(group.activeTaId, '', reason: '没有成员时不能留着一个死的发言人');
+    });
+
+    test('与该角色无关的群聊不受影响，也不触发写盘', () async {
+      final _RecordingHive hive = _RecordingHive(
+        tas: <TA>[_ta('a'), _ta('b'), _ta('c')],
+        conversations: <Conversation>[_group('g1')],
+      );
+      final AppController controller = await _boot(hive);
+
+      await controller.deleteTa('c');
+
+      expect(hive.saved, isEmpty, reason: '没变就不要写盘');
+      expect(controller.groupConversations.single.memberTaIds, <String>['a', 'b']);
+    });
+  });
 }
