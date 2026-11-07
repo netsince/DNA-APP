@@ -7,7 +7,6 @@ import '../../services/image_storage.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_container.dart';
-import '../../widgets/group_avatar.dart';
 import '../chat_page.dart';
 import '../conversation_edit_page.dart';
 import '../delete_confirm_page.dart';
@@ -110,6 +109,9 @@ class _ConversationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final TA? ta = controller.getTaById(conversation.taId);
     final World? world = controller.getWorldById(conversation.worldId);
+    // 本列表的数据源是 [AppController.activeConversations] ——**只含单聊**，
+    // 群聊在「群聊」栏目里由 group_home_page 渲染。这里曾经写着一整套
+    // GroupAvatar 分支，永远走不到，还会让「点进来会显示群」看上去像是坏了。
     final String title = conversation.note.isNotEmpty
         ? conversation.note
         : (ta?.name.isNotEmpty == true ? ta!.name : '未命名会话');
@@ -118,13 +120,7 @@ class _ConversationItem extends StatelessWidget {
         : 'TA：${ta?.name.isNotEmpty == true ? ta!.name : '未命名TA'} · 世界：${world.name}';
 
     final Widget leading;
-    if (conversation.isGroup) {
-      final List<TA> members = conversation.memberTaIds
-          .map(controller.getTaById)
-          .whereType<TA>()
-          .toList();
-      leading = GroupAvatar(tas: members, size: 44);
-    } else if (ta != null) {
+    if (ta != null) {
       final ImageProvider? provider =
           ImageStorage.instance.providerFor(ta, 'square');
       if (provider != null) {
