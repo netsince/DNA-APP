@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
 import '../models/ta.dart';
+import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
@@ -27,6 +28,7 @@ class _GroupEditPageState extends State<GroupEditPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _promptController;
   late String? _selectedWorldId;
+  late String? _selectedIdentityId;
   late final Set<String> _selectedTaIds;
 
   @override
@@ -35,6 +37,7 @@ class _GroupEditPageState extends State<GroupEditPage> {
     _nameController = TextEditingController(text: widget.group.groupName);
     _promptController = TextEditingController(text: widget.group.groupPrompt);
     _selectedWorldId = widget.group.worldId;
+    _selectedIdentityId = widget.group.identityId;
     _selectedTaIds = Set<String>.from(widget.group.memberTaIds);
   }
 
@@ -58,6 +61,9 @@ class _GroupEditPageState extends State<GroupEditPage> {
       worldId: (_selectedWorldId == null || _selectedWorldId!.isEmpty)
           ? null
           : _selectedWorldId,
+      // 身份用空串表示「不选择」：copyWith 的 null 会被当成「不修改」，
+      // 传 null 等于永远清不掉已选身份（getIdentityById 对空串同样返回 null）。
+      identityId: _selectedIdentityId ?? '',
       memberTaIds: memberIds,
       activeTaId: _selectedTaIds.contains(widget.group.activeTaId)
           ? widget.group.activeTaId
@@ -72,6 +78,7 @@ class _GroupEditPageState extends State<GroupEditPage> {
   Widget build(BuildContext context) {
     final List<TA> tas = widget.controller.activeTas;
     final List<World> worlds = widget.controller.activeWorlds;
+    final List<UserIdentity> identities = widget.controller.identities;
     final List<TA> selectedTas =
         tas.where((TA t) => _selectedTaIds.contains(t.id)).toList();
 
@@ -157,6 +164,44 @@ class _GroupEditPageState extends State<GroupEditPage> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          if (identities.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    FitText('我的身份（可选）', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedIdentityId ?? '',
+                      decoration: const InputDecoration(labelText: '身份'),
+                      items: <DropdownMenuItem<String>>[
+                        const DropdownMenuItem<String>(
+                          value: '',
+                          child: FitText('不选择'),
+                        ),
+                        ...identities.map(
+                          (UserIdentity idt) => DropdownMenuItem<String>(
+                            value: idt.id,
+                            child: FitText(
+                              idt.name.isEmpty ? '未命名身份' : idt.name,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (String? value) {
+                        setState(() {
+                          _selectedIdentityId =
+                              (value == null || value.isEmpty) ? null : value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           Card(
             child: Padding(
