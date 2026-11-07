@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dna/models/conversation.dart';
 import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/ta.dart';
@@ -240,4 +242,16 @@ void main() {
       expect(controller.groupConversations.single.memberTaIds, <String>['a', 'b']);
     });
   });
+
+  group('自动续玩的接线', () {
+    test('main.dart 必须把「全部会话」交给 resolveResumeTarget', () {
+      final String src = File('lib/main.dart').readAsStringSync();
+      final int at = src.indexOf('resolveResumeTarget(');
+      expect(at, greaterThanOrEqualTo(0));
+      final String call = src.substring(at, at + 360);
+      expect(call, contains('allConversations'),
+          reason: '只传单聊列表的话，群聊永远解析不到，还会把指针一并清掉');
+    });
+  });
+
 }

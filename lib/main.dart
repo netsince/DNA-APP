@@ -593,7 +593,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     final String? saved = await resume.lastConversationId();
     final ResumeTarget? target = resolveResumeTarget(
       conversationId: saved,
-      conversations: widget.controller.conversations,
+      // 必须是「全部会话」：指针是打开聊天页时无条件记下的，
+      // 群聊也会被记。只传单聊列表的话，群聊永远查不到 →
+      // 下面那段会当作「会话已删」把指针清掉，群聊自动续玩彻底失效。
+      conversations: widget.controller.allConversations,
       tas: widget.controller.tas,
     );
     if (!mounted) return;
