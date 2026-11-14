@@ -20,6 +20,10 @@ class _SplashPageState extends State<SplashPage>
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
 
+  /// LOGO 下方的版本副标题。
+  late Animation<double> _taglineInAnimation;
+  late Animation<double> _taglineOutAnimation;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +63,21 @@ class _SplashPageState extends State<SplashPage>
       ),
     );
 
+    _taglineInAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.42, 0.62, curve: Curves.easeOut),
+      ),
+    );
+
+    _taglineOutAnimation = Tween<double>(begin: 1, end: 0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        // 在 LOGO 开始"放大穿透"之前就退干净，避免文字叠在放大的图形上。
+        curve: const Interval(0.55, 0.69, curve: Curves.easeIn),
+      ),
+    );
+
     _controller.forward().then((_) {
       widget.onComplete();
     });
@@ -74,27 +93,52 @@ class _SplashPageState extends State<SplashPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.splashBackground,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (BuildContext context, Widget? child) {
-            return Opacity(
-              opacity: _opacityAnimation.value,
-              child: Transform.scale(
-                scale: _scaleAnimation.value,
-                child: SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: CustomPaint(
-                    painter: LogoPainter(
-                      drawProgress: _drawAnimation.value,
-                      fillProgress: _fillAnimation.value,
-                    ),
-                  ),
-                ),
+      body: SizedBox.expand(
+        child: Stack(
+          children: <Widget>[
+            Center(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (BuildContext context, Widget? child) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Opacity(
+                        opacity: _opacityAnimation.value,
+                        child: Transform.scale(
+                          scale: _scaleAnimation.value,
+                          child: SizedBox(
+                            width: 120,
+                            height: 120,
+                            child: CustomPaint(
+                              painter: LogoPainter(
+                                drawProgress: _drawAnimation.value,
+                                fillProgress: _fillAnimation.value,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Opacity(
+                        opacity: _taglineInAnimation.value *
+                            _taglineOutAnimation.value,
+                        child: const Text(
+                          'DNA ULTRA 1.0',
+                          style: TextStyle(
+                            color: Color(0xCCFFFFFF),
+                            fontSize: 13,
+                            letterSpacing: 6,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

@@ -47,6 +47,9 @@ class SettingsService {
   static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
   static const String _accentModeKey = 'accent_mode';
   static const String _customAccentColorKey = 'custom_accent_color';
+  static const String _paletteKeyKey = 'palette_key';
+  static const String _customCanvasColorKey = 'custom_canvas_color';
+  static const String _customGlassColorKey = 'custom_glass_color';
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _bgmVolumeKey = 'bgm_volume';
@@ -164,6 +167,9 @@ class SettingsService {
           prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
       customAccentColor: prefs.getInt(_customAccentColorKey),
+      paletteKey: prefs.getString(_paletteKeyKey) ?? 'graphite',
+      customCanvasColor: prefs.getInt(_customCanvasColorKey),
+      customGlassColor: prefs.getInt(_customGlassColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
       ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
       bgmVolume: prefs.getInt(_bgmVolumeKey) ?? 50,
@@ -188,9 +194,9 @@ class SettingsService {
       dynamicHalfScreen: prefs.getBool(_dynamicHalfScreenKey) ?? false,
       maxContextMessages: prefs.getInt(_maxContextMessagesKey) ?? 120,
       maxContextTokens: prefs.getInt(_maxContextTokensKey) ?? 8000,
-      temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
-      frequencyPenalty: (prefs.getDouble(_frequencyPenaltyKey)) ?? 0.0,
-      presencePenalty: (prefs.getDouble(_presencePenaltyKey)) ?? 0.0,
+      temperature: _readDouble(prefs, _temperatureKey, 0.7),
+      frequencyPenalty: _readDouble(prefs, _frequencyPenaltyKey, 0.0),
+      presencePenalty: _readDouble(prefs, _presencePenaltyKey, 0.0),
       loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
       loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
       loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
@@ -200,6 +206,25 @@ class SettingsService {
       providers: providers,
       models: models,
     );
+  }
+
+  /// 旧版本或外部工具写入的整数型数值会让 getDouble 抛类型错误，
+  /// 这里统一兜底，避免整个设置加载失败（表现是启动后没有窗口）。
+  static double _readDouble(
+    SharedPreferences prefs,
+    String key,
+    double fallback,
+  ) {
+    try {
+      final double? value = prefs.getDouble(key);
+      if (value != null) return value;
+    } catch (_) {
+      // 类型不符，落到下面的兜底。
+    }
+    final Object? raw = prefs.get(key);
+    if (raw is int) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw) ?? fallback;
+    return fallback;
   }
 
   static List<LlmProviderConfig> _decodeProviders(String? raw) {
@@ -296,6 +321,17 @@ class SettingsService {
           _customAccentColorKey, settings.customAccentColor!);
     } else {
       await prefs.remove(_customAccentColorKey);
+    }
+    await prefs.setString(_paletteKeyKey, settings.paletteKey);
+    if (settings.customCanvasColor != null) {
+      await prefs.setInt(_customCanvasColorKey, settings.customCanvasColor!);
+    } else {
+      await prefs.remove(_customCanvasColorKey);
+    }
+    if (settings.customGlassColor != null) {
+      await prefs.setInt(_customGlassColorKey, settings.customGlassColor!);
+    } else {
+      await prefs.remove(_customGlassColorKey);
     }
     await prefs.setBool(_ttsEnabledKey, settings.ttsEnabled);
     if (settings.ttsGlobalSeed != null) {

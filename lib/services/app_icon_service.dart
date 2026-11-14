@@ -55,12 +55,12 @@ class AppIconService {
 enum AppIconOption {
   defaultIcon('default', '默认', 'assets/app_icon.png', 'MainActivityDefault'),
   alternate('alternate', '看板', 'assets/app_icon_alt.png', 'MainActivityAlt'),
-  renr('renr', '人R', 'assets/icons/icon_renr.png', 'MainActivityRenr'),
-  gongzouchao('gongzouchao', '共奏潮', 'assets/icons/icon_gongzouchao.png', 'MainActivityGongzouchao'),
-  yurugongzou('yurugongzou', '与汝共奏:DNA', 'assets/icons/icon_yurugongzou.png', 'MainActivityYurugongzou'),
-  zouchao('zouchao', '奏潮', 'assets/icons/icon_zouchao.png', 'MainActivityZouchao'),
-  zouhuan('zouhuan', '奏环', 'assets/icons/icon_zouhuan.png', 'MainActivityZouhuan'),
-  zoushen('zoushen', '奏神', 'assets/icons/icon_zoushen.png', 'MainActivityZoushen');
+  renr('renr', '人R', 'assets/icons/icon_renr.webp', 'MainActivityRenr'),
+  gongzouchao('gongzouchao', '共奏潮', 'assets/icons/icon_gongzouchao.webp', 'MainActivityGongzouchao'),
+  yurugongzou('yurugongzou', '与汝共奏:DNA', 'assets/icons/icon_yurugongzou.webp', 'MainActivityYurugongzou'),
+  zouchao('zouchao', '奏潮', 'assets/icons/icon_zouchao.webp', 'MainActivityZouchao'),
+  zouhuan('zouhuan', '奏环', 'assets/icons/icon_zouhuan.webp', 'MainActivityZouhuan'),
+  zoushen('zoushen', '奏神', 'assets/icons/icon_zoushen.webp', 'MainActivityZoushen');
 
   const AppIconOption(this.key, this.label, this.assetPath, this.alias);
 

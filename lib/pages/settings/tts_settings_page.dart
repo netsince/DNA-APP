@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 
 import '../../services/tts/tts_audio_cache.dart';
+import '../../services/cloud_tts_service.dart';
 import '../../services/tts/tts_service.dart';
+import '../../models/ta.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
 import '../../utils/platform_capabilities.dart';
@@ -242,8 +244,9 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
       body: ListView(
         padding: AppInsets.page,
         children: <Widget>[
-          // ===== 1. 朗读开关与偏好 =====
-          SettingSection(
+          // ===== 1. 朗读开关与偏好（定制版已移除离线 TTS） =====
+          if (!PlatformCapabilities.offlineTtsRemoved)
+            SettingSection(
             icon: Icons.record_voice_over_outlined,
             title: '语音朗读',
             description: '让 AI 的消息可以朗读出来。',
@@ -265,8 +268,12 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
             ],
           ),
 
-          // ===== 2. 全局音色种子 =====
-          SettingSection(
+          // ===== 1.5 云端语音合成（本机 dna-bridge）=====
+          _CloudTtsSection(controller: widget.controller),
+
+          // ===== 2. 全局音色种子（离线 TTS 专用） =====
+          if (!PlatformCapabilities.offlineTtsRemoved)
+            SettingSection(
             icon: Icons.tune,
             title: '全局音色',
             description: '角色卡没单独指定嗓音时使用。',
@@ -280,8 +287,9 @@ class _TtsSettingsPageState extends State<TtsSettingsPage> {
             ],
           ),
 
-          // ===== 3. 离线语音模型 =====
-          SettingSection(
+          // ===== 3. 离线语音模型（定制版已移除） =====
+          if (!PlatformCapabilities.offlineTtsRemoved)
+            SettingSection(
             icon: Icons.download_for_offline_outlined,
             title: '离线语音模型',
             description: '下载一次，之后不再联网。',
@@ -588,6 +596,345 @@ class _SeedSettingState extends State<_SeedSetting> {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 云端语音合成设置：直连厂商 API（默认），或交给本机 dna-bridge。
+class _CloudTtsSection extends StatefulWidget {
+  const _CloudTtsSection({required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<_CloudTtsSection> createState() => _CloudTtsSectionState();
+}
+
+class _CloudTtsSectionState extends State<_CloudTtsSection> {
+  final TextEditingController _baseCtrl = TextEditingController();
+  final TextEditingController _apiBaseCtrl = TextEditingController();
+  final TextEditingController _apiKeyCtrl = TextEditingController();
+  bool _enabled = false;
+  bool _busy = false;
+  bool _direct = false;
+  bool _hasApiKey = false;
+  String _maskedApiKey = '';
+  String _voice = '';
+  List<CloudTtsVoice> _voices = const <CloudTtsVoice>[];
+  List<CloudCharVoice> _charVoices = const <CloudCharVoice>[];
+  String _status = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _baseCtrl.dispose();
+    _apiBaseCtrl.dispose();
+    _apiKeyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    await CloudTtsService.instance.load();
+    if (!mounted) return;
+    final bool direct = CloudTtsService.instance.directMode;
+    setState(() {
+      _enabled = CloudTtsService.instance.enabled;
+      _voice = CloudTtsService.instance.voice;
+      _baseCtrl.text = CloudTtsService.instance.baseUrl;
+      _direct = direct;
+    });
+    if (!direct) {
+      final List<CloudCharVoice> charVoices =
+          await CloudTtsService.instance.listCharacterVoices();
+      if (mounted && charVoices.isNotEmpty) {
+        setState(() => _charVoices = charVoices);
+      }
+    } else {
+      // 直连模式：角色清单来自本地角色库，音色来自本机保存的映射。
+      final List<CloudCharVoice> saved =
+          await CloudTtsService.instance.listCharacterVoices();
+      final Map<String, String> mapped = <String, String>{
+        for (final CloudCharVoice c in saved) c.name: c.voice,
+      };
+      if (!mounted) return;
+      setState(() {
+        _charVoices = widget.controller.activeTas
+            .map((TA ta) => CloudCharVoice(
+                  id: ta.id,
+                  name: ta.name,
+                  voice: mapped[ta.name] ?? '',
+                ))
+            .toList();
+      });
+    }
+    final List<CloudTtsVoice> voices = await CloudTtsService.instance.listVoices();
+    if (!mounted) return;
+    if (voices.isNotEmpty) {
+      setState(() {
+        _voices = voices;
+        if (!_voices.any((CloudTtsVoice v) => v.id == _voice)) _voice = '';
+      });
+    }
+    if (direct) {
+      final CloudTtsApiConfig? api =
+          await CloudTtsService.instance.getApiConfig();
+      if (!mounted) return;
+      setState(() {
+        _apiBaseCtrl.text = api?.baseUrl ?? CloudTtsService.kDefaultApiBase;
+        _hasApiKey = api?.hasKey ?? false;
+        _maskedApiKey = api?.maskedKey ?? '';
+        _status = _hasApiKey ? '直连模式 · API Key 已保存' : '直连模式 · 还没有填 API Key';
+      });
+      return;
+    }
+    final bool online = await CloudTtsService.instance.ping();
+    if (!mounted) return;
+    setState(() {
+      _status = online ? '本机语音服务在线' : '未检测到本机语音服务（先运行 dna-bridge）';
+    });
+    if (!online) return;
+    final CloudTtsApiConfig? api = await CloudTtsService.instance.getApiConfig();
+    if (!mounted || api == null) return;
+    setState(() {
+      _apiBaseCtrl.text = api.baseUrl;
+      _hasApiKey = api.hasKey;
+      _maskedApiKey = api.maskedKey;
+    });
+  }
+
+  Future<void> _toggleMode(bool direct) async {
+    await CloudTtsService.instance.setMode(
+        direct ? CloudTtsService.kModeDirect : CloudTtsService.kModeBridge);
+    await _load();
+  }
+
+  Future<void> _saveApi() async {
+    final CloudTtsApiConfig? api = await CloudTtsService.instance.saveApiConfig(
+      baseUrl: _apiBaseCtrl.text,
+      apiKey: _apiKeyCtrl.text.trim(),
+    );
+    if (!mounted) return;
+    if (api == null) {
+      setState(() => _status = '保存 API 失败：语音服务没响应');
+      return;
+    }
+    setState(() {
+      _hasApiKey = api.hasKey;
+      _maskedApiKey = api.maskedKey;
+      _apiKeyCtrl.clear();
+      _status = api.hasKey
+          ? 'API 已保存 · ${api.baseUrl}'
+          : 'API 已保存，但还没有填 Key';
+    });
+  }
+
+  Future<void> _toggle(bool v) async {
+    setState(() => _enabled = v);
+    await CloudTtsService.instance.setEnabled(v);
+  }
+
+  Future<void> _saveBase() async {
+    await CloudTtsService.instance.setBaseUrl(_baseCtrl.text);
+    setState(() => _status = CloudTtsService.instance.baseUrl);
+  }
+
+  Future<void> _test() async {
+    setState(() {
+      _busy = true;
+      _status = '合成中…';
+    });
+    try {
+      final CloudTtsClip clip =
+          await CloudTtsService.instance.speakAndPlay('云端语音合成，已接入设置页。');
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = '试听完成：${clip.seconds.toStringAsFixed(1)}s'
+            '${clip.voice == null ? '' : ' · ${clip.voice}'}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = '试听失败：$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return SettingSection(
+      icon: Icons.cloud_outlined,
+      title: '云端语音合成',
+      description: _direct
+          ? '直连模式：DNA 直接调用 TTS 厂商接口，填上自己的 API Key 即可出声。'
+          : '交给本机 dna-bridge 合成（按角色名匹配音色），不依赖离线模型。',
+      children: <Widget>[
+        if (!_direct)
+          SettingSwitch(
+            title: '启用云端语音合成',
+            subtitle: '开启后，消息的朗读按钮走云端音色。',
+            value: _enabled,
+            onChanged: _toggle,
+          ),
+        if (_direct)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: FitText(
+              '直连模式下朗读按钮常开（不走本机服务），没填 Key 时会提示。',
+              style: TextStyle(color: cs.outline, fontSize: AppFontSize.caption),
+            ),
+          ),
+        SettingSwitch(
+          title: '直连厂商 API（不经过本机服务）',
+          subtitle: '不开本机语音服务，DNA 直接调 TTS 接口；Key 存在本机。',
+          value: _direct,
+          onChanged: _toggleMode,
+        ),
+        if (!_direct)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: TextField(
+              controller: _baseCtrl,
+              decoration: const InputDecoration(
+                labelText: '语音服务地址',
+                hintText: CloudTtsService.kDefaultBaseUrl,
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _saveBase(),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: TextField(
+            controller: _apiBaseCtrl,
+            decoration: const InputDecoration(
+              labelText: '语音 API 地址',
+              hintText: 'https://api.breeze.blue',
+              helperText: '换别的厂商时填它的接口根地址',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: TextField(
+            controller: _apiKeyCtrl,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'API Key',
+              hintText: _hasApiKey ? _maskedApiKey : '还没填，填完点右边保存',
+              helperText: '只保存在本机设置里，不会上传到我们的服务器',
+              border: const OutlineInputBorder(),
+              isDense: true,
+              suffixIcon: IconButton(
+                tooltip: '保存 API 配置',
+                icon: const Icon(Icons.save_outlined),
+                onPressed: _saveApi,
+              ),
+            ),
+            onSubmitted: (_) => _saveApi(),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: DropdownButtonFormField<String>(
+            initialValue: _voices.any((CloudTtsVoice v) => v.id == _voice)
+                ? _voice
+                : '',
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: '音色',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: <DropdownMenuItem<String>>[
+              for (final CloudTtsVoice v in _voices.isEmpty
+                  ? const <CloudTtsVoice>[
+                      CloudTtsVoice(id: '', label: '自动（按角色名匹配）'),
+                    ]
+                  : _voices)
+                DropdownMenuItem<String>(value: v.id, child: FitText(v.label)),
+            ],
+            onChanged: (String? id) async {
+              if (id == null) return;
+              setState(() => _voice = id);
+              await CloudTtsService.instance.setVoice(id);
+            },
+          ),
+        ),        if (_charVoices.isNotEmpty) ...<Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs, bottom: AppSpacing.xs),
+            child: FitText(
+              '角色音色（单独指定，留空跟随上面的音色）',
+              style: TextStyle(color: cs.outline, fontSize: AppFontSize.caption),
+            ),
+          ),
+          for (final CloudCharVoice c in _charVoices)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: FitText(c.name)),
+                  SizedBox(
+                    width: 190,
+                    child: DropdownButton<String>(
+                      value: _voices.any((CloudTtsVoice v) => v.id == c.voice) ? c.voice : '',
+                      isExpanded: true,
+                      isDense: true,
+                      items: <DropdownMenuItem<String>>[
+                        for (final CloudTtsVoice v in _voices)
+                          DropdownMenuItem<String>(
+                            value: v.id,
+                            child: FitText(v.id.isEmpty ? '跟随全局' : v.label),
+                          ),
+                      ],
+                      onChanged: (String? id) async {
+                        if (id == null) return;
+                        final bool ok = await CloudTtsService.instance
+                            .setCharacterVoice(c.name, id);
+                        if (!mounted || !ok) return;
+                        setState(() {
+                          _charVoices = _charVoices
+                              .map((CloudCharVoice x) => x.id == c.id
+                                  ? CloudCharVoice(id: x.id, name: x.name, voice: id)
+                                  : x)
+                              .toList();
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        Row(
+          children: <Widget>[
+            FilledButton.tonal(
+              onPressed: _busy ? null : _test,
+              child: const FitText('试听'),
+            ),
+            AppSpacing.wSm,
+            Expanded(
+              child: FitText(
+                _status,
+                style: TextStyle(
+                  color: cs.outline,
+                  fontSize: AppFontSize.caption,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

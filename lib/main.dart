@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart'; // ignore: unnecessary_import
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
 import 'pages/auth_page.dart';
 import 'pages/chat_page.dart';
 import 'state/app_controller.dart';
+import 'theme/app_palette.dart';
+import 'widgets/app_backdrop.dart';
 import 'widgets/animated_font_scale.dart';
 import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
@@ -25,12 +30,75 @@ import 'services/ta_service.dart';
 import 'services/web_font_loader.dart';
 import 'services/web_utils.dart';
 import 'services/startup_update_check.dart';
+import 'services/cloud_tts_selftest.dart';
+import 'services/stt_selftest.dart';
+import 'services/boot_trace.dart';
+import 'services/cloud_tts_service.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 Future<void> main() async {
+
   runZonedGuarded(
     () async {
+      BootTrace.mark('start');
       WidgetsFlutterBinding.ensureInitialized();
+      BootTrace.mark('binding');
+      // 图片缓存上限：默认值（1000 张 / 100MB）对聊天场景偏大，
+      // 收窄到 240 张 / 96MB，减少长时间使用后的内存与显存占用。
+      PaintingBinding.instance.imageCache
+        ..maximumSize = 240
+        ..maximumSizeBytes = 96 << 20;
+      _installCrashLog();
+      // 帧耗时采样（可选）：DNA_FRAME_LOG=1 时把每帧 build/raster 毫秒追加到
+      // %TEMP%\dna_frames.log，用来客观判断"滑动/切换卡不卡"，而不是靠感觉。
+      if (Platform.environment['DNA_FRAME_LOG'] == '1') {
+        final File frameLog = File(
+          '${Directory.systemTemp.path}\\dna_frames.log',
+        );
+        try {
+          frameLog.writeAsStringSync('', flush: true);
+        } catch (_) {}
+        // 首帧之后把视口参数也记一行：判断"到底是逻辑尺寸被放大还是
+        // 真的画得很慢"，DPR 与物理尺寸是关键。
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          try {
+            final ui.FlutterView view =
+                WidgetsBinding.instance.platformDispatcher.views.first;
+            frameLog.writeAsStringSync(
+              'viewport physical=${view.physicalSize.width}x'
+              '${view.physicalSize.height} dpr=${view.devicePixelRatio}\n',
+              mode: FileMode.append,
+              flush: true,
+            );
+          } catch (_) {}
+        });
+        SchedulerBinding.instance.addTimingsCallback((
+          List<FrameTiming> timings,
+        ) {
+          final StringBuffer sb = StringBuffer();
+          for (final FrameTiming t in timings) {
+            sb.writeln(
+              '${DateTime.now().toIso8601String()} '
+              'build=${(t.buildDuration.inMicroseconds / 1000).toStringAsFixed(1)} '
+              'raster=${(t.rasterDuration.inMicroseconds / 1000).toStringAsFixed(1)} '
+              'total=${(t.totalSpan.inMicroseconds / 1000).toStringAsFixed(1)}',
+            );
+          }
+          try {
+            frameLog.writeAsStringSync(
+              sb.toString(),
+              mode: FileMode.append,
+              flush: true,
+            );
+          } catch (_) {}
+        });
+      }
+      // 云端语音合成开关要尽早加载：聊天页首帧就据此决定是否显示朗读按钮。
+      await CloudTtsService.instance.load();
+      BootTrace.mark('cloudtts');
+      // 自检钩子：仅在 DNA_TTS_SELFTEST 环境变量存在时运行。
+      unawaited(CloudTtsSelfTest.runIfRequested());
+      unawaited(SttSelfTest.runIfRequested());
 
       final controller = AppController(
         settingsService: SettingsService(),
@@ -38,6 +106,7 @@ Future<void> main() async {
         taService: TaService(),
       );
       await controller.initialize();
+      BootTrace.mark('controller');
 
       // 每日自动备份：首次进入应用时在后台静默执行（失败不影响启动）。
       // Web 无文件系统，跳过。
@@ -53,9 +122,6 @@ Future<void> main() async {
         unawaited(WebFontLoader.load());
       }
 
-      FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
-      };
       ErrorWidget.builder = (FlutterErrorDetails details) {
         return Material(
           child: Center(
@@ -71,6 +137,7 @@ Future<void> main() async {
       };
 
       runApp(DnaApp(controller: controller));
+      WidgetsBinding.instance.addPostFrameCallback((_) => BootTrace.mark('firstFrame'));
     },
     (Object error, StackTrace stackTrace) {
       debugPrint('Uncaught zone error: $error\n$stackTrace');
@@ -117,8 +184,16 @@ class _DnaAppState extends State<DnaApp> {
 
   @override
   Widget build(BuildContext context) {
-    final String accentMode = widget.controller.settings.accentMode;
-    final int? customAccentColor = widget.controller.settings.customAccentColor;
+    // 先把自定义界面配色写进全局表面令牌，再据此构建 ThemeData。
+    final settings = widget.controller.settings;
+    AppPalette.resolve(
+      key: settings.paletteKey,
+      customCanvas: settings.customCanvasColor,
+      customGlass: settings.customGlassColor,
+    ).apply();
+
+    final String accentMode = settings.accentMode;
+    final int? customAccentColor = settings.customAccentColor;
 
     if (accentMode == 'custom') {
       // 自定义：用用户指定颜色作为种子，统一生成整套 Material 3 配色。
@@ -161,7 +236,7 @@ class _DnaAppState extends State<DnaApp> {
     ColorScheme darkColorScheme,
   ) {
     return MaterialApp(
-      title: 'Duet Nurturing Ally',
+      title: 'DNA ULTRA 1.0',
       debugShowCheckedModeBanner: false,
       themeMode: _resolveThemeMode(widget.controller.settings.themeMode),
       theme: _buildTheme(lightColorScheme, _fontFamily),
@@ -174,9 +249,12 @@ class _DnaAppState extends State<DnaApp> {
       //
       // 换档时由 AnimatedFontScale 把倍率插值过去（字是"长"过去的，
       // 不是"跳"过去的）；静止时不产生任何额外覆盖。
-      builder: (BuildContext context, Widget? child) => AnimatedFontScale(
-        step: widget.controller.settings.fontSizeStep,
-        child: child ?? const SizedBox.shrink(),
+      // 全局画布：所有页面共享一层深色渐变底，玻璃卡片才有"浮起来"的层次。
+      builder: (BuildContext context, Widget? child) => AppBackdrop(
+        child: AnimatedFontScale(
+          step: widget.controller.settings.fontSizeStep,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       home: AppRoot(controller: widget.controller),
     );
@@ -197,15 +275,40 @@ class _DnaAppState extends State<DnaApp> {
   /// 500),后者根治「中英混排跳字体」「假粗」「跨平台不一致」三个问题,
   /// 代价是不跟随系统主题字体。两者在「设置 → 界面与显示 → 字体」里切换。
   static ThemeData _buildTheme(ColorScheme cs, String? fontFamily) {
+    // 「深色玻璃」：深色模式把 Material 表面族整体压深，让半透明玻璃卡片
+    // 浮在近黑画布上；浅色模式用冷调灰白画布兜底。
+    final bool isDark = cs.brightness == Brightness.dark;
+    final ColorScheme surface = isDark
+        ? cs.copyWith(
+            surface: AppSurfaces.canvasDark,
+            onSurface: AppSurfaces.inkPrimary,
+            onSurfaceVariant: AppSurfaces.inkSecondary,
+            surfaceContainerLowest: AppSurfaces.surfaceContainerLowest,
+            surfaceContainerLow: AppSurfaces.surfaceContainerLow,
+            surfaceContainer: AppSurfaces.surfaceContainer,
+            surfaceContainerHigh: AppSurfaces.surfaceContainerHigh,
+            surfaceContainerHighest: AppSurfaces.surfaceContainerHighest,
+            outlineVariant: AppSurfaces.outlineVariant,
+          )
+        : cs.copyWith(surface: AppSurfaces.canvasLight);
     final ThemeData base = ThemeData(
       colorScheme: cs,
       useMaterial3: true,
       fontFamily: fontFamily,
     );
     return ThemeData(
-      colorScheme: cs,
+      colorScheme: surface,
       useMaterial3: true,
       fontFamily: fontFamily,
+      // 内置思源黑体做了子集化（常用 CJK + 拉丁 + 假名 + 符号），
+      // 遇到子集外的生僻字时回落系统字体，避免缺字。
+      fontFamilyFallback: const <String>[
+        'Microsoft YaHei UI',
+        'PingFang SC',
+        'sans-serif',
+      ],
+      scaffoldBackgroundColor:
+          isDark ? AppSurfaces.canvasDark : AppSurfaces.canvasLight,
 
       // 桌面端:控件按鼠标操作收紧一档(触屏保持标准密度)。
       // 桌面上指针比手指精确得多,标准密度的行高与内边距偏松,
@@ -222,10 +325,21 @@ class _DnaAppState extends State<DnaApp> {
       ),
 
       // 卡片:扁平 + 细描边(全局统一,替代各页面 235 处手写样式)。
+      // 卡片：玻璃层——半透明白色填充 + 1px 高光描边。
       cardTheme: CardThemeData(
         elevation: AppElevation.flat,
         margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-        shape: AppBorder.cardShape(cs),
+        color: isDark ? AppSurfaces.glassFill : AppSurfaces.glassFillLight,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.mdAll,
+          side: BorderSide(
+            color:
+                isDark ? AppSurfaces.glassBorder : AppSurfaces.glassBorderLight,
+            width: 1,
+          ),
+        ),
         clipBehavior: Clip.antiAlias,
       ),
 
@@ -234,8 +348,9 @@ class _DnaAppState extends State<DnaApp> {
         elevation: AppElevation.flat,
         scrolledUnderElevation: AppElevation.flat,
         centerTitle: false,
-        backgroundColor: cs.surface,
-        foregroundColor: cs.onSurface,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: surface.onSurface,
       ),
 
       // 列表项:保持 Material 默认密度(此前 minVerticalPadding 被设为 8、
@@ -245,18 +360,25 @@ class _DnaAppState extends State<DnaApp> {
       // 输入框:统一圆角与内边距,使用描边风格而非填充。
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: cs.surfaceContainerLowest,
+        fillColor:
+            isDark ? AppSurfaces.glassFillWeak : AppSurfaces.glassFillLight,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
         ),
         border: OutlineInputBorder(
           borderRadius: AppRadius.smAll,
-          borderSide: AppBorder.card(cs),
+          borderSide: BorderSide(
+            color:
+                isDark ? AppSurfaces.glassBorder : AppSurfaces.glassBorderLight,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.smAll,
-          borderSide: AppBorder.card(cs),
+          borderSide: BorderSide(
+            color:
+                isDark ? AppSurfaces.glassBorder : AppSurfaces.glassBorderLight,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.smAll,
@@ -274,7 +396,9 @@ class _DnaAppState extends State<DnaApp> {
 
       // 分割线:统一颜色。
       dividerTheme: DividerThemeData(
-        color: AppBorder.color(cs),
+        color: isDark
+            ? AppSurfaces.glassBorderSoft
+            : AppSurfaces.glassBorderLight,
         thickness: 1,
         space: 1,
       ),
@@ -287,17 +411,38 @@ class _DnaAppState extends State<DnaApp> {
 
       // 对话框:统一圆角。
       dialogTheme: DialogThemeData(
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+        backgroundColor:
+            isDark ? AppSurfaces.glassFillStrong : AppSurfaces.glassFillLight,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.mdAll,
+          side: BorderSide(
+            color:
+                isDark ? AppSurfaces.glassBorder : AppSurfaces.glassBorderLight,
+          ),
+        ),
       ),
 
       // 底部抽屉:统一顶部圆角。
-      bottomSheetTheme: const BottomSheetThemeData(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.topRounded),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor:
+            isDark ? AppSurfaces.glassFillStrong : AppSurfaces.glassFillLight,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.topRounded),
       ),
 
       // 弹窗菜单:统一圆角。
       popupMenuTheme: PopupMenuThemeData(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.smAll),
+        color:
+            isDark ? AppSurfaces.glassFillStrong : AppSurfaces.glassFillLight,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.smAll,
+          side: BorderSide(
+            color:
+                isDark ? AppSurfaces.glassBorder : AppSurfaces.glassBorderLight,
+          ),
+        ),
       ),
 
       // 文字层级:把 Material 默认字号重映射到项目自己的 6 档字号阶。
@@ -758,4 +903,36 @@ class _WebNoticeItem extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 崩溃落盘：桌面端没有崩溃上报，用户截图 + 日志是唯一可诊断路径。
+/// 写到 `%TEMP%\dna_crash.log`，超过 512KB 轮转成 .1（只保留一份旧的）。
+void _installCrashLog() {
+  final previous = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    previous?.call(details);
+    _appendCrashLog(
+      'FlutterError: ${details.exceptionAsString()}\n${details.stack ?? ''}',
+    );
+  };
+  ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    _appendCrashLog('Uncaught: $error\n$stack');
+    return false;
+  };
+}
+
+void _appendCrashLog(String text) {
+  if (kIsWeb) return;
+  try {
+    final String temp = Directory.systemTemp.path;
+    final File file = File('$temp\\dna_crash.log');
+    if (file.existsSync() && file.lengthSync() > 512 * 1024) {
+      file.renameSync('$temp\\dna_crash.log.1');
+    }
+    file.writeAsStringSync(
+      '[${DateTime.now().toIso8601String()}] $text\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+  } catch (_) {}
 }

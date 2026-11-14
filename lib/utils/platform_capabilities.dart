@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 /// 被砍掉（置灰禁用）的功能入口在 UI 层通过这里判定：
 /// Web 端一律不可用（置灰），移动端 / 桌面端不受影响。
 abstract class PlatformCapabilities {
+  /// 定制版：离线（端侧）语音合成与语音输入已被移除，只保留云端 / 直连厂商 API。
+  static const bool offlineTtsRemoved = true;
   PlatformCapabilities._();
 
   /// 离线语音输入（sherpa-onnx + record）。
-  static bool get voiceInputSupported => !kIsWeb;
+  static bool get voiceInputSupported => false;
 
   /// 端侧语音合成（ChatTTS + onnxruntime）。
   static bool get ttsSupported => !kIsWeb;

@@ -223,10 +223,17 @@ class AppController extends ChangeNotifier {
         // 忽略：系统未准备好或切换失败都不应阻塞应用启动
       }
     }
-    _tas = await _hiveService.getTas();
-    _identities = await _hiveService.getIdentities();
-    _worlds = await _hiveService.getWorlds();
-    final allConversations = await _hiveService.getConversations();
+    // 四个 box 互相独立：并行读，省掉三次串行等待（Hive 每次 openBox 都有文件 I/O）。
+    final List<Object> loaded = await Future.wait(<Future<Object>>[
+      _hiveService.getTas(),
+      _hiveService.getIdentities(),
+      _hiveService.getWorlds(),
+      _hiveService.getConversations(),
+    ]);
+    _tas = loaded[0] as List<TA>;
+    _identities = loaded[1] as List<UserIdentity>;
+    _worlds = loaded[2] as List<World>;
+    final allConversations = loaded[3] as List<Conversation>;
     _conversations = allConversations.where((c) => !c.isGroup).toList();
     _groupConversations = allConversations.where((c) => c.isGroup).toList();
     notifyListeners();
@@ -697,6 +704,25 @@ class AppController extends ChangeNotifier {
   /// 保存自定义强调色（ARGB 整数），仅当模式为 'custom' 时生效。
   Future<void> saveCustomAccentColor(int? color) async {
     _settings = _settings.copyWith(customAccentColor: color);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存界面配色预设 key（见 AppPalette.presets，'custom' 为自定义）。
+  Future<void> savePaletteKey(String key) async {
+    _settings = _settings.copyWith(paletteKey: key.trim());
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// 保存自定义界面配色（画布 / 玻璃底色，ARGB 整数）。
+  ///
+  /// 传 null 表示恢复默认；调用方负责把 paletteKey 切到 'custom'。
+  Future<void> saveCustomPaletteColors({int? canvas, int? glass}) async {
+    _settings = _settings.copyWith(
+      customCanvasColor: canvas,
+      customGlassColor: glass,
+    );
     await _settingsService.save(_settings);
     notifyListeners();
   }

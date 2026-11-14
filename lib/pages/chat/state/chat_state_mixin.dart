@@ -298,6 +298,9 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
   }
 
   // 缓存图片 provider（跨平台：IO 走文件，Web 走 IndexedDB）
+  // 立绘/头像原图动辄 2000px 以上，直接解码会吃掉几十 MB 显存与内存；
+  // 这里统一用 ResizeImage 限制解码尺寸（取整屏最长边），
+  // 屏幕外再大的图也只按显示尺寸解码。
   ImageProvider? _getCachedImage(String path) {
     if (!_imageCache.containsKey(path)) {
       final ImageProvider? provider =
@@ -305,7 +308,19 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
       if (provider == null) {
         return null;
       }
-      _imageCache[path] = provider;
+      final ui.FlutterView view = ui.PlatformDispatcher.instance.views.first;
+      final double dpr = view.devicePixelRatio;
+      final Size logical = view.physicalSize / dpr;
+      final int maxEdge = (logical.width > logical.height
+              ? logical.width
+              : logical.height)
+          .clamp(800, 2560)
+          .round();
+      _imageCache[path] = ResizeImage.resizeIfNeeded(
+        maxEdge,
+        maxEdge,
+        provider,
+      );
     }
     return _imageCache[path];
   }

@@ -21,6 +21,7 @@ import 'settings/about_page.dart';
 import '../island_app/server_settings_body.dart';
 import '../island_app/sponsor_body.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/liquid_glass.dart';
 
 /// 设置主页。
 ///
@@ -43,7 +44,20 @@ SectionPageData settingsSection(AppController controller) {
   return SectionPageData(
     section: AppSection.settings,
     contentMaxWidth: AppSize.settingsMaxWidth,
-    appBar: (BuildContext context) => AppBar(title: const FitText('设置')),
+    appBar: (BuildContext context) => AppBar(
+      title: const FitText('设置'),
+      actions: <Widget>[
+        IconButton(
+          tooltip: '搜索设置',
+          icon: const Icon(Icons.search),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SettingsSearchPage(controller: controller),
+            ),
+          ),
+        ),
+      ],
+    ),
     body: (BuildContext context) =>
         SettingsBody(controller: controller, scrollOffset: _scrollOffset),
   );
@@ -375,7 +389,8 @@ class _Group extends StatelessWidget {
             ],
           ),
         ),
-        Card(
+        LiquidGlass(
+          tint: cs.primary,
           child: Column(
             children: <Widget>[
               for (int i = 0; i < entries.length; i++) ...<Widget>[
@@ -455,6 +470,245 @@ class _EntryTile extends StatelessWidget {
         color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: 0.5),
       ),
       onTap: on ? entry.onTap : null,
+    );
+  }
+}
+
+/// 设置搜索索引：设置主页所有入口 + 关键词别名。
+/// 只做「找到入口」这一件事，具体开关仍然进各自的页面改。
+class _SettingHit {
+  const _SettingHit({
+    required this.group,
+    required this.title,
+    required this.subtitle,
+    required this.keywords,
+    required this.enabled,
+    required this.builder,
+  });
+
+  final String group;
+  final String title;
+  final String subtitle;
+
+  /// 额外关键词，方便用「深色」「气泡」「模型」这类词命中。
+  final String keywords;
+  final bool enabled;
+  final Widget Function(BuildContext context, AppController controller) builder;
+
+  bool matches(String query) {
+    final String q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final String haystack =
+        '$group $title $subtitle $keywords'.toLowerCase();
+    return haystack.contains(q);
+  }
+}
+
+/// 设置搜索页：搜索 + 直达。
+class SettingsSearchPage extends StatefulWidget {
+  const SettingsSearchPage({super.key, required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<SettingsSearchPage> createState() => _SettingsSearchPageState();
+}
+
+class _SettingsSearchPageState extends State<SettingsSearchPage> {
+  final TextEditingController _controller = TextEditingController();
+  String _query = '';
+
+  List<_SettingHit> get _hits {
+    final bool voice = PlatformCapabilities.voiceInputSupported;
+    final bool tts = PlatformCapabilities.ttsSupported;
+    final bool community = widget.controller.settings.enableCommunity;
+    return <_SettingHit>[
+      _SettingHit(
+        group: 'AI 接入',
+        title: 'AI 服务与模型',
+        subtitle: '用哪个 AI、接口地址与密钥',
+        keywords: '模型 接口 密钥 api 服务',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            AiServiceSettingsPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '对话风格',
+        title: '提示词策略',
+        subtitle: 'AI 扮演的性格、语气与回复长度',
+        keywords: '提示词 人设 长度 语气',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            PromptStrategyPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '对话风格',
+        title: '回复与发送',
+        subtitle: '回车键行为、灵感生成与快速回复',
+        keywords: '回车 灵感 快捷回复',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            ConversationSendPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '记忆与上下文',
+        title: '剧情摘要与上下文',
+        subtitle: 'AI 记得多久、世界书怎么生效',
+        keywords: '记忆 摘要 上下文 世界书',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            ConversationSummaryPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '角色语音',
+        title: '语音合成与背景音乐',
+        subtitle: '让角色开口说话，或自带背景音乐',
+        keywords: '语音 朗读 配音 tts 音色 背景音乐',
+        enabled: tts,
+        builder: (BuildContext c, AppController ctl) =>
+            TtsSettingsPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '角色语音',
+        title: '语音输入',
+        subtitle: '用说话代替打字',
+        keywords: '麦克风 录音 转文字',
+        enabled: voice,
+        builder: (BuildContext c, AppController ctl) =>
+            VoiceInputSettingsPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '界面与显示',
+        title: '外观与聊天界面',
+        subtitle: '明暗主题、强调色、气泡与半屏模式',
+        keywords: '深色 浅色 主题 配色 强调色 气泡 半屏 字号',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            AppearanceDisplayPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '数据与安全',
+        title: '备份与还原',
+        subtitle: '定期备份、换设备时迁移',
+        keywords: '备份 还原 迁移 导出 导入',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            DataSettingsPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '数据与安全',
+        title: '安全与隐私',
+        subtitle: '应用锁、删除前的二次确认',
+        keywords: '锁 密码 隐私 确认',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            SecuritySettingsPage(controller: ctl),
+      ),
+      _SettingHit(
+        group: '数据与安全',
+        title: '消息与高级',
+        subtitle: '删除单条消息、剧情分叉、文本清洗',
+        keywords: '删除 分叉 清洗 高级',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            ConversationAdvancedPage(controller: ctl),
+      ),
+      if (community)
+        _SettingHit(
+          group: '社区（DNAISLAND）',
+          title: '社区服务器',
+          subtitle: '社区后端地址，可用官方或自建',
+          keywords: '社区 岛 服务器 地址',
+          enabled: true,
+          builder: (BuildContext c, AppController ctl) => Scaffold(
+            appBar: AppBar(title: const Text('社区服务器')),
+            body: const ServerSettingsBody(),
+          ),
+        ),
+      if (community)
+        _SettingHit(
+          group: '社区（DNAISLAND）',
+          title: '赞助社区',
+          subtitle: '支持 DNAISLAND 持续运转',
+          keywords: '赞助 捐赠',
+          enabled: true,
+          builder: (BuildContext c, AppController ctl) => Scaffold(
+            appBar: AppBar(title: const Text('赞助社区')),
+            body: const SponsorBody(),
+          ),
+        ),
+      _SettingHit(
+        group: '关于',
+        title: '版本与开源',
+        subtitle: '版本信息、项目成员与开源许可',
+        keywords: '版本 关于 许可 开源 作者',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) => const AboutPage(),
+      ),
+      _SettingHit(
+        group: '关于',
+        title: '开发者选项',
+        subtitle: '命令控制台与调试工具',
+        keywords: '开发者 调试 日志 控制台',
+        enabled: true,
+        builder: (BuildContext c, AppController ctl) =>
+            AdvancedSettingsPage(controller: ctl),
+      ),
+    ];
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final List<_SettingHit> results = _hits.where((_SettingHit h) => h.enabled && h.matches(_query)).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: '搜索设置（如：深色、气泡、音色、备份）',
+            border: InputBorder.none,
+          ),
+          onChanged: (String v) => setState(() => _query = v),
+        ),
+      ),
+      body: results.isEmpty
+          ? Center(
+              child: Text(
+                '没有找到「$_query」相关的设置',
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+            )
+          : ListView.separated(
+              padding: AppInsets.page,
+              itemCount: results.length,
+              separatorBuilder: (_, _) => AppSpacing.hXs,
+              itemBuilder: (BuildContext context, int i) {
+                final _SettingHit h = results[i];
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.chevron_right),
+                    title: FitText(h.title),
+                    subtitle: FitText('${h.group} · ${h.subtitle}'),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext c) =>
+                            h.builder(c, widget.controller),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import 'package:dna/theme/font_scale.dart';
+import 'package:dna/theme/app_palette.dart';
 import 'package:dna/theme/tokens.dart';
 
 import '../../services/app_icon_service.dart';
@@ -32,6 +33,11 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
   late String _themeMode;
   late String _accentMode;
   int? _customAccentColor;
+
+  // ---- 界面配色（画布/玻璃底色）----
+  late String _paletteKey;
+  int? _customCanvasColor;
+  int? _customGlassColor;
 
   // ---- 字体 ----
   String _fontFamilyMode = AppFont.modeSystem;
@@ -67,6 +73,9 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     _themeMode = s.themeMode;
     _accentMode = s.accentMode;
     _customAccentColor = s.customAccentColor;
+    _paletteKey = s.paletteKey;
+    _customCanvasColor = s.customCanvasColor;
+    _customGlassColor = s.customGlassColor;
 
     _fontFamilyMode = s.fontFamilyMode;
 
@@ -139,12 +148,15 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
     await widget.controller.saveChatInputStyle(style);
   }
 
-  Future<void> _pickColor() async {
-    Color pickerColor = _currentCustomColor;
-    final Color? result = await showDialog<Color>(
+  Future<Color?> _showColorPicker({
+    required String title,
+    required Color initial,
+  }) async {
+    Color pickerColor = initial;
+    return showDialog<Color>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
-        title: const FitText('挑选专属主题色'),
+        title: FitText(title),
         content: SingleChildScrollView(
           child: ColorPicker(
             pickerColor: pickerColor,
@@ -165,10 +177,194 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickColor() async {
+    final Color? result = await _showColorPicker(
+      title: '挑选专属主题色',
+      initial: _currentCustomColor,
+    );
     if (result != null && mounted) {
       setState(() => _customAccentColor = result.toARGB32());
       await widget.controller.saveCustomAccentColor(result.toARGB32());
     }
+  }
+
+  /// 当前生效的界面配色（未选自定义时用预设值做兜底）。
+  AppPaletteResolved get _currentPalette => AppPalette.resolve(
+        key: _paletteKey,
+        customCanvas: _customCanvasColor,
+        customGlass: _customGlassColor,
+      );
+
+  Future<void> _selectPaletteKey(String key) async {
+    if (_paletteKey == key) return;
+    setState(() => _paletteKey = key);
+    await widget.controller.savePaletteKey(key);
+  }
+
+  /// 自定义画布 / 玻璃底色。
+  Future<void> _pickPaletteColor({required bool isCanvas}) async {
+    final Color current =
+        isCanvas ? _currentPalette.canvas : _currentPalette.glassFill;
+    final Color? result = await _showColorPicker(
+      title: isCanvas ? '挑选画布底色' : '挑选玻璃底色',
+      initial: current.withValues(alpha: 1),
+    );
+    if (result == null || !mounted) return;
+    final int argb = result.toARGB32();
+    setState(() {
+      if (isCanvas) {
+        _customCanvasColor = argb;
+      } else {
+        _customGlassColor = argb;
+      }
+      _paletteKey = AppPalette.customKey;
+    });
+    if (_paletteKey != AppPalette.customKey) {
+      await widget.controller.savePaletteKey(AppPalette.customKey);
+    }
+    await widget.controller.saveCustomPaletteColors(
+      canvas: _customCanvasColor,
+      glass: _customGlassColor,
+    );
+  }
+
+  Future<void> _resetPalette() async {
+    setState(() {
+      _paletteKey = AppPalette.fallback.key;
+      _customCanvasColor = null;
+      _customGlassColor = null;
+    });
+    await widget.controller.savePaletteKey(AppPalette.fallback.key);
+    await widget.controller.saveCustomPaletteColors();
+  }
+
+  // ---- 界面配色 UI ----
+
+  Widget _paletteSwatch(Color canvas, Color glass) {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xs),
+        color: canvas,
+      ),
+      alignment: Alignment.center,
+      child: Container(
+        width: 36,
+        height: 20,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          color: glass,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _paletteChip(AppPalette p) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final bool selected = _paletteKey == p.key;
+    final Color glassOnCanvas = Color.alphaBlend(
+      p.glassTint.withValues(alpha: 0.32),
+      p.canvas,
+    );
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      onTap: () => _selectPaletteKey(p.key),
+      child: Container(
+        width: 84,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _paletteSwatch(p.canvas, glassOnCanvas),
+            const SizedBox(height: 5),
+            FitText(
+              p.name,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _customPaletteChip() {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final bool selected = _paletteKey == AppPalette.customKey;
+    final AppPaletteResolved cur = _currentPalette;
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      onTap: () {
+        if (_paletteKey == AppPalette.customKey) {
+          _pickPaletteColor(isCanvas: true);
+        } else {
+          setState(() => _paletteKey = AppPalette.customKey);
+          widget.controller.savePaletteKey(AppPalette.customKey);
+        }
+      },
+      child: Container(
+        width: 84,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _paletteSwatch(
+              cur.canvas,
+              Color.alphaBlend(cur.glassFill, cur.canvas),
+            ),
+            const SizedBox(height: 5),
+            FitText(
+              '自定义',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _paletteColorTile(String label, Color color, VoidCallback onTap) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      leading: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+      ),
+      title: FitText(label),
+      trailing: const Icon(Icons.colorize, size: 20),
+      onTap: onTap,
+    );
   }
 
   @override
@@ -261,6 +457,51 @@ class _AppearanceDisplayPageState extends State<AppearanceDisplayPage> {
                   onTap: _pickColor,
                 ),
               ],
+            ],
+          ),
+
+          // ===== 1.5 界面配色 =====
+          SettingSection(
+            title: '界面配色',
+            icon: Icons.format_paint_outlined,
+            children: <Widget>[
+              FitText(
+                '画布底色与玻璃底色会一起变；深色底观感最佳，选中即生效。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              AppSpacing.hSm,
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: <Widget>[
+                  for (final AppPalette p in AppPalette.presets) _paletteChip(p),
+                  _customPaletteChip(),
+                ],
+              ),
+              if (_paletteKey == AppPalette.customKey) ...<Widget>[
+                AppSpacing.hSm,
+                _paletteColorTile(
+                  '画布底色',
+                  _currentPalette.canvas,
+                  () => _pickPaletteColor(isCanvas: true),
+                ),
+                _paletteColorTile(
+                  '玻璃底色',
+                  _currentPalette.glassFill,
+                  () => _pickPaletteColor(isCanvas: false),
+                ),
+              ],
+              AppSpacing.hXs,
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _resetPalette,
+                  icon: const Icon(Icons.restart_alt, size: 18),
+                  label: const FitText('恢复默认'),
+                ),
+              ),
             ],
           ),
 

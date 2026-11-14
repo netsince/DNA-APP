@@ -17,6 +17,7 @@ import '../utils/ui_feedback.dart';
 import '../widgets/app_content_frame.dart';
 import '../models/conversation.dart';
 import '../models/app_settings.dart';
+import '../services/cloud_tts_service.dart';
 import '../models/quick_reply.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
@@ -139,8 +140,19 @@ class _ChatPageState extends State<ChatPage>
   /// 手指拖动中的实时位移(负 = 向左滑 = 下一个角色)。
   double _dragDx = 0;
 
+  /// 拖动位移单独走 ValueNotifier：跟手阶段只更新「平移」这一层。
+  ///
+  /// 以前每次拖动都 setState，整页(消息列表、侧栏磨砂、标题栏)每帧重建一遍，
+  /// 拖动 24 个 move 事件就是 24 次全页 build —— 这是切换动画发卡的第二个来源。
+  final ValueNotifier<double> _dragNotifier = ValueNotifier<double>(0);
+
   /// 拖动中露出的"下一页"预览(为空表示不显示)。
   _SwipeTarget? _peekTarget;
+
+  /// 预览视图缓存：方向不变时复用同一个 Widget 实例。
+  Widget? _peekView;
+  String? _peekViewId;
+  bool? _peekViewFromRight;
 
   /// 提交切换时:旧会话视图留在上层做退场动画。
   Widget? _outgoingView;
@@ -163,6 +175,7 @@ class _ChatPageState extends State<ChatPage>
   @override
   void dispose() {
     _settleAnim.dispose();
+    _dragNotifier.dispose();
     super.dispose();
   }
 
@@ -215,6 +228,7 @@ class _ChatPageState extends State<ChatPage>
       onDone: () => setState(() {
         _outgoingView = null;
         _dragDx = 0;
+        _dragNotifier.value = 0;
       }),
     );
   }
@@ -245,9 +259,13 @@ class _ChatPageState extends State<ChatPage>
       return;
     }
     _settleAnim.stop();
+    _dragDx = 0;
+    _dragNotifier.value = 0;
     setState(() {
-      _dragDx = 0;
       _peekTarget = null;
+      _peekView = null;
+      _peekViewId = null;
+      _peekViewFromRight = null;
     });
   }
 
@@ -255,11 +273,19 @@ class _ChatPageState extends State<ChatPage>
     if (!_swipeEnabled) {
       return;
     }
-    setState(() {
-      _dragDx += dx;
-      // 拖动中就露出"下一页"是谁,松手前心里有数。
-      _peekTarget = _swipeTarget(dx < 0 ? 1 : -1);
-    });
+    _dragDx += dx;
+    _dragNotifier.value = _dragDx;
+    // 拖动中就露出"下一页"是谁,松手前心里有数。
+    // 方向与目标没变时不触发整页 setState —— 只是平移在动。
+    final _SwipeTarget? next = _swipeTarget(dx < 0 ? 1 : -1);
+    if (next?.conversationId != _peekTarget?.conversationId) {
+      setState(() {
+        _peekTarget = next;
+        _peekView = null;
+        _peekViewId = null;
+        _peekViewFromRight = null;
+      });
+    }
   }
 
   void _onSwipeEnd() {
@@ -279,7 +305,11 @@ class _ChatPageState extends State<ChatPage>
         to: 0,
         onDone: () => setState(() {
           _dragDx = 0;
+          _dragNotifier.value = 0;
           _peekTarget = null;
+          _peekView = null;
+          _peekViewId = null;
+          _peekViewFromRight = null;
         }),
       );
       return;
@@ -399,6 +429,36 @@ class _ChatPageState extends State<ChatPage>
 
   // ---- 渲染 ----
 
+  /// 缓存中的会话视图（与动画无关，见 [_viewFor]）。
+  Widget? _cachedView;
+  String? _cachedViewConversationId;
+  double _cachedViewInset = double.nan;
+  bool _cachedViewSwipe = true;
+
+  /// 取当前会话视图：**同一个 Widget 实例**重复使用。
+  ///
+  /// 切换/滑动的动画帧只该重建外面的 Transform/Opacity 外壳；如果每帧都
+  /// 重新构造 ChatConversationView，整棵消息列表都会被 build 一遍，
+  /// 240ms 里 14 帧就把大列表的布局全做一遍 —— 这就是滑动卡顿的来源。
+  /// Flutter 在 updateChild 里对「同一个 Widget 实例」有快速路径，
+  /// 只要实例不变，这棵子树直接跳过 build。
+  Widget _viewFor(String conversationId, double inset) {
+    final bool swipe = _swipeEnabled;
+    final Widget? cached = _cachedView;
+    if (cached != null &&
+        _cachedViewConversationId == conversationId &&
+        _cachedViewSwipe == swipe &&
+        (_cachedViewInset - inset).abs() < 0.01) {
+      return cached;
+    }
+    final Widget view = _buildView(conversationId, inset);
+    _cachedView = view;
+    _cachedViewConversationId = conversationId;
+    _cachedViewInset = inset;
+    _cachedViewSwipe = swipe;
+    return view;
+  }
+
   Widget _buildView(String conversationId, double inset) {
     return ChatConversationView(
       key: _viewKey(conversationId),
@@ -412,13 +472,35 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// 拖动预览视图：目标与方向不变时复用同一个实例。
+  Widget? _peekFor(BuildContext context, {required double offset}) {
+    final _SwipeTarget? target = _peekTarget;
+    if (target == null) {
+      return null;
+    }
+    final bool fromRight = offset < 0;
+    if (_peekView != null &&
+        _peekViewId == target.conversationId &&
+        _peekViewFromRight == fromRight) {
+      return _peekView;
+    }
+    final Widget view = _buildSwipePeek(context, target, fromRight);
+    _peekView = view;
+    _peekViewId = target.conversationId;
+    _peekViewFromRight = fromRight;
+    return view;
+  }
+
   /// 拖动时露出的"下一页"预览:一张中性底 + 目标角色的头像与名字,
   /// 让人在松手前就知道要切到谁。
-  Widget _buildSwipePeek(BuildContext context, _SwipeTarget target) {
+  Widget _buildSwipePeek(
+    BuildContext context,
+    _SwipeTarget target,
+    bool fromRight,
+  ) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
     // 向左滑 ⇒ 下一页从右侧露出,内容也靠右排,顺着手指方向。
-    final bool fromRight = _dragDx < 0;
     return ColoredBox(
       color: cs.surface,
       child: Align(
@@ -470,58 +552,83 @@ class _ChatPageState extends State<ChatPage>
       curve: Curves.easeOutCubic,
       builder: (BuildContext context, double inset, Widget? _) {
         _lastInset = inset;
+        // 视图实例在这里取一次，动画帧里不再重新构造（见 [_viewFor]）。
+        final Widget currentView = _viewFor(_conversationId, inset);
         return AnimatedBuilder(
           animation: _settleAnim,
           builder: (BuildContext context, Widget? _) {
-            final bool committing = _outgoingView != null;
-            final double viewDx = committing ? 0 : _dragDx;
-            return Stack(
-              children: <Widget>[
-                // 拖动中露出的"下一页"预览(提交后由新会话视图接管)。
-                if (_peekTarget != null && !committing)
-                  Positioned.fill(child: _buildSwipePeek(context, _peekTarget!)),
-                // 当前会话(拖动时跟手平移)。
-                Positioned.fill(
-                  child: Transform.translate(
-                    offset: Offset(viewDx, 0),
-                    child: _buildView(_conversationId, inset),
-                  ),
-                ),
-                // 退场中的旧会话:滑出或淡出,期间不接收点击。
-                if (_outgoingView != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: _outgoingMode == _OutgoingMode.fade
-                            ? 1 - _settleT
-                            : 1,
-                        child: Transform.translate(
-                          offset: Offset(
-                            _outgoingMode == _OutgoingMode.slide
-                                ? _animFrom + (_animTo - _animFrom) * _settleT
-                                : 0,
-                            0,
-                          ),
-                          child: _outgoingView,
-                        ),
+            // 跟手位移只穿透这一层：外壳(Stack/Transform)每帧更新即可，
+            // 视图实例来自 [_viewFor]，预览来自 [_peekFor]，两者都不重建。
+            return ValueListenableBuilder<double>(
+              valueListenable: _dragNotifier,
+              builder: (BuildContext context, double dragDx, Widget? __) {
+                final bool committing = _outgoingView != null;
+                // 弹回时没有退场层，当前视图自己跟着 settle 曲线回去；
+                // 提交切换时新视图直接归位(0)，旧视图滑出。
+                final bool bouncing =
+                    !committing && _settleAnim.isAnimating && _animTo == 0;
+                final double viewDx = committing
+                    ? 0
+                    : (bouncing
+                          ? _animFrom + (_animTo - _animFrom) * _settleT
+                          : dragDx);
+                final Widget? peek = committing
+                    ? null
+                    : _peekFor(context, offset: dragDx);
+                return Stack(
+                  children: <Widget>[
+                    // 拖动中露出的"下一页"预览(提交后由新会话视图接管)。
+                    if (peek != null)
+                      Positioned.fill(
+                        child: RepaintBoundary(child: peek),
+                      ),
+                    // 当前会话(拖动时跟手平移)。RepaintBoundary 让平移只动图层，
+                    // 不重画整页内容。
+                    Positioned.fill(
+                      child: Transform.translate(
+                        offset: Offset(viewDx, 0),
+                        child: RepaintBoundary(child: currentView),
                       ),
                     ),
-                  ),
-                if (showSidebar)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: ChatQuickSidebar(
-                      controller: widget.controller,
-                      currentConversationId: _conversationId,
-                      onSelectConversation: _openConversation,
-                      width: inset,
-                      collapsed: _sidebarCollapsed,
-                      onToggleCollapsed: _toggleSidebar,
-                    ),
-                  ),
-              ],
+                    // 退场中的旧会话:滑出或淡出,期间不接收点击。
+                    if (_outgoingView != null)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: _outgoingMode == _OutgoingMode.fade
+                                ? 1 - _settleT
+                                : 1,
+                            child: Transform.translate(
+                              offset: Offset(
+                                _outgoingMode == _OutgoingMode.slide
+                                    ? _animFrom + (_animTo - _animFrom) * _settleT
+                                    : 0,
+                                0,
+                              ),
+                              child: RepaintBoundary(child: _outgoingView!),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (showSidebar)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: RepaintBoundary(
+                          child: ChatQuickSidebar(
+                            controller: widget.controller,
+                            currentConversationId: _conversationId,
+                            onSelectConversation: _openConversation,
+                            width: inset,
+                            collapsed: _sidebarCollapsed,
+                            onToggleCollapsed: _toggleSidebar,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -529,49 +636,49 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 }
-/// 只在**横向明显占优**时才接受拖动的手势识别器。
-///
-/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
-/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
-/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
-/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
-/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
-///
-/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
-class _HorizontalDominantDragRecognizer
-    extends HorizontalDragGestureRecognizer {
-  _HorizontalDominantDragRecognizer({super.debugOwner});
-
-  /// 横向位移要达到纵向的多少倍才算横滑。
-  static const double _dominance = 1.6;
-
-  Offset _origin = Offset.zero;
-  bool _decided = false;
-
-  @override
-  void addAllowedPointer(PointerDownEvent event) {
-    _origin = event.position;
-    _decided = false;
-    super.addAllowedPointer(event);
-  }
-
-  @override
-  void handleEvent(PointerEvent event) {
-    if (!_decided && event is PointerMoveEvent) {
-      final Offset delta = event.position - _origin;
-      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
-        _decided = true; // 判定为横滑:开始交给父类累积并竞争
-      } else if (delta.dy.abs() > kTouchSlop) {
-        _decided = true; // 纵向已明确:退出,让列表滚
-        resolve(GestureDisposition.rejected);
-        return;
-      } else {
-        return; // 方向未明:先不参与
-      }
-    }
-    super.handleEvent(event);
-  }
-}
+/// 只在**横向明显占优**时才接受拖动的手势识别器。
+///
+/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
+/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
+/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
+/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
+/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
+///
+/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
+class _HorizontalDominantDragRecognizer
+    extends HorizontalDragGestureRecognizer {
+  _HorizontalDominantDragRecognizer({super.debugOwner});
+
+  /// 横向位移要达到纵向的多少倍才算横滑。
+  static const double _dominance = 1.6;
+
+  Offset _origin = Offset.zero;
+  bool _decided = false;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _origin = event.position;
+    _decided = false;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (!_decided && event is PointerMoveEvent) {
+      final Offset delta = event.position - _origin;
+      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
+        _decided = true; // 判定为横滑:开始交给父类累积并竞争
+      } else if (delta.dy.abs() > kTouchSlop) {
+        _decided = true; // 纵向已明确:退出,让列表滚
+        resolve(GestureDisposition.rejected);
+        return;
+      } else {
+        return; // 方向未明:先不参与
+      }
+    }
+    super.handleEvent(event);
+  }
+}
 class ChatConversationView extends StatefulWidget {
   const ChatConversationView({
     super.key,
@@ -1014,6 +1121,38 @@ class _ChatConversationViewState extends State<ChatConversationView>
       widget.onSwipeUpdate?.call(details.delta.dx);
 
   void _onSwipeEnd(DragEndDetails details) => widget.onSwipeEnd?.call();
+
+  /// 只有背景图 / 半屏聊天才需要把消息列表上下边缘淡出（露出后面的立绘）。
+  ///
+  /// 纯色背景时套 ShaderMask 是无谓开销：它会让整块列表走离屏合成，
+  /// 滚动时每帧都要重跑一次遮罩，是长列表滚动发涩的常见来源。
+  Widget _maybeMaskedList({
+    required bool mask,
+    required bool halfScreen,
+    required Widget child,
+  }) {
+    if (!mask) {
+      return child;
+    }
+    return ShaderMask(
+      shaderCallback: (Rect bounds) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: const <Color>[
+          Colors.transparent,
+          Colors.black,
+          Colors.black,
+          Colors.transparent,
+        ],
+        stops: halfScreen
+            ? const <double>[0.0, 0.05, 0.97, 1.0]
+            : const <double>[0.0, 0.03, 0.97, 1.0],
+      ).createShader(bounds),
+      blendMode: BlendMode.dstIn,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 缓存 Theme 数据避免重复查找
@@ -1028,9 +1167,15 @@ class _ChatConversationViewState extends State<ChatConversationView>
     final double bubbleOpacity =
         widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
     // 用户气泡保持偏淡层次（基准 0.5），并随滑块线性变化，0 时完全透明。
-    final Color userBubble = schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
-    final Color assistantBubble = colorScheme.surfaceContainerHighest
-        .withValues(alpha: bubbleOpacity);
+    final Color userBubble = schemeColor.withValues(alpha: 0.34 * bubbleOpacity);
+    // 助手气泡：玻璃化——不再用不透明的 surfaceContainerHighest，
+    // 改成「深色画布 + 一点白」的磨砂底，配合 1px 玻璃描边，
+    // 与全局玻璃语言一致，同时仍能压住背后的背景图保证可读性。
+    final Color assistantBubble = Color.lerp(
+      AppSurfaces.canvasDark,
+      const Color(0xFFFFFFFF),
+      0.075,
+    )!.withValues(alpha: 0.88 * bubbleOpacity);
     // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。
     final bool halfScreenChat = widget.controller.settings.halfScreenChat;
     final bool dynamicHalfScreen =
@@ -1339,21 +1484,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
                                     }
                                     return false;
                                   },
-                              child: ShaderMask(
-                                shaderCallback: (Rect bounds) => LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: const <Color>[
-                                    Colors.transparent,
-                                    Colors.black,
-                                    Colors.black,
-                                    Colors.transparent,
-                                  ],
-                                  stops: isHalfScreenActive
-                                      ? const <double>[0.0, 0.05, 0.97, 1.0]
-                                      : const <double>[0.0, 0.03, 0.97, 1.0],
-                                ).createShader(bounds),
-                                blendMode: BlendMode.dstIn,
+                              child: _maybeMaskedList(
+                                mask: isExtendBehind,
+                                halfScreen: isHalfScreenActive,
                                 child: AppContentFrame(
                                   child: ChatMessageList(
                                     conversation: _conversation,
@@ -1379,7 +1512,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
                                     visibleThoughtMessageIds:
                                         _visibleThoughtMessageIds,
                                     ttsEnabled:
-                                        widget.controller.settings.ttsEnabled,
+                                        widget.controller.settings.ttsEnabled ||
+                                            CloudTtsService.instance.enabled ||
+                                            CloudTtsService.instance.directMode,
                                     ttsGlobalSeed: widget
                                         .controller
                                         .settings
