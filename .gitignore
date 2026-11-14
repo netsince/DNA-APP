@@ -55,3 +55,5 @@ app.*.map.json
 
 # Local-only dev material: reference checkouts, model workspace, research dumps.
 /local/
+# gh CLI / 工具链写下的本机状态（设备 id 等），不随仓库分发。
+/.local/
