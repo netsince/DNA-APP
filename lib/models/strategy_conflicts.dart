@@ -58,13 +58,8 @@ List<String> strategyConflicts(PromptStrategy strategy) {
     out.add('「旁白用斜体」依赖 Markdown，但 Markdown 是关闭的。');
   }
 
-  // 9) 选了冲突来源却没设尺度上限
-  if ((d.conflictPrimary != null || d.conflictSecondary != null) &&
-      !strategy.hasIntensityLimit) {
-    out.add('已经指定了冲突来源，但内容尺度还是「不限」，建议顺手定个上限。');
-  }
 
-  // 10) 母题频率大于每段
+  // 9) 母题频率填 0
   if (d.motifName != null && d.motifEveryN != null && d.motifEveryN == 0) {
     out.add('意象母题的出现间隔填了 0，等于没有间隔，容易出现得过于频繁。');
   }

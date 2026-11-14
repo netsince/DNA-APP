@@ -5,6 +5,7 @@ import 'package:dna/theme/tokens.dart';
 
 import '../../models/prompt_strategy.dart';
 import '../../state/app_controller.dart';
+import 'prompt_strategy_advanced_page.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 对话与策略 → 提示词策略。
@@ -513,6 +514,36 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                     child: const FitText('应用'),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== 6. 高级 =====
+          // 三层结构的进阶项都在这一页：预设 / 主轴 / 细项 / 冲突提示 / 预览。
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.tune, color: cs.primary, size: 20),
+              title: FitText(
+                '高级',
+                style: ts.bodyLarge?.copyWith(fontWeight: AppWeight.medium),
+              ),
+              subtitle: FitText(
+                '预设方案、叙事结构、节奏、冲突来源等进阶项',
+                style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      PromptStrategyAdvancedPage(controller: widget.controller),
+                ),
               ),
             ),
           ),

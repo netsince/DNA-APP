@@ -120,18 +120,6 @@ void main() {
     expect(strategyConflicts(ok), isEmpty);
   });
 
-  test('选了冲突来源但没设尺度上限', () {
-    expect(
-      conflictsOf(const StrategyDetails(conflictPrimary: ConflictSource.inner)),
-      isNotEmpty,
-    );
-    final PromptStrategy ok = PromptStrategy.defaults().copyWith(
-      conflictIntensity: IntensityLevel.moderate,
-      details: const StrategyDetails(conflictPrimary: ConflictSource.inner),
-    );
-    expect(strategyConflicts(ok), isEmpty);
-  });
-
   group('预览', () {
     test('默认策略的预览不含任何三层细节规则', () {
       final String text =

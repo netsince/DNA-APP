@@ -1,5 +1,6 @@
 import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/prompt_strategy.dart';
+import 'package:dna/models/strategy_conflicts.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/models/world.dart';
 import 'package:dna/pages/chat/chat_system_prompt.dart';
@@ -301,6 +302,55 @@ void main() {
       expect(prompt.contains('叙事视角：全知'), isTrue);
       expect(prompt.contains('场景与时序：场景推进'), isTrue);
       expect(prompt.contains('幽默度 1/5'), isTrue);
+    });
+  });
+
+  group('预设方案', () {
+    test('每个预设都会填出一组非空细节', () {
+      for (final StrategyPreset preset in StrategyPreset.values) {
+        expect(preset.details.isEmpty, isFalse, reason: '${preset.label} 不该是空的');
+      }
+    });
+
+    test('预设只改细节项，不动推进/沉浸/字数', () {
+      final PromptStrategy base = PromptStrategy.defaults().copyWith(
+        advance: AdvanceStrategy.free,
+        immersion: ImmersionStrategy.strong,
+        length: LengthStrategy.custom,
+        customMinChars: 60,
+        customMaxChars: 200,
+      );
+      final PromptStrategy applied =
+          applyPreset(base, StrategyPreset.mystery);
+      expect(applied.advance, AdvanceStrategy.free);
+      expect(applied.immersion, ImmersionStrategy.strong);
+      expect(applied.length, LengthStrategy.custom);
+      expect(applied.customMinChars, 60);
+      expect(applied.details.revealMaxPerTurn, 1);
+    });
+
+    test('换预设是整体替换，不会残留上一个预设的项', () {
+      final PromptStrategy a =
+          applyPreset(PromptStrategy.defaults(), StrategyPreset.daily);
+      expect(a.details.conflictSecondary, isNull);
+      final PromptStrategy b = applyPreset(a, StrategyPreset.mystery);
+      expect(b.details.narrativeStructure, isNull); // daily 设过、mystery 没设
+      expect(b.details.conflictSecondary, ConflictSource.inner);
+    });
+
+    test('预设自身不矛盾：最多留一条指向基础项的提醒', () {
+      // 预设只改细节项，基础项（推进/沉浸/字数）仍是用户在主页面选的。
+      // 因此「电影感」打开环境描写、而沉浸仍是默认的「克制」时，会剩一条
+      // 跨层提醒 —— 那是应该说的（提示用户把沉浸也调上去），不是自相矛盾。
+      for (final StrategyPreset preset in StrategyPreset.values) {
+        final PromptStrategy s = applyPreset(PromptStrategy.defaults(), preset);
+        final List<String> conflicts = strategyConflicts(s);
+        expect(
+          conflicts.length,
+          lessThanOrEqualTo(1),
+          reason: '「${preset.label}」自带多条冲突：$conflicts',
+        );
+      }
     });
   });
 }

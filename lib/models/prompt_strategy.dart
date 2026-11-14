@@ -478,6 +478,77 @@ class StrategyDetails {
     );
   }
 
+
+  /// 改单项：**传 null 表示清空**（回到「未设置」），不传则保持原值。
+  ///
+  /// 用哨兵而不是 `T?` 作默认值，是因为 `pov: null` 在这套语义里
+  /// 必须表示「清空」，而普通 copyWith 的 `null` 只能表示「不改」。
+  StrategyDetails copyWith({
+    Object? pov = _keep,
+    Object? narrativeStructure = _keep,
+    Object? structureGoal = _keep,
+    Object? pacing = _keep,
+    Object? tensionCurve = _keep,
+    Object? reveal = _keep,
+    Object? revealMaxPerTurn = _keep,
+    Object? conflictPrimary = _keep,
+    Object? conflictSecondary = _keep,
+    Object? endingStyle = _keep,
+    Object? closureHook = _keep,
+    Object? ambientEnabled = _keep,
+    Object? ambientTime = _keep,
+    Object? ambientWeather = _keep,
+    Object? npcMax = _keep,
+    Object? aiPlaysNpc = _keep,
+    Object? emotionTone = _keep,
+    Object? emotionIntensity = _keep,
+    Object? addressMode = _keep,
+    Object? addressValue = _keep,
+    Object? catchphrases = _keep,
+    Object? anchorTraits = _keep,
+    Object? anchorVoiceSample = _keep,
+    Object? sentenceLength = _keep,
+    Object? metaphorPerParagraph = _keep,
+    Object? humorLevel = _keep,
+    Object? dialogueRatio = _keep,
+    Object? motifName = _keep,
+    Object? motifEveryN = _keep,
+  }) {
+    return StrategyDetails(
+      pov: identical(pov, _keep) ? this.pov : pov as Pov?,
+      narrativeStructure: identical(narrativeStructure, _keep) ? this.narrativeStructure : narrativeStructure as NarrativeStructure?,
+      structureGoal: identical(structureGoal, _keep) ? this.structureGoal : structureGoal as String?,
+      pacing: identical(pacing, _keep) ? this.pacing : pacing as Pacing?,
+      tensionCurve: identical(tensionCurve, _keep) ? this.tensionCurve : tensionCurve as TensionCurve?,
+      reveal: identical(reveal, _keep) ? this.reveal : reveal as Reveal?,
+      revealMaxPerTurn: identical(revealMaxPerTurn, _keep) ? this.revealMaxPerTurn : revealMaxPerTurn as int?,
+      conflictPrimary: identical(conflictPrimary, _keep) ? this.conflictPrimary : conflictPrimary as ConflictSource?,
+      conflictSecondary: identical(conflictSecondary, _keep) ? this.conflictSecondary : conflictSecondary as ConflictSource?,
+      endingStyle: identical(endingStyle, _keep) ? this.endingStyle : endingStyle as EndingStyle?,
+      closureHook: identical(closureHook, _keep) ? this.closureHook : closureHook as bool?,
+      ambientEnabled: identical(ambientEnabled, _keep) ? this.ambientEnabled : ambientEnabled as bool?,
+      ambientTime: identical(ambientTime, _keep) ? this.ambientTime : ambientTime as String?,
+      ambientWeather: identical(ambientWeather, _keep) ? this.ambientWeather : ambientWeather as String?,
+      npcMax: identical(npcMax, _keep) ? this.npcMax : npcMax as int?,
+      aiPlaysNpc: identical(aiPlaysNpc, _keep) ? this.aiPlaysNpc : aiPlaysNpc as bool?,
+      emotionTone: identical(emotionTone, _keep) ? this.emotionTone : emotionTone as EmotionTone?,
+      emotionIntensity: identical(emotionIntensity, _keep) ? this.emotionIntensity : emotionIntensity as int?,
+      addressMode: identical(addressMode, _keep) ? this.addressMode : addressMode as AddressMode?,
+      addressValue: identical(addressValue, _keep) ? this.addressValue : addressValue as String?,
+      catchphrases: identical(catchphrases, _keep) ? this.catchphrases : catchphrases as List<String>?,
+      anchorTraits: identical(anchorTraits, _keep) ? this.anchorTraits : anchorTraits as List<String>?,
+      anchorVoiceSample: identical(anchorVoiceSample, _keep) ? this.anchorVoiceSample : anchorVoiceSample as String?,
+      sentenceLength: identical(sentenceLength, _keep) ? this.sentenceLength : sentenceLength as int?,
+      metaphorPerParagraph: identical(metaphorPerParagraph, _keep) ? this.metaphorPerParagraph : metaphorPerParagraph as int?,
+      humorLevel: identical(humorLevel, _keep) ? this.humorLevel : humorLevel as int?,
+      dialogueRatio: identical(dialogueRatio, _keep) ? this.dialogueRatio : dialogueRatio as int?,
+      motifName: identical(motifName, _keep) ? this.motifName : motifName as String?,
+      motifEveryN: identical(motifEveryN, _keep) ? this.motifEveryN : motifEveryN as int?,
+    );
+  }
+
+  /// 哨兵：区分「没传」与「显式传 null」。
+  static const Object _keep = Object();
   /// 只写出非空项 —— 未设置的项不落盘，旧版本读到仍是旧形状。
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -612,4 +683,119 @@ class StrategyDetails {
         .toList();
     return out.isEmpty ? null : out;
   }
+}
+
+// ---------------------------------------------------------------------------
+// 预设方案
+//
+// 预设**只改细节项**，不动「推进方式 / 沉浸程度 / 字数」这三个基础项 ——
+// 那三项是用户在主页明确选过的，一个预设不该悄悄改掉它们。
+// 想恢复成「什么都没设」，点「清除」。
+// ---------------------------------------------------------------------------
+
+enum StrategyPreset {
+  balanced('平衡'),
+  cinematic('电影感'),
+  webnovel('网文爽'),
+  otome('乙女向'),
+  mystery('悬疑本'),
+  daily('日常向');
+
+  const StrategyPreset(this.label);
+
+  final String label;
+
+  /// 该预设对应的细节项。
+  StrategyDetails get details {
+    switch (this) {
+      case StrategyPreset.balanced:
+        return const StrategyDetails(
+          pov: Pov.third,
+          pacing: Pacing.scene,
+          tensionCurve: TensionCurve.wave,
+          reveal: Reveal.layered,
+          conflictPrimary: ConflictSource.interpersonal,
+          endingStyle: EndingStyle.open,
+          sentenceLength: 3,
+          metaphorPerParagraph: 1,
+          humorLevel: 2,
+          dialogueRatio: 50,
+        );
+      case StrategyPreset.cinematic:
+        return const StrategyDetails(
+          pov: Pov.third,
+          pacing: Pacing.scene,
+          tensionCurve: TensionCurve.rising,
+          reveal: Reveal.layered,
+          conflictPrimary: ConflictSource.inner,
+          endingStyle: EndingStyle.open,
+          closureHook: true,
+          ambientEnabled: true,
+          sentenceLength: 4,
+          metaphorPerParagraph: 2,
+          humorLevel: 1,
+          dialogueRatio: 40,
+        );
+      case StrategyPreset.webnovel:
+        return const StrategyDetails(
+          pov: Pov.third,
+          pacing: Pacing.chronological,
+          tensionCurve: TensionCurve.spike,
+          reveal: Reveal.all,
+          conflictPrimary: ConflictSource.interpersonal,
+          endingStyle: EndingStyle.closed,
+          sentenceLength: 2,
+          metaphorPerParagraph: 0,
+          humorLevel: 3,
+          dialogueRatio: 65,
+        );
+      case StrategyPreset.otome:
+        return const StrategyDetails(
+          pov: Pov.first,
+          pacing: Pacing.scene,
+          tensionCurve: TensionCurve.wave,
+          reveal: Reveal.limited,
+          conflictPrimary: ConflictSource.interpersonal,
+          endingStyle: EndingStyle.open,
+          emotionTone: EmotionTone.sweet,
+          sentenceLength: 3,
+          metaphorPerParagraph: 1,
+          humorLevel: 2,
+          dialogueRatio: 60,
+        );
+      case StrategyPreset.mystery:
+        return const StrategyDetails(
+          pov: Pov.third,
+          pacing: Pacing.fragmented,
+          tensionCurve: TensionCurve.rising,
+          reveal: Reveal.layered,
+          revealMaxPerTurn: 1,
+          conflictPrimary: ConflictSource.institution,
+          conflictSecondary: ConflictSource.inner,
+          endingStyle: EndingStyle.closed,
+          sentenceLength: 3,
+          metaphorPerParagraph: 1,
+          humorLevel: 0,
+          dialogueRatio: 35,
+        );
+      case StrategyPreset.daily:
+        return const StrategyDetails(
+          pov: Pov.first,
+          narrativeStructure: NarrativeStructure.slice,
+          tensionCurve: TensionCurve.flat,
+          reveal: Reveal.all,
+          conflictPrimary: ConflictSource.interpersonal,
+          endingStyle: EndingStyle.open,
+          sentenceLength: 2,
+          metaphorPerParagraph: 0,
+          humorLevel: 4,
+          dialogueRatio: 70,
+        );
+    }
+  }
+}
+
+/// 套用一个预设：只替换细节项，基础项原样保留。
+PromptStrategy applyPreset(PromptStrategy base, StrategyPreset preset) {
+  return base.copyWith(details: preset.details);
 }
