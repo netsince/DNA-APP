@@ -32,6 +32,14 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // 图片缓存上限：Flutter 默认 1000 张 / 100MB，对聊天场景偏大。
+      // 立绘、头像、表情都是大图，实际一个会话滚一屏也就几十张，
+      // 条目数根本用不满；收窄到 240 张 / 96MB，减少长时间使用后的
+      // 内存与显存占用，字节上限基本不动以免误伤大图缓存。
+      PaintingBinding.instance.imageCache
+        ..maximumSize = 240
+        ..maximumSizeBytes = 96 << 20;
+
       final controller = AppController(
         settingsService: SettingsService(),
         openAiService: OpenAiService(),
