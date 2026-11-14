@@ -335,41 +335,6 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
 
           const SizedBox(height: 16),
 
-          // ===== 1.5 叙事策略 =====
-          // 只放「这个故事怎么走」相关的项：结构、节奏、揭示、冲突、环境、配角。
-          // 任何一项停在「未设置」就继续继承全局，不会因为没填而变成关闭。
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText(
-                    '叙事策略',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: AppWeight.medium,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '留「未设置」即继承全局设置。这些项会随世界卡一起导出 / 导入。',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  StrategyOverrideEditor(
-                    scope: StrategyScope.world,
-                    value: _strategyOverride,
-                    onChanged: (StrategyDetails? v) {
-                      setState(() => _strategyOverride = v);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           const SizedBox(height: 16),
 
           // ===== 2. 动态词条库 (World Entries) =====
@@ -464,6 +429,52 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
             ),
 
           const SizedBox(height: 24),
+
+          // ===== 3. 叙事策略 =====
+          // 放在最后一屏：它是进阶项，不该挤占「核心信息 → 词条库」的主流程。
+          // 任何一项停在「未设置」就继续继承全局，不会因为没填而变成关闭。
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ExpansionTile(
+              leading: Icon(
+                Icons.auto_stories_outlined,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+              title: FitText(
+                '叙事策略',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: AppWeight.medium,
+                ),
+              ),
+              subtitle: FitText(
+                '结构、节奏、揭示、冲突、环境、配角；不设即继承全局',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              shape: const Border(),
+              collapsedShape: const Border(),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                StrategyOverrideEditor(
+                  scope: StrategyScope.world,
+                  value: _strategyOverride,
+                  onChanged: (StrategyDetails? v) {
+                    setState(() => _strategyOverride = v);
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
     );
   }

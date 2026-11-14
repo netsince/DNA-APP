@@ -137,7 +137,8 @@ class _PromptStrategyAdvancedPageState
           child: SingleChildScrollView(
             child: SelectableText(
               text,
-              style: const TextStyle(fontSize: 12.5, height: 1.6),
+              // 字号与行高一律走主题令牌（font_scale 结构约束）。
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         ),
