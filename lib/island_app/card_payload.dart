@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dna/models/dialogue_style.dart';
+import 'package:dna/models/prompt_strategy.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/services/image_storage.dart';
 import 'package:dna/utils/id_utils.dart';
@@ -40,6 +41,9 @@ Map<String, dynamic> taToPublishPayload(
         )
         .toList(),
     'images': images,
+    // 提示词策略（角色卡那部分）。未设置时整个键都不发，服务端保持旧行为。
+    if (ta.strategyOverride != null && !ta.strategyOverride!.isEmpty)
+      'strategy': ta.strategyOverride!.toJson(),
   };
 }
 
@@ -106,6 +110,11 @@ Future<TA> taFromCardDetail(Map<String, dynamic> detail) async {
     authorNoteInterval: detail['authorNoteInterval'] is num
         ? (detail['authorNoteInterval'] as num).toInt()
         : 0,
+    strategyOverride: StrategyDetails.fromJsonOrNull(
+      detail['strategy'] is Map
+          ? (detail['strategy'] as Map).cast<String, dynamic>()
+          : null,
+    ),
   );
 }
 
