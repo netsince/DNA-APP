@@ -515,7 +515,12 @@ class _MessageAvatarButton extends StatelessWidget {
         height: 26,
         child: avatar == null
             ? Icon(Icons.person, size: 16, color: cs.onPrimaryContainer)
-            : Image(image: avatar!, fit: BoxFit.cover),
+            // 头像显示只有 26pt，限制解码尺寸：原图是立绘级别的大图，
+            // 按原尺寸解码会白白吃内存与显存。
+            : Image(
+                image: ResizeImage(avatar!, width: 64, height: 64),
+                fit: BoxFit.cover,
+              ),
       ),
     );
   }
