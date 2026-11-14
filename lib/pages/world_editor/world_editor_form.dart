@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:convert';
+import '../../models/prompt_strategy.dart';
+import '../settings/widgets/strategy_override_editor.dart';
 
 import 'package:flutter/material.dart';
 
@@ -87,6 +89,9 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
   late String _worldId;
   late List<WorldEntry> _entries;
 
+  /// 该世界的「叙事策略」覆盖；null 表示全部继承全局。
+  StrategyDetails? _strategyOverride;
+
   /// 初始快照：用来回答「有没有未保存的改动」。
   String? _baseline;
 
@@ -113,6 +118,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
     _forbiddenWordsController.text =
         (world?.forbiddenWords ?? <String>[]).join(', ');
     _entries = List<WorldEntry>.from(world?.entries ?? <WorldEntry>[]);
+    _strategyOverride = world?.strategyOverride;
     _baseline = jsonEncode(_buildCurrentWorld().toJson());
     if (mounted) {
       setState(() {});
@@ -186,6 +192,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
       tags: _tags,
       forbiddenWords: _parseForbiddenWords(_forbiddenWordsController.text),
       entries: _entries,
+      strategyOverride: _strategyOverride,
     );
   }
 
@@ -320,6 +327,43 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
                     suggestions: widget.tagSuggestions,
                     hintText: '例如：科幻, 废土, 魔法（回车或逗号添加）',
                     onChanged: (List<String> next) => setState(() => _tags = next),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== 1.5 叙事策略 =====
+          // 只放「这个故事怎么走」相关的项：结构、节奏、揭示、冲突、环境、配角。
+          // 任何一项停在「未设置」就继续继承全局，不会因为没填而变成关闭。
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FitText(
+                    '叙事策略',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: AppWeight.medium,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '留「未设置」即继承全局设置。这些项会随世界卡一起导出 / 导入。',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  StrategyOverrideEditor(
+                    scope: StrategyScope.world,
+                    value: _strategyOverride,
+                    onChanged: (StrategyDetails? v) {
+                      setState(() => _strategyOverride = v);
+                    },
                   ),
                 ],
               ),
