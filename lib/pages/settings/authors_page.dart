@@ -37,6 +37,10 @@ const List<_Author> _kAuthors = <_Author>[
     role: '开发 · 社区运营',
     aliases: <String>['Roko', 'AIXIAOJI'],
     website: 'roko.nb6.ltd',
+  _Author(
+    name: '终LFFX',
+    role: '贡献者 · 前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/终',
   ),
   _Author(
     name: '太空虎设计',
@@ -46,6 +50,21 @@ const List<_Author> _kAuthors = <_Author>[
     name: '辞安',
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/辞安',
+  ),
+  _Author(
+    name: '晨霧',
+    role: '前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/Chengwu',
+  ),
+  _Author(
+    name: 'Hookfish',
+    role: '前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/Hookfish',
+  ),
+  _Author(
+    name: '小意',
+    role: '社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/小黎',
   ),
   _Author(
     name: 'zwqq',
@@ -58,21 +77,7 @@ const List<_Author> _kAuthors = <_Author>[
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/2933376189@qq.com',
   ),
-  _Author(
-    name: '晨霧',
-    role: '前期社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/Chengwu',
-  ),
-  _Author(
-    name: '小意',
-    role: '社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/小黎',
-  ),
-  _Author(
-    name: '终LFFX',
-    role: '前期社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/终',
-  ),
+
   _Author(
     name: '人r',
     role: '第三个看板娘图标绘制',
