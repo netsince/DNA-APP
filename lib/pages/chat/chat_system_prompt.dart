@@ -409,6 +409,18 @@ class ChatSystemPrompt {
     return out;
   }
 
+  /// 预览最终提示词。
+  ///
+  /// 只用于界面展示：把当前策略（含角色卡/世界卡覆盖）拼成用户能读的整段规则，
+  /// 不含人设、世界背景与记忆注入 —— 预览里出现的，都是这套策略自己带来的。
+  static String previewStrategy(
+    PromptStrategy strategy, {
+    TA? ta,
+    World? world,
+  }) {
+    return build(ta: ta, world: world, strategy: strategy);
+  }
+
   static String? _buildExtraRule(PromptStrategy strategy) {
     // 当选择无限制字数 + 强沉浸时，添加类似 Roleplay - Immersive 的系统注释
     if (strategy.length == LengthStrategy.unlimited && 
