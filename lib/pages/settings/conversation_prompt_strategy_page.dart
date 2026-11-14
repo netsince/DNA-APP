@@ -22,6 +22,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
   late PromptStrategy _strategy;
   late final TextEditingController _customMinCtrl;
   late final TextEditingController _customMaxCtrl;
+  late final TextEditingController _bannedCtrl;
 
   @override
   void initState() {
@@ -31,12 +32,14 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
         TextEditingController(text: _strategy.customMinChars?.toString() ?? '');
     _customMaxCtrl =
         TextEditingController(text: _strategy.customMaxChars?.toString() ?? '');
+    _bannedCtrl = TextEditingController(text: _strategy.bannedWords.join('，'));
   }
 
   @override
   void dispose() {
     _customMinCtrl.dispose();
     _customMaxCtrl.dispose();
+    _bannedCtrl.dispose();
     super.dispose();
   }
 
@@ -50,6 +53,68 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
       _strategy = _strategy.copyWith(customMinChars: min, customMaxChars: max);
     });
     await _saveStrategy();
+  }
+
+  /// 禁词支持用中英文逗号、顿号、空格或换行分隔，重复项自动去重。
+  Future<void> _saveBannedWords() async {
+    final List<String> words = _bannedCtrl.text
+        .split(RegExp(r'[,，、\s]+'))
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    setState(() {
+      _strategy = _strategy.copyWith(bannedWords: words);
+    });
+    await _saveStrategy();
+  }
+
+  /// 内容尺度的一行：名称 + 滑杆 + 当前档位。
+  Widget _intensityRow(
+    String label,
+    String hint,
+    IntensityLevel value,
+    ValueChanged<IntensityLevel> onChanged,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final TextTheme ts = theme.textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: FitText(
+                label,
+                style: ts.bodyMedium?.copyWith(fontWeight: AppWeight.medium),
+              ),
+            ),
+            FitText(
+              value.label,
+              style: ts.bodySmall?.copyWith(color: cs.primary),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.value.toDouble(),
+          min: 0,
+          max: 5,
+          divisions: 5,
+          label: value.label,
+          onChanged: (double v) => onChanged(
+            IntensityLevel.fromValue(v.round()),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: FitText(
+            hint,
+            style: ts.bodySmall?.copyWith(color: cs.outline),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -313,6 +378,140 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                       child: const FitText('应用自定义字数'),
                     ),
                   ],
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== 4. 内容尺度 =====
+          // 这是**用户的接受度**，跨角色生效，所以放在全局设置而不是角色卡。
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.shield_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText(
+                        '内容尺度',
+                        style: ts.titleMedium?.copyWith(
+                          fontWeight: AppWeight.medium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '你能接受的上限。超出时 AI 会用留白或暗示带过，而不是硬写。默认不限。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 8),
+                  _intensityRow(
+                    '冲突与对抗',
+                    '角色之间的争执、对抗与张力强度。',
+                    _strategy.conflictIntensity,
+                    (IntensityLevel v) {
+                      setState(() =>
+                          _strategy = _strategy.copyWith(conflictIntensity: v));
+                      _saveStrategy();
+                    },
+                  ),
+                  _intensityRow(
+                    '暴力描写',
+                    '打斗、受伤等场面的写实程度。',
+                    _strategy.violenceIntensity,
+                    (IntensityLevel v) {
+                      setState(() =>
+                          _strategy = _strategy.copyWith(violenceIntensity: v));
+                      _saveStrategy();
+                    },
+                  ),
+                  _intensityRow(
+                    '恐怖与惊悚',
+                    '压抑感、惊悚氛围与不适感的浓度。',
+                    _strategy.horrorIntensity,
+                    (IntensityLevel v) {
+                      setState(() =>
+                          _strategy = _strategy.copyWith(horrorIntensity: v));
+                      _saveStrategy();
+                    },
+                  ),
+                  _intensityRow(
+                    '亲密描写',
+                    '亲密互动的展开程度。',
+                    _strategy.intimacyIntensity,
+                    (IntensityLevel v) {
+                      setState(() =>
+                          _strategy = _strategy.copyWith(intimacyIntensity: v));
+                      _saveStrategy();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== 5. 用词限制 =====
+          // 用户不想看到的表达，跨角色生效。世界的「禁止输出词语」是设定层面，
+          // 这里是使用者的阅读偏好，两者互不覆盖。
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.block_outlined, color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      FitText(
+                        '用词限制',
+                        style: ts.titleMedium?.copyWith(
+                          fontWeight: AppWeight.medium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '不想让 AI 说出口的词。用逗号、顿号或空格分隔，留空表示不限制。',
+                    style: ts.bodySmall?.copyWith(color: cs.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _bannedCtrl,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: '禁止输出词语',
+                      hintText: '如：该死，随便，无所谓',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _saveBannedWords(),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonal(
+                    onPressed: _saveBannedWords,
+                    child: const FitText('应用'),
+                  ),
                 ],
               ),
             ),

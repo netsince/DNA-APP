@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 
+import '../../models/prompt_strategy.dart';
 import '../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
@@ -28,12 +29,40 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
   bool _retrySeq = false;
   bool _inspireSummary = false;
 
+  // 排版格式属于全局阅读偏好，存在 PromptStrategy 里（与提示词策略页共用）。
+  late PromptStrategy _strategy;
+  late final TextEditingController _paragraphCtrl;
+
   @override
   void initState() {
     super.initState();
     final s = widget.controller.settings;
     _retrySeq = s.retrySequential;
     _inspireSummary = s.inspirationIncludeSummary;
+    _strategy = s.promptStrategy;
+    _paragraphCtrl = TextEditingController(
+      text: _strategy.formatMaxParagraphs == 0
+          ? ''
+          : _strategy.formatMaxParagraphs.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _paragraphCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveStrategy(PromptStrategy strategy) async {
+    setState(() => _strategy = strategy);
+    await widget.controller.savePromptStrategy(strategy);
+  }
+
+  Future<void> _saveMaxParagraphs() async {
+    final int value = int.tryParse(_paragraphCtrl.text.trim()) ?? 0;
+    await _saveStrategy(
+      _strategy.copyWith(formatMaxParagraphs: value < 0 ? 0 : value),
+    );
   }
 
   Future<void> _saveRetry() =>
@@ -144,6 +173,60 @@ class _ConversationSendPageState extends State<ConversationSendPage> {
                     ),
                   );
                 },
+              ),
+            ],
+          ),
+
+          // ===== 4. 排版格式 =====
+          // 这一组改的是「回复长什么样」，不是「AI 怎么写」，所以放在
+          // 回复与发送而不是提示词策略；字段仍存在 PromptStrategy 里共用。
+          SettingSection(
+            icon: Icons.format_paint_outlined,
+            title: '排版格式',
+            description: '回复长什么样，不影响 AI 怎么写。',
+            children: <Widget>[
+              SettingSwitch(
+                title: '旁白用斜体',
+                description: '动作与描写用 *斜体*',
+                value: _strategy.formatActionItalic,
+                onChanged: (bool v) => _saveStrategy(
+                  _strategy.copyWith(formatActionItalic: v),
+                ),
+              ),
+              SettingSwitch(
+                title: '台词加引号',
+                description: '台词用「」包裹',
+                value: _strategy.formatQuoteDialogue,
+                onChanged: (bool v) => _saveStrategy(
+                  _strategy.copyWith(formatQuoteDialogue: v),
+                ),
+              ),
+              SettingSwitch(
+                title: '允许 Markdown',
+                description: '加粗、列表等语法',
+                value: _strategy.formatMarkdown,
+                onChanged: (bool v) => _saveStrategy(
+                  _strategy.copyWith(formatMarkdown: v),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextField(
+                  controller: _paragraphCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '单条回复最大段落数',
+                    hintText: '0 = 不限制',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _saveMaxParagraphs(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: _saveMaxParagraphs,
+                child: const FitText('应用段落数'),
               ),
             ],
           ),

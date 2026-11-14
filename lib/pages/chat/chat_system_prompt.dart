@@ -72,10 +72,23 @@ class ChatSystemPrompt {
     system.writeln('12) $languageRule');
     system.writeln('13) 绝不复读：不要重复自己上一条或更早的任何一句话，也不要逐字复述对方的话；每次回复都要提供新的、有推进的内容。');
 
+    // 排版格式（全局阅读偏好）与内容尺度（全局接受度）不是人设的一部分，
+    // 单独成条，未设置时不出现 —— 默认行为与旧版本完全一致。
+    final String? typographyRule = _buildTypographyRule(effectiveStrategy);
+    final String? intensityRule = _buildIntensityRule(effectiveStrategy);
+
+    int ruleNo = 14;
+    if (typographyRule != null) {
+      system.writeln('${ruleNo++}) $typographyRule');
+    }
+    if (intensityRule != null) {
+      system.writeln('${ruleNo++}) $intensityRule');
+    }
+
     // 根据沉浸策略添加额外规则（沉浸式专属）
     final String? extraRule = _buildExtraRule(effectiveStrategy);
     if (extraRule != null) {
-      system.writeln('14) $extraRule');
+      system.writeln('${ruleNo++}) $extraRule');
     }
     
     if (identity != null) {
@@ -105,6 +118,13 @@ class ChatSystemPrompt {
           '禁止输出词语：${world.forbiddenWords.join('、')}。即使历史对话或群设定中出现，也必须避免输出，可改写替换。',
         );
       }
+    }
+    // 用户自己设的禁词：与世界的「禁止输出词语」同口径，但来源是全局偏好，
+    // 跨角色生效，所以放在世界设定之外。
+    if (effectiveStrategy.bannedWords.isNotEmpty) {
+      system.writeln(
+        '禁止输出词语（用户偏好）：${effectiveStrategy.bannedWords.join('、')}。即使人设、历史对话或设定中出现，也必须避免输出，可改写替换。',
+      );
     }
     if (groupPrompt != null && groupPrompt.trim().isNotEmpty) {
       system.writeln('群设定：${groupPrompt.trim()}');
@@ -179,6 +199,54 @@ class ChatSystemPrompt {
     }
   }
   
+  /// 排版要求：只描述用户明确打开的那几项，没打开就不提，避免影响既有输出。
+  static String? _buildTypographyRule(PromptStrategy strategy) {
+    if (!strategy.hasFormatRule) {
+      return null;
+    }
+    final List<String> parts = <String>[];
+    if (strategy.formatActionItalic) {
+      parts.add('旁白与动作描写用 *斜体* 包裹');
+    }
+    if (strategy.formatQuoteDialogue) {
+      parts.add('台词用「」包裹');
+    }
+    if (strategy.formatMaxParagraphs > 0) {
+      parts.add('单条回复不超过 ${strategy.formatMaxParagraphs} 个段落');
+    }
+    if (strategy.formatMarkdown) {
+      parts.add('允许使用 Markdown（加粗、斜体、列表）');
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return '排版要求：${parts.join('；')}。';
+  }
+
+  /// 内容尺度：把用户设定的接受度翻译成一句约束，超出时用留白/暗示处理。
+  static String? _buildIntensityRule(PromptStrategy strategy) {
+    if (!strategy.hasIntensityLimit) {
+      return null;
+    }
+    final List<String> parts = <String>[];
+
+    void add(String label, IntensityLevel level) {
+      if (level == IntensityLevel.unrestricted) {
+        return;
+      }
+      parts.add('$label：${level.label}');
+    }
+
+    add('冲突与对抗', strategy.conflictIntensity);
+    add('暴力描写', strategy.violenceIntensity);
+    add('恐怖与惊悚', strategy.horrorIntensity);
+    add('亲密描写', strategy.intimacyIntensity);
+    if (parts.isEmpty) {
+      return null;
+    }
+    return '内容尺度（用户接受度上限）：${parts.join('；')}。超出该尺度的部分用留白、暗示或直接跳过，不要硬写。';
+  }
+
   static String? _buildExtraRule(PromptStrategy strategy) {
     // 当选择无限制字数 + 强沉浸时，添加类似 Roleplay - Immersive 的系统注释
     if (strategy.length == LengthStrategy.unlimited && 
