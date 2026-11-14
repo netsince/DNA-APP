@@ -300,9 +300,30 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
       if (provider == null) {
         return null;
       }
-      _imageCache[path] = provider;
+      _imageCache[path] = _limitDecodeSize(provider);
     }
     return _imageCache[path];
+  }
+
+  /// 限制图片解码尺寸：立绘/头像原图动辄 2000px 以上，按原尺寸解码会吃掉
+  /// 几十 MB 内存与显存。这里统一按「整屏最长边」解码 —— 屏幕外的图再大，
+  /// 也只按显示需要的尺寸解一次。
+  ImageProvider _limitDecodeSize(ImageProvider provider) {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) {
+      return provider;
+    }
+    final view = views.first;
+    final double dpr = view.devicePixelRatio;
+    if (dpr <= 0) {
+      return provider;
+    }
+    final Size logical = view.physicalSize / dpr;
+    final int maxEdge =
+        (logical.width > logical.height ? logical.width : logical.height)
+            .clamp(800, 2560)
+            .round();
+    return ResizeImage.resizeIfNeeded(maxEdge, maxEdge, provider);
   }
 
   Future<void> _ensureGroupDefaults() async {
