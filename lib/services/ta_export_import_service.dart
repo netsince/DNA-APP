@@ -133,6 +133,7 @@ class TaExportImportService {
         voiceSeed: character.voiceSeed,
         authorNote: character.authorNote,
         authorNoteInterval: character.authorNoteInterval,
+        strategyOverride: character.strategyOverride,
       );
 
       final package = ExportPackage(

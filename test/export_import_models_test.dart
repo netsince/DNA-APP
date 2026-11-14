@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dna/models/prompt_strategy.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/services/data_backup_models.dart';
 import 'package:dna/services/data_backup_service.dart';
@@ -375,6 +376,64 @@ void main() {
         ),
       );
       expect(pkg.character.name, 'n');
+    });
+  });
+
+  group('角色卡导出带上「对话策略」', () {
+    test('策略能往返', () {
+      final ExportedCharacter c = ExportedCharacter(
+        id: 'ta-2',
+        name: '乙',
+        gender: '女',
+        persona: 'p',
+        intro: 'i',
+        opening: 'o',
+        tags: const <String>[],
+        dialogueStyle: const <Map<String, String>>[],
+        images: const <String, ExportedImageInfo>{},
+        strategyOverride: const StrategyDetails(
+          pov: Pov.first,
+          humorLevel: 4,
+          catchphrases: <String>['哼'],
+        ),
+      );
+      final ExportedCharacter back =
+          ExportedCharacter.fromJson(c.toJson());
+      expect(back.strategyOverride?.pov, Pov.first);
+      expect(back.strategyOverride?.humorLevel, 4);
+      expect(back.strategyOverride?.catchphrases, <String>['哼']);
+    });
+
+    test('没设策略时不写进导出包', () {
+      final ExportedCharacter c = ExportedCharacter(
+        id: 'ta-3',
+        name: '丙',
+        gender: '女',
+        persona: 'p',
+        intro: 'i',
+        opening: 'o',
+        tags: const <String>[],
+        dialogueStyle: const <Map<String, String>>[],
+        images: const <String, ExportedImageInfo>{},
+      );
+      expect(c.toJson().containsKey('strategy'), isFalse);
+      expect(ExportedCharacter.fromJson(c.toJson()).strategyOverride, isNull);
+    });
+
+    test('toTA 会把策略带进角色卡', () {
+      final ExportedCharacter c = ExportedCharacter(
+        id: 'ta-4',
+        name: '丁',
+        gender: '女',
+        persona: 'p',
+        intro: 'i',
+        opening: 'o',
+        tags: const <String>[],
+        dialogueStyle: const <Map<String, String>>[],
+        images: const <String, ExportedImageInfo>{},
+        strategyOverride: const StrategyDetails(sentenceLength: 2),
+      );
+      expect(c.toTA().strategyOverride?.sentenceLength, 2);
     });
   });
 }
