@@ -1,0 +1,5 @@
+sdk.dir=F:\\android
+flutter.sdk=F:\\flutter_windows_3.47.4-stable\\flutter
+flutter.buildMode=debug
+flutter.versionName=0.3.3
+flutter.versionCode=3
