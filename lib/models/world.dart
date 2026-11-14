@@ -84,7 +84,7 @@ class World {
               .toList() ??
           <WorldEntry>[],
       archived: (json['archived'] as bool?) ?? false,
-      strategyOverride: StrategyDetails.fromJson(
+      strategyOverride: StrategyDetails.fromJsonOrNull(
         json['strategyOverride'] is Map
             ? (json['strategyOverride'] as Map).cast<String, dynamic>()
             : null,

@@ -595,6 +595,18 @@ class StrategyDetails {
     };
   }
 
+  /// 解析一层覆盖：**没有内容就返回 null**，而不是空对象。
+  ///
+  /// 「未设置」在语义上是 null；返回空对象会让 `copyWith`、脏检查、序列化
+  /// 多出一个「看起来设了其实什么都没设」的中间态。
+  static StrategyDetails? fromJsonOrNull(Map<String, dynamic>? json) {
+    if (json == null || json.isEmpty) {
+      return null;
+    }
+    final StrategyDetails parsed = StrategyDetails.fromJson(json);
+    return parsed.isEmpty ? null : parsed;
+  }
+
   /// 容错解析：认不出的枚举名一律当作未设置，不抛异常。
   factory StrategyDetails.fromJson(Map<String, dynamic>? json) {
     if (json == null || json.isEmpty) {

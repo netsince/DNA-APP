@@ -353,4 +353,74 @@ void main() {
       }
     });
   });
+
+  group('角色卡 / 世界卡的策略覆盖', () {
+    test('世界卡的覆盖能往返序列化', () {
+      final World w = World(
+        id: 'w1',
+        name: '世',
+        summary: '',
+        description: '',
+        tags: const <String>[],
+        forbiddenWords: const <String>[],
+        entries: const <WorldEntry>[],
+        strategyOverride: const StrategyDetails(
+          narrativeStructure: NarrativeStructure.loop,
+          revealMaxPerTurn: 2,
+        ),
+      );
+      final World back = World.fromJson(w.toJson());
+      expect(back.strategyOverride?.narrativeStructure, NarrativeStructure.loop);
+      expect(back.strategyOverride?.revealMaxPerTurn, 2);
+    });
+
+    test('角色卡的覆盖能往返序列化', () {
+      final TA t = TA(
+        id: 't1',
+        name: '甲',
+        gender: '无性',
+        persona: '',
+        intro: '',
+        opening: '',
+        tags: const <String>[],
+        images: const <String, String>{},
+        dialogueStyle: const <DialogueTurn>[],
+        strategyOverride: const StrategyDetails(
+          humorLevel: 4,
+          catchphrases: <String>['哼'],
+        ),
+      );
+      final TA back = TA.fromJson(t.toJson());
+      expect(back.strategyOverride?.humorLevel, 4);
+      expect(back.strategyOverride?.catchphrases, <String>['哼']);
+    });
+
+    test('没有覆盖时不落盘，旧数据读到为空', () {
+      final World w = World(
+        id: 'w2',
+        name: '世',
+        summary: '',
+        description: '',
+        tags: const <String>[],
+        forbiddenWords: const <String>[],
+        entries: const <WorldEntry>[],
+      );
+      expect(w.toJson().containsKey('strategyOverride'), isFalse);
+      expect(World.fromJson(w.toJson()).strategyOverride, isNull);
+    });
+
+    test('只设了空白的覆盖，等同于没设', () {
+      final World w = World(
+        id: 'w3',
+        name: '世',
+        summary: '',
+        description: '',
+        tags: const <String>[],
+        forbiddenWords: const <String>[],
+        entries: const <WorldEntry>[],
+        strategyOverride: const StrategyDetails(structureGoal: '   '),
+      );
+      expect(w.toJson().containsKey('strategyOverride'), isFalse);
+    });
+  });
 }

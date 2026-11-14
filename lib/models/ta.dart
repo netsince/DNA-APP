@@ -150,7 +150,7 @@ class TA {
       // 本地持久化 / 全量备份恢复时读回 musicPath；角色卡导入（importCharacter）
       // 不经过本方法，因此不会从外部导入包中识别音乐字段。
       musicPath: json['musicPath'] as String?,
-      strategyOverride: StrategyDetails.fromJson(
+      strategyOverride: StrategyDetails.fromJsonOrNull(
         json['strategyOverride'] is Map
             ? (json['strategyOverride'] as Map).cast<String, dynamic>()
             : null,
