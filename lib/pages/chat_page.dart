@@ -154,6 +154,23 @@ class _ChatPageState extends State<ChatPage>
   double _animFrom = 0;
   double _animTo = 0;
 
+  /// 拖动位移单独走 ValueNotifier：跟手阶段只更新「平移」这一层。
+  ///
+  /// 以前每次拖动都 setState，整页（消息列表、侧栏磨砂、标题栏）每帧重建一遍；
+  /// 拖动一次就有几十个 move 事件，等于几十次全页 build —— 这是切换卡顿的主因。
+  final ValueNotifier<double> _dragNotifier = ValueNotifier<double>(0);
+
+  /// 拖动预览视图缓存：目标与方向不变时复用同一个 Widget 实例。
+  Widget? _peekView;
+  String? _peekViewId;
+  bool? _peekViewFromRight;
+
+  /// 会话视图缓存（与动画无关，见 [_viewFor]）。
+  Widget? _cachedView;
+  String? _cachedViewConversationId;
+  double _cachedViewInset = double.nan;
+  bool _cachedViewSwipe = true;
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +179,7 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
+    _dragNotifier.dispose();
     _settleAnim.dispose();
     super.dispose();
   }
@@ -208,6 +226,9 @@ class _ChatPageState extends State<ChatPage>
       _conversationId = id;
       _rememberCurrentConversation();
       _peekTarget = null;
+      _peekView = null;
+      _peekViewId = null;
+      _peekViewFromRight = null;
     });
     _settle(
       from: mode == _OutgoingMode.fade ? 0 : from,
@@ -215,6 +236,7 @@ class _ChatPageState extends State<ChatPage>
       onDone: () => setState(() {
         _outgoingView = null;
         _dragDx = 0;
+        _dragNotifier.value = 0;
       }),
     );
   }
@@ -245,9 +267,13 @@ class _ChatPageState extends State<ChatPage>
       return;
     }
     _settleAnim.stop();
+    _dragDx = 0;
+    _dragNotifier.value = 0;
     setState(() {
-      _dragDx = 0;
       _peekTarget = null;
+      _peekView = null;
+      _peekViewId = null;
+      _peekViewFromRight = null;
     });
   }
 
@@ -255,11 +281,19 @@ class _ChatPageState extends State<ChatPage>
     if (!_swipeEnabled) {
       return;
     }
-    setState(() {
-      _dragDx += dx;
-      // 拖动中就露出"下一页"是谁,松手前心里有数。
-      _peekTarget = _swipeTarget(dx < 0 ? 1 : -1);
-    });
+    _dragDx += dx;
+    _dragNotifier.value = _dragDx;
+    // 拖动中就露出"下一页"是谁,松手前心里有数。
+    // 方向与目标没变时不触发整页 setState —— 只是平移在动。
+    final _SwipeTarget? next = _swipeTarget(dx < 0 ? 1 : -1);
+    if (next?.conversationId != _peekTarget?.conversationId) {
+      setState(() {
+        _peekTarget = next;
+        _peekView = null;
+        _peekViewId = null;
+        _peekViewFromRight = null;
+      });
+    }
   }
 
   void _onSwipeEnd() {
@@ -279,6 +313,7 @@ class _ChatPageState extends State<ChatPage>
         to: 0,
         onDone: () => setState(() {
           _dragDx = 0;
+          _dragNotifier.value = 0;
           _peekTarget = null;
         }),
       );
@@ -408,13 +443,57 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// 取当前会话视图：**同一个 Widget 实例**重复使用。
+  ///
+  /// 切换/滑动的动画帧只该重建外面的 Transform/Opacity 外壳；如果每帧都
+  /// 重新构造 ChatConversationView，整棵消息列表都会被 build 一遍。
+  /// Flutter 在 updateChild 里对「同一个 Widget 实例」有快速路径，
+  /// 只要实例不变，这棵子树直接跳过 build。
+  Widget _viewFor(String conversationId, double inset) {
+    final bool swipe = _swipeEnabled;
+    final Widget? cached = _cachedView;
+    if (cached != null &&
+        _cachedViewConversationId == conversationId &&
+        _cachedViewSwipe == swipe &&
+        (_cachedViewInset - inset).abs() < 0.01) {
+      return cached;
+    }
+    final Widget view = _buildView(conversationId, inset);
+    _cachedView = view;
+    _cachedViewConversationId = conversationId;
+    _cachedViewInset = inset;
+    _cachedViewSwipe = swipe;
+    return view;
+  }
+
+  /// 拖动预览视图：目标与方向不变时复用同一个实例。
+  Widget? _peekFor(BuildContext context, {required double offset}) {
+    final _SwipeTarget? target = _peekTarget;
+    if (target == null) {
+      return null;
+    }
+    final bool fromRight = offset < 0;
+    if (_peekView != null &&
+        _peekViewId == target.conversationId &&
+        _peekViewFromRight == fromRight) {
+      return _peekView;
+    }
+    final Widget view = _buildSwipePeek(context, target, fromRight);
+    _peekView = view;
+    _peekViewId = target.conversationId;
+    _peekViewFromRight = fromRight;
+    return view;
+  }
+
   /// 拖动时露出的"下一页"预览:一张中性底 + 目标角色的头像与名字,
   /// 让人在松手前就知道要切到谁。
-  Widget _buildSwipePeek(BuildContext context, _SwipeTarget target) {
+  Widget _buildSwipePeek(
+    BuildContext context,
+    _SwipeTarget target,
+    bool fromRight,
+  ) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
-    // 向左滑 ⇒ 下一页从右侧露出,内容也靠右排,顺着手指方向。
-    final bool fromRight = _dragDx < 0;
     return ColoredBox(
       color: cs.surface,
       child: Align(
@@ -466,21 +545,39 @@ class _ChatPageState extends State<ChatPage>
       curve: Curves.easeOutCubic,
       builder: (BuildContext context, double inset, Widget? _) {
         _lastInset = inset;
+        // 视图实例在这里取一次，动画帧里不再重新构造（见 [_viewFor]）。
+        final Widget currentView = _viewFor(_conversationId, inset);
         return AnimatedBuilder(
           animation: _settleAnim,
           builder: (BuildContext context, Widget? _) {
-            final bool committing = _outgoingView != null;
-            final double viewDx = committing ? 0 : _dragDx;
-            return Stack(
+            return ValueListenableBuilder<double>(
+              valueListenable: _dragNotifier,
+              builder: (BuildContext context, double dragDx, Widget? _) {
+                final bool committing = _outgoingView != null;
+                // 弹回时没有退场层，当前视图自己跟着 settle 曲线回去；
+                // 提交切换时新视图直接归位(0)，旧视图滑出。
+                final bool bouncing =
+                    !committing && _settleAnim.isAnimating && _animTo == 0;
+                final double viewDx = committing
+                    ? 0
+                    : (bouncing
+                          ? _animFrom + (_animTo - _animFrom) * _settleT
+                          : dragDx);
+                // 预览来自 [_peekFor]，同样复用实例，不重建。
+                final Widget? peek = committing
+                    ? null
+                    : _peekFor(context, offset: dragDx);
+                return Stack(
               children: <Widget>[
                 // 拖动中露出的"下一页"预览(提交后由新会话视图接管)。
-                if (_peekTarget != null && !committing)
-                  Positioned.fill(child: _buildSwipePeek(context, _peekTarget!)),
-                // 当前会话(拖动时跟手平移)。
+                if (peek != null)
+                  Positioned.fill(child: RepaintBoundary(child: peek)),
+                // 当前会话(拖动时跟手平移)。RepaintBoundary 让平移只动图层，
+                // 不重画整页内容。
                 Positioned.fill(
                   child: Transform.translate(
                     offset: Offset(viewDx, 0),
-                    child: _buildView(_conversationId, inset),
+                    child: RepaintBoundary(child: currentView),
                   ),
                 ),
                 // 退场中的旧会话:滑出或淡出,期间不接收点击。
@@ -518,6 +615,8 @@ class _ChatPageState extends State<ChatPage>
                     ),
                   ),
               ],
+                );
+              },
             );
           },
         );
