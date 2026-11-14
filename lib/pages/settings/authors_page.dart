@@ -37,6 +37,7 @@ const List<_Author> _kAuthors = <_Author>[
     role: '开发 · 社区运营',
     aliases: <String>['Roko', 'AIXIAOJI'],
     website: 'roko.nb6.ltd',
+  ),
   _Author(
     name: '终LFFX',
     role: '贡献者 · 前期社区搭建',
