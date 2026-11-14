@@ -80,6 +80,41 @@ class SettingsService {
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
 
+  // ---- 宽松读取 ----
+  //
+  // 这些偏好的类型由「谁最后写的」决定，而不是由键名决定：旧版本可能写过 int，
+  // 手动改过 prefs 文件，外部工具写过字符串 —— 任何一种都会让
+  // SharedPreferences.getDouble / getInt 直接抛类型错误。
+  //
+  // 而 load() 在 runApp 之前执行：一旦它抛出，应用启动后没有窗口，
+  // 用户看到的是「点了没反应」，也很难查到原因。所以数值型偏好一律走下面
+  // 三个宽松读取，读不出来就退回默认值。
+
+  static double _readDouble(
+    SharedPreferences p,
+    String key,
+    double fallback,
+  ) {
+    final Object? raw = p.get(key);
+    if (raw is double) return raw;
+    if (raw is int) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim()) ?? fallback;
+    return fallback;
+  }
+
+  static int _readInt(SharedPreferences p, String key, int fallback) {
+    final int? value = _readNullableInt(p, key);
+    return value ?? fallback;
+  }
+
+  static int? _readNullableInt(SharedPreferences p, String key) {
+    final Object? raw = p.get(key);
+    if (raw is int) return raw;
+    if (raw is double) return raw.round();
+    if (raw is String) return int.tryParse(raw.trim());
+    return null;
+  }
+
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     
@@ -140,8 +175,8 @@ class SettingsService {
       selectedModel: legacyModel,
       completedOobe: prefs.getBool(_oobeKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
-      summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
-      summaryWordThreshold: prefs.getInt(_summaryWordThresholdKey) ?? 6000,
+      summaryTurnInterval: _readInt(prefs, _summaryTurnIntervalKey, 200),
+      summaryWordThreshold: _readInt(prefs, _summaryWordThresholdKey, 6000),
       retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
       inspirationIncludeSummary: prefs.getBool(_inspirationIncludeSummaryKey) ?? false,
       promptStrategy: promptStrategy,
@@ -152,9 +187,9 @@ class SettingsService {
       showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
       autoOpenLastChat: prefs.getBool(_autoOpenLastChatKey) ?? false,
       unboundedModelList: prefs.getBool(_unboundedModelListKey) ?? false,
-      fontSizeStep: prefs.getInt(_fontSizeStepKey) ?? 0,
+      fontSizeStep: _readInt(prefs, _fontSizeStepKey, 0),
       appIcon: prefs.getString(_appIconKey) ?? 'default',
-      snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
+      snackDurationMs: _readInt(prefs, _snackDurationMsKey, 1000),
       sherpaModelSource:
           prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
       sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,
@@ -163,10 +198,10 @@ class SettingsService {
       selectedVoiceModelId:
           prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
-      customAccentColor: prefs.getInt(_customAccentColorKey),
+      customAccentColor: _readNullableInt(prefs, _customAccentColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
-      ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
-      bgmVolume: prefs.getInt(_bgmVolumeKey) ?? 50,
+      ttsGlobalSeed: _readNullableInt(prefs, _ttsGlobalSeedKey),
+      bgmVolume: _readInt(prefs, _bgmVolumeKey, 50),
       bgmSizeLimitUnlocked: prefs.getBool(_bgmSizeLimitUnlockedKey) ?? false,
       voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
@@ -182,18 +217,18 @@ class SettingsService {
           prefs.getBool(_chatQuickSidebarCollapsedKey) ?? false,
       chatSwipeSwitch: prefs.getBool(_chatSwipeSwitchKey) ?? true,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
-      chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
-      chatBubbleOpacity: prefs.getInt(_chatBubbleOpacityKey) ?? 100,
+      chatMaskStrength: _readInt(prefs, _chatMaskStrengthKey, 75),
+      chatBubbleOpacity: _readInt(prefs, _chatBubbleOpacityKey, 100),
       halfScreenChat: prefs.getBool(_halfScreenChatKey) ?? false,
       dynamicHalfScreen: prefs.getBool(_dynamicHalfScreenKey) ?? false,
-      maxContextMessages: prefs.getInt(_maxContextMessagesKey) ?? 120,
-      maxContextTokens: prefs.getInt(_maxContextTokensKey) ?? 8000,
-      temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
-      frequencyPenalty: (prefs.getDouble(_frequencyPenaltyKey)) ?? 0.0,
-      presencePenalty: (prefs.getDouble(_presencePenaltyKey)) ?? 0.0,
-      loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
-      loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
-      loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
+      maxContextMessages: _readInt(prefs, _maxContextMessagesKey, 120),
+      maxContextTokens: _readInt(prefs, _maxContextTokensKey, 8000),
+      temperature: _readDouble(prefs, _temperatureKey, 0.7),
+      frequencyPenalty: _readDouble(prefs, _frequencyPenaltyKey, 0.0),
+      presencePenalty: _readDouble(prefs, _presencePenaltyKey, 0.0),
+      loreStickyRounds: _readInt(prefs, _loreStickyRoundsKey, 3),
+      loreMaxEntries: _readInt(prefs, _loreMaxEntriesKey, 8),
+      loreBudgetTokens: _readInt(prefs, _loreBudgetTokensKey, 0),
       quickReplies: _decodeQuickReplies(prefs.getString(_quickRepliesKey)),
       simpleModelMode: simpleModelMode,
       activeModelId: activeModelId,
