@@ -1,3 +1,5 @@
+import 'prompt_strategy.dart';
+
 class World {
   const World({
     required this.id,
@@ -8,6 +10,7 @@ class World {
     required this.forbiddenWords,
     required this.entries,
     this.archived = false,
+    this.strategyOverride,
   });
 
   final String id;
@@ -19,6 +22,12 @@ class World {
   final List<WorldEntry> entries;
   final bool archived;
 
+  /// 该世界的「叙事策略」覆盖（世界编辑页 → 叙事策略）。
+  ///
+  /// 只记录用户**显式设过**的项；null 或空表示完全跟随全局。
+  /// 合并顺序：角色卡 > 世界卡 > 全局。
+  final StrategyDetails? strategyOverride;
+
   World copyWith({
     String? id,
     String? name,
@@ -28,6 +37,7 @@ class World {
     List<String>? forbiddenWords,
     List<WorldEntry>? entries,
     bool? archived,
+    StrategyDetails? strategyOverride,
   }) {
     return World(
       id: id ?? this.id,
@@ -38,6 +48,7 @@ class World {
       forbiddenWords: forbiddenWords ?? this.forbiddenWords,
       entries: entries ?? this.entries,
       archived: archived ?? this.archived,
+      strategyOverride: strategyOverride ?? this.strategyOverride,
     );
   }
 
@@ -51,6 +62,8 @@ class World {
       'forbiddenWords': forbiddenWords,
       'entries': entries.map((WorldEntry entry) => entry.toJson()).toList(),
       'archived': archived,
+      if (strategyOverride != null && !strategyOverride!.isEmpty)
+        'strategyOverride': strategyOverride!.toJson(),
     };
   }
 
@@ -71,6 +84,11 @@ class World {
               .toList() ??
           <WorldEntry>[],
       archived: (json['archived'] as bool?) ?? false,
+      strategyOverride: StrategyDetails.fromJson(
+        json['strategyOverride'] is Map
+            ? (json['strategyOverride'] as Map).cast<String, dynamic>()
+            : null,
+      ),
     );
   }
 }

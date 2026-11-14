@@ -40,7 +40,14 @@ class ChatSystemPrompt {
     List<TA>? groupMembers,
   }) {
     final List<DialogueTurn> style = ta?.dialogueStyle ?? <DialogueTurn>[];
-    final PromptStrategy effectiveStrategy = strategy ?? PromptStrategy.defaults();
+    // 三层合并：角色卡 > 世界卡 > 全局。任一层的 details 为空就等于没设，
+    // 继续继承下一层；这也是「不选就一直是默认」的落点。
+    final PromptStrategy baseStrategy = strategy ?? PromptStrategy.defaults();
+    final StrategyDetails effectiveDetails = baseStrategy.details
+        .mergedWith(world?.strategyOverride)
+        .mergedWith(ta?.strategyOverride);
+    final PromptStrategy effectiveStrategy =
+        baseStrategy.copyWith(details: effectiveDetails);
     final StringBuffer system = StringBuffer();
     
     system.writeln('你是"TA扮演对话"模式。必须严格遵守以下规则：');
@@ -83,6 +90,11 @@ class ChatSystemPrompt {
     }
     if (intensityRule != null) {
       system.writeln('${ruleNo++}) $intensityRule');
+    }
+
+    // 三层细节项：逐条只在设置过时出现，全部未设置时这里不产生任何行。
+    for (final String rule in _buildDetailRules(effectiveDetails)) {
+      system.writeln('${ruleNo++}) $rule');
     }
 
     // 根据沉浸策略添加额外规则（沉浸式专属）
@@ -245,6 +257,156 @@ class ChatSystemPrompt {
       return null;
     }
     return '内容尺度（用户接受度上限）：${parts.join('；')}。超出该尺度的部分用留白、暗示或直接跳过，不要硬写。';
+  }
+
+  /// 把三层细节项翻译成提示词规则。**只输出用户设过的项**：
+  /// 全部未设置时返回空列表，拼出来的提示词与升级前逐字一致。
+  static List<String> _buildDetailRules(StrategyDetails d) {
+    final List<String> out = <String>[];
+
+    // ---- 视角与叙事 ----
+    if (d.pov != null) {
+      out.add('叙事视角：${d.pov!.label}。');
+    }
+    if (d.narrativeStructure != null || d.structureGoal != null) {
+      final StringBuffer sb = StringBuffer('叙事结构：');
+      sb.write(d.narrativeStructure?.label ?? '按当前需要');
+      if (d.structureGoal != null) {
+        sb.write('；本段目标：${d.structureGoal!}');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+    if (d.pacing != null) {
+      out.add('场景与时序：${d.pacing!.label}。');
+    }
+    if (d.tensionCurve != null) {
+      out.add('张力曲线：${d.tensionCurve!.label}。');
+    }
+    if (d.reveal != null || d.revealMaxPerTurn != null) {
+      final StringBuffer sb = StringBuffer('信息揭示：');
+      sb.write(d.reveal?.label ?? '按当前需要');
+      if (d.revealMaxPerTurn != null && d.revealMaxPerTurn! > 0) {
+        sb.write('；每轮最多揭示 ${d.revealMaxPerTurn} 条新信息');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+
+    // ---- 冲突与收束 ----
+    if (d.conflictPrimary != null || d.conflictSecondary != null) {
+      final StringBuffer sb = StringBuffer('冲突来源：');
+      sb.write(d.conflictPrimary?.label ?? '不限定');
+      if (d.conflictSecondary != null) {
+        sb.write('为主，辅以${d.conflictSecondary!.label}');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+    if (d.endingStyle != null || d.closureHook != null) {
+      final StringBuffer sb = StringBuffer('收束方式：');
+      sb.write(d.endingStyle?.label ?? '自然收束');
+      if (d.closureHook == true) {
+        sb.write('；每段结尾留一个可接续的钩子');
+      } else if (d.closureHook == false) {
+        sb.write('；每段结尾自然停下，不留钩子');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+
+    // ---- 场景与配角 ----
+    if (d.ambientEnabled != null || d.ambientTime != null || d.ambientWeather != null) {
+      final List<String> parts = <String>[];
+      if (d.ambientTime != null) {
+        parts.add('时间 ${d.ambientTime}');
+      }
+      if (d.ambientWeather != null) {
+        parts.add('天气 ${d.ambientWeather}');
+      }
+      if (parts.isEmpty && d.ambientEnabled == true) {
+        parts.add('适当描写环境');
+      }
+      if (d.ambientEnabled == false) {
+        out.add('环境描写：不主动描写环境，把笔墨留给人物与对话。');
+      } else if (parts.isNotEmpty) {
+        out.add('环境设定：${parts.join('；')}。');
+      }
+    }
+    if (d.npcMax != null || d.aiPlaysNpc != null) {
+      final StringBuffer sb = StringBuffer('配角：');
+      if (d.npcMax != null) {
+        sb.write('同场最多 ${d.npcMax} 个');
+      } else {
+        sb.write('按剧情需要出现');
+      }
+      if (d.aiPlaysNpc == true) {
+        sb.write('，可以由你代演配角的台词与动作');
+      } else if (d.aiPlaysNpc == false) {
+        sb.write('，不要把配角写成完整对话，只做必要交代');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+
+    // ---- 角色口吻 ----
+    if (d.addressMode != null || d.addressValue != null) {
+      final StringBuffer sb = StringBuffer('称呼方式：');
+      sb.write(d.addressMode?.label ?? '自然称呼');
+      if (d.addressValue != null) {
+        sb.write('（${d.addressValue}）');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+    if (d.emotionTone != null || d.emotionIntensity != null) {
+      final StringBuffer sb = StringBuffer('情绪基调：');
+      sb.write(d.emotionTone?.label ?? '随剧情');
+      if (d.emotionIntensity != null) {
+        sb.write('，强度 ${d.emotionIntensity}/5');
+      }
+      sb.write('。');
+      out.add(sb.toString());
+    }
+    if (d.catchphrases != null && d.catchphrases!.isNotEmpty) {
+      out.add('口头禅（自然穿插，不要每句都用）：${d.catchphrases!.join('、')}。');
+    }
+    if (d.anchorTraits != null && d.anchorTraits!.isNotEmpty) {
+      out.add('必须守住的特质：${d.anchorTraits!.join('、')}。任何时候都不能为了推进剧情而违背。');
+    }
+    if (d.anchorVoiceSample != null) {
+      out.add('口吻样本（模仿它的语感，不要照抄内容）：「${d.anchorVoiceSample}」');
+    }
+
+    // ---- 文风 ----
+    final List<String> styleParts = <String>[];
+    if (d.sentenceLength != null) {
+      styleParts.add('句长 ${d.sentenceLength}/5');
+    }
+    if (d.metaphorPerParagraph != null) {
+      styleParts.add('每段最多 ${d.metaphorPerParagraph} 处比喻');
+    }
+    if (d.humorLevel != null) {
+      styleParts.add('幽默度 ${d.humorLevel}/5');
+    }
+    if (d.dialogueRatio != null) {
+      styleParts.add('对白约占 ${d.dialogueRatio}%');
+    }
+    if (styleParts.isNotEmpty) {
+      out.add('文风：${styleParts.join('；')}。');
+    }
+
+    // ---- 母题 ----
+    if (d.motifName != null) {
+      final int every = d.motifEveryN ?? 0;
+      out.add(
+        every > 0
+            ? '意象母题：「${d.motifName}」，大约每 $every 段自然出现一次，不要刻意点题。'
+            : '意象母题：「${d.motifName}」，自然穿插，不要刻意点题。',
+      );
+    }
+
+    return out;
   }
 
   static String? _buildExtraRule(PromptStrategy strategy) {
