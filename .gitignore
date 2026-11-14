@@ -55,3 +55,12 @@ app.*.map.json
 
 # Local-only dev material: reference checkouts, model workspace, research dumps.
 /local/
+# 本分支构建产物
+build/
+.dart_tool/
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+android/.gradle/
+android/local.properties
+android/app/src/main/jniLibs/

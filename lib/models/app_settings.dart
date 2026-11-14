@@ -53,6 +53,9 @@ class AppSettings {
     required this.selectedVoiceModelId,
     required this.accentMode,
     this.customAccentColor,
+    required this.paletteKey,
+    this.customCanvasColor,
+    this.customGlassColor,
     required this.voiceInputEnabled,
     required this.ttsEnabled,
     this.ttsGlobalSeed,
@@ -95,7 +98,7 @@ class AppSettings {
   factory AppSettings.empty() {
     return AppSettings(
       provider: LlmProviderConfig.defaultProviderType,
-      themeMode: 'system',
+      themeMode: 'dark',
       baseUrl: '',
       apiKey: '',
       selectedModel: '',
@@ -135,6 +138,9 @@ class AppSettings {
       selectedVoiceModelId: kVoiceModelDefaultId,
       accentMode: 'auto',
       customAccentColor: null,
+      paletteKey: 'graphite',
+      customCanvasColor: null,
+      customGlassColor: null,
       voiceInputEnabled: false,
       ttsEnabled: false,
       ttsGlobalSeed: null,
@@ -332,6 +338,15 @@ class AppSettings {
   /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
   final int? customAccentColor;
 
+  /// 界面配色预设 key（见 AppPalette.presets），'custom' 表示自定义。
+  final String paletteKey;
+
+  /// 自定义画布底色（ARGB 整数），仅当 [paletteKey] 为 'custom' 时生效。
+  final int? customCanvasColor;
+
+  /// 自定义玻璃底色（ARGB 整数），仅当 [paletteKey] 为 'custom' 时生效。
+  final int? customGlassColor;
+
   /// 是否启用离线语音输入（STT）。关闭时聊天输入框不显示麦克风按钮。
   final bool voiceInputEnabled;
 
@@ -499,6 +514,9 @@ class AppSettings {
       'selectedVoiceModelId': selectedVoiceModelId,
       'accentMode': accentMode,
       'customAccentColor': customAccentColor,
+      'paletteKey': paletteKey,
+      'customCanvasColor': customCanvasColor,
+      'customGlassColor': customGlassColor,
       'voiceInputEnabled': voiceInputEnabled,
       'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
@@ -549,7 +567,7 @@ class AppSettings {
     return AppSettings(
       provider:
           (json['provider'] as String?) ?? LlmProviderConfig.defaultProviderType,
-      themeMode: (json['themeMode'] as String?) ?? 'system',
+      themeMode: (json['themeMode'] as String?) ?? 'dark',
       fontFamilyMode: (json['fontFamilyMode'] as String?) ?? 'system',
       chatInputStyle: (json['chatInputStyle'] as String?) ?? 'capsule',
       enableCommunity: (json['enableCommunity'] as bool?) ?? true,
@@ -601,6 +619,9 @@ class AppSettings {
           (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
       accentMode: (json['accentMode'] as String?) ?? 'auto',
       customAccentColor: json['customAccentColor'] as int?,
+      paletteKey: (json['paletteKey'] as String?) ?? 'graphite',
+      customCanvasColor: json['customCanvasColor'] as int?,
+      customGlassColor: json['customGlassColor'] as int?,
       voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? false,
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
@@ -714,6 +735,9 @@ class AppSettings {
     String? selectedVoiceModelId,
     String? accentMode,
     int? customAccentColor,
+    String? paletteKey,
+    int? customCanvasColor,
+    int? customGlassColor,
     bool? voiceInputEnabled,
     bool? ttsEnabled,
     int? ttsGlobalSeed,
@@ -800,6 +824,9 @@ class AppSettings {
       selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
       accentMode: accentMode ?? this.accentMode,
       customAccentColor: customAccentColor ?? this.customAccentColor,
+      paletteKey: paletteKey ?? this.paletteKey,
+      customCanvasColor: customCanvasColor ?? this.customCanvasColor,
+      customGlassColor: customGlassColor ?? this.customGlassColor,
       voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,

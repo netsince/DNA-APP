@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/app_drawer.dart';
+import 'package:dna/widgets/liquid_glass.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/articles_page.dart';
@@ -461,14 +462,11 @@ class _RootShellState extends State<RootShell> {
   /// ＋ 正好落在正中，与网页版一致。
   Widget _bottomBar() {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
+    return LiquidGlass(
       key: kCommunityBottomBarKey,
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(
-          top: BorderSide(color: scheme.outlineVariant, width: 0.5),
-        ),
-      ),
+      borderRadius: BorderRadius.zero,
+      tint: scheme.primary,
+      fill: scheme.surface.withValues(alpha: 0.88),
       child: SafeArea(
         top: false,
         child: SizedBox(

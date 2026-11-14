@@ -424,19 +424,74 @@ abstract final class AppColors {
   static const Color inkOnDark = Color(0xFFE6E1E5);
 }
 
+/// 「深色玻璃」表面系统。
+///
+/// 设计方向:深色画布 + 半透明玻璃层 + 极细白色描边 + 顶部柔光高光。
+/// 玻璃感来自四件事:低透明度白色填充、1px 高光描边、柔和外阴影、
+/// 以及少量顶部渐变高光(需要时用 [sheen])。
+abstract final class AppSurfaces {
+  /// 深色画布(页面最底层)。
+  static Color canvasDark = const Color(0xFF080A0D);
+
+  /// 深色画布(次级区域,如侧边栏底)。
+  static Color canvasDarkSoft = const Color(0xFF0C1015);
+
+  /// 玻璃填充(常规卡片)。
+  static Color glassFill = const Color(0x1CFFFFFF);
+
+  /// 玻璃填充(浮层/对话框,更实一点)。
+  static Color glassFillStrong = const Color(0x2AFFFFFF);
+
+  /// 玻璃填充(弱,内嵌子卡片)。
+  static Color glassFillWeak = const Color(0x0FFFFFFF);
+
+  /// 玻璃描边(1px,白 12%)。
+  static Color glassBorder = const Color(0x24FFFFFF);
+
+  /// 玻璃描边(弱,子卡片/分割线)。
+  static Color glassBorderSoft = const Color(0x17FFFFFF);
+
+  /// 顶部高光渐变(玻璃受光面)。
+  static const List<Color> sheen = <Color>[Color(0x1AFFFFFF), Color(0x00FFFFFF)];
+
+  /// 深色三级文字。
+  static Color inkPrimary = const Color(0xFFEDEFF3);
+  static Color inkSecondary = const Color(0xFFA7B0BD);
+  static Color inkTertiary = const Color(0xFF6E7885);
+
+  /// 浅色画布与玻璃(浅色模式兜底)。
+  static const Color canvasLight = Color(0xFFF3F5F9);
+  static const Color glassFillLight = Color(0xB8FFFFFF);
+  static const Color glassBorderLight = Color(0x14000000);
+
+  // ---- 由画布基色派生的表面层级(随自定义配色一起变) ----
+
+  static const Color _white = Color(0xFFFFFFFF);
+
+  static Color get surfaceContainerLowest =>
+      Color.lerp(canvasDark, _white, 0.02)!;
+  static Color get surfaceContainerLow => canvasDarkSoft;
+  static Color get surfaceContainer => Color.lerp(canvasDark, _white, 0.055)!;
+  static Color get surfaceContainerHigh =>
+      Color.lerp(canvasDark, _white, 0.085)!;
+  static Color get surfaceContainerHighest =>
+      Color.lerp(canvasDark, _white, 0.115)!;
+  static Color get outlineVariant => glassBorderSoft;
+}
+
 /// 动效令牌(全局唯一来源)。
 ///
 /// Material 3 规范的 Emphasized 缓动与三档时长:
 /// 小元素用短时长,整页容器变换用长时长。
 abstract final class AppMotion {
   /// 微交互:开关、着色、小尺寸变化。
-  static const Duration fast = Duration(milliseconds: 200);
+  static const Duration fast = Duration(milliseconds: 160);
 
   /// 中等过渡:卡片展开、面板滑入。
-  static const Duration medium = Duration(milliseconds: 300);
+  static const Duration medium = Duration(milliseconds: 200);
 
   /// 容器变换:小容器放大为整页(或反向)。
-  static const Duration transform = Duration(milliseconds: 450);
+  static const Duration transform = Duration(milliseconds: 240);
 
   /// 强调缓动:大多数过渡的默认曲线(加速段快、收尾柔和)。
   static const Curve emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
@@ -451,14 +506,14 @@ abstract final class AppMotion {
   ///
   /// 滑行时长随距离递增:首步 [sectionTravel],每多经过一个栏目
   /// 加 [sectionTravelStep],封顶 [sectionTravelCap]。
-  static const Duration section = Duration(milliseconds: 300);
-  static const Duration sectionTravelStep = Duration(milliseconds: 90);
-  static const Duration sectionTravelCap = Duration(milliseconds: 600);
+  static const Duration section = Duration(milliseconds: 200);
+  static const Duration sectionTravelStep = Duration(milliseconds: 60);
+  static const Duration sectionTravelCap = Duration(milliseconds: 420);
 
   /// 滑行首步时长(相邻栏目,如底栏主页 → 群聊)。
   ///
   /// 与 [section] 同值;栏目切换令牌族的锚点。
-  static const Duration sectionTravel = Duration(milliseconds: 300);
+  static const Duration sectionTravel = Duration(milliseconds: 200);
 
   /// fade-through 三阶段分界(M3 规范:淡出 0-0.3 / 全空 0.3-0.35 /
   /// 淡入 + 缩放 0.35-1)。保留给可能回退或并行的淡换场景。
@@ -486,6 +541,21 @@ abstract final class AppShadows {
       color: Color(0x0A000000), // black @ 0.04
       blurRadius: 6,
       offset: Offset(0, 1.5),
+    ),
+  ];
+
+  /// 玻璃浮层阴影:大范围柔和投影 + 近距离接触影,让半透明卡片"浮"起来。
+  static const List<BoxShadow> glass = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x38000000),
+      blurRadius: 28,
+      spreadRadius: -8,
+      offset: Offset(0, 12),
+    ),
+    BoxShadow(
+      color: Color(0x1F000000),
+      blurRadius: 6,
+      offset: Offset(0, 2),
     ),
   ];
 }

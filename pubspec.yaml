@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.3.5+10
+version: 1.0.1+2101
 
 environment:
   sdk: ^3.10.7
@@ -60,14 +60,15 @@ dependencies:
   flutter_colorpicker: ^1.1.0
   archive: ^4.0.0
   file_picker: ^8.1.7
-  sherpa_onnx: ^1.13.4
-  record: ^5.1.2
-  onnxruntime: ^1.4.1
   ffi: ^2.0.1
   audioplayers: ^6.7.1
   crypto: ^3.0.7
   package_info_plus: ^9.0.1
   animations: ^2.2.0
+
+  # 离线语音输入：sherpa-onnx 流式识别 + 麦克风采集（定制版曾因瘦身移除，现恢复）
+  sherpa_onnx: ^1.13.8
+  record: ^5.2.1
 
   # ---- 以下是随「岛」一起复制进来的依赖 ----
   # 富文本（茶馆帖子/文章/评论正文）、离线大图查看、瀑布流网格、金额精度。

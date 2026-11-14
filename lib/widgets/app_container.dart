@@ -2,6 +2,7 @@ import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/liquid_glass.dart';
 
 /// 容器变换跳转:点击处的小容器平滑放大为整页,返回时缩回原位。
 ///
@@ -76,23 +77,33 @@ class AppContainer<T extends Object?> extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
     // OpenContainer 不读全局 cardTheme:封闭态的形状/底色手动对齐,
-    // 保证它替换 Card 后,静止外观与改造前逐像素一致。
+    // 保证它替换 Card 后,静止外观与改造前一致。
     final CardThemeData card = theme.cardTheme;
+    final ShapeBorder closed = closedShape ??
+        card.shape ??
+        RoundedRectangleBorder(borderRadius: AppRadius.mdAll);
+    final BorderRadius closedRadius = closed is RoundedRectangleBorder
+        ? closed.borderRadius.resolve(Directionality.of(context))
+        : AppRadius.mdAll;
     return OpenContainer<T>(
       transitionDuration: duration ?? AppMotion.transform,
       transitionType: ContainerTransitionType.fade,
-      // 封闭态底色对齐 Card 默认(M3 = surfaceContainerLow);源容器
-      // 飞行中途过渡到页面背景 surface,不闪白。
-      closedColor: card.color ?? cs.surfaceContainerLow,
+      // 封闭态改由 LiquidGlass 画（厚度渐变 + 高光 + 折射边）:
+      // 这里底色必须透明,否则玻璃下面会垫一层死色,高光就浮不起来。
+      closedColor: Colors.transparent,
       middleColor: cs.surface,
       openColor: cs.surface,
       closedElevation: card.elevation ?? 0,
       openElevation: 0,
-      closedShape:
-          closedShape ??
-          card.shape ??
-          RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
-      closedBuilder: closedBuilder,
+      closedShape: closed,
+      closedBuilder: (BuildContext context, VoidCallback open) => LiquidGlass(
+        borderRadius: closedRadius,
+        tint: cs.primary,
+        fill: Theme.of(context).brightness == Brightness.dark
+            ? AppSurfaces.glassFillWeak
+            : null,
+        child: closedBuilder(context, open),
+      ),
       openBuilder: openBuilder,
       tappable: tappable,
       onClosed: onClosed,

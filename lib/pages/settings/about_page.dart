@@ -1,10 +1,13 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:dna/services/app_update_service.dart';
 import 'package:dna/services/update_service.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'authors_page.dart';
@@ -15,7 +18,7 @@ import 'update_dialog.dart';
 /// 应用信息：名称、版本、作者、官网等。
 abstract final class AppInfo {
   static const String name = '与汝共奏';
-  static const String nameEn = 'Duet Nurturing Ally';
+  static const String nameEn = 'DNA ULTRA 1.0';
   static const String tagline = '开源 · 数据本地 · 隐私优先的角色扮演 APP';
   static const String officialSite = 'https://dnaopensource.netsince.com';
   static const String downloadPage = 'https://dnaopensource.netsince.com/download';
@@ -206,6 +209,11 @@ class _AboutPageState extends State<AboutPage> {
 
                   const SizedBox(height: 16),
 
+                  // ===== 2.5 应用内更新 =====
+                  const _InAppUpdateCard(),
+
+                  const SizedBox(height: 16),
+
                   // ===== 3. 项目成员 =====
                   Card(
                     child: ListTile(
@@ -372,6 +380,194 @@ class _LinkRow extends StatelessWidget {
       subtitle: FitText(subtitle, style: ts.bodySmall?.copyWith(color: cs.primary)),
       trailing: const Icon(Icons.open_in_new, size: 16),
       onTap: onTap,
+    );
+  }
+}
+
+/// 应用内更新卡片：检查清单 → 下载 → 触发安装（安卓）/ 替换并重启（桌面）。
+class _InAppUpdateCard extends StatefulWidget {
+  const _InAppUpdateCard();
+
+  @override
+  State<_InAppUpdateCard> createState() => _InAppUpdateCardState();
+}
+
+class _InAppUpdateCardState extends State<_InAppUpdateCard> {
+  final TextEditingController _baseCtrl = TextEditingController();
+  bool _busy = false;
+  String _status = '';
+  double? _progress;
+  AppUpdateManifest? _manifest;
+  String _current = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  @override
+  void dispose() {
+    _baseCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _init() async {
+    final String base = await AppUpdateService.instance.baseUrl();
+    final String cur = await AppUpdateService.instance.currentVersion();
+    if (!mounted) return;
+    setState(() {
+      _baseCtrl.text = base;
+      _current = cur;
+    });
+  }
+
+  Future<void> _check() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _status = '正在检查…';
+      _manifest = null;
+    });
+    await AppUpdateService.instance.setBaseUrl(_baseCtrl.text);
+    final AppUpdateManifest? m = await AppUpdateService.instance.fetch();
+    if (!mounted) return;
+    if (m == null) {
+      setState(() {
+        _busy = false;
+        _status = '没拉到更新清单：确认地址能访问，且根目录有 update.json';
+      });
+      return;
+    }
+    final bool newer = await AppUpdateService.instance.isNewer(m);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _manifest = newer ? m : null;
+      _status = newer
+          ? '发现新版本 ${m.version}（当前 ${_current.isEmpty ? "未知" : _current}）'
+          : '已是最新版本（${m.version}）';
+    });
+  }
+
+  Future<void> _install() async {
+    final AppUpdateManifest? m = _manifest;
+    if (m == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _status = '正在下载…';
+      _progress = 0;
+    });
+    try {
+      final String path = await AppUpdateService.instance.download(
+        m.url,
+        onProgress: (double p) {
+          if (mounted) setState(() => _progress = p);
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = Platform.isAndroid ? '下载完成，正在唤起安装器…' : '下载完成，准备替换文件…';
+      });
+      if (Platform.isAndroid) {
+        await AppUpdateService.instance.installAndroid(path);
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _progress = null;
+          _status = '已交给系统安装器，按提示完成安装';
+        });
+      } else {
+        await AppUpdateService.instance.applyWindows(path);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _progress = null;
+        _status = '更新失败：$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final TextTheme ts = theme.textTheme;
+    final AppUpdateManifest? m = _manifest;
+
+    return Card(
+      child: Padding(
+        padding: AppInsets.card,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.download_for_offline_outlined,
+                    size: AppSize.iconCard, color: cs.primary),
+                AppSpacing.wSm,
+                Expanded(
+                  child: FitText('应用内更新',
+                      style: AppTextStyles.sectionTitle(theme)),
+                ),
+              ],
+            ),
+            AppSpacing.hSm,
+            FitText(
+              '从更新地址读取 update.json，下载后直接在应用里安装',
+              style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            AppSpacing.hSm,
+            TextField(
+              controller: _baseCtrl,
+              decoration: const InputDecoration(
+                labelText: '更新地址',
+                hintText: AppUpdateService.kDefaultBase,
+                helperText: '该地址根目录需有 update.json',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _check(),
+            ),
+            AppSpacing.hSm,
+            Row(
+              children: <Widget>[
+                OutlinedButton(
+                  onPressed: _busy ? null : _check,
+                  child: const FitText('检查更新'),
+                ),
+                AppSpacing.wSm,
+                FilledButton(
+                  onPressed: (_busy || m == null) ? null : _install,
+                  child: FitText(
+                    Platform.isAndroid ? '下载并安装' : '下载并更新',
+                  ),
+                ),
+              ],
+            ),
+            if (_progress != null) ...<Widget>[
+              AppSpacing.hSm,
+              LinearProgressIndicator(value: _progress),
+            ],
+            if (_status.isNotEmpty) ...<Widget>[
+              AppSpacing.hSm,
+              FitText(
+                _status,
+                style: ts.bodySmall?.copyWith(color: cs.outline),
+              ),
+            ],
+            if (m != null && m.notes.isNotEmpty) ...<Widget>[
+              AppSpacing.hSm,
+              FitText(
+                m.notes,
+                style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../bgm_player.dart';
 import 'tts_config.dart';
+import 'win_mci_player.dart';
 
 /// 播放 24kHz 单声道 float 音频。
 ///
@@ -15,6 +16,23 @@ class TtsPlayer {
   TtsPlayer._();
 
   static final TtsPlayer instance = TtsPlayer._();
+
+  /// Windows 上走 MCI：audioplayers 在这个构建里播 mp3 会崩（MSVCP140）。
+  static final bool _useMci = !kIsWeb && Platform.isWindows;
+
+  Future<void> _playWithMci(String filePath) async {
+    playing.value = true;
+    await BgmPlayer.instance.duck();
+    try {
+      await WinMciPlayer.instance.playFile(filePath);
+    } catch (e) {
+      debugPrint('[tts] MCI 播放失败: $e');
+      rethrow;
+    } finally {
+      playing.value = false;
+      await BgmPlayer.instance.unduck();
+    }
+  }
 
   AudioPlayer? _player;
 
@@ -25,6 +43,10 @@ class TtsPlayer {
   Future<void> play(Float32List samples) async {
     await stop();
     final File wav = await _writeWav(samples);
+    if (_useMci) {
+      await _playWithMci(wav.path);
+      return;
+    }
     final AudioPlayer player = AudioPlayer();
     _player = player;
     playing.value = true;
@@ -49,7 +71,65 @@ class TtsPlayer {
     await player.play(DeviceFileSource(wav.path), mode: PlayerMode.lowLatency);
   }
 
+  /// 播放云端合成返回的音频地址（mp3，走网络流）。
+  Future<void> playUrl(String url) async {
+    await stop();
+    final AudioPlayer player = AudioPlayer();
+    _player = player;
+    playing.value = true;
+    await BgmPlayer.instance.duck();
+    player.onPlayerComplete.listen((_) {
+      if (_player == player) {
+        _player = null;
+        playing.value = false;
+        BgmPlayer.instance.unduck();
+      }
+    });
+    player.onPlayerStateChanged.listen((PlayerState s) {
+      if ((s == PlayerState.stopped || s == PlayerState.completed) &&
+          _player == player) {
+        _player = null;
+        playing.value = false;
+        BgmPlayer.instance.unduck();
+      }
+    });
+    await player.play(UrlSource(url), mode: PlayerMode.mediaPlayer);
+  }
+  /// 播放本地音频文件（云端合成下载下来的 mp3 走这条）。
+  /// 与 [playUrl] 的区别：不经过 Media Foundation 的网络流式路径。
+  Future<void> playFile(String filePath) async {
+    await stop();
+    if (_useMci) {
+      await _playWithMci(filePath);
+      return;
+    }
+    final AudioPlayer player = AudioPlayer();
+    _player = player;
+    playing.value = true;
+    await BgmPlayer.instance.duck();
+    player.onPlayerComplete.listen((_) {
+      if (_player == player) {
+        _player = null;
+        playing.value = false;
+        BgmPlayer.instance.unduck();
+      }
+    });
+    player.onPlayerStateChanged.listen((PlayerState s) {
+      if ((s == PlayerState.stopped || s == PlayerState.completed) &&
+          _player == player) {
+        _player = null;
+        playing.value = false;
+        BgmPlayer.instance.unduck();
+      }
+    });
+    await player.play(DeviceFileSource(filePath), mode: PlayerMode.mediaPlayer);
+  }
   Future<void> stop() async {
+    if (_useMci) {
+      try {
+        await WinMciPlayer.instance.stop();
+      } catch (_) {}
+    }
     final AudioPlayer? p = _player;
     _player = null;
     playing.value = false;

@@ -1,10 +1,22 @@
-allprojects {
+buildscript {
     repositories {
-        google()
-        mavenCentral()
+        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/")
+        maven("https://maven.aliyun.com/repository/gradle-plugin")
+        maven("https://maven.aliyun.com/repository/google")
+        maven("https://maven.aliyun.com/repository/central")
+        maven("https://maven.aliyun.com/repository/public")
     }
 }
 
+allprojects {
+    repositories {
+        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/")
+        maven("https://maven.aliyun.com/repository/google")
+        maven("https://maven.aliyun.com/repository/central")
+        maven("https://maven.aliyun.com/repository/public")
+        maven("https://storage.flutter-io.cn/download.flutter.io")
+    }
+}
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
@@ -25,7 +37,7 @@ subprojects {
         }
     }
 
-    // 强行把所有想上 36 的 androidx 依赖全部降回 35 兼容版本
+    // 瀵缚顢戦幎濠冨閺堝鍏傛稉?36 閻?androidx 娓氭繆绂嗛崗銊╁劥闂勫秴娲?35 閸忕厧顔愰悧鍫熸拱
     configurations.all {
         resolutionStrategy {
             force("androidx.core:core:1.13.1")

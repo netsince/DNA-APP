@@ -46,6 +46,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          # 固定 Flutter 版本：channel: stable 会自动拉到最新 stable，构建环境随之漂移。
+          # 2026-11 的 3.50.0 把最低 Gradle 提到 9.3.1，而本项目是 Gradle 8.14，
+          # 导致 v0.3.6 的 Android 构建直接失败。3.47.8 是 v0.3.5 成功构建的确切版本。
+          flutter-version: '3.47.8'
           channel: stable
           cache: true
 

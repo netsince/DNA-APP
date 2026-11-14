@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/liquid_glass.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../models/quick_reply.dart';
@@ -878,27 +879,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   /// 胶囊样式（默认）：输入框与所有按钮装在同一个圆角容器里（悬浮输入岛）。
   Widget _buildCapsuleBar(ColorScheme cs) {
-    return Container(
+    return LiquidGlass(
       padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(
-          alpha: widget.halfScreen ? 0.72 : 0.95,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(
-            alpha: widget.halfScreen ? 0.35 : 0.5,
-          ),
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: widget.halfScreen ? 0.03 : 0.05,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      borderRadius: BorderRadius.circular(999),
+      tint: cs.primary,
+      fill: cs.surfaceContainerHigh.withValues(
+        alpha: widget.halfScreen ? 0.72 : 0.95,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

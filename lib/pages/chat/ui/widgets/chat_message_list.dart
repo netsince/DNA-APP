@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 
 import '../../../../models/conversation.dart';
+import '../../../../services/cloud_tts_service.dart';
 import '../../../../services/tts/tts_player.dart';
 import '../../../../services/tts/tts_service.dart';
 import '../../../../utils/light_markdown.dart';
@@ -307,11 +309,18 @@ class ChatMessageList extends StatelessWidget {
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: bubbleRadius,
+              // 玻璃描边：让气泡边缘有一点受光，和卡片/导航同一套语言。
+              border: Border.all(
+                color: isUser
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : AppSurfaces.glassBorderSoft,
+              ),
+              // 大而柔的投影（玻璃浮起来的层次），替代原来的硬阴影。
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 1.5),
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -413,15 +422,26 @@ class ChatMessageList extends StatelessWidget {
                 ? avatarForMessage!(message.speakerTaId)
                 : null;
 
-        // 操作按钮排：朗读（仅端侧 TTS 开启时）、复制、重说、继续说（最近一条）。
+        // 朗读按钮的显示条件：端侧 TTS 打开、云端直连可用（enabled/direct），
+        // 或者就是手机端——手机没有离线模型，云端直连是唯一出音路径，
+        // 一旦因为配置没读出来而把按钮藏掉，用户会以为「这版没有朗读」。
+        // 没配 Key 时点它会给提示，比直接看不见强。
+        final bool mobilePlatform =
+            defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS;
         final List<Widget> actionButtons = <Widget>[];
-        if (actionable && ttsEnabled) {
+        if (actionable &&
+            (ttsEnabled ||
+                CloudTtsService.instance.enabled ||
+                CloudTtsService.instance.directMode ||
+                mobilePlatform)) {
           actionButtons.add(
             _MessagePlayButton(
               text: message.text,
               globalSeed: ttsGlobalSeed,
               voiceSeedForTa: voiceSeedForTa,
               speakerTaId: message.speakerTaId,
+              speakerName: taNameForId(message.speakerTaId)?.trim(),
               quoteOnly: ttsQuoteOnly,
             ),
           );
@@ -506,16 +526,23 @@ class _MessageAvatarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Material(
-      color: cs.primaryContainer.withValues(alpha: 0.92),
-      shape: const CircleBorder(),
-      elevation: 2,
+      // 头像底座同样走玻璃语言：半透明白 + 细描边，替代原来的 primaryContainer 实心圆。
+      color: AppSurfaces.glassFillStrong,
+      shape: CircleBorder(
+        side: BorderSide(color: AppSurfaces.glassBorderSoft),
+      ),
+      elevation: 0,
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 26,
         height: 26,
         child: avatar == null
-            ? Icon(Icons.person, size: 16, color: cs.onPrimaryContainer)
-            : Image(image: avatar!, fit: BoxFit.cover),
+            ? Icon(Icons.person, size: 16, color: cs.onSurfaceVariant)
+            : Image(
+                // 头像显示只有 26pt，限制解码尺寸，避免大图占内存/显存。
+                image: ResizeImage(avatar!, width: 64, height: 64),
+                fit: BoxFit.cover,
+              ),
       ),
     );
   }
@@ -562,11 +589,12 @@ class _MessageActionButton extends StatelessWidget {
 /// 点击 → 合成（显示百分比）→ 自动播放；合成结果经 TtsAudioCache 去重，
 /// 已合成过的内容再次点击会命中缓存直接重播。
 class _MessagePlayButton extends StatefulWidget {
-  _MessagePlayButton({
+    _MessagePlayButton({
     required this.text,
     this.globalSeed,
     this.voiceSeedForTa,
     this.speakerTaId,
+    this.speakerName,
     this.quoteOnly = true,
   }) : super(key: Key('tts_play_$speakerTaId'));
 
@@ -574,6 +602,9 @@ class _MessagePlayButton extends StatefulWidget {
   final int? globalSeed;
   final VoiceSeedForTa? voiceSeedForTa;
   final String? speakerTaId;
+
+  /// 角色名：云端直连模式按名字查「角色音色」（桌面端同理，按名字存）。
+  final String? speakerName;
   final bool quoteOnly;
 
   @override
@@ -617,6 +648,42 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
     });
     // 让进度先渲染一帧（引擎同步推理在后台 isolate，不阻塞 UI）
     await Future<void>.delayed(const Duration(milliseconds: 60));
+    // 云端语音合成优先：桌面端交给本机 dna-bridge，手机端直连厂商 API。
+    if (CloudTtsService.instance.enabled ||
+        CloudTtsService.instance.directMode) {
+      try {
+        // 播放交给本机 bridge：audioplayers 在这套构建里播 mp3 会崩进程
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _playing = true;
+            _status = '朗读中…';
+          });
+        }
+        final CloudTtsClip clip = await CloudTtsService.instance.speakAndPlay(
+          widget.text,
+          characterId: widget.speakerTaId,
+          characterName: widget.speakerName,
+        );
+        if (!mounted) return;
+        setState(() {
+          _playing = false;
+          _status = '';
+        });
+        debugPrint('cloud tts played ${clip.seconds}s ${clip.voice}');
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _playing = false;
+          _status = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: FitText('云端语音合成失败：$e')),
+        );
+      }
+      return;
+    }
     // 点击时重新读取最新角色 seed：角色的 voiceSeed 是异步加载的，
     // build 时可能还是 null（退回 globalSeed），导致两次点击缓存 key 不同、
     // 重复合成。这里直接取当前最新值，保证这一次合成用的 key 与后续一致。
@@ -659,6 +726,7 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
   }
 
   Future<void> _stop() async {
+    await CloudTtsService.instance.stopPlayback();
     await TtsPlayer.instance.stop();
     if (!mounted) return;
     setState(() {

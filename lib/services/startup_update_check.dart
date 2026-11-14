@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../pages/settings/update_dialog.dart';
 import '../state/app_controller.dart';
 import '../utils/ui_feedback.dart';
+import 'app_update_service.dart';
 import 'update_service.dart';
 
 /// 启动时的更新检查。
@@ -46,16 +47,37 @@ class StartupUpdateCheck {
       switch (result) {
         case UpdateAvailable(:final UpdateInfo info):
           await showUpdateDialog(context, info);
+          if (!context.mounted) break;
+          await _checkCustomChannel(context);
+          break;
         case UpdateUpToDate():
-          break; // 已是最新 —— 不打扰
+          await _checkCustomChannel(context);
+          break;
         case UpdateCheckFailed(:final UpdateCheckError error):
-          // 读不到本地版本是应用自身的问题,用户无法解决 —— 静默,
-          // 否则每次启动都弹一条无意义的错误。
-          if (error == UpdateCheckError.localVersionUnavailable) break;
+          if (error == UpdateCheckError.localVersionUnavailable) {
+            await _checkCustomChannel(context);
+            break;
+          }
+          if (!context.mounted) break;
           showSnack(context, '获取更新失败，可能不是最新版。');
+          break;
       }
     } catch (_) {
       // 启动路径上的任何异常都不允许冒泡。
     }
+  }
+
+  /// 检查自定义渠道（站点根目录 update.json）；有新版时轻提示，不弹窗。
+  static Future<void> _checkCustomChannel(BuildContext context) async {
+    try {
+      final AppUpdateManifest? m =
+          await AppUpdateService.instance.checkSilently();
+      if (!context.mounted || m == null) return;
+      showSnack(
+        context,
+        '发现新版本 ${m.version}${m.notes.isEmpty ? '' : '：${m.notes}'}，去 设置 → 关于 → 应用内更新 下载',
+        duration: const Duration(seconds: 8),
+      );
+    } catch (_) {}
   }
 }
