@@ -14,6 +14,8 @@ import '../../utils/platform_capabilities.dart';
 import '../../widgets/adaptive_text_field.dart';
 import '../../widgets/tag_input.dart';
 import 'image_slot.dart';
+import '../../models/prompt_strategy.dart';
+import '../settings/widgets/strategy_override_editor.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/ui_feedback.dart';
@@ -126,6 +128,9 @@ class _TaEditorFormState extends State<TaEditorForm> {
   List<DialogueTurn> _dialogueStyle = <DialogueTurn>[];
   String? _musicPath;
 
+  /// 该角色的「对话策略」覆盖；null 表示全部继承世界卡 / 全局。
+  StrategyDetails? _strategyOverride;
+
   @override
   void initState() {
     super.initState();
@@ -157,6 +162,7 @@ class _TaEditorFormState extends State<TaEditorForm> {
     _dialogueStyle =
         List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
     _musicPath = ta?.musicPath;
+    _strategyOverride = ta?.strategyOverride;
     if (mounted) {
       setState(() {});
     }
@@ -276,6 +282,7 @@ class _TaEditorFormState extends State<TaEditorForm> {
           : _authorNoteController.text.trim(),
       authorNoteInterval: int.tryParse(_authorIntervalController.text.trim()) ?? 0,
       musicPath: _musicPath,
+      strategyOverride: _strategyOverride,
     );
   }
 
@@ -497,6 +504,7 @@ class _TaEditorFormState extends State<TaEditorForm> {
       _authorIntervalController.text = finalTA.authorNoteInterval.toString();
       _images = Map<String, String>.from(finalTA.images);
       _dialogueStyle = List<DialogueTurn>.from(finalTA.dialogueStyle);
+      _strategyOverride = finalTA.strategyOverride;
     });
 
     showSnack(context, '导入成功');
@@ -741,6 +749,38 @@ class _TaEditorFormState extends State<TaEditorForm> {
                             ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 对话策略：只描述「这个角色怎么说话」。
+          // 任何一项停在「未设置」就继续继承世界卡与全局，不会因为没填而变成关闭。
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FitText('对话策略', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  FitText(
+                    '留「未设置」即继承世界卡与全局。这些项会随角色卡一起导出 / 导入。',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  StrategyOverrideEditor(
+                    scope: StrategyScope.character,
+                    value: _strategyOverride,
+                    onChanged: (StrategyDetails? v) {
+                      setState(() => _strategyOverride = v);
+                    },
                   ),
                 ],
               ),
