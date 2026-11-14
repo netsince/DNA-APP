@@ -515,11 +515,15 @@ class _MessageAvatarButton extends StatelessWidget {
         height: 26,
         child: avatar == null
             ? Icon(Icons.person, size: 16, color: cs.onPrimaryContainer)
-            // 头像显示只有 26pt，限制解码尺寸：原图是立绘级别的大图，
-            // 按原尺寸解码会白白吃内存与显存。
+            // 解码尺寸已由 ChatStateMixin 统一限制（按整屏最长边），
+            // 这里不再二次包装 ResizeImage —— 套两层会让缓存的 key 与解码路径
+            // 都变得难以预期，之前就是这样把气泡头像弄成了破图。
             : Image(
-                image: ResizeImage(avatar!, width: 64, height: 64),
+                image: avatar!,
                 fit: BoxFit.cover,
+                // 加载失败时退回占位图标，不要留一个破图框。
+                errorBuilder: (BuildContext context, Object error, StackTrace? stack) =>
+                    Icon(Icons.person, size: 16, color: cs.onPrimaryContainer),
               ),
       ),
     );

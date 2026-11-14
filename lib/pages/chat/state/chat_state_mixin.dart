@@ -319,10 +319,13 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
       return provider;
     }
     final Size logical = view.physicalSize / dpr;
-    final int maxEdge =
-        (logical.width > logical.height ? logical.width : logical.height)
-            .clamp(800, 2560)
-            .round();
+    final double longest =
+        logical.width > logical.height ? logical.width : logical.height;
+    // 窗口尚未布局时 physicalSize 可能是 0 或 NaN：此时不限制，交给默认解码。
+    if (!longest.isFinite || longest <= 0) {
+      return provider;
+    }
+    final int maxEdge = longest.clamp(800, 2560).round();
     return ResizeImage.resizeIfNeeded(maxEdge, maxEdge, provider);
   }
 
