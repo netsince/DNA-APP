@@ -1,6 +1,8 @@
 ## v0.3.6
 
-v0.3.6 正在制作中。
+v0.3.6 已正式发布。
+
+若出现问题，请前往官方社区 DNAIsland 、GitHub Issues、软件反馈邮箱提出问题，或前往 GitHub Pull Requests 贡献代码。
 
 ### 主要更新：
 
