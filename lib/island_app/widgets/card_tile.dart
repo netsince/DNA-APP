@@ -4,6 +4,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/models/ta_gender.dart';
 import '../../theme/tokens.dart';
 
 /// 单张角色卡组件：封面 + 名称 + 作者 + 简介 + 观看/复制数。
@@ -119,7 +120,7 @@ class CardTile extends StatelessWidget {
               ),
               if (gender.isNotEmpty) ...[
                 const SizedBox(width: 6),
-                _GenderBadge(gender),
+                _GenderBadge(TaGender.labelOf(gender)),
               ],
             ],
           ),

@@ -1,10 +1,11 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
 import '../../models/ta.dart';
+import '../../models/ta_gender.dart';
 import '../../models/dialogue_style.dart';
 import '../../services/export_file_utils.dart';
 import '../../services/image_pick_capability.dart';
@@ -157,7 +158,7 @@ class _TaEditorFormState extends State<TaEditorForm> {
     _authorNoteController.text = ta?.authorNote ?? '';
     _authorIntervalController.text =
         ta?.authorNoteInterval.toString() ?? '0';
-    _gender = ta?.gender ?? '无性';
+    _gender = ta?.gender ?? TaGender.fallbackId;
     _images = Map<String, String>.from(ta?.images ?? <String, String>{});
     _dialogueStyle =
         List<DialogueTurn>.from(ta?.dialogueStyle ?? <DialogueTurn>[]);
@@ -604,11 +605,20 @@ class _TaEditorFormState extends State<TaEditorForm> {
                       labelText: '性别',
                       border: OutlineInputBorder(),
                     ),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem(value: '男', child: FitText('男')),
-                      DropdownMenuItem(value: '女', child: FitText('女')),
-                      DropdownMenuItem(value: '无性', child: FitText('无性')),
-                      DropdownMenuItem(value: '其他', child: FitText('其他')),
+                    items: <DropdownMenuItem<String>>[
+                      // value 是存储用 ID（沿用的中文值），child 是显示文案。
+                      for (final TaGender g in TaGender.selectable)
+                        DropdownMenuItem<String>(
+                          value: g.id,
+                          child: FitText(g.label),
+                        ),
+                      // 导入的卡可能带本应用不认识的取值：补一项原样显示，
+                      // 既不会触发 Dropdown 的断言，也不会把数据改掉。
+                      if (_gender.isNotEmpty && !TaGender.isKnown(_gender))
+                        DropdownMenuItem<String>(
+                          value: _gender,
+                          child: FitText(_gender),
+                        ),
                     ],
                     onChanged: (String? value) {
                       if (value == null) {

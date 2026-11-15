@@ -23,25 +23,36 @@
 
 ## A 级 · 名字被当成持久化身份（会丢数据或断逻辑）
 
-### A1. `TA.gender` 用中文字面量当枚举，且已经写进服务端协议
+### A1. `TA.gender` 用中文字面量当枚举 —— **已按「中文即 ID」方案处理**
 
-| 位置 | 现象 |
-|---|---|
-| `lib/models/ta.dart:27` | `final String gender;` —— 取值 `'男'` / `'女'` / `'无性'` / `'其他'` |
-| `lib/pages/ta_editor/ta_editor_form.dart:608-611` | `DropdownMenuItem(value: '男', …)`：显示文案 == 存储值 |
-| `lib/models/ta.dart:105` | 存进 Hive：`'gender': gender` |
-| `lib/services/ta_export_import_models.dart:92` | 写进导出文件 |
-| `lib/island_app/card_payload.dart:24` | **发进社区接口**：`'gender': ta.gender` |
-| `lib/island_app/card_detail_page.dart:1219` | 从服务端取回后原样显示 |
+原状：`ta.gender` 的取值 `'男' / '女' / '无性' / '其他'` 同时是存储值、
+导出值、社区接口值与显示文案（`card_payload.dart:24` 原样发给服务端）。
+默认值 `'无性'` 曾在四处各写一遍。
 
-默认值 `'无性'` 在四处各写一遍：`ta.dart:132`、`ta_export_import_models.dart:135`、
-`ta_export_import_service.dart:273`、`ta_editor_form.dart:160`。
+**决定（2026-11）**：不改服务端、不迁存档。**让既有中文值直接当稳定 ID**，
+显示统一走映射：
 
-**同一仓库里已有正确做法**：`lib/models/world.dart:101-154` 的 `WorldPersonGender`
-是枚举 + ASCII JSON 映射（`'male'` / `'female'` / `'other'`）。
+| 层 | 位置 | 规则 |
+|---|---|---|
+| 身份 | `lib/models/ta_gender.dart` 的 `TaGender.id` | `'男' / '女' / '无性' / '其他'`，一字不改（存档与服务端靠它） |
+| 显示 | `TaGender.label` + `TaGender.labelOf(id)` | 已知 ID → label；**未知 ID 原样返回**（社区卡可能带任意字符串，不能吞数据）；null/空 → 空串 |
+| 写入 | `TaGender.selectable`（value=id，child=label） | 编辑页下拉不再把中文字面量写两遍 |
 
-**修法**：新建 `TaGender` 枚举 + ASCII 映射；读取时兼容老存档里的四个中文值；
-发布 payload 改发 ASCII（需要与服务端确认兼容策略，属于跨端改动）。
+为什么这不是「换个地方继续用中文当 key」：ID 从此**只出现在存储与协议边界**，
+界面一律经 `labelOf` 转换，代码里不再有「拿 gender 字符串做判断」的分支。
+将来出英文界面只改 `label` 这一列，存档、导出文件、服务端协议都不用动。
+
+已改的显示点：`ta_showcase_page`、`delete_preview_builders`、`ta_editor_form`
+（下拉 value/label 分离，未知值补一项避免 Dropdown 断言）、
+`island_app/card_detail_page`、`island_app/widgets/card_tile`、
+`island_app/swipe_body`。
+
+守卫：`test/ta_gender_test.dart` 钉住「四个 ID 逐字不变」「未知值原样显示」
+「显示点必须走 labelOf」「编辑页 value 是 id 而不是中文字面量」。
+
+**留的尾巴**：`'无性'` 仍作为默认值散在导入路径里
+（`ta.dart:132`、`ta_export_import_models.dart:135`、`ta_export_import_service.dart:273`），
+可以逐步换成 `TaGender.fallbackId`，不影响本次结论。
 
 ### A2. 拿错误文案做控制流
 
@@ -102,6 +113,6 @@ onRetry: _error == '请先登录后再查看' ? null : _load,
 
 ## 修复顺序建议
 
-1. `TA.gender`（A1）—— 唯一已经污染服务端协议的，改早比改晚便宜。
+1. ~~`TA.gender`（A1）~~ —— 已按「中文即 ID + 显示映射」处理，见上。
 2. `punishments_page` 的错误码（A2）。
 3. `_byName` 两处（B）—— 显式 key 映射表，并加「旧值仍能读回来」的测试。

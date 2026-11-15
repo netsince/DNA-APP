@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/models/ta.dart';
+import 'package:dna/models/ta_gender.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/server_config.dart';
@@ -1216,7 +1217,8 @@ class _ProfileCard extends StatelessWidget {
     final chips = <Widget>[
       if (detail.gender.isNotEmpty)
         _Chip(
-          label: detail.gender,
+          // 服务端存的是 ID（历史中文值）；未知值原样显示，不丢数据。
+          label: TaGender.labelOf(detail.gender),
           background: scheme.primaryContainer,
           foreground: scheme.onPrimaryContainer,
         ),

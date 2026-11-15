@@ -6,6 +6,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/models/ta_gender.dart';
 import '../theme/tokens.dart';
 
 /// 「刷一刷」横向翻页式角色卡浏览。
@@ -325,7 +326,7 @@ class _SwipeCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(AppRadius.xs),
                             ),
                             child: Text(
-                              gender,
+                              TaGender.labelOf(gender),
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(color: Colors.white),
                             ),

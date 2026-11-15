@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
+import '../models/ta_gender.dart';
 import '../services/image_storage.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
@@ -411,7 +412,9 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
             ),
             const SizedBox(height: 18),
           ],
-          if (ta.gender.trim().isNotEmpty) _kv(context, '性别', ta.gender),
+          // gender 存的是 ID（沿用的中文值），显示走映射：将来出英文只改那一列。
+          if (TaGender.labelOf(ta.gender).isNotEmpty)
+            _kv(context, '性别', TaGender.labelOf(ta.gender)),
           _section(context, '简介', ta.intro),
           _section(context, '人设', ta.persona),
           _section(context, '开场白', ta.opening),
