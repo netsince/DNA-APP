@@ -8,12 +8,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 玻璃画质：高 = Paint.shader 真折射；中 = 几何玻璃（当前默认）；关 = 平底。
 enum GlassQuality {
-  high('高（真折射）'),
-  medium('中（几何高光）'),
-  off('关');
+  high('high', '高（真折射）'),
+  medium('medium', '中（几何高光）'),
+  off('off', '关');
 
-  const GlassQuality(this.label);
+  const GlassQuality(this.key, this.label);
+
+  /// 持久化用的键。**不要用 enum 标识符（`.name`）代替它**：
+  /// 改成员名不该动存档 —— 那正是「重命名一次，用户设置静默丢一次」的来源。
+  final String key;
+
+  /// 界面文案。本地化时只改这里。
   final String label;
+
+  /// 从持久化值解析。
+  ///
+  /// 旧实现存的是 enum 标识符，且与现在的 key 取值相同（high/medium/off），
+  /// 所以历史存档能原样读回来；将来 key 若与标识符分道扬镳，也不会破。
+  static GlassQuality? fromKey(String? raw) {
+    if (raw == null) return null;
+    for (final GlassQuality q in values) {
+      if (q.key == raw) return q;
+    }
+    return null;
+  }
 }
 
 /// 画质开关的本地存储 + 通知。默认「高」，渲染失败时自动回退到「中」。
@@ -40,15 +58,10 @@ class GlassQualityStore extends ChangeNotifier {
   Future<void> load() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? raw = prefs.getString(prefsKey);
-      if (raw != null) {
-        for (final GlassQuality q in GlassQuality.values) {
-          if (q.name == raw) {
-            _value = q;
-            break;
-          }
-        }
-      }
+      final GlassQuality? stored = GlassQuality.fromKey(
+        prefs.getString(prefsKey),
+      );
+      if (stored != null) _value = stored;
     } catch (_) {}
     notifyListeners();
   }
@@ -59,7 +72,7 @@ class GlassQualityStore extends ChangeNotifier {
     notifyListeners();
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString(prefsKey, q.name);
+      await prefs.setString(prefsKey, q.key);
     } catch (_) {}
   }
 

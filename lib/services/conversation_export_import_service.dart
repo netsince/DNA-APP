@@ -90,6 +90,19 @@ class ConversationExportImportService {
   static const int _version = 1;
   static const String _app = 'dna-client';
 
+  // ---- 导出文稿的兜底文案 ----
+  //
+  // 这三条只出现在**给人读的 Markdown 文稿**里：会话没名字时总要有个标题，
+  // 说话人没名字时总要有个称呼。它们属于「文稿排版」，不是身份 ——
+  // 界面语言变了它跟着变是预期行为，所以不进 token、也不做映射。
+  //
+  // 边界：**结构化导出（JSON）里不放兜底**。空名字就写空串，由界面负责补显示。
+  // 否则同一份数据在中文/英文客户端上导出的 JSON 会不一样，导入端也没法判断
+  // 「这个名字是用户的，还是我们编的」。
+  static const String fallbackGroupTitle = '群聊';
+  static const String fallbackChatTitle = '对话';
+  static const String fallbackSpeakerName = '角色';
+
   static String _timestamp() {
     final DateTime d = DateTime.now();
     String p(int n) => n.toString().padLeft(2, '0');
@@ -243,10 +256,12 @@ class ConversationExportImportService {
     Map<String, TA> tasById,
   ) {
     final String title = c.isGroup
-        ? (c.groupName.trim().isNotEmpty ? c.groupName.trim() : '群聊')
+        ? (c.groupName.trim().isNotEmpty
+            ? c.groupName.trim()
+            : fallbackGroupTitle)
         : (tasById[c.taId]?.name.isNotEmpty == true
             ? tasById[c.taId]!.name
-            : '对话');
+            : fallbackChatTitle);
     sb.writeln('# $title');
     if (c.note.trim().isNotEmpty) {
       sb.writeln('> ${c.note.trim()}');
@@ -254,10 +269,10 @@ class ConversationExportImportService {
     sb.writeln();
 
     final String fallbackName = c.isGroup
-        ? '角色'
+        ? fallbackSpeakerName
         : (tasById[c.taId]?.name.isNotEmpty == true
             ? tasById[c.taId]!.name
-            : '角色');
+            : fallbackSpeakerName);
 
     for (final ConversationMessage m in c.messages) {
       if (m.kind == 'summary_prompt') {

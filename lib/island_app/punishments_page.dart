@@ -65,10 +65,23 @@ class PunishmentsBody extends StatefulWidget {
   State<PunishmentsBody> createState() => _PunishmentsBodyState();
 }
 
+/// 加载失败的**种类**。
+///
+/// 旧实现拿错误文案做判断（`_error == '请先登录后再查看'`）：文案改一个字，
+/// 「未登录不给重试按钮」这条规则就静默失效。种类归种类，文案归文案。
+enum _PunishmentLoadError {
+  /// 未登录：重试没意义，引导去登录，不给重试按钮。
+  needLogin,
+
+  /// 网络/服务端错误：给重试。
+  failed,
+}
+
 class _PunishmentsBodyState extends State<PunishmentsBody> {
   List<Map<String, dynamic>> _items = const [];
   bool _loading = true;
   String? _error;
+  _PunishmentLoadError? _errorKind;
 
   PunishmentsLoader get _loader =>
       widget.loader ?? ApiClient.instance.getPunishments;
@@ -86,6 +99,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     if (!(widget.isLoggedIn ?? AuthSession.instance.isLoggedIn)) {
       setState(() {
         _loading = false;
+        _errorKind = _PunishmentLoadError.needLogin;
         _error = '请先登录后再查看';
       });
       return;
@@ -93,6 +107,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     setState(() {
       _loading = true;
       _error = null;
+      _errorKind = null;
     });
     try {
       final result = await _loader();
@@ -105,6 +120,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _errorKind = _PunishmentLoadError.failed;
         _error = '$e';
       });
     }
@@ -140,7 +156,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     if (_error != null) {
       return ErrorState(
         message: _error!,
-        onRetry: _error == '请先登录后再查看' ? null : _load,
+        onRetry: _errorKind == _PunishmentLoadError.needLogin ? null : _load,
       );
     }
     if (_items.isEmpty) {

@@ -54,38 +54,41 @@
 （`ta.dart:132`、`ta_export_import_models.dart:135`、`ta_export_import_service.dart:273`），
 可以逐步换成 `TaGender.fallbackId`，不影响本次结论。
 
-### A2. 拿错误文案做控制流
+### A2. 拿错误文案做控制流 —— **已修**
 
-`lib/island_app/punishments_page.dart:143`
+原状：`punishments_page.dart:143` 用 `_error == '请先登录后再查看'` 决定要不要给
+重试按钮。文案改一个字，规则就静默失效。
 
-```dart
-onRetry: _error == '请先登录后再查看' ? null : _load,
-```
+现在：错误分**种类**（`_PunishmentLoadError.needLogin / failed`）与**文案**两个字段，
+控制流只看种类，文案只负责显示。守卫：`test/persisted_identifiers_test.dart`
+断言该文件里不再出现「`_error == '...'`」这种写法（注释里的引用不算）。
 
-改一个字，重试按钮就出现/消失了。
-**修法**：换成错误码（`enum LoadError { needLogin, network, unknown }`），文案只负责显示。
+### A3. 导出文件的兜底名 —— **已定性并收口**
 
-### A3. 导出文件的兜底名是中文，会写进文件
+原状：`conversation_export_import_service.dart` 给没有名字的会话补
+`'群聊' / '对话' / '角色'`。
 
-`lib/services/conversation_export_import_service.dart:246-260`：
-`'群聊'` / `'对话'` / `'角色'` 作为缺省名写进导出包。语言一变，导出内容跟着变。
+复核后的结论：这三条只出现在**给人读的 Markdown 文稿**里（会话标题、说话人称呼），
+它们是「文稿排版」不是身份 —— 界面语言变了它跟着变是预期行为。所以不改成 ASCII，
+而是把边界写清楚：
 
----
+* 三条兜底收成常量（`fallbackGroupTitle / fallbackChatTitle / fallbackSpeakerName`），
+  单一来源；
+* **结构化导出（JSON）里不注入任何兜底**：空名字就写空串，否则同一份数据在
+  中文/英文客户端导出的 JSON 会不一样，导入端也无法区分「用户起的名字」与
+  「我们编的名字」；
+* 守卫：`test/persisted_identifiers_test.dart` 同时断言「Markdown 里有兜底」
+  与「JSON 里没有兜底」。
 
-## B 级 · 拿代码标识符当持久化 key（改个名字就静默丢设置）
+## B 级 · 拿代码标识符当持久化键 —— **已处理**
 
-| 位置 | 现象 |
+| 位置 | 处理方式 |
 |---|---|
-| `lib/models/prompt_strategy.dart:650-660` | `_byName<T extends Enum>` 用 `v.name` 反解持久化值 |
-| `lib/widgets/glass_quality.dart:46` | SharedPreferences 存 `q.name` |
+| `lib/models/prompt_strategy.dart`（13 个枚举、50+ 取值） | **保留 `.name` 当键 + 冻结测试**。给每个取值加 `code` 字段的改动面远大于收益，而真正要防的是「悄悄改名」。`test/persisted_identifiers_test.dart` 冻结了每个枚举的成员名清单：谁想改名，先得改测试，改的时候就被迫想清楚要不要加迁移 |
+| `lib/widgets/glass_quality.dart`（3 个取值） | **改成显式 `key`**（`high/medium/off`）+ `GlassQuality.fromKey`；存盘用 `key` 不再用 `.name`。历史存档存的标识符与 key 同值，能原样读回 |
 
-不是本地化问题，是稳定性问题：重命名枚举成员即令旧数据读不回来。
-
-**对照正确做法**：`lib/services/app_icon_service.dart:55-78` 的
-`AppIconOption(key, label, assetPath, alias)` —— 持久化用 `key`、显示用 `label`、
-平台通道用 `alias`，三件事分开。
-
----
+判据不变：**重命名成员不得改变用户数据能否读回**。前者靠测试在 PR 时拦住，
+后者靠键与标识符解耦。
 
 ## C 级 · 确认无问题（避免重复排查）
 

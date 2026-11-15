@@ -647,6 +647,15 @@ class StrategyDetails {
     );
   }
 
+  /// 反解持久化值：**持久化键就是 Dart 枚举成员名**。
+  ///
+  /// 这是一条有代价的约定：重命名成员 = 老存档里的值读不回来（静默回落到默认）。
+  /// 之所以仍保留 `.name`：本文件有 13 个枚举、共 50+ 个取值，给每个都加
+  /// `code` 字段的改动面远大于收益；而真正要防的是「悄悄改了名」。
+  ///
+  /// 防线在测试：`test/persisted_identifiers_test.dart` 冻结了每个枚举的
+  /// 成员名清单 —— 谁想改名，先得改测试，改的时候就会被迫想清楚要不要迁移。
+  /// 未知值返回 null，由字段默认值兜底（与旧行为一致）。
   static T? _byName<T extends Enum>(List<T> values, Object? raw) {
     if (raw is! String) {
       return null;
