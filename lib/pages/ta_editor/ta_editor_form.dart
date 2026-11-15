@@ -755,38 +755,6 @@ class _TaEditorFormState extends State<TaEditorForm> {
             ),
           ),
           const SizedBox(height: 12),
-          // 对话策略：只描述「这个角色怎么说话」。
-          // 任何一项停在「未设置」就继续继承世界卡与全局，不会因为没填而变成关闭。
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  FitText('对话策略', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '留「未设置」即继承世界卡与全局。这些项会随角色卡一起导出 / 导入。',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  StrategyOverrideEditor(
-                    scope: StrategyScope.character,
-                    value: _strategyOverride,
-                    onChanged: (StrategyDetails? v) {
-                      setState(() => _strategyOverride = v);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           // 背景音乐是纯本地功能（不随角色卡导出），存在本机，所有宿主都能用。
           Card(
             child: Padding(
@@ -852,6 +820,53 @@ class _TaEditorFormState extends State<TaEditorForm> {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          // ===== 对话策略（进阶，默认收起，放在最后）=====
+          // 人设本身就能决定说话方式，这里只是给需要精调的人补一层；
+          // 任何一项停在「未设置」都继续继承世界卡与全局。
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(
+                  alpha: 0.5,
+                ),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ExpansionTile(
+              leading: Icon(
+                Icons.record_voice_over_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              title: FitText(
+                '对话策略',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              subtitle: FitText(
+                '称呼、口头禅、文风等进阶项；不设即继承世界卡与全局',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+              shape: const Border(),
+              collapsedShape: const Border(),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                StrategyOverrideEditor(
+                  scope: StrategyScope.character,
+                  value: _strategyOverride,
+                  onChanged: (StrategyDetails? v) {
+                    setState(() => _strategyOverride = v);
+                  },
+                ),
+              ],
             ),
           ),
         ],
