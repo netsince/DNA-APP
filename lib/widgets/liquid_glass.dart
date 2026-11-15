@@ -3,8 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../theme/tokens.dart';
-
 /// 液态玻璃（第三版）。
 ///
 /// 光学模型取自三份公开实现（MIT / Apache-2.0 / MPL）：
@@ -27,7 +25,7 @@ class LiquidGlass extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = EdgeInsets.zero,
-    this.borderRadius = AppRadius.mdAll,
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.blur = 0,
     this.elevated = false,
     this.intensity = 1,
@@ -53,7 +51,7 @@ class LiquidGlass extends StatelessWidget {
   /// 可选染色（相当于 shader 里的 uTint），一般传 `colorScheme.primary`。
   final Color? tint;
 
-  /// 覆盖底色。列表里的大块卡片建议传更透的 [AppSurfaces.glassFillWeak]。
+  /// 覆盖底色。列表里的大块卡片建议传更透的颜色（例如 alpha 0.06 的表面色）。
   final Color? fill;
 
   /// 光源方位：默认左上（-0.65, -1 方向），与 shader 的 surfaceLight 一致。
@@ -73,7 +71,9 @@ class LiquidGlass extends StatelessWidget {
     content = CustomPaint(
       painter: _LiquidGlassPainter(
         borderRadius: borderRadius,
-        fill: fill ?? (dark ? AppSurfaces.glassFill : AppSurfaces.glassFillLight),
+        fill: fill ??
+            theme.colorScheme.surfaceContainerHigh
+                .withValues(alpha: dark ? 0.55 : 0.72),
         tint: tint ?? theme.colorScheme.primary,
         intensity: k,
         lightAngle: lightAngleOverride ?? (lightFromTopLeft ? -2.15 : 0.99),
@@ -94,7 +94,16 @@ class LiquidGlass extends StatelessWidget {
 
     if (!elevated) return content;
     return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: borderRadius, boxShadow: AppShadows.glass),
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: content,
     );
   }
