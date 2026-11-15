@@ -1,244 +1,197 @@
-// 设置目录：**设置入口的唯一数据源**。
-//
-// 设置主页按它渲染分组与入口，搜索页按它建索引。两边读同一份数据，
-// 所以新增入口只需在这里加一条 —— 不会出现「界面有、搜索搜不到」。
-//
-// ## 已知边界：这不是「设置搜索」，是「入口搜索」
-//
-// 这里索引的粒度是**入口页**，不是页面里的具体设置项。用户搜「开场动画」
-// 找不到，因为那是「外观与聊天界面 → 启动与导航」里的一个开关，目录里只有
-// 「外观与聊天界面」这一条。
-//
-// keywords 是手写的别名，属于第二份知识：写得再全也只是猜用户会怎么搜。
-// 真正的设置搜索要求**设置项本身是声明式数据**（每项自带标题/关键词/读写方式），
-// 由同一份声明同时驱动渲染与检索；那是一次结构性重构，不在本次范围。
-//
-// 组织原则：按「用户想干什么」分组，而不是按技术模块分组。
-// 本次重构（参见 DESIGN_SPEC.md 设置页章节）：
-// * 删除 conversation_settings_page / appearance_settings_page 两个
-//   「只列入口、自己不含任何设置项」的跳板页，所有入口直达最终页面；
-// * 导航深度从最多 6 层压到 4 层；
-// * 副标题一律**单行**，用 maxLines: 1 强制约束文案长度。
+/// 设置目录：设置主页与搜索页读的那份数据的**适配层**。
+///
+/// 数据的真相在 `spec/settings_tree.dart`（一处声明，三处消费：
+/// 主页分组、搜索索引、页面字段渲染）。本文件只把它包装成设置主页需要的
+/// 形状，不再自己维护一份入口清单。
+///
+/// 历史：这里曾经是唯一数据源，且索引粒度只到「入口页」——用户搜「开场动画」
+/// 搜不到，因为那是「外观与聊天界面」里的一个开关。那个边界的成因和这次
+/// 结构性重构的目标，见 `spec/settings_spec.dart` 的文件头。
+library;
 
 import 'package:flutter/material.dart';
 
-import '../../island_app/server_settings_body.dart';
-import '../../island_app/sponsor_body.dart';
+import '../../services/auth_service.dart';
+import '../../services/model_download_state.dart';
 import '../../state/app_controller.dart';
 import '../../utils/platform_capabilities.dart';
-import 'about_page.dart';
-import 'advanced_settings_page.dart';
-import 'ai_service_settings_page.dart';
-import 'appearance_display_page.dart';
-import 'conversation_advanced_page.dart';
-import 'conversation_prompt_strategy_page.dart';
-import 'conversation_send_page.dart';
-import 'conversation_summary_page.dart';
-import 'data_settings_page.dart';
-import 'security_settings_page.dart';
-import 'tts_settings_page.dart';
-import 'voice_input_settings_page.dart';
+import 'spec/settings_fields_page.dart';
+import 'spec/settings_spec.dart';
+import 'spec/settings_tree.dart';
 
-/// 一个设置入口的描述。
-///
-/// [page] 是页面工厂而不是 `onTap`：只依赖 controller、不捕获 BuildContext，
-/// 这样目录才能脱离某个具体的 build 被枚举（搜索页要用的就是这一点）。
-///
-/// [keywords] 是搜索别名，界面上不显示。
+/// 一个设置入口（供设置主页渲染）。
 class SettingsEntry {
-  const SettingsEntry({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.keywords,
-    required this.page,
-    this.enabled = true,
-  });
+  SettingsEntry(this.spec, this._controller);
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String keywords;
-  final Widget Function() page;
+  final SettingsEntrySpec spec;
+  final AppController _controller;
+
+  IconData? get icon => spec.icon;
+
+  String get title => spec.title;
+
+  String get subtitle => spec.subtitle;
 
   /// 平台能力不满足时入口仍然显示（置灰），但不参与搜索。
-  final bool enabled;
+  bool get enabled => settingsGateOpen(spec.gate);
+
+  /// 该入口对应的页面。
+  Widget page() => buildSettingsEntryPage(spec, _controller);
 }
 
 /// 一个设置分组：标题 + 一张卡片里的若干入口。
 class SettingsGroup {
   const SettingsGroup({
+    required this.id,
     required this.title,
     required this.icon,
     required this.entries,
   });
 
+  /// 稳定标识（分组名会翻译，id 不会）。
+  final SettingsGroupId id;
+
   final String title;
+
   final IconData icon;
+
   final List<SettingsEntry> entries;
 }
 
-/// 当前可用的设置分组，顺序即界面顺序。
+/// 当前可见的设置分组，顺序由 [settingsGroups] 决定。
+///
+/// 分组按 [SettingsGroupId] 归并（不是按分组名）：分组名只是显示文案，
+/// 本地化之后仍然对得上号。
 List<SettingsGroup> settingsCatalog(AppController controller) {
-  return <SettingsGroup>[
-    SettingsGroup(
-      title: 'AI 接入',
-      icon: Icons.memory,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.smart_toy_outlined,
-          title: 'AI 服务与模型',
-          subtitle: '用哪个 AI、接口地址与密钥',
-          keywords: '模型 接口 密钥 api 服务 服务商',
-          page: () => AiServiceSettingsPage(controller: controller),
-        ),
-      ],
-    ),
-    SettingsGroup(
-      title: '对话风格',
-      icon: Icons.chat_bubble_outline,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.tune,
-          title: '提示词策略',
-          subtitle: 'AI 扮演的性格、语气与回复长度',
-          keywords: '提示词 人设 长度 语气 策略',
-          page: () => PromptStrategyPage(controller: controller),
-        ),
-        SettingsEntry(
-          icon: Icons.send_outlined,
-          title: '回复与发送',
-          subtitle: '回车键行为、灵感生成与快速回复',
-          keywords: '回车 灵感 快捷回复 发送',
-          page: () => ConversationSendPage(controller: controller),
-        ),
-      ],
-    ),
-    SettingsGroup(
-      title: '记忆与上下文',
-      icon: Icons.psychology_outlined,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.history_edu_outlined,
-          title: '剧情摘要与上下文',
-          subtitle: 'AI 记得多久、世界书怎么生效',
-          keywords: '记忆 摘要 上下文 世界书',
-          page: () => ConversationSummaryPage(controller: controller),
-        ),
-      ],
-    ),
-    SettingsGroup(
-      title: '角色语音',
-      icon: Icons.record_voice_over_outlined,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.volume_up_outlined,
-          title: '语音合成与背景音乐',
-          subtitle: '让角色开口说话，或自带背景音乐',
-          keywords: '语音 朗读 配音 tts 音色 背景音乐 音乐',
-          enabled: PlatformCapabilities.ttsSupported,
-          page: () => TtsSettingsPage(controller: controller),
-        ),
-        SettingsEntry(
-          icon: Icons.mic_none_outlined,
-          title: '语音输入',
-          subtitle: '用说话代替打字',
-          keywords: '麦克风 录音 转文字 语音输入',
-          enabled: PlatformCapabilities.voiceInputSupported,
-          page: () => VoiceInputSettingsPage(controller: controller),
-        ),
-      ],
-    ),
-    SettingsGroup(
-      title: '界面与显示',
-      icon: Icons.palette_outlined,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.dashboard_customize_outlined,
-          title: '外观与聊天界面',
-          subtitle: '明暗主题、强调色、气泡与半屏模式',
-          keywords: '深色 浅色 主题 配色 强调色 气泡 半屏 字号 外观',
-          page: () => AppearanceDisplayPage(controller: controller),
-        ),
-      ],
-    ),
-    SettingsGroup(
-      title: '数据与安全',
-      icon: Icons.shield_outlined,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.storage_outlined,
-          title: '备份与还原',
-          subtitle: '定期备份、换设备时迁移',
-          keywords: '备份 还原 迁移 导出 导入',
-          page: () => DataSettingsPage(controller: controller),
-        ),
-        SettingsEntry(
-          icon: Icons.lock_outline,
-          title: '安全与隐私',
-          subtitle: '应用锁、删除前的二次确认',
-          keywords: '锁 密码 隐私 确认 应用锁',
-          page: () => SecuritySettingsPage(controller: controller),
-        ),
-        SettingsEntry(
-          icon: Icons.cleaning_services_outlined,
-          title: '消息与高级',
-          subtitle: '删除单条消息、剧情分叉、文本清洗',
-          keywords: '删除 分叉 清洗 高级 消息',
-          page: () => ConversationAdvancedPage(controller: controller),
-        ),
-      ],
-    ),
-    // 服务器与赞助是从「岛」的设置里并过来的两件还活着的配置；
-    // 岛的外观设置改的是已被主项目主题取代的旧主题，不再入口。
-    // 整个社区功能可以在「界面与显示 → 启动与导航」里关掉，
-    // 关掉后这一组也一并收起（开关本身不在这里，不会锁死）。
-    if (controller.settings.enableCommunity)
+  final SettingsRuntime runtime = SettingsRuntime(
+    settings: controller.settings,
+  );
+  final Map<SettingsGroupId, List<SettingsEntry>> byGroup =
+      <SettingsGroupId, List<SettingsEntry>>{};
+  for (final SettingsEntrySpec spec in settingsTree) {
+    if (spec.visibleWhen != null && !spec.visibleWhen!(runtime)) continue;
+    byGroup
+        .putIfAbsent(spec.groupId, () => <SettingsEntry>[])
+        .add(SettingsEntry(spec, controller));
+  }
+  final List<SettingsGroup> groups = <SettingsGroup>[];
+  for (final SettingsGroupSpec group in settingsGroups) {
+    final List<SettingsEntry>? entries = byGroup[group.id];
+    if (entries == null || entries.isEmpty) continue;
+    groups.add(
       SettingsGroup(
-        title: '社区（DNAISLAND）',
-        icon: Icons.explore_outlined,
-        entries: <SettingsEntry>[
-          SettingsEntry(
-            icon: Icons.dns_outlined,
-            title: '社区服务器',
-            subtitle: '社区后端地址，可用官方或自建',
-            keywords: '社区 岛 服务器 地址',
-            page: () => Scaffold(
-              appBar: AppBar(title: const Text('社区服务器')),
-              body: const ServerSettingsBody(),
-            ),
-          ),
-          SettingsEntry(
-            icon: Icons.volunteer_activism_outlined,
-            title: '赞助社区',
-            subtitle: '支持 DNAISLAND 持续运转',
-            keywords: '赞助 捐赠',
-            page: () => Scaffold(
-              appBar: AppBar(title: const Text('赞助社区')),
-              body: const SponsorBody(),
-            ),
-          ),
-        ],
+        id: group.id,
+        title: group.title,
+        icon: group.icon,
+        entries: entries,
       ),
-    SettingsGroup(
-      title: '关于',
-      icon: Icons.info_outline,
-      entries: <SettingsEntry>[
-        SettingsEntry(
-          icon: Icons.info_outline,
-          title: '版本与开源',
-          subtitle: '版本信息、项目成员与开源许可',
-          keywords: '版本 关于 许可 开源 作者 成员',
-          page: () => const AboutPage(),
-        ),
-        SettingsEntry(
-          icon: Icons.terminal_outlined,
-          title: '开发者选项',
-          subtitle: '命令控制台与调试工具',
-          keywords: '开发者 调试 日志 控制台',
-          page: () => AdvancedSettingsPage(controller: controller),
-        ),
-      ],
-    ),
-  ];
+    );
+  }
+  return groups;
+}
+
+/// 把一条入口声明变成页面。
+///
+/// [focusItemId] 只在字段页有意义：从搜索跳进来时，命中的那一条会展开并
+/// 滚到可见位置。
+Widget buildSettingsEntryPage(
+  SettingsEntrySpec spec,
+  AppController controller, {
+  String? focusItemId,
+}) {
+  switch (spec) {
+    case FieldsEntry entry:
+      return _FieldsEntryHost(
+        entry: entry,
+        controller: controller,
+        focusItemId: focusItemId,
+      );
+    case CustomEntry entry:
+      return entry.builder(controller);
+  }
+}
+
+/// 字段页宿主：负责在进入页面前解析一次异步能力（生物识别是否真的可用）。
+///
+/// 为什么放在这里而不是渲染器里：渲染器要保持纯同步（声明 → 控件），
+/// 异步能力探测属于「宿主职责」。等探测有结果后再渲染，避免用户先看到
+/// 一组隐藏的开关、再突然出现。
+class _FieldsEntryHost extends StatefulWidget {
+  const _FieldsEntryHost({
+    required this.entry,
+    required this.controller,
+    this.focusItemId,
+  });
+
+  final FieldsEntry entry;
+  final AppController controller;
+  final String? focusItemId;
+
+  @override
+  State<_FieldsEntryHost> createState() => _FieldsEntryHostState();
+}
+
+class _FieldsEntryHostState extends State<_FieldsEntryHost> {
+  bool _biometricEnrolled = false;
+  bool? _ttsModelsReady;
+  bool _modelDownloading = ModelDownloads.isDownloading;
+  bool _resolved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ModelDownloads.notifier.addListener(_onDownloadsChanged);
+    _resolveRuntime();
+  }
+
+  @override
+  void dispose() {
+    ModelDownloads.notifier.removeListener(_onDownloadsChanged);
+    super.dispose();
+  }
+
+  /// 下载开始/结束要让页面重建：依赖下载状态的选项要跟着置灰/恢复。
+  void _onDownloadsChanged() {
+    if (!mounted) return;
+    setState(() => _modelDownloading = ModelDownloads.isDownloading);
+  }
+
+  /// 解析一次运行态：先补齐宿主自己知道的能力，再交给声明里的钩子。
+  Future<void> _resolveRuntime() async {
+    bool enrolled = false;
+    if (PlatformCapabilities.biometricAuthSupported) {
+      enrolled = await AuthService.canCheckBiometrics();
+    }
+    SettingsRuntime base = SettingsRuntime(
+      settings: widget.controller.settings,
+      biometricEnrolled: enrolled,
+    );
+    final SettingsRuntimeResolver? resolver = widget.entry.resolveRuntime;
+    if (resolver != null) {
+      base = await resolver(widget.controller, base);
+    }
+    if (!mounted) return;
+    setState(() {
+      _biometricEnrolled = base.biometricEnrolled;
+      _ttsModelsReady = base.ttsModelsReady;
+      _resolved = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 探测未完成时先按平台能力给一个乐观初值（支持就用 true），
+    // 避免受支持设备上先闪一下「不可用」提示。
+    final bool enrolled = _resolved
+        ? _biometricEnrolled
+        : PlatformCapabilities.biometricAuthSupported;
+    return SettingsFieldsPage(
+      entry: widget.entry,
+      controller: widget.controller,
+      biometricEnrolled: enrolled,
+      ttsModelsReady: _ttsModelsReady,
+      modelDownloading: _modelDownloading,
+      focusItemId: widget.focusItemId,
+    );
+  }
 }

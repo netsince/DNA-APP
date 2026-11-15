@@ -628,6 +628,10 @@ class AppSettings {
       repetitionPenalty: (json['repetitionPenalty'] as num?)?.toDouble() ?? 1.0,
       repetitionPenaltySlope:
           (json['repetitionPenaltySlope'] as num?)?.toDouble() ?? 0.0,
+      // 此前漏读 loreStickyRounds（toJson 写了、fromJson 不读），于是
+      // 「从备份还原」会把「词条命中后持续几轮」重置成默认 3。补上，并由
+      // test/settings_spec_test.dart 的「toJson/fromJson 往返完备」守住。
+      loreStickyRounds: (json['loreStickyRounds'] as int?) ?? 3,
       loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
       loreBudgetTokens: (json['loreBudgetTokens'] as int?) ?? 0,
       quickReplies: (json['quickReplies'] as List?)
@@ -841,4 +845,21 @@ class AppSettings {
       models: models ?? this.models,
     );
   }
+
+  /// 清空自定义强调色。
+  ///
+  /// copyWith 一律用 param ?? this.param 合并，**无法表达「置空」**：
+  /// 传 null 等于「不修改」。而「切回自动取色」需要真的清掉自定义色，所以
+  /// 单开一个语义明确的入口；写通道 app_settings_patch.dart 收到 null 时调这里。
+  ///
+  /// 这里借 fromJson 只为「保留其余 81 个字段、改 1 个」，
+  /// 由 settings_spec_test 的往返测试保证它不会吃掉别的字段。
+  AppSettings clearCustomAccentColor() => AppSettings.fromJson(
+        <String, dynamic>{...toJson(), 'customAccentColor': null},
+      );
+
+  /// 清空 TTS 全局随机种子。理由同 [clearCustomAccentColor]。
+  AppSettings clearTtsGlobalSeed() => AppSettings.fromJson(
+        <String, dynamic>{...toJson(), 'ttsGlobalSeed': null},
+      );
 }

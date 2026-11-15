@@ -30,11 +30,13 @@ class CollapsibleNumberSetting extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.unit,
     this.step,
     this.helper,
     this.zeroLabel,
     this.divisions,
+    this.initiallyExpanded = false,
   });
 
   /// 设置项名称。
@@ -51,6 +53,13 @@ class CollapsibleNumberSetting extends StatefulWidget {
 
   /// 值变化回调(已 clamp 到 [min]..[max])。
   final ValueChanged<int> onChanged;
+
+  /// 拖动/点击**结束**时回调一次，传入最终值。
+  ///
+  /// 为 null 时本控件与旧行为完全一致（只有 [onChanged]）。
+  /// 配置驱动的设置页用它实现「松手才落盘」：拖动过程中 [onChanged] 只更新
+  /// 渲染器的本地草稿值，避免每一帧都写一次 SharedPreferences。
+  final ValueChanged<int>? onChangeEnd;
 
   /// 单位(如「轮」「字」),显示在收起态数值后面。
   final String? unit;
@@ -69,13 +78,16 @@ class CollapsibleNumberSetting extends StatefulWidget {
   /// 滑块刻度数。为 null 时按范围自动推导。
   final int? divisions;
 
+  /// 初始是否展开。默认收起；配置驱动的搜索命中时由渲染器置 true。
+  final bool initiallyExpanded;
+
   @override
   State<CollapsibleNumberSetting> createState() =>
       _CollapsibleNumberSettingState();
 }
 
 class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
-  bool _expanded = false;
+  late bool _expanded = widget.initiallyExpanded;
 
   /// 收起态显示的数值文案。
   String get _displayValue {
@@ -163,6 +175,10 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
                           widget.onChanged(
                               v.round().clamp(widget.min, widget.max));
                         }),
+                        onChangeEnd: widget.onChangeEnd == null
+                            ? null
+                            : (double v) => widget.onChangeEnd!(
+                                v.round().clamp(widget.min, widget.max)),
                       ),
                       // 范围边界:用控件的物理位置表达,不需要文字描述范围。
                       Padding(
@@ -228,12 +244,14 @@ class CollapsibleDoubleSetting extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.unit,
     this.step,
     this.helper,
     this.zeroLabel,
     this.divisions,
     this.decimals = 2,
+    this.initiallyExpanded = false,
   });
 
   /// 设置项名称。
@@ -250,6 +268,9 @@ class CollapsibleDoubleSetting extends StatefulWidget {
 
   /// 值变化回调(已 clamp 到 [min]..[max])。
   final ValueChanged<double> onChanged;
+
+  /// 拖动结束回调一次，语义同 [CollapsibleNumberSetting.onChangeEnd]。
+  final ValueChanged<double>? onChangeEnd;
 
   /// 单位(如「轮」「字」),显示在收起态数值后面。
   final String? unit;
@@ -271,13 +292,16 @@ class CollapsibleDoubleSetting extends StatefulWidget {
   /// 收起态与滑块气泡的显示小数位。
   final int decimals;
 
+  /// 初始是否展开，语义同 [CollapsibleNumberSetting.initiallyExpanded]。
+  final bool initiallyExpanded;
+
   @override
   State<CollapsibleDoubleSetting> createState() =>
       _CollapsibleDoubleSettingState();
 }
 
 class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
-  bool _expanded = false;
+  late bool _expanded = widget.initiallyExpanded;
 
   /// 按 [CollapsibleDoubleSetting.decimals] 格式化数值。
   String _format(double v) => v.toStringAsFixed(widget.decimals);
@@ -363,6 +387,10 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
                   onChanged: (double v) => setState(() {
                     widget.onChanged(v.clamp(widget.min, widget.max));
                   }),
+                  onChangeEnd: widget.onChangeEnd == null
+                      ? null
+                      : (double v) => widget.onChangeEnd!(
+                          v.clamp(widget.min, widget.max)),
                 ),
                 // 范围边界:用控件的物理位置表达,不需要文字描述范围。
                 Padding(

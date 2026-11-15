@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/app_settings_patch.dart';
 import '../models/conversation.dart';
 import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
@@ -403,6 +404,22 @@ class AppController extends ChangeNotifier {
       list[defIdx] = list[defIdx].copyWith(providerType: provider.trim());
       _settings = _settings.copyWith(providers: list);
     }
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  /// **配置驱动设置页的唯一写入口。**
+  ///
+  /// 声明式设置项只带一个 key（即 AppSettings.toJson() 的键），由渲染器
+  /// 调这里落盘。键 → 字段的映射在 applySettingsPatch 里是一张穷尽的
+  /// switch，未声明的键会当场抛错。
+  ///
+  /// 为什么不是「改 toJson 再 fromJson」：见 app_settings_patch.dart 的说明。
+  ///
+  /// 需要副作用（重建主题、初始化 TTS、切换模型…）的设置项，在声明里挂
+  /// writeOverride，不要往这里塞 if。
+  Future<void> patchSettings(String key, Object? value) async {
+    _settings = applySettingsPatch(_settings, key, value);
     await _settingsService.save(_settings);
     notifyListeners();
   }

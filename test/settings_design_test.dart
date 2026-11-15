@@ -96,14 +96,25 @@ void main() {
       expect(src.contains('class CollapsibleTextSetting'), isTrue);
       expect(src.contains('class CollapsibleDoubleSetting'), isTrue);
 
-      // 折叠组件必须在业务里被真正用起来。
-      int used = 0;
+      // 页面改成声明驱动之后，「折叠」这件事从页面挪到了渲染器 + 声明类型：
+      // 渲染器负责把数值项渲染成折叠控件，声明层负责说明用哪种编辑器。
+      final String renderer =
+          File('lib/pages/settings/spec/settings_fields_page.dart')
+              .readAsStringSync();
+      expect(renderer.contains('CollapsibleNumberSetting('), isTrue,
+          reason: '渲染器必须把折叠数值项渲染成折叠组件');
+      expect(renderer.contains('CollapsibleTextSetting('), isTrue,
+          reason: '渲染器必须支持大范围数值的文本输入');
+
+      // 声明层：数值项必须显式声明成 SettingInt / SettingDouble，
+      // 不许再在页面里平铺 TextField / TextFormField 当数值输入。
+      int numericItems = 0;
       for (final File f in settingsFiles()) {
         final String c = f.readAsStringSync();
-        used += RegExp(r'Collapsible\w+Setting\(').allMatches(c).length;
+        numericItems += RegExp(r'\bSetting(Int|Double)\(').allMatches(c).length;
       }
-      expect(used, greaterThan(20),
-          reason: '折叠组件仅被使用 $used 次,推广不彻底');
+      expect(numericItems, greaterThanOrEqualTo(6),
+          reason: '数值设置项应声明为 SettingInt/SettingDouble，当前只有 $numericItems 条');
     });
 
     test('收起态必须显示当前值(而非留空)', () {
