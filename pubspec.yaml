@@ -130,6 +130,9 @@ flutter:
   uses-material-design: true
 
   # 应用图标预览图（设置页展示备用图标）
+  shaders:
+    - shaders/liquid_glass.frag
+
   assets:
     - assets/app_icon.png
     - assets/app_icon_alt.png
