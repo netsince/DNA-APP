@@ -57,11 +57,14 @@ Finder label(String s) => find.byWidgetPredicate(
 
 /// 按标签文字定位筛选 chip。
 ///
-/// 不能用 widgetWithText(ChoiceChip, ...)：FitText 既是 Text 子类、内部又包
+/// 不能用 widgetWithText(FilterChip, ...)：FitText 既是 Text 子类、内部又包
 /// 一层 Text，同一个 chip 会被找到两次（祖先匹配重复）。
+///
+/// 2026-11：标签筛选从 ChoiceChip 换成 FilterChip（集合筛选、保留勾选标记，
+/// 审计 4.3「只用颜色表达状态」），这里跟着换成新类型。
 Finder chip(String tag) => find.byWidgetPredicate(
   (Widget w) =>
-      w is ChoiceChip &&
+      w is FilterChip &&
       w.label is FitText &&
       (w.label as FitText).data == tag,
 );

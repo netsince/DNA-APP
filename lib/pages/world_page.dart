@@ -114,11 +114,9 @@ class WorldListBody extends StatelessWidget {
           padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: worlds.length,
-          // 这里刻意用旧的 onReorder:reorderWorlds 内部已经做了
-          // 「newIndex > oldIndex 时 -1」的调整,换成 onReorderItem
-          // (它会**预先**调整)就成了双重调整,顺序会错。
-          // ignore: deprecated_member_use
-          onReorder: (int oldIndex, int newIndex) async {
+          // 用新回调 onReorderItem：它的 newIndex 已按"移除之后"算好，
+          // controller.reorderWorlds 也按同一口径（见其文档）。
+          onReorderItem: (int oldIndex, int newIndex) async {
             await controller.reorderWorlds(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {

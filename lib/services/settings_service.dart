@@ -189,7 +189,9 @@ class SettingsService {
       unboundedModelList: prefs.getBool(_unboundedModelListKey) ?? false,
       fontSizeStep: _readInt(prefs, _fontSizeStepKey, 0),
       appIcon: prefs.getString(_appIconKey) ?? 'default',
-      snackDurationMs: _readInt(prefs, _snackDurationMsKey, 1000),
+      // 兜底值与 AppSettings 的默认值同源（审计 3.5：提示不能只停 1 秒）。
+      snackDurationMs:
+          _readInt(prefs, _snackDurationMsKey, kDefaultSnackDurationMs),
       sherpaModelSource:
           prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
       sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,

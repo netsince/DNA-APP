@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 将 colorScheme.primary 系列替换为指定强调色（用于让弹框跟随角色取色）。
@@ -13,7 +14,7 @@ ThemeData _withAccent(ThemeData base, Color? accentColor) {
           ? Colors.white
           : Colors.black,
       primaryContainer:
-          Color.alphaBlend(accentColor.withValues(alpha: 0.16), base.colorScheme.surface),
+          Color.alphaBlend(accentColor.withValues(alpha: AppAlpha.a16), base.colorScheme.surface),
       onPrimaryContainer: accentColor,
     ),
   );

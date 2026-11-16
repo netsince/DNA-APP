@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/state_views.dart';
+
 import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
@@ -98,20 +100,13 @@ class GroupListBody extends StatelessWidget {
         });
 
         if (visible.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                FitText(showArchived ? '还没有归档群聊。' : '还没有群聊，点击右上角 + 新建。'),
-                const SizedBox(height: 12),
-                if (!showArchived)
-                  FilledButton.icon(
-                    onPressed: onCreateGroup,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('新建群聊'),
-                  ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: showArchived ? Icons.archive_outlined : Icons.forum_outlined,
+            title: showArchived ? '还没有归档群聊。' : '还没有群聊。',
+            description: showArchived ? null : '点右上角「＋」或下面的按钮新建一个。',
+            actionLabel: showArchived ? null : '新建群聊',
+            actionIcon: showArchived ? null : Icons.add,
+            onAction: showArchived ? null : onCreateGroup,
           );
         }
 

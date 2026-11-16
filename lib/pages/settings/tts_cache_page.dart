@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -56,7 +55,12 @@ class _TtsCachePageState extends State<TtsCachePage> {
             onPressed: () => Navigator.of(context).pop(false),
             child: const FitText('取消'),
           ),
+          // 破坏性动作：确认按钮用 error 语义（审计 4.1，与「删除消息」同一规则）。
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             child: const FitText('确认清空'),
           ),

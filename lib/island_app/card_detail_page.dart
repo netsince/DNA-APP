@@ -19,6 +19,7 @@ import 'package:dna/island_app/widgets/comment_section.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import '../theme/tokens.dart';
 
@@ -602,22 +603,24 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _detail = d.copyWith(favorited: next, favoriteCount: count),
   );
 
-  /// 打开评论区：从底部弹出二级弹层（对齐网页版评论抽屉）。
+  /// 打开评论区：**一条真实路由**，而不是弹层。
   ///
-  /// 评论区以独立弹层呈现，评论列表可滚动、输入框固定在底部，
-  /// 评论再多也能随时发表而不必翻到页面最底。
+  /// 评论是这张卡的**主要内容**，不是补充动作。以前它是 0.9 屏高的 modal
+  /// bottom sheet —— 那等于「伪装成页面的页面」：压在详情页之上、多一层路由、
+  /// 返回要退两段、链接与分享都拿不到（审计 3.2）。
+  ///
+  /// 为什么不内联成详情页里的一个 section：`CommentSection` 的契约是
+  /// 「列表占满剩余高度 + 输入条钉在底部」（内部 `Expanded`），它**必须有界高度**；
+  /// 塞进详情页的滚动流就会变成「页面里再套一个滚动区」，比原来的 sheet 更难用。
+  /// 所以给它一个独立页 —— 输入条照样钉在底部，只是外面多了一层正常的返回。
   void _openComments() {
     final d = _detail;
     if (d == null) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      showDragHandle: true,
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.9,
-        child: CommentSection(
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _CommentsPage(
           cardId: widget.cardId,
+          cardTitle: d.name,
           isLoggedIn: widget.isLoggedIn,
           isOwner: _owner,
           focusCommentId: widget.focusCommentId,
@@ -804,7 +807,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
             padding: const EdgeInsets.only(left: 8),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.92),
+                color: scheme.surface.withValues(alpha: AppAlpha.a92),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -985,7 +988,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
               if (d.tags.isNotEmpty || _owner)
                 _TagsSection(
                   tags: d.tags,
-                  statusBadge: _owner ? _StatusBadge(detail: d) : null,
+                  statusBadge: _owner ? _ReviewStatusBadges(detail: d) : null,
                 ),
               _authorSection(),
             ],
@@ -1045,7 +1048,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (includeTags && (d.tags.isNotEmpty || _owner))
         _TagsSection(
           tags: d.tags,
-          statusBadge: _owner ? _StatusBadge(detail: d) : null,
+          statusBadge: _owner ? _ReviewStatusBadges(detail: d) : null,
         ),
       if (d.intro.isNotEmpty)
         _ContentSection(icon: Icons.notes_outlined, title: '简介', body: d.intro),
@@ -1111,9 +1114,14 @@ class _HeroBanner extends StatelessWidget {
       ),
     );
     if (onTap == null) return image;
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
+    // 可点的头图：补「按钮」语义与标签，读屏才知道这里能点开大图
+    // （审计 4.3：裸 GestureDetector 承担可点区域，无语义无反馈）。
+    return Semantics(
+      button: true,
+      label: '查看大图',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(
         children: <Widget>[
           image,
           Positioned(
@@ -1122,7 +1130,7 @@ class _HeroBanner extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.75),
+                color: scheme.surface.withValues(alpha: AppAlpha.mutedStrong),
                 borderRadius: BorderRadius.circular(AppRadius.xs),
               ),
               child: Row(
@@ -1141,6 +1149,7 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1214,34 +1223,28 @@ class _ProfileCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    // 元信息标签统一走共享的只读 StatusBadge（不可点的信息不做成 chip 外观）。
     final chips = <Widget>[
       if (detail.gender.isNotEmpty)
-        _Chip(
+        StatusBadge(
           // 服务端存的是 ID（历史中文值）；未知值原样显示，不丢数据。
           label: TaGender.labelOf(detail.gender),
-          background: scheme.primaryContainer,
-          foreground: scheme.onPrimaryContainer,
+          tone: BadgeTone.positive,
         ),
       if (detail.authorName != null && detail.authorName!.isNotEmpty)
-        _Chip(
+        StatusBadge(
           label: detail.authorName!,
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.person_outline,
         ),
       if (detail.createdAt.isNotEmpty)
-        _Chip(
+        StatusBadge(
           label: _shortDate(detail.createdAt),
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.calendar_today_outlined,
         ),
       if (detail.updatedAt.isNotEmpty &&
           _shortDate(detail.updatedAt) != _shortDate(detail.createdAt))
-        _Chip(
+        StatusBadge(
           label: '更新 ${_shortDate(detail.updatedAt)}',
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.update_outlined,
         ),
     ];
@@ -1611,8 +1614,13 @@ class _ActionsBar extends StatelessWidget {
                 size: 18,
               ),
               style: FilledButton.styleFrom(
-                foregroundColor: detail.liked ? scheme.error : null,
-                backgroundColor: detail.liked ? scheme.errorContainer : null,
+                // 「已赞」是**选中态**不是错误：error 在这个 App 里表示
+                // 「处罚生效中」这类真错误，拿它标喜欢语义会打架（审计 4.1）。
+                // 与「已收藏」同一条规则：已选中 = primary。
+                foregroundColor: detail.liked ? scheme.primary : null,
+                backgroundColor: detail.liked
+                    ? scheme.primaryContainer
+                    : null,
               ),
               child: Text('${detail.likeCount}'),
             ),
@@ -1648,6 +1656,8 @@ class _ActionsBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: scheme.surfaceContainerHigh,
                 foregroundColor: scheme.onSurfaceVariant,
+                // 密集控件（一行四颗，行高由这一行决定）：回到原实现的 40dp
+                // 视觉尺寸；48 是命中盒不是视觉尺寸，硬套会让操作条高一圈。
                 visualDensity: VisualDensity.compact,
                 minimumSize: const Size.square(40),
                 padding: EdgeInsets.zero,
@@ -1665,6 +1675,8 @@ class _ActionsBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: scheme.surfaceContainerHigh,
                 foregroundColor: scheme.onSurfaceVariant,
+                // 密集控件（一行四颗，行高由这一行决定）：回到原实现的 40dp
+                // 视觉尺寸；48 是命中盒不是视觉尺寸，硬套会让操作条高一圈。
                 visualDensity: VisualDensity.compact,
                 minimumSize: const Size.square(40),
                 padding: EdgeInsets.zero,
@@ -1700,17 +1712,7 @@ class _TagsSection extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: tags
-                  .map(
-                    (t) => _Chip(
-                      label: '#$t',
-                      background: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHigh,
-                      foreground: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                    ),
-                  )
+                  .map((t) => StatusBadge(label: '#$t'))
                   .toList(),
             ),
         ],
@@ -1721,46 +1723,30 @@ class _TagsSection extends StatelessWidget {
 
 /// 作者可见的审核状态徽章（对齐网页版 `status_badge`）：
 /// 审核中 / 已通过 / 已拒绝 + 已隐藏。普通访客不展示。
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.detail});
+///
+/// 只是把 detail.status 映射成共享 [StatusBadge] 的色调 —— 视觉（主色/错误色/
+/// 第三色）与原来一致，实现不再自绘容器。
+class _ReviewStatusBadges extends StatelessWidget {
+  const _ReviewStatusBadges({required this.detail});
 
   final CardDetail detail;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final chips = <Widget>[];
-
-    late final Color bg;
-    late final Color fg;
-    final label = switch (detail.status) {
-      'approved' => '已通过',
-      'rejected' => '已拒绝',
-      _ => '审核中',
+    final (String label, BadgeTone tone) = switch (detail.status) {
+      'approved' => ('已通过', BadgeTone.positive),
+      'rejected' => ('已拒绝', BadgeTone.danger),
+      _ => ('审核中', BadgeTone.caution),
     };
-    if (detail.status == 'approved') {
-      bg = scheme.primaryContainer;
-      fg = scheme.onPrimaryContainer;
-    } else if (detail.status == 'rejected') {
-      bg = scheme.errorContainer;
-      fg = scheme.onErrorContainer;
-    } else {
-      bg = scheme.tertiaryContainer;
-      fg = scheme.onTertiaryContainer;
-    }
-    chips.add(_Chip(label: label, background: bg, foreground: fg));
-
-    if (detail.isHidden) {
-      chips.add(
-        _Chip(
-          label: '已隐藏',
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
-        ),
-      );
-    }
-
-    return Wrap(spacing: 8, runSpacing: 8, children: chips);
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: <Widget>[
+        StatusBadge(label: label, tone: tone, semanticLabel: '审核状态：$label'),
+        if (detail.isHidden)
+          const StatusBadge(label: '已隐藏', semanticLabel: '审核状态：已隐藏'),
+      ],
+    );
   }
 }
 
@@ -1894,7 +1880,7 @@ class _AuthorNoteSection extends StatelessWidget {
             margin: const EdgeInsets.all(AppSpacing.md),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: scheme.tertiaryContainer.withValues(alpha: 0.35),
+              color: scheme.tertiaryContainer.withValues(alpha: AppAlpha.a35),
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
@@ -2043,47 +2029,8 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-/// 小胶囊标签（性别/作者/日期/标签）。
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.background,
-    required this.foreground,
-    this.icon,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: foreground),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: foreground),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+// 小标签（性别 / 作者 / 日期 / 标签 / 审核状态）统一走共享 StatusBadge：
+// 只读指示、语义色调、无 ink。原来这里有一份自绘的 _Chip（按 raw color 传参）。
 /// 加载骨架：顶栏返回 + 封面 + 资料/文字条，带 shimmer。
 class _SkeletonBody extends StatelessWidget {
   const _SkeletonBody({this.leading});
@@ -2247,6 +2194,57 @@ class _ErrorBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 角色卡评论区（独立页）。
+///
+/// 列表、排序、楼中楼回复与底部输入条全部由共享的 [CommentSection] 提供；
+/// 本页只负责两件 CommentSection 自己不做的事：给它一个**有界高度**的宿主、
+/// 以及一条正常的返回路径（[AppBar] 的返回键 / 系统返回）。
+///
+/// 这正是它以前借 0.9 屏 bottom sheet 干的事 —— 区别只在于：现在它是一个页，
+/// 而不是一个「看起来像页的弹层」（审计 3.2）。
+class _CommentsPage extends StatelessWidget {
+  const _CommentsPage({
+    required this.cardId,
+    required this.cardTitle,
+    required this.isLoggedIn,
+    required this.isOwner,
+    this.focusCommentId,
+  });
+
+  final String cardId;
+
+  /// 标题用角色卡名：用户在评论页也能一眼看出这是哪张卡的评论区。
+  final String cardTitle;
+
+  final bool? isLoggedIn;
+  final bool? isOwner;
+  final int? focusCommentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final String rawTitle = cardTitle.trim();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          rawTitle.isEmpty ? '评论' : rawTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      // SafeArea 只保底部：输入条贴着系统导航条，不能压在它下面。
+      body: SafeArea(
+        top: false,
+        child: CommentSection(
+          cardId: cardId,
+          isLoggedIn: isLoggedIn,
+          isOwner: isOwner,
+          focusCommentId: focusCommentId,
+        ),
+      ),
     );
   }
 }

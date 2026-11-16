@@ -17,7 +17,34 @@ import 'package:flutter/material.dart';
 /// 圆角令牌。
 ///
 /// 现状曾有 13 种不同取值,收敛为 5 档。
+/// M3 宽度类（window size class）断点。
+///
+/// 审计 4.3 / 3.4：项目里原本各写各的（600 / 720 / 840 / 860 / 900 / 1000…），
+/// 同一个「要不要分两栏」的判断在不同页面用不同数字。这里按 M3 的三档口径
+/// 收敛成一份，页面只引用常量、不再写裸数值。
+///
+/// * `<= compactMax`（600）→ compact：手机竖屏、小窗
+/// * `compactMax..mediumMax`（600–840）→ medium：小平板、横屏手机
+/// * `mediumMax..expandedMax`（840–1200）→ expanded：平板横屏、桌面窗口
+/// * `>= expandedMax`（1200）→ large：宽桌面
+abstract final class AppBreakpoints {
+  /// compact 的上界（含）。
+  static const double compactMax = 600;
+
+  /// medium 的上界；也是「该出现常驻侧栏 / 双栏」的起点。
+  static const double mediumMax = 840;
+
+  /// expanded 的上界；再宽就按大屏处理（版心收窄、更多列）。
+  static const double expandedMax = 1200;
+}
+
 abstract final class AppRadius {
+  /// 4 —— 只用于「气泡朝向头像的那一角」这类需要比 xs 更紧的局部圆角。
+  ///
+  /// 之前这一角是手写的 4，收敛到令牌时最小档只有 8，于是被抬成了 8（气泡
+  /// 看起来更圆了一点点）。这里补回原始刻度，避免"为了用令牌而改设计"。
+  static const double xxs = 4;
+
   /// 8 —— 徽章、标签、小图标块、头像裁剪。
   static const double xs = 8;
 
@@ -32,6 +59,9 @@ abstract final class AppRadius {
 
   /// 999 —— 胶囊按钮、圆形。
   static const double pill = 999;
+
+  /// [xxs] 的 [BorderRadius]。
+  static const BorderRadius xxsAll = BorderRadius.all(Radius.circular(xxs));
 
   /// [xs] 的 [BorderRadius]。
   static const BorderRadius xsAll = BorderRadius.all(Radius.circular(xs));
@@ -385,8 +415,19 @@ abstract final class AppBorder {
 
 /// 透明度令牌。
 ///
-/// 现状 132 处 `withValues(alpha:)` 凭手感取值,收敛为 4 档。
+/// 这套值原先散在 119 处 `withValues(alpha: 0.xx)` 里凭手感写，同一个视觉意图
+/// （「卡片描边」「压暗一层的遮罩」）在不同页面取了不同的数（0.05 / 0.06 / 0.08…），
+/// 于是同一个组件换个页面深浅就不一样。
+///
+/// 现在分成两类：
+/// * **语义别名**（faint/subtle/…）：表达「这一层是干什么的」，优先用这些；
+/// * **数值阶梯**（a12/a35/…）：名字就是取值，用于确实需要那个刻度的视觉细节，
+///   并且保证「同一个数在项目里只有一处定义」。
+///
+/// 新增取值前先想清楚能不能落到既有档位 —— 阶梯不是许愿池，加档要走代码评审。
 abstract final class AppAlpha {
+  // ---- 语义别名 ----
+
   /// 0.04 —— 极淡阴影、弱分隔。
   static const double faint = 0.04;
 
@@ -401,6 +442,59 @@ abstract final class AppAlpha {
 
   /// 0.75 —— 次级文字(偏亮)。
   static const double mutedStrong = 0.75;
+
+  // ---- 数值阶梯（按实际用到的刻度取档）----
+
+  /// 0.0 —— 完全透明（动画起点、占位）。
+  static const double a0 = 0.0;
+
+  /// 0.10 —— 极轻遮罩。
+  static const double a10 = 0.10;
+
+  /// 0.12 —— 气泡/容器的一层淡色。
+  static const double a12 = 0.12;
+
+  /// 0.16 —— 略强于 a12 的填充。
+  static const double a16 = 0.16;
+
+  /// 0.20 —— 常规淡填充（选中态底、提示底）。
+  static const double a20 = 0.20;
+
+  /// 0.22 —— 介于 a20/a30 之间的历史取值（列表纸纹感）。
+  static const double a22 = 0.22;
+
+  /// 0.30 —— 遮罩/压暗。
+  static const double a30 = 0.30;
+
+  /// 0.35 —— 压暗一层（图片上的文字底、禁用态）。
+  static const double a35 = 0.35;
+
+  /// 0.40 —— 中强调底。
+  static const double a40 = 0.40;
+
+  /// 0.45 —— 玻璃/渐变中间过渡。
+  static const double a45 = 0.45;
+
+  /// 0.55 —— 半透明偏实（玻璃面板）。
+  static const double a55 = 0.55;
+
+  /// 0.60 —— 半透明偏实（深色玻璃）。
+  static const double a60 = 0.60;
+
+  /// 0.65 —— 深色主题下的玻璃密度。
+  static const double a65 = 0.65;
+
+  /// 0.72 —— 浅色主题下的玻璃密度。
+  static const double a72 = 0.72;
+
+  /// 0.80 —— 接近不透明（浮层底）。
+  static const double a80 = 0.80;
+
+  /// 0.85 —— 几乎不透明（需要透过一点背景时）。
+  static const double a85 = 0.85;
+
+  /// 0.92 —— 只留一丝背景。
+  static const double a92 = 0.92;
 }
 
 /// 尺寸令牌。
@@ -438,6 +532,10 @@ abstract final class AppSize {
   /// 标题栏、内容、悬浮按钮都对齐到这一列,窗口再宽也不会拉散。
   static const double listMaxWidth = 760;
 
+  /// 社区里「设置 / 赞助」这类纯列表页的内容列上限（与 listMaxWidth 区分：
+  /// 那一档是主项目的消息列表，观感更宽）。
+  static const double islandContentMaxWidth = 720;
+
   /// 卡片网格栏目的内容列最大宽度(群聊 / 身份)。
   ///
   /// 这两栏是卡片列表,宽屏下并排多列(见 `AppResponsiveWrap`),
@@ -466,7 +564,11 @@ abstract final class AppSize {
   /// 聊天「快速切换侧栏」(横屏宽窗口)。
   ///
   /// 结构:把手(收起/展开) | 角色 1:1 头像列 | 分隔线 | 该角色的聊天列。
-  static const double chatSidebarHandle = 28;
+  ///
+  /// 把手的宽度**同时是它的命中宽度**（外层的 ClipRect / OverflowBox 会裁掉
+  /// 越界的部分，无法靠"视觉 28、命中 48"绕过），所以这里直接取
+  /// [touchTarget]：以前是 28，低于 48dp 的最小触摸目标（审计 4.3）。
+  static const double chatSidebarHandle = touchTarget;
   static const double chatSidebarAvatarColumn = 56;
   static const double chatSidebarListWidth = 176;
 

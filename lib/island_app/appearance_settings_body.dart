@@ -61,39 +61,111 @@ class _AppearanceSettingsBodyState extends State<AppearanceSettingsBody> {
     );
   }
 
+  /// 自定义强调色取色器。
+  ///
+  /// 取色不是「需要立刻拍板的决定」，而是一段上下文内的调整：与同模块的
+  /// 举报表单同一范式，用 bottom sheet 而不是全屏 AlertDialog（审计 3.2）。
+  /// 取消/确定的语义与原来完全一致：拖动期间只改本地预览，点「确定」才写设置。
   Future<void> _pickColor() async {
     final current =
         AppSettings.instance.accentColor ?? _accentOptions.first.toARGB32();
     Color picked = Color(current);
-    final result = await showDialog<bool>(
+    final bool? confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('自定义强调色'),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: picked,
-            onColorChanged: (c) => picked = c,
-            enableAlpha: false,
-            labelTypes: const <ColorLabelType>[],
-            pickerAreaHeightPercent: 0.8,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (bc, setSB) => SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.xl,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    '自定义强调色',
+                    style: Theme.of(bc).textTheme.titleLarge,
+                  ),
+                  AppSpacing.hLg,
+                  // 实时预览：色板本身在窄窗口里很小，给一块 44dp 实色 + 色值，
+                  // 拖动时能直接看出最终会得到什么颜色。
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: picked,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(bc).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      AppSpacing.wMd,
+                      Expanded(
+                        child: Text(
+                          _hexOf(picked),
+                          style: Theme.of(bc).textTheme.bodyMedium?.copyWith(
+                            fontFamily: 'monospace',
+                            color: Theme.of(bc).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  AppSpacing.hLg,
+                  ColorPicker(
+                    pickerColor: picked,
+                    onColorChanged: (Color c) => setSB(() => picked = c),
+                    enableAlpha: false,
+                    labelTypes: const <ColorLabelType>[],
+                    pickerAreaHeightPercent: 0.8,
+                  ),
+                  AppSpacing.hLg,
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(false),
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      AppSpacing.wMd,
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(true),
+                          child: const Text('确定'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
+        );
+      },
     );
-    if (result == true && mounted) {
+    if (confirmed == true && mounted) {
       AppSettings.instance.setAccentColor(picked.toARGB32());
       setState(() {});
     }
+  }
+
+  /// 颜色 → #RRGGBB（只用于取色器里的预览文字，不参与存储）。
+  String _hexOf(Color color) {
+    final int rgb = color.toARGB32() & 0xFFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
   @override

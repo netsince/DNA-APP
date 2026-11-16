@@ -316,25 +316,26 @@ class _HomeBodyState extends State<HomeBody>
     return slivers;
   }
 
-  /// 加载中的骨架屏网格：与真实卡片同列宽、同间隙，带 shimmer 微光。
+  /// 加载中的骨架屏：列数/格子尺寸都取自 [cardGridMetrics]，
+  /// 与真实网格**同构** —— 否则内容一到位卡片会重排、页面跳一下（审计 3.3）。
   Widget _skeletonSliver(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: Shimmer(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final columns = (width ~/ 200).clamp(2, 6);
-              const spacing = 12.0;
-              final itemWidth = (width - spacing * (columns - 1)) / columns;
+              final CardGridMetrics m = cardGridMetrics(constraints.maxWidth);
               return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
+                spacing: kCardGridSpacing,
+                runSpacing: kCardGridSpacing,
                 children: List<Widget>.generate(
-                  columns * 3,
-                  (_) =>
-                      SizedBox(width: itemWidth, child: const _SkeletonCard()),
+                  m.columns * 3,
+                  (_) => SizedBox(
+                    width: m.cellWidth,
+                    height: m.cellHeight,
+                    child: const _SkeletonCard(),
+                  ),
                 ),
               );
             },

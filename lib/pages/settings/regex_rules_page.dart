@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -67,74 +66,18 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
     await _persist();
   }
 
-  Future<RegexRule?> _editRule(RegexRule? existing) async {
-    final TextEditingController patternController =
-        TextEditingController(text: existing?.pattern ?? '');
-    final TextEditingController replacementController =
-        TextEditingController(text: existing?.replacement ?? '');
-    final bool? isValid = await showDialog<bool>(
+  /// 打开规则编辑表单。
+  ///
+  /// 容器从 dialog 改成 bottom sheet（审计 3.2）：这是填写表单，不是
+  /// 需要立刻拍板的决定；sheet 还顺手解决了 dialog 宽度写死 360 的问题。
+  Future<RegexRule?> _editRule(RegexRule? existing) {
+    return showModalBottomSheet<RegexRule>(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: FitText(existing == null ? '新增清洗规则' : '编辑清洗规则'),
-        content: SizedBox(
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: patternController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '要匹配的文字',
-                  hintText: r'例如：\*[^*]+\* 或 (喵|喵呜)',
-                  helperText: '用「模式」描述想找的文字，方括号和竖线表示可选',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              AppSpacing.hMd,
-              TextField(
-                controller: replacementController,
-                decoration: const InputDecoration(
-                  labelText: '替换为',
-                  hintText: '留空表示直接删除匹配内容',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              AppSpacing.hMd,
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: FitText(
-                  '规则按从上到下的顺序生效，写错的规则会被自动跳过。',
-                  style: TextStyle(fontSize: AppFontSize.caption),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const FitText('保存规则'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) =>
+          _RegexRuleSheet(existing: existing),
     );
-
-    if (isValid == true) {
-      final String pattern = patternController.text.trim();
-      final String replacement = replacementController.text;
-      if (pattern.isEmpty) return null;
-      return RegexRule(
-        id: existing?.id ?? newId(),
-        pattern: pattern,
-        replacement: replacement,
-      );
-    }
-    return null;
   }
 
   @override
@@ -188,11 +131,10 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _rules.length,
-              onReorder: (int oldIndex, int newIndex) {
+              // 新 API：onReorderItem 的 newIndex 已经按「移除后下标」调整过，
+              // 所以这里不能再做 oldIndex < newIndex 的 -1 修正（会双重调整）。
+              onReorderItem: (int oldIndex, int newIndex) {
                 setState(() {
-                  if (oldIndex < newIndex) {
-                    newIndex -= 1;
-                  }
                   final RegexRule item = _rules.removeAt(oldIndex);
                   _rules.insert(newIndex, item);
                 });
@@ -263,6 +205,143 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
               label: const FitText('新增清洗规则'),
             )
           : null,
+    );
+  }
+}
+
+/// 清洗规则的编辑表单（bottom sheet）。
+///
+/// 以前是 dialog，而且**匹配文字为空时静默 return null** —— 用户点了
+/// 「保存规则」，对话框关掉，什么也没发生。现在就地报错、不关表单。
+class _RegexRuleSheet extends StatefulWidget {
+  const _RegexRuleSheet({this.existing});
+
+  final RegexRule? existing;
+
+  @override
+  State<_RegexRuleSheet> createState() => _RegexRuleSheetState();
+}
+
+class _RegexRuleSheetState extends State<_RegexRuleSheet> {
+  late final TextEditingController _patternCtrl;
+  late final TextEditingController _replacementCtrl;
+
+  /// 「要匹配的文字」的就地校验文案；为 null 时不显示错误。
+  String? _patternError;
+
+  @override
+  void initState() {
+    super.initState();
+    _patternCtrl = TextEditingController(text: widget.existing?.pattern ?? '');
+    _replacementCtrl =
+        TextEditingController(text: widget.existing?.replacement ?? '');
+  }
+
+  @override
+  void dispose() {
+    _patternCtrl.dispose();
+    _replacementCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String pattern = _patternCtrl.text.trim();
+    if (pattern.isEmpty) {
+      setState(() => _patternError = '请填写要匹配的文字');
+      return;
+    }
+    Navigator.of(context).pop(
+      RegexRule(
+        id: widget.existing?.id ?? newId(),
+        pattern: pattern,
+        replacement: _replacementCtrl.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Padding(
+      // 键盘避让：sheet 跟着输入法一起抬起，不遮住正在编辑的字段。
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            0,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              FitText(
+                widget.existing == null ? '新增清洗规则' : '编辑清洗规则',
+                style: theme.textTheme.titleLarge,
+              ),
+              AppSpacing.hLg,
+              TextField(
+                controller: _patternCtrl,
+                autofocus: true,
+                onChanged: (_) {
+                  if (_patternError != null) {
+                    setState(() => _patternError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: '要匹配的文字',
+                  hintText: r'例如：\*[^*]+\* 或 (喵|喵呜)',
+                  helperText: '用「模式」描述想找的文字，方括号和竖线表示可选',
+                  border: const OutlineInputBorder(),
+                  errorText: _patternError,
+                ),
+              ),
+              AppSpacing.hMd,
+              TextField(
+                controller: _replacementCtrl,
+                decoration: const InputDecoration(
+                  labelText: '替换为',
+                  hintText: '留空表示直接删除匹配内容',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              AppSpacing.hMd,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FitText(
+                  '规则按从上到下的顺序生效，写错的规则会被自动跳过。',
+                  style: AppTextStyles.caption(theme).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              AppSpacing.hXl,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const FitText('取消'),
+                    ),
+                  ),
+                  AppSpacing.wMd,
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _submit,
+                      child: const FitText('保存规则'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

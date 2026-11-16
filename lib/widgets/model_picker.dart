@@ -157,34 +157,29 @@ class ModelPicker extends StatelessWidget {
         border: Border.all(color: AppBorder.color(cs)),
         borderRadius: AppRadius.xsAll,
       ),
-      child: ListView.separated(
-        shrinkWrap: !fill,
-        padding: EdgeInsets.zero,
-        itemCount: models.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (BuildContext context, int index) {
-          final String model = models[index];
-          final bool selected = model == selectedModel;
-          return ListTile(
-            dense: true,
-            visualDensity: VisualDensity.compact,
-            leading: Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              size: AppSize.iconInline,
-              color: selected ? cs.primary : cs.outline,
-            ),
-            title: FitText(
-              model,
-              style: TextStyle(
-                fontWeight: selected ? AppWeight.medium : AppWeight.regular,
-                color: selected ? cs.primary : null,
-              ),
-            ),
-            onTap: () => onSelect(model),
-          );
+      // 单选就用单选控件（审计 4.3「只用颜色表达状态」/ 4.1）：以前是
+      // ListTile + 自绘的两个 radio 图标——视觉像 radio，语义上什么都没有
+      // （读屏读不出选中态，键盘也没有单选组的方向键行为）。
+      // 现在交给 RadioGroup + RadioListTile：选中态由控件自己表达，
+      // 命中区保持 ≥48dp（不再叠 dense/compact 密度）。
+      child: RadioGroup<String>(
+        groupValue: selectedModel,
+        onChanged: (String? value) {
+          if (value != null) {
+            onSelect(value);
+          }
         },
+        child: ListView.separated(
+          shrinkWrap: !fill,
+          padding: EdgeInsets.zero,
+          itemCount: models.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (BuildContext context, int index) =>
+              RadioListTile<String>(
+                value: models[index],
+                title: FitText(models[index]),
+              ),
+        ),
       ),
     );
 

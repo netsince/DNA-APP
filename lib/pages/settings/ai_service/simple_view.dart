@@ -55,9 +55,9 @@ class AiServiceSimpleView extends StatelessWidget {
       margin: EdgeInsets.only(bottom: AppSpacing.lg),
       padding: AppInsets.card,
       decoration: BoxDecoration(
-        color: cs.errorContainer.withValues(alpha: 0.4),
+        color: cs.errorContainer.withValues(alpha: AppAlpha.a40),
         borderRadius: AppRadius.smAll,
-        border: Border.all(color: cs.error.withValues(alpha: 0.5)),
+        border: Border.all(color: cs.error.withValues(alpha: AppAlpha.half)),
       ),
       child: Row(
         children: <Widget>[

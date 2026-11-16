@@ -682,9 +682,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: Border.all(color: cs.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.smAll,
         color: _voiceListening
-            ? cs.errorContainer.withValues(alpha: 0.12)
+            ? cs.errorContainer.withValues(alpha: AppAlpha.a12)
             : cs.surfaceContainerHighest,
       ),
       child: Align(
@@ -703,28 +703,53 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// - 按住 >=180ms = 长按：聆听，松开直接发送；
   /// - 快速点击：开始聆听，再点一次停止并进入待确认。
   Widget _buildBigVoiceButton(ColorScheme cs, {required bool listening}) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _onPointerDown,
-      onPointerUp: _onPointerUp,
-      onPointerCancel: _onPointerCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        decoration: BoxDecoration(
-          color: listening ? cs.error : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(
-            listening ? Icons.mic : Icons.mic_none,
-            color: listening ? cs.onError : cs.onSurfaceVariant,
-            size: 28,
+    final bool pressed = _pressActive;
+    final Color background = listening
+        ? cs.error
+        : (pressed ? cs.errorContainer : cs.surfaceContainerHighest);
+    final Color foreground = listening
+        ? cs.onError
+        : (pressed ? cs.onErrorContainer : cs.onSurfaceVariant);
+    // 无障碍（审计 4.3）：Listener 只认裸指针事件，读屏/键盘用户根本够不着这个
+    // 按钮，也没有任何语义可读。这里在外面套一层 Semantics：
+    // 报「按住说话」这个按钮、给用法提示，并把 tap 挂成语义动作
+    // （读屏双击 = 这里原有的点击语义；"松开即发送"无法用语义动作表达）。
+    // 同时补上可见的按下态（以前按下除录音色外没有任何反馈）与文字标签：
+    // 空闲态从"只有一个 28px 图标"变成 ≥48dp 的明确控件。
+    return Semantics(
+      button: true,
+      label: listening ? '正在聆听，点击停止' : '按住说话',
+      hint: listening ? '点击结束录音并确认识别结果' : '长按说话，松开即发送',
+      onTap: listening ? _stopAndReview : _startListening,
+      onLongPress: _startListening,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _onPointerDown,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: AppRadius.mdAll,
           ),
-        ],
-      ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(listening ? Icons.mic : Icons.mic_none, color: foreground, size: 28),
+              AppSpacing.hXs,
+              FitText(
+                listening ? '正在聆听' : '按住说话',
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  color: foreground,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -732,6 +757,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _onPointerDown(PointerDownEvent event) {
     _pressActive = true;
     _longPressFired = false;
+    // 让「按下态」真的画出来：以前 _pressActive 只在下次 setState 时才被
+    // build 读到，按钮在"按住但还没开始录音"的那一下没有任何视觉反馈。
+    if (mounted) {
+      setState(() {});
+    }
     _longPressTimer?.cancel();
     _longPressTimer = Timer(const Duration(milliseconds: 180), () {
       _longPressFired = true;
@@ -745,6 +775,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
       return;
     }
     _pressActive = false;
+    if (mounted) {
+      setState(() {});
+    }
     _longPressTimer?.cancel();
     _longPressTimer = null;
     if (_longPressFired) {
@@ -772,6 +805,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
       return;
     }
     _pressActive = false;
+    if (mounted) {
+      setState(() {});
+    }
     _longPressTimer?.cancel();
     _longPressTimer = null;
     if (_longPressFired) {
@@ -805,16 +841,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
             color: cs.surfaceContainerHighest.withValues(
               alpha: widget.halfScreen ? 0.65 : 0.85,
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: AppRadius.lgAll,
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadius.lgAll,
               onTap: widget.onQuickReply == null
                   ? null
                   : () => widget.onQuickReply!(qr),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadius.lgAll,
                   border: Border.all(
                     color: cs.outlineVariant.withValues(
                       alpha: widget.halfScreen ? 0.4 : 0.55,
@@ -827,7 +863,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     Icon(
                       Icons.chat_bubble_outline_rounded,
                       size: 13,
-                      color: cs.primary.withValues(alpha: 0.85),
+                      color: cs.primary.withValues(alpha: AppAlpha.a85),
                     ),
                     const SizedBox(width: 4),
                     FitText(
@@ -884,21 +920,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         color: cs.surfaceContainerHigh.withValues(
           alpha: widget.halfScreen ? 0.72 : 0.95,
         ),
-        borderRadius: BorderRadius.circular(999),
+        // 圆角与阴影都用令牌（审计 4.4）：以前是手写 999 与一条自造阴影。
+        // 半透明输入岛的层次由 AppShadows.soft 统一表达。
+        borderRadius: AppRadius.pillAll,
         border: Border.all(
           color: cs.outlineVariant.withValues(
             alpha: widget.halfScreen ? 0.35 : 0.5,
           ),
         ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: widget.halfScreen ? 0.03 : 0.05,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1033,40 +1063,38 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 文字误发出去。这里给停止后的发送加冷却,吞掉该同一手势的误触。
   Widget _buildSendOrStopButton(ColorScheme cs) {
     final bool canStop = widget.sending && widget.onStopGeneration != null;
-    return Material(
-      color: cs.primary,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: canStop
-            ? () {
-                _lastStopAt = DateTime.now();
-                widget.onStopGeneration!();
-              }
-            : (widget.sending ? null : _sendSafe),
-        child: SizedBox(
-          width: 38,
-          height: 38,
-          child: Center(
-            child: widget.sending
-                ? (canStop
-                    ? Icon(Icons.stop_rounded, size: 22, color: cs.onPrimary)
-                    : SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: cs.onPrimary,
-                        ),
-                      ))
-                : Icon(
-                    Icons.arrow_upward_rounded,
-                    size: 20,
-                    color: cs.onPrimary,
-                  ),
-          ),
-        ),
+    // 命中区按 [AppSize.touchTarget]（48dp）给：以前是 38×38 的自绘
+    // Material+InkWell 圆钮，视觉尺寸当成了命中尺寸（审计 4.3）。
+    // IconButton.filled 自带填充底、onPrimary 前景、水波纹、禁用态与焦点；
+    // tooltip 兼作读屏标签（「发送」/「停止生成」）。
+    return IconButton.filled(
+      onPressed: canStop
+          ? () {
+              _lastStopAt = DateTime.now();
+              widget.onStopGeneration!();
+            }
+          : (widget.sending ? null : _sendSafe),
+      tooltip: canStop ? '停止生成' : '发送',
+      style: IconButton.styleFrom(
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        disabledBackgroundColor: cs.surfaceContainerHighest,
+        disabledForegroundColor: cs.onSurfaceVariant,
+        minimumSize: const Size(AppSize.touchTarget, AppSize.touchTarget),
+        shape: const CircleBorder(),
       ),
+      icon: widget.sending
+          ? (canStop
+              ? const Icon(Icons.stop_rounded, size: 22)
+              : SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ))
+          : const Icon(Icons.arrow_upward_rounded, size: 20),
     );
   }
 

@@ -206,7 +206,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: scheme.secondaryContainer.withValues(alpha: 0.5),
+        color: scheme.secondaryContainer.withValues(alpha: AppAlpha.half),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
@@ -420,6 +420,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
             ),
           ),
           IconButton(
+            tooltip: '复制',
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.copy, size: 18),
             onPressed: onCopy,

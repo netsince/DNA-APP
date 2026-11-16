@@ -10,6 +10,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
@@ -589,7 +590,18 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                     child: ListView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 16),
+                      // 与茶馆列表同一版心：从列表进详情，行长不该突然变成整屏。
+                      padding: EdgeInsets.only(
+                        bottom: 16,
+                        left: wideInset(
+                          MediaQuery.sizeOf(context).width,
+                          maxWidth: WideContent.reading.maxWidth,
+                        ),
+                        right: wideInset(
+                          MediaQuery.sizeOf(context).width,
+                          maxWidth: WideContent.reading.maxWidth,
+                        ),
+                      ),
                       children: <Widget>[
                         if (_chain.isNotEmpty) ...<Widget>[
                           const _SectionLabel('原帖链'),
@@ -670,12 +682,16 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                             ),
                           )
                         else if (_noMore && _replies.isNotEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(AppSpacing.md),
+                          Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
                             child: Center(
                               child: Text(
                                 '没有更多回复了',
-                                style: TextStyle(color: Colors.grey),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           ),

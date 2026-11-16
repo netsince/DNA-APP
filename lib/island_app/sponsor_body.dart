@@ -93,8 +93,8 @@ class _SponsorBodyState extends State<SponsorBody> {
     final scheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double w = constraints.maxWidth > 720
-            ? 720
+        final double w = constraints.maxWidth > AppSize.islandContentMaxWidth
+            ? AppSize.islandContentMaxWidth
             : constraints.maxWidth;
         return Center(
           child: ConstrainedBox(
@@ -213,12 +213,12 @@ class _HeaderCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: <Color>[
-            scheme.primaryContainer.withValues(alpha: 0.55),
+            scheme.primaryContainer.withValues(alpha: AppAlpha.a55),
             scheme.surfaceContainerLow,
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: AppAlpha.half)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +289,7 @@ class _SponsorChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.4),
+              color: scheme.outlineVariant.withValues(alpha: AppAlpha.a40),
             ),
           ),
           child: Row(

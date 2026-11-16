@@ -68,7 +68,7 @@ class _AccentColorTile extends StatelessWidget {
     return ListTile(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.a40)),
       ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
@@ -277,9 +277,12 @@ final FieldsEntry appearanceEntry = FieldsEntry(
           key: 'halfScreenChat',
         ),
         SettingToggle(
+          // key 保留旧名（持久化兼容）；语义已从「滚动自动切换」改成
+          // 「顶栏是否显示展开按钮」—— 自动切换的布局变化按审计删掉了，
+          // 留一个没有效果的开关比没有开关更糟。
           id: 'appearance.dynamicHalfScreen',
-          title: '滚动时自动全半屏',
-          subtitle: '翻历史时展开，滚回底部时收成半屏。',
+          title: '顶栏显示展开按钮',
+          subtitle: '关掉后顶栏不出现展开按钮。',
           key: 'dynamicHalfScreen',
           visibleWhen: (SettingsRuntime r) => r.settings.halfScreenChat,
         ),

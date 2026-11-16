@@ -3,6 +3,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/models/ta_gender.dart';
 import '../../theme/tokens.dart';
@@ -97,8 +98,17 @@ class CardTile extends StatelessWidget {
                         )
                       : _placeholder(context),
                   // 置顶角标：作者把该卡置顶到了主页最前（字段来自 /api/v1 的 pinned）。
+                  // 压在封面上，所以给 emphasized（一圈前景色描边）保证边界。
                   if (card['pinned'] == true)
-                    const Positioned(top: 6, right: 6, child: _PinBadge()),
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: StatusBadge(
+                        label: '置顶',
+                        tone: BadgeTone.info,
+                        emphasized: true,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -120,7 +130,11 @@ class CardTile extends StatelessWidget {
               ),
               if (gender.isNotEmpty) ...[
                 const SizedBox(width: 6),
-                _GenderBadge(TaGender.labelOf(gender)),
+                // 服务端存的是 ID（历史中文值）；未知值原样显示，不丢数据。
+                StatusBadge(
+                  label: TaGender.labelOf(gender),
+                  tone: BadgeTone.positive,
+                ),
               ],
             ],
           ),
@@ -180,51 +194,5 @@ class CardTile extends StatelessWidget {
   }
 }
 
-/// 「置顶」角标：覆盖在封面上，标识作者置顶的卡。
-class _PinBadge extends StatelessWidget {
-  const _PinBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: scheme.inverseSurface,
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Text(
-        '置顶',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: scheme.onInverseSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-/// 性别小徽标：紧凑的圆角标签，显示在名称右侧。
-class _GenderBadge extends StatelessWidget {
-  const _GenderBadge(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: scheme.onPrimaryContainer),
-      ),
-    );
-  }
-}
+// 小标签（置顶 / 性别）统一走 StatusBadge：只读指示、语义色调、无 ink。
+// 原来这里有两份各写一遍的私有实现（_PinBadge / _GenderBadge）。

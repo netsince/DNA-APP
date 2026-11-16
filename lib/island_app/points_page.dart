@@ -22,6 +22,21 @@ typedef PointsRedeemer =
     >
     Function(List<String> codes);
 
+/// 数字列用等宽数字（tabular figures）。
+///
+/// 明细是"时间 / 变化 / 余额 / 来源"四列数据：默认字体的 `1` 比 `8` 窄，
+/// 上下串起来时小数点与个位对不齐，扫一列金额很费劲。
+/// 全项目此前 0 处等宽数字（审计 3.3）。
+const List<FontFeature> _tabularFigures = <FontFeature>[
+  FontFeature.tabularFigures(),
+];
+
+/// 金额 / 余额列的**最小宽**（不再是定死宽）。
+///
+/// 回滚 R7：定死 92dp 时位数一多就顶出去。改成「最小宽 + 自适应」——
+/// 短金额靠右对齐、上下仍然成列；长金额向左撑开，不溢出也不裁切。
+const double _amountColumnMinWidth = 72;
+
 /// 积分页：余额大卡 + 变化明细分页 + 兑换入口。
 ///
 /// 对齐网页点数详情页（app/templates/points/detail.html）：
@@ -154,7 +169,7 @@ class _PointsBodyState extends State<PointsBody> {
           Text(
             '当前点数',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onPrimaryContainer.withValues(alpha: 0.75),
+              color: scheme.onPrimaryContainer.withValues(alpha: AppAlpha.mutedStrong),
               letterSpacing: 1.5,
             ),
           ),
@@ -164,6 +179,7 @@ class _PointsBodyState extends State<PointsBody> {
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
               color: scheme.onPrimaryContainer,
               fontWeight: AppWeight.medium,
+              fontFeatures: _tabularFigures,
             ),
           ),
           if (SiteConfig.instance.redeemCodeUrl.isNotEmpty) ...<Widget>[
@@ -232,13 +248,23 @@ class _PointsBodyState extends State<PointsBody> {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
-                    Text(
-                      positive
-                          ? '+${formatPoints(delta)}'
-                          : formatPoints(delta),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: positive ? scheme.primary : scheme.error,
-                        fontWeight: FontWeight.w500,
+                    // 金额列：**最小宽 + 自适应**右对齐（回滚 R7）。
+                    // 等宽数字保留，短金额仍能上下成列；长金额向左撑开，
+                    // 不溢出、不裁切。
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: _amountColumnMinWidth,
+                      ),
+                      child: Text(
+                        positive
+                            ? '+${formatPoints(delta)}'
+                            : formatPoints(delta),
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: positive ? scheme.primary : scheme.error,
+                          fontWeight: FontWeight.w500,
+                          fontFeatures: _tabularFigures,
+                        ),
                       ),
                     ),
                   ],
@@ -273,11 +299,19 @@ class _PointsBodyState extends State<PointsBody> {
                           ),
                         ),
                       const Spacer(),
-                      Text(
-                        '余额 ${formatPoints(balanceAfter)}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: scheme.outline),
+                      // 余额列同样「最小宽 + 自适应」，与金额列同一套规则。
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: _amountColumnMinWidth,
+                        ),
+                        child: Text(
+                          '余额 ${formatPoints(balanceAfter)}',
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.outline,
+                            fontFeatures: _tabularFigures,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -391,7 +425,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: scheme.secondaryContainer.withValues(alpha: 0.4),
+              color: scheme.secondaryContainer.withValues(alpha: AppAlpha.a40),
               borderRadius: BorderRadius.circular(kRadiusSm),
             ),
             child: const Text(
@@ -468,32 +502,36 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            for (final r in _results)
-              Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(
-                    r['ok'] == true
-                        ? Icons.check_circle_outline
-                        : Icons.cancel_outlined,
-                    color: r['ok'] == true ? scheme.primary : scheme.error,
-                  ),
-                  title: Text(
-                    (r['code'] ?? '').toString(),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                  trailing: Text(
-                    (r['message'] ?? '').toString(),
-                    style: TextStyle(
-                      fontSize: AppFontSize.caption,
-                      color: r['ok'] == true
-                          ? scheme.onSurfaceVariant
-                          : scheme.error,
-                    ),
+            // 兑换结果是同构的行：排成 list + Divider，而不是一行一张卡
+            // （审计 3.3）。行内边距交给 ListTile，横向对齐交给页面 padding。
+            for (int i = 0; i < _results.length; i++) ...<Widget>[
+              if (i > 0) const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Icon(
+                  _results[i]['ok'] == true
+                      ? Icons.check_circle_outline
+                      : Icons.cancel_outlined,
+                  color: _results[i]['ok'] == true
+                      ? scheme.primary
+                      : scheme.error,
+                ),
+                title: Text(
+                  (_results[i]['code'] ?? '').toString(),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+                trailing: Text(
+                  (_results[i]['message'] ?? '').toString(),
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: _results[i]['ok'] == true
+                        ? scheme.onSurfaceVariant
+                        : scheme.error,
                   ),
                 ),
               ),
+            ],
           ],
         ],
       ),

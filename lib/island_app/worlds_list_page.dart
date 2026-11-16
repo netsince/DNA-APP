@@ -7,6 +7,7 @@ import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
@@ -355,8 +356,9 @@ class _WorldsListPageState extends State<WorldsListPage> {
 
 /// 审核状态徽章（世界卡版）：列表页与作者主页共用。
 ///
-/// 与「我的角色卡」的 StatusChip 同一个观感，但多两档：世界卡会「已下架」
-/// 和「已撤回」—— 用角色卡那个两档的徽章会把它们都显示成「待审核」。
+/// 世界卡比角色卡多两档（会「已下架」「已撤回」），所以这里只负责把
+/// status 映射成 [StatusBadge] 的色档 + 图标 —— 视觉（色对 / 字号 / 圆角 /
+/// 无 ink）只有 StatusBadge 一份实现，这是第六套自绘标签的收口点（审计 5 节）。
 class WorldStatusChip extends StatelessWidget {
   const WorldStatusChip({super.key, required this.summary});
 
@@ -364,26 +366,16 @@ class WorldStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final (Color bg, Color fg) = switch (summary.status) {
-      'approved' =>
-        summary.isHidden
-            ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
-            : (cs.primaryContainer, cs.onPrimaryContainer),
-      'rejected' => (cs.errorContainer, cs.onErrorContainer),
-      'deleted' => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
-      _ => (cs.tertiaryContainer, cs.onTertiaryContainer),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Text(
-        summary.statusLabel,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
-      ),
+    // 状态 → (色调, 图标) 的映射只有一份：[worldStatusStyle]。
+    final ({BadgeTone tone, IconData icon}) style = worldStatusStyle(
+      status: summary.status,
+      hidden: summary.isHidden,
+    );
+    return StatusBadge(
+      label: summary.statusLabel,
+      icon: style.icon,
+      tone: style.tone,
+      semanticLabel: '审核状态：${summary.statusLabel}',
     );
   }
 }

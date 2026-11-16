@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -327,7 +326,9 @@ class _ModelEditPageState extends State<ModelEditPage> {
 
                 // 所属服务商
                 DropdownButtonFormField<String>(
-                  value: _selectedProviderId,
+                  // 新 API：initialValue 取代了废弃的 value（语义等价：
+                  // FormFieldState 在 didUpdateWidget 里会跟随 initialValue 更新）。
+                  initialValue: _selectedProviderId,
                   decoration: const InputDecoration(
                     labelText: '归属服务商',
                     border: OutlineInputBorder(),

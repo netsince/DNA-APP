@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -183,7 +182,7 @@ class _AboutPageState extends State<AboutPage> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: cs.primaryContainer.withValues(alpha: 0.6),
+                          color: cs.primaryContainer.withValues(alpha: AppAlpha.a60),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.system_update_alt,
@@ -213,7 +212,7 @@ class _AboutPageState extends State<AboutPage> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: cs.primaryContainer.withValues(alpha: 0.6),
+                          color: cs.primaryContainer.withValues(alpha: AppAlpha.a60),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.people_outline, color: cs.onPrimaryContainer, size: 20),

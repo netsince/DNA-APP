@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/state_views.dart';
+
 import '../models/user_identity.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
@@ -74,19 +76,13 @@ class IdentityListBody extends StatelessWidget {
         final List<UserIdentity> identities = controller.identities;
 
         if (identities.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const FitText('暂无身份，先创建一个吧。'),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: onCreateIdentity,
-                  icon: const Icon(Icons.add),
-                  label: const FitText('创建身份'),
-                ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: Icons.person_outline,
+            title: '暂无身份，先创建一个吧。',
+            description: '身份是你在对话里的立场，可以随时切换。',
+            actionLabel: '创建身份',
+            actionIcon: Icons.add,
+            onAction: onCreateIdentity,
           );
         }
 

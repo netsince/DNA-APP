@@ -66,6 +66,8 @@ class ChatMessageList extends StatelessWidget {
     this.onRetryMessage,
     this.onCopyMessage,
     this.onContinueMessage,
+    this.streamErrors = const <String, String>{},
+    this.onRetryFailed,
   });
 
   final Conversation conversation;
@@ -119,8 +121,19 @@ class ChatMessageList extends StatelessWidget {
   /// 点击「复制」回调。
   final void Function(String text)? onCopyMessage;
 
+
   /// 点击「继续说」回调（仅最近一条 AI 消息可用）。
   final VoidCallback? onContinueMessage;
+
+  /// 生成失败的消息 id → 失败原因。
+  ///
+  /// 失败态由聊天页的流处理器登记（见 chat_stream_handlers 的 _streamErrors），
+  /// 这里把它渲染成气泡下方的行内错误条：失败必须留在列表里可见，
+  /// 不能只靠一条 snackbar（审计 3.5）。
+  final Map<String, String> streamErrors;
+
+  /// 行内「重试」回调（复用现有的重说动作）。
+  final VoidCallback? onRetryFailed;
 
   @override
   Widget build(BuildContext context) {
@@ -158,10 +171,10 @@ class ChatMessageList extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                constraints: const BoxConstraints(maxWidth: 520),
+                constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
+                  color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
+                  borderRadius: AppRadius.smAll,
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
@@ -222,10 +235,10 @@ class ChatMessageList extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                constraints: const BoxConstraints(maxWidth: 520),
+                constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
+                  color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
+                  borderRadius: AppRadius.smAll,
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Column(
@@ -246,7 +259,7 @@ class ChatMessageList extends StatelessWidget {
                     FitText(
                       '长按/右键查看/删除',
                       style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: AppAlpha.muted),
                       ),
                     ),
                   ],
@@ -271,18 +284,20 @@ class ChatMessageList extends StatelessWidget {
             ? taNameForId(message.speakerTaId)?.trim()
             : null;
 
+        // 气泡圆角用令牌（审计 4.4）：主体 AppRadius.lg（20），朝向头像那一角
+        // 收小到 AppRadius.xs（8）暗示说话方向 —— 以前手写 20/4。
         final BorderRadius bubbleRadius = isUser
             ? const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(4),
+                topLeft: Radius.circular(AppRadius.lg),
+                topRight: Radius.circular(AppRadius.lg),
+                bottomLeft: Radius.circular(AppRadius.lg),
+                bottomRight: Radius.circular(AppRadius.xxs),
               )
             : const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                topLeft: Radius.circular(AppRadius.xxs),
+                topRight: Radius.circular(AppRadius.lg),
+                bottomLeft: Radius.circular(AppRadius.lg),
+                bottomRight: Radius.circular(AppRadius.lg),
               );
 
         final Widget bubble = GestureDetector(
@@ -303,17 +318,12 @@ class ChatMessageList extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            constraints: const BoxConstraints(maxWidth: 520),
+            constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: bubbleRadius,
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 1.5),
-                ),
-              ],
+              // 阴影走全局唯一来源，不再手写 Colors.black。
+              boxShadow: AppShadows.soft,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,7 +350,7 @@ class ChatMessageList extends StatelessWidget {
                     context,
                     message.text,
                     searchQuery,
-                    colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+                    colorScheme.tertiaryContainer.withValues(alpha: AppAlpha.a55),
                     bubbleColor: bubbleColor,
                   ),
                 ),
@@ -350,8 +360,8 @@ class ChatMessageList extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                      borderRadius: AppRadius.xsAll,
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: AppAlpha.half)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +397,7 @@ class ChatMessageList extends StatelessWidget {
                       color: FitText.inkFor(
                         bubbleColor,
                         colorScheme.surface,
-                      ).withValues(alpha: 0.7),
+                      ).withValues(alpha: AppAlpha.muted),
                     ),
                   ),
                 ],
@@ -413,7 +423,12 @@ class ChatMessageList extends StatelessWidget {
                 ? avatarForMessage!(message.speakerTaId)
                 : null;
 
+        // 这条消息的生成失败原因（有值就在气泡下方挂行内错误条）。
+        final String? streamError = streamErrors[message.id];
+
         // 操作按钮排：朗读（仅端侧 TTS 开启时）、复制、重说、继续说（最近一条）。
+        // 排布与三个开关的语义都恢复成原实现：showMessageCopy 管复制、
+        // showMessageRetry 管重说、showMessageContinue 管继续说。
         final List<Widget> actionButtons = <Widget>[];
         if (actionable && ttsEnabled) {
           actionButtons.add(
@@ -485,6 +500,11 @@ class ChatMessageList extends StatelessWidget {
                       const SizedBox(height: 4),
                     ],
                     bubble,
+                    if (streamError != null)
+                      _StreamErrorBanner(
+                        message: streamError,
+                        onRetry: onRetryFailed,
+                      ),
                   ],
                 ),
               ),
@@ -492,6 +512,73 @@ class ChatMessageList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 生成失败的行内错误条：气泡下方、紧跟该条回复。
+///
+/// 失败以前只弹一条 snackbar，气泡停在半截后看起来和"生成完了"一样
+/// （审计 3.5）。这里把原因与「重试」放在它所属的那条消息下面：
+/// - 原因常驻可见，不会随提示条消失；
+/// - 「重试」复用现有的重说动作（onRetryFailed），不另造一套重试逻辑；
+/// - liveRegion 让读屏在失败出现时主动播报一次。
+class _StreamErrorBanner extends StatelessWidget {
+  const _StreamErrorBanner({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Container(
+        margin: const EdgeInsets.only(top: AppSpacing.xs),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.sm,
+          AppSpacing.sm,
+        ),
+        constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
+        decoration: BoxDecoration(
+          color: cs.errorContainer,
+          borderRadius: AppRadius.smAll,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              Icons.error_outline,
+              size: AppSize.iconInline,
+              color: cs.onErrorContainer,
+            ),
+            AppSpacing.wSm,
+            Expanded(
+              child: FitText(
+                message,
+                style: TextStyle(
+                  fontSize: AppFontSize.caption,
+                  height: AppLineHeight.body,
+                  color: cs.onErrorContainer,
+                ),
+              ),
+            ),
+            if (onRetry != null)
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.onErrorContainer,
+                  minimumSize: const Size(AppSize.touchTarget, AppSize.touchTarget),
+                ),
+                child: const FitText('重试'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -506,7 +593,7 @@ class _MessageAvatarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Material(
-      color: cs.primaryContainer.withValues(alpha: 0.92),
+      color: cs.primaryContainer.withValues(alpha: AppAlpha.a92),
       shape: const CircleBorder(),
       elevation: 2,
       clipBehavior: Clip.antiAlias,
@@ -530,7 +617,16 @@ class _MessageAvatarButton extends StatelessWidget {
   }
 }
 
-/// 对方气泡右上角的轻量操作按钮（重说/复制/继续说）。
+/// 对方气泡外的轻量操作按钮（朗读/复制/重说/继续说）。
+///
+/// 命中区按 [AppSize.touchTarget]（48dp）给：以前是 26×26 的自绘圆钮，
+/// 视觉尺寸被当成了命中尺寸（审计 4.3「触摸目标 < 48dp」）。这里换成
+/// 气泡外那排的**密集控件**：26dp 视觉圆、15dp 图标。
+///
+/// 刻意不套 48dp —— 48 是「命中盒」不是「视觉尺寸」，而这里一行要排 3-4 颗、
+/// 行高由这一行决定。硬抬到 48 会让圆面积涨 240%、气泡被撑高（已回滚一次，
+/// 见 docs/REGRESSION_AUDIT.md 与 DESIGN_SPEC 的「密集控件例外」）。
+/// tooltip 兼作读屏语义标签（「复制」「重说」「继续说」）。
 class _MessageActionButton extends StatelessWidget {
   const _MessageActionButton({
     required this.tooltip,
@@ -546,7 +642,7 @@ class _MessageActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final Widget child = Material(
-      color: cs.secondaryContainer.withValues(alpha: 0.85),
+      color: cs.secondaryContainer.withValues(alpha: AppAlpha.a85),
       shape: const CircleBorder(),
       elevation: 1,
       child: InkWell(
@@ -689,14 +785,17 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
     final VoidCallback? onTap = ttsDisabled
         ? null
         : (_busy ? null : (_playing ? _stop : _play));
+    // 命中区同样按 48dp 给：朗读球以前也是 26×26 的自绘圆钮（审计 4.3）。
+    // 同样是密集控件（26dp 圆，和动作排同高）；tooltip 兼作读屏标签
+    // （「朗读／停止朗读／合成中／当前平台不可用」）。
     return Tooltip(
       message: message,
       child: Material(
         color: ttsDisabled
             ? cs.surfaceContainerHighest
-            : cs.primaryContainer.withValues(alpha: 0.92),
+            : cs.primaryContainer.withValues(alpha: AppAlpha.a92),
         shape: const CircleBorder(),
-        elevation: ttsDisabled ? 0 : 2,
+        elevation: 1,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
@@ -918,7 +1017,7 @@ TextSpan _buildHighlightedText(
 
   final TextStyle codeStyle = base.copyWith(
     fontFamily: 'monospace',
-    backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+    backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: AppAlpha.a60),
     fontSize: (base.fontSize ?? 14) * 0.92,
   );
 

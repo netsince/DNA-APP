@@ -6,6 +6,60 @@ import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 
+// ---------------------------------------------------------------------------
+// 触底加载：阈值 + 监听器（全模块唯一实现，审计 5 节「分页 2 套」）
+// ---------------------------------------------------------------------------
+//
+// 以前 explore / worlds / teahouse / search 各自手写
+// `NotificationListener<ScrollNotification>` 或 `ScrollController` 监听，
+// 阈值 400 / 300 也各写一遍。现在：
+// * 列表/网格页的 400 统一用 [kLoadMoreThreshold]（定义在 app_dimensions）；
+// * 内容流（茶馆 feed）的 300 统一用 [kLoadMoreFeedThreshold]；
+// * 监听本身用 [loadMoreListener] 包一层。
+
+/// 内容流（茶馆 feed）的触底阈值：300px。
+///
+/// 比列表页的 [kLoadMoreThreshold]（400）更小：feed 的帖子卡片很高，
+/// 一屏只有 2-3 条，400 的提前量会让「刚滚动就开始加载」的感觉太急。
+///
+/// **语义保持不变**：原来 teahouse 用 300、其余页用 400，只是把数字集中到
+/// 这里并写明为什么不同。
+const double kLoadMoreFeedThreshold = 300;
+
+/// 判断某个 [ScrollPosition] 是否已经接近底部。
+///
+/// 给**自带 ScrollController** 的页面用（茶馆那三页的 controller 还兼作别用，
+/// 直接把监听换成 widget 包装只会多一层缩进）：它们只需要把「多少算接近底部」
+/// 这半件事交给这里，阈值与判定公式和 [loadMoreListener] 完全一致。
+bool isNearScrollEnd(
+  ScrollPosition position, {
+  double threshold = kLoadMoreThreshold,
+}) =>
+    position.extentAfter <= threshold;
+
+/// 把「滚动接近底部 → 加载下一页」包成一个组件。
+///
+/// 用法：可滚动视图作为 [child] 传进来；[onReachEnd] 里**只判断**
+/// 「还有没有下一页 / 是否正在加载」，阈值不在这里重复写。
+///
+/// 返回 false 让通知继续冒泡（外层还可能挂着别的监听）。
+Widget loadMoreListener({
+  required Widget child,
+  required VoidCallback onReachEnd,
+  double threshold = kLoadMoreThreshold,
+}) {
+  return NotificationListener<ScrollNotification>(
+    onNotification: (ScrollNotification notification) {
+      if (notification.metrics.pixels >=
+          notification.metrics.maxScrollExtent - threshold) {
+        onReachEnd();
+      }
+      return false;
+    },
+    child: child,
+  );
+}
+
 /// 统一的分页列表：封装「下拉刷新 + 触底加载 + 空态 / 错误态 / 加载态」。
 ///
 /// 各列表页只需提供 [itemCount] / [itemBuilder] 与 [loadMore] 回调，即可获得

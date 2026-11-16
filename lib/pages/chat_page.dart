@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:share_plus/share_plus.dart';
@@ -624,49 +623,49 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 }
-/// 只在**横向明显占优**时才接受拖动的手势识别器。
-///
-/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
-/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
-/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
-/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
-/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
-///
-/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
-class _HorizontalDominantDragRecognizer
-    extends HorizontalDragGestureRecognizer {
-  _HorizontalDominantDragRecognizer({super.debugOwner});
-
-  /// 横向位移要达到纵向的多少倍才算横滑。
-  static const double _dominance = 1.6;
-
-  Offset _origin = Offset.zero;
-  bool _decided = false;
-
-  @override
-  void addAllowedPointer(PointerDownEvent event) {
-    _origin = event.position;
-    _decided = false;
-    super.addAllowedPointer(event);
-  }
-
-  @override
-  void handleEvent(PointerEvent event) {
-    if (!_decided && event is PointerMoveEvent) {
-      final Offset delta = event.position - _origin;
-      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
-        _decided = true; // 判定为横滑:开始交给父类累积并竞争
-      } else if (delta.dy.abs() > kTouchSlop) {
-        _decided = true; // 纵向已明确:退出,让列表滚
-        resolve(GestureDisposition.rejected);
-        return;
-      } else {
-        return; // 方向未明:先不参与
-      }
-    }
-    super.handleEvent(event);
-  }
-}
+/// 只在**横向明显占优**时才接受拖动的手势识别器。
+///
+/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
+/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
+/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
+/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
+/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
+///
+/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
+class _HorizontalDominantDragRecognizer
+    extends HorizontalDragGestureRecognizer {
+  _HorizontalDominantDragRecognizer({super.debugOwner});
+
+  /// 横向位移要达到纵向的多少倍才算横滑。
+  static const double _dominance = 1.6;
+
+  Offset _origin = Offset.zero;
+  bool _decided = false;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _origin = event.position;
+    _decided = false;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (!_decided && event is PointerMoveEvent) {
+      final Offset delta = event.position - _origin;
+      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
+        _decided = true; // 判定为横滑:开始交给父类累积并竞争
+      } else if (delta.dy.abs() > kTouchSlop) {
+        _decided = true; // 纵向已明确:退出,让列表滚
+        resolve(GestureDisposition.rejected);
+        return;
+      } else {
+        return; // 方向未明:先不参与
+      }
+    }
+    super.handleEvent(event);
+  }
+}
 class ChatConversationView extends StatefulWidget {
   const ChatConversationView({
     super.key,
@@ -718,11 +717,62 @@ class _ChatConversationViewState extends State<ChatConversationView>
         ChatActionsInspiration,
         ChatActionsSnapshots,
         ChatActionsSummaryUi {
-  // 沉浸模式：隐藏顶栏与底部输入岛，纯享全屏立绘与对话
+  // 沉浸模式：隐藏顶栏与底部输入岛，纯享全屏立绘与对话。
+  // 进入/退出：点屏幕上半区空白（原行为，见 docs/REGRESSION_AUDIT.md H1）、
+  // ⋮ 菜单里的「沉浸模式」、以及沉浸态右上角的退出按钮。
   bool _immersiveUiHidden = false;
 
-  // 动态自适应滚动：向上翻看历史记录时临时展开为全屏
+  // 半屏聊天时，消息区是否展开为全屏。
+  // **由滚动自动切换**（原行为，见 docs/REGRESSION_AUDIT.md R2）：
+  // 向上翻历史 → 展开；向下滚或滚到近底部 → 收敛回半屏；「回到底部」也收敛。
   bool _dynamicIsFullScreen = false;
+
+  /// 沉浸态开关（顶栏按钮与沉浸态的退出按钮共用）。
+  void _toggleImmersive() {
+    setState(() => _immersiveUiHidden = !_immersiveUiHidden);
+    if (_immersiveUiHidden) {
+      // 进入沉浸就把输入焦点交还，避免键盘挡住整屏立绘。
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+  }
+
+  /// 鼠标滚轮 / 触控板：向上滚展开全屏，向下滚收敛半屏（原行为 R2）。
+  /// 「半屏+自动」两个开关都开时才响应滚动（原实现就是这条守卫）。
+  bool get _dynamicHalfScreenOn =>
+      widget.controller.settings.halfScreenChat &&
+      widget.controller.settings.dynamicHalfScreen;
+
+  void _onPointerSignalForHalfScreen(PointerSignalEvent event) {
+    if (!_dynamicHalfScreenOn) return;
+    if (event is! PointerScrollEvent) return;
+    if (event.scrollDelta.dy < -3) {
+      if (!_dynamicIsFullScreen) setState(() => _dynamicIsFullScreen = true);
+    } else if (event.scrollDelta.dy > 3) {
+      if (_dynamicIsFullScreen) setState(() => _dynamicIsFullScreen = false);
+    }
+  }
+
+  /// 滚动通知：向上翻历史展开、到近底部收敛（原行为 R2，阈值与原实现一致）。
+  bool _onScrollForHalfScreen(ScrollNotification notification) {
+    if (!_dynamicHalfScreenOn) return false;
+    final ScrollMetrics metrics = notification.metrics;
+    final bool isNearBottom = metrics.pixels >= metrics.maxScrollExtent - 24;
+    if (isNearBottom) {
+      if (_dynamicIsFullScreen) setState(() => _dynamicIsFullScreen = false);
+    } else if (notification is ScrollUpdateNotification) {
+      final double? delta = notification.scrollDelta;
+      if (delta != null) {
+        if (delta < -3) {
+          if (!_dynamicIsFullScreen && metrics.pixels > 16) {
+            setState(() => _dynamicIsFullScreen = true);
+          }
+        } else if (delta > 3) {
+          if (_dynamicIsFullScreen) setState(() => _dynamicIsFullScreen = false);
+        }
+      }
+    }
+    return false;
+  }
 
   // 缓存回调函数避免重建
   late final _TokenCountCallback _tokenCountCallback = _TokenCountCallback(
@@ -908,56 +958,175 @@ class _ChatConversationViewState extends State<ChatConversationView>
       return;
     }
     final Set<String> selected = <String>{};
-    final List<String>? updated = await showDialog<List<String>>(
+    // 「添加群成员」是一次多选任务（可能很长的名单），不是需要模态阻断的决定：
+    // 用可滚动的大 sheet + 搜索，而不是把多选列表塞进 AlertDialog（审计 3.2）。
+    // 返回语义不变：确认回传选中的 id 列表，取消/下滑关闭回传 null。
+    final List<String>? updated = await showModalBottomSheet<List<String>>(
       context: context,
-      builder: (BuildContext context) {
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        List<TA> visible = candidates;
         return Theme(
           data: _accentTheme,
           child: StatefulBuilder(
             builder:
                 (
-                  BuildContext context,
-                  void Function(void Function()) setDialogState,
+                  BuildContext sheetContext,
+                  void Function(void Function()) setSheet,
                 ) {
-                  return AlertDialog(
-                    title: const FitText('添加群成员'),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: candidates.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final TA ta = candidates[index];
-                          final bool checked = selected.contains(ta.id);
-                          return CheckboxListTile(
-                            value: checked,
-                            onChanged: (bool? value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  selected.add(ta.id);
-                                } else {
-                                  selected.remove(ta.id);
-                                }
-                              });
-                            },
-                            title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                          );
-                        },
+                  final ThemeData theme = Theme.of(sheetContext);
+                  final ColorScheme cs = theme.colorScheme;
+                  return Padding(
+                    // 键盘避让：搜索框聚焦时整块抬到键盘上方。
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            MediaQuery.sizeOf(sheetContext).height * 0.85,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              0,
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: FitText(
+                                    '添加群成员',
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                ),
+                                if (selected.isNotEmpty)
+                                  FitText(
+                                    '已选 ${selected.length}',
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(color: cs.primary),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg,
+                            ),
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                hintText: '搜索名字',
+                                prefixIcon: Icon(Icons.search),
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (String value) {
+                                final String keyword = value.trim();
+                                setSheet(() {
+                                  visible = keyword.isEmpty
+                                      ? candidates
+                                      : candidates
+                                            .where(
+                                              (TA t) =>
+                                                  t.name.contains(keyword),
+                                            )
+                                            .toList();
+                                });
+                              },
+                            ),
+                          ),
+                          AppSpacing.hMd,
+                          Flexible(
+                            child: visible.isEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.all(
+                                      AppSpacing.xl,
+                                    ),
+                                    child: Center(
+                                      child: FitText(
+                                        '没有匹配的名字',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    padding: EdgeInsets.zero,
+                                    itemCount: visible.length,
+                                    itemBuilder:
+                                        (
+                                          BuildContext context,
+                                          int index,
+                                        ) {
+                                          final TA ta = visible[index];
+                                          return CheckboxListTile(
+                                            value: selected.contains(
+                                              ta.id,
+                                            ),
+                                            title: FitText(
+                                              ta.name.isEmpty
+                                                  ? '未命名TA'
+                                                  : ta.name,
+                                            ),
+                                            onChanged: (bool? value) {
+                                              setSheet(() {
+                                                if (value == true) {
+                                                  selected.add(ta.id);
+                                                } else {
+                                                  selected.remove(ta.id);
+                                                }
+                                              });
+                                            },
+                                          );
+                                        },
+                                  ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                              AppSpacing.lg +
+                                  MediaQuery.viewPaddingOf(
+                                    sheetContext,
+                                  ).bottom,
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () =>
+                                        Navigator.of(sheetContext).pop(),
+                                    child: const FitText('取消'),
+                                  ),
+                                ),
+                                AppSpacing.wMd,
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: selected.isEmpty
+                                        ? null
+                                        : () => Navigator.of(
+                                            sheetContext,
+                                          ).pop(selected.toList()),
+                                    child: const FitText('添加'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const FitText('取消'),
-                      ),
-                      FilledButton(
-                        onPressed: selected.isEmpty
-                            ? null
-                            : () =>
-                                  Navigator.of(context).pop(selected.toList()),
-                        child: const FitText('添加'),
-                      ),
-                    ],
                   );
                 },
           ),
@@ -1046,7 +1215,9 @@ class _ChatConversationViewState extends State<ChatConversationView>
           const SizedBox(width: 8),
           Expanded(
             child: SizedBox(
-              height: 56,
+              // 60 而不是 56：选中态外圈描边（2 内边距 + 2 描边）会让单项
+              // 高 4px，56 时正好溢出 2px（RenderFlex overflow）。
+              height: 60,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: tas.length,
@@ -1055,36 +1226,65 @@ class _ChatConversationViewState extends State<ChatConversationView>
                   final TA ta = tas[index];
                   final bool active = ta.id == _activeTaId;
                   final ImageProvider? avatar = _avatarForTa(ta);
-                  return GestureDetector(
-                    onTap: () => _triggerTaReply(ta),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: active
-                              ? primaryContainer
-                              : surfaceContainerHighest,
-                          foregroundImage: avatar,
-                          child: avatar == null
-                              ? FitText(
-                                  ta.name.isNotEmpty ? ta.name[0] : '?',
-                                  style: textTheme.labelMedium,
-                                )
-                              : null,
+                  // 发言者选择：既是"可点的目标"也是"当前选中的一项"，
+                  // 所以要有涟漪、按钮语义与 selected 语义，且选中态不能只靠
+                  // 底色（审计 4.3「只用颜色表达状态」）。外圈描边是非颜色冗余。
+                  return Semantics(
+                    button: true,
+                    selected: active,
+                    label: ta.name.isNotEmpty ? ta.name : '未命名TA',
+                    hint: active ? '当前发言者' : '点击让它发言',
+                    child: InkWell(
+                      borderRadius: AppRadius.smAll,
+                      onTap: () => _triggerTaReply(ta),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xxs,
                         ),
-                        const SizedBox(height: 2),
-                        SizedBox(
-                          width: 56,
-                          child: FitText(
-                            ta.name.isEmpty ? '未命名' : ta.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: textTheme.labelSmall,
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: active
+                                  ? BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        width: 2,
+                                      ),
+                                    )
+                                  : null,
+                              child: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: active
+                                    ? primaryContainer
+                                    : surfaceContainerHighest,
+                                foregroundImage: avatar,
+                                child: avatar == null
+                                    ? FitText(
+                                        ta.name.isNotEmpty ? ta.name[0] : '?',
+                                        style: textTheme.labelMedium,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            SizedBox(
+                              width: 56,
+                              child: FitText(
+                                ta.name.isEmpty ? '未命名' : ta.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: textTheme.labelSmall,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -1123,14 +1323,16 @@ class _ChatConversationViewState extends State<ChatConversationView>
     final double bubbleOpacity =
         widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
     // 用户气泡保持偏淡层次（基准 0.5），并随滑块线性变化，0 时完全透明。
-    final Color userBubble = schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
+    final Color userBubble = schemeColor.withValues(
+      alpha: AppAlpha.half * bubbleOpacity,
+    );
     final Color assistantBubble = colorScheme.surfaceContainerHighest
         .withValues(alpha: bubbleOpacity);
     // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。
     final bool halfScreenChat = widget.controller.settings.halfScreenChat;
+    // 动态自适应：开启后，向上翻历史自动展开为全屏、滚回底部收成半屏。
     final bool dynamicHalfScreen =
         halfScreenChat && widget.controller.settings.dynamicHalfScreen;
-    // 当开启自适应滚动且正在向上查看历史记录时，动态变为全屏模式
     final bool isHalfScreenActive =
         halfScreenChat && (!dynamicHalfScreen || !_dynamicIsFullScreen);
 
@@ -1267,18 +1469,18 @@ class _ChatConversationViewState extends State<ChatConversationView>
                             ? _conversation.groupName.trim()
                             : '群聊')
                       : null,
+                  // 沉浸入口收进 ⋮ 菜单（顶栏回到 3 个动作，见 R5）。
+                  immersiveHidden: _immersiveUiHidden,
+                  onToggleImmersive: _toggleImmersive,
                 ),
         ),
       ),
+      // 点空白只负责收键盘；沉浸态的退出走屏幕上那颗可见按钮
+      // （不再用「点上半区空白」这种隐形热区，也不再用「点任意位置退出」
+      // 当第二套入口）。
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: () {
-          if (_immersiveUiHidden) {
-            setState(() => _immersiveUiHidden = false);
-          } else {
-            FocusManager.instance.primaryFocus?.unfocus();
-          }
-        },
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Stack(
           children: <Widget>[
             SafeArea(
@@ -1320,44 +1522,18 @@ class _ChatConversationViewState extends State<ChatConversationView>
                               },
                             ),
                       },
-                      child: Listener(
-                        onPointerSignal: (PointerSignalEvent event) {
-                        if (!dynamicHalfScreen) {
-                          return;
-                        }
-                        if (event is PointerScrollEvent) {
-                          // 鼠标滚轮向上滚动（dy < -3，向上翻看历史记录）：展开为全屏
-                          if (event.scrollDelta.dy < -3) {
-                            if (!_dynamicIsFullScreen) {
-                              setState(() => _dynamicIsFullScreen = true);
-                            }
-                          } else if (event.scrollDelta.dy > 3) {
-                            // 鼠标滚轮向下滚动（dy > 3，向最新消息方向回滚）：中途即刻收敛为半屏
-                            if (_dynamicIsFullScreen) {
-                              setState(() => _dynamicIsFullScreen = false);
-                            }
-                          }
-                        }
-                      },
                       child: Column(
                         children: <Widget>[
                           if (halfScreenChat)
                             AnimatedCrossFade(
+                              // 上半区是留给立绘的空白，点它切换沉浸（原行为 H1）。
                               firstChild: SizedBox(
                                 height:
                                     (screenSize.height - kToolbarHeight - 120) *
                                     0.45,
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    setState(() {
-                                      _immersiveUiHidden = !_immersiveUiHidden;
-                                      if (_immersiveUiHidden) {
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                      }
-                                    });
-                                  },
+                                  onTap: _toggleImmersive,
                                   child: Container(color: Colors.transparent),
                                 ),
                               ),
@@ -1369,72 +1545,12 @@ class _ChatConversationViewState extends State<ChatConversationView>
                               sizeCurve: Curves.easeInOutCubic,
                             ),
                           Expanded(
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification:
-                                  (ScrollNotification notification) {
-                                    if (!dynamicHalfScreen) {
-                                      return false;
-                                    }
-                                    final ScrollMetrics metrics =
-                                        notification.metrics;
-                                    final bool isNearBottom =
-                                        metrics.pixels >=
-                                        metrics.maxScrollExtent - 24;
-
-                                    if (isNearBottom) {
-                                      // 滚动到达底部：自动收敛为半屏
-                                      if (_dynamicIsFullScreen) {
-                                        setState(
-                                          () => _dynamicIsFullScreen = false,
-                                        );
-                                      }
-                                    } else if (notification
-                                        is ScrollUpdateNotification) {
-                                      final double? delta =
-                                          notification.scrollDelta;
-                                      if (delta != null) {
-                                        if (delta < -3) {
-                                          // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
-                                          if (!_dynamicIsFullScreen &&
-                                              metrics.pixels > 16) {
-                                            setState(
-                                              () => _dynamicIsFullScreen = true,
-                                            );
-                                          }
-                                        } else if (delta > 3) {
-                                          // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
-                                          if (_dynamicIsFullScreen) {
-                                            setState(
-                                              () =>
-                                                  _dynamicIsFullScreen = false,
-                                            );
-                                          }
-                                        }
-                                      }
-                                    } else if (notification
-                                        is UserScrollNotification) {
-                                      if (notification.direction ==
-                                          ScrollDirection.forward) {
-                                        // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
-                                        if (!_dynamicIsFullScreen &&
-                                            metrics.pixels > 16) {
-                                          setState(
-                                            () => _dynamicIsFullScreen = true,
-                                          );
-                                        }
-                                      } else if (notification.direction ==
-                                          ScrollDirection.reverse) {
-                                        // 触摸手势从下往上滑动（向最新消息方向回滚）：中途即刻收敛为半屏
-                                        if (_dynamicIsFullScreen) {
-                                          setState(
-                                            () => _dynamicIsFullScreen = false,
-                                          );
-                                        }
-                                      }
-                                    }
-                                    return false;
-                                  },
-                              child: ShaderMask(
+                            child: Listener(
+                                onPointerSignal: _onPointerSignalForHalfScreen,
+                                child:
+                                    NotificationListener<ScrollNotification>(
+                                      onNotification: _onScrollForHalfScreen,
+                                      child: ShaderMask(
                                 shaderCallback: (Rect bounds) => LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
@@ -1502,27 +1618,31 @@ class _ChatConversationViewState extends State<ChatConversationView>
                                         .settings
                                         .showMessageContinue,
                                     avatarForMessage: _avatarForSpeakerTa,
+                                    // 生成失败留在消息列表里可见（行内错误条 +
+                                    // 行内「重试」），不再只靠 snackbar（审计 3.5）。
+                                    // 重试复用现成的 _retryLastAssistant（重说那套）。
+                                    streamErrors: _streamErrors,
+                                    onRetryFailed: _retryLastAssistant,
                                     onRetryMessage: _retryLastAssistant,
                                     onCopyMessage: (String text) {
                                       Clipboard.setData(
                                         ClipboardData(text: text),
                                       );
-                                      if (mounted) {
-                                        showSnack(
-                                          context,
-                                          '已复制到剪贴板',
-                                          behavior: SnackBarBehavior.floating,
-                                        );
-                                      }
+                                      if (!mounted) return;
+                                      showSnack(
+                                        context,
+                                        '已复制到剪贴板',
+                                        behavior: SnackBarBehavior.floating,
+                                      );
                                     },
                                     onContinueMessage: _continueFromContext,
                                   ),
                                 ),
                               ),
-                            ),
+                                      ),
+                                ),
                           ),
                         ],
-                      ),
                       ),
                     ),
                   ),
@@ -1596,6 +1716,23 @@ class _ChatConversationViewState extends State<ChatConversationView>
                 ],
               ),
             ),
+            // 沉浸态的唯一常驻控件：可见的退出入口，替换原来的隐形热区。
+            if (_immersiveUiHidden)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: IconButton.filledTonal(
+                      onPressed: _toggleImmersive,
+                      tooltip: '退出沉浸',
+                      icon: const Icon(Icons.fullscreen_exit),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

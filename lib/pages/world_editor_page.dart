@@ -1,4 +1,3 @@
-﻿// ignore_for_file: deprecated_member_use
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -70,13 +69,17 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     );
   }
 
+  /// 「世界名称」的字段级错误（由宿主校验，注入表单显示）。
+  String? _nameError;
+
   Future<void> _save() async {
     final World world = _form.current();
-    // 名称必填由**宿主**决定（表单只交值）。
+    // 名称必填由**宿主**决定（表单只交值）；错误跟着字段走，不再弹 snackbar。
     if (world.name.trim().isEmpty) {
-      _snack('请填写世界名称');
+      setState(() => _nameError = '请填写世界名称');
       return;
     }
+    if (_nameError != null) setState(() => _nameError = null);
     final Future<void> Function(World)? onSave = widget.onSave;
     if (onSave != null) {
       await onSave(world);
@@ -315,6 +318,11 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
         world: widget.world,
         formController: _form,
         tagSuggestions: widget.tagSuggestions,
+        nameError: _nameError,
+        onNameChanged: () {
+          if (_nameError == null) return;
+          setState(() => _nameError = null);
+        },
       ),
       floatingActionButton: AppEditorFab(
         onPressed: _save,

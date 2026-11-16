@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/theme/tokens.dart';
 
 import '../../services/conversation_export_import_service.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -27,7 +28,7 @@ Future<ExportOptions?> showExportOptionsDialog({
                 ? Colors.white
                 : Colors.black,
             primaryContainer: Color.alphaBlend(
-                accentColor.withValues(alpha: 0.16), base.colorScheme.surface),
+                accentColor.withValues(alpha: AppAlpha.a16), base.colorScheme.surface),
             onPrimaryContainer: accentColor,
           ),
         );

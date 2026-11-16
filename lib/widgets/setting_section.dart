@@ -3,22 +3,25 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'fit_text.dart';
 
-/// 设置分组卡片(设计规范 5.3)。
+/// 设置分组 section（设计规范 5.3；按审计 3.3 / 4.2 修订为无容器）。
 ///
-/// **视觉零变化重构**(2026-09):内部所有间距/圆角改用 [AppSpacing] /
-/// [AppRadius] 令牌,取值与重构前**逐个一致**,仅去掉散落的魔数。
+/// **不再「每组一张卡」**：分组是一串同构的项，不是「可整体操作的内容单元」。
+/// 给每组套卡片，等于用容器（描边 / 圆角 / 卡片间距）代替**字号阶 + 间距**
+/// 来表达层级 —— 一页七八个框，反而没有重点。
 ///
-/// 统一「一个设置分组 = 一张卡片」的视觉语序:
+/// 现在的语序（纯排版，无容器）：
 /// ```
-/// [Icon(20, primary)] + [标题 titleMedium w700]
+/// [Icon(20, onSurfaceVariant)] + [标题 titleSmall w500, onSurfaceVariant]
 ///               ↓ AppSpacing.xs
-///         [说明文字 bodySmall, outline]
+///         [说明文字 bodySmall, onSurfaceVariant]
 ///               ↓ AppSpacing.sm
 ///         [设置项 ...]
+///               ↓ AppSpacing.xl（组间距，由本组件自带）
 /// ```
 ///
-/// 卡片本身的圆角/描边/间距/外边距由全局 `cardTheme` 提供,
-/// 业务代码不应再手写 `elevation` / `shape` / `margin`。
+/// 水平内边距固定 [AppSpacing.lg]：与旧卡片内的 padding 相同，
+/// 所以各 `*_spec` 调用点的横向排版不变；组间距也由本组件负责，
+/// 页面不需要在 section 之间再插 `SizedBox`。
 ///
 /// 用法:
 /// ```dart
@@ -61,22 +64,33 @@ class SettingSection extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme ts = Theme.of(context).textTheme;
 
-    return Card(
+    // 组间距现在是唯一的分节信号（卡片没了），用 xl 而不是 lg。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
                 if (icon != null) ...<Widget>[
-                  Icon(icon, color: cs.primary, size: AppSize.iconCard),
+                  // 图标不再用 primary：primary 是交互/选中色，
+                  // 静态分组头用 onSurfaceVariant（审计 4.2）。
+                  Icon(
+                    icon,
+                    color: cs.onSurfaceVariant,
+                    size: AppSize.iconCard,
+                  ),
                   AppSpacing.wSm,
                 ],
                 Expanded(
                   child: FitText(
                     title,
-                    style: ts.titleMedium?.copyWith(fontWeight: AppWeight.medium),
+                    style: ts.titleSmall?.copyWith(
+                      fontWeight: AppWeight.medium,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 ?trailing,
@@ -86,7 +100,7 @@ class SettingSection extends StatelessWidget {
               AppSpacing.hXs,
               FitText(
                 description!,
-                style: ts.bodySmall?.copyWith(color: cs.outline),
+                style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
             AppSpacing.hSm,

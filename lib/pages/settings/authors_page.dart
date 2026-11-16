@@ -149,7 +149,7 @@ class _AuthorCard extends StatelessWidget {
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.a40)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

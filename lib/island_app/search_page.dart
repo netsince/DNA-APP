@@ -11,9 +11,12 @@ import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/widgets/world_list_tile.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import '../theme/tokens.dart';
 
@@ -34,11 +37,30 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _controller;
   late String _query;
 
-  SearchTab _tab = SearchTab.all;
+  /// tab 元数据：顺序既是 TabBar 顺序，也是 TabBarView 的顺序。
+  ///
+  /// 以前这里是裸 int 状态 + 手搭一条「SizedBox(48) + Row + Expanded + InkWell」
+  /// 的假 tab 条：没有指示器、选中态只靠颜色、读屏也念不出「选项卡」
+  /// （审计 3.1）。现在交给 M3 的 TabBar + TabBarView。
+  static const List<(SearchTab, String, IconData)> _tabMeta =
+      <(SearchTab, String, IconData)>[
+        (SearchTab.all, '全部', Icons.apps_outlined),
+        (SearchTab.cards, '角色卡', Icons.badge_outlined),
+        (SearchTab.worlds, '世界', Icons.public_outlined),
+        (SearchTab.users, '用户', Icons.person_outline),
+        (SearchTab.posts, '茶馆帖', Icons.local_cafe_outlined),
+      ];
+
+  late final TabController _tabController = TabController(
+    length: _tabMeta.length,
+    vsync: this,
+  );
+
   String _sort = 'relevance';
 
   // 卡片搜索结果。
@@ -76,7 +98,13 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> _suggestUsers = const <Map<String, dynamic>>[];
   bool _suggestLoading = false;
 
-  final ScrollController _scrollController = ScrollController();
+  /// 分页滚动回调是按 tab 走的，而 TabBarView 会让相邻 tab 同时挂在树上
+  /// （滑动过渡期间两页都在场）。因此每个分页 tab 各拿一个 ScrollController：
+  /// 共用一个会在过渡帧里触发「attached to multiple scroll views」断言。
+  final ScrollController _cardsScroll = ScrollController();
+  final ScrollController _worldsScroll = ScrollController();
+  final ScrollController _usersScroll = ScrollController();
+  final ScrollController _postsScroll = ScrollController();
 
   @override
   void initState() {
@@ -84,7 +112,10 @@ class _SearchPageState extends State<SearchPage> {
     _controller = TextEditingController(text: widget.initialQuery);
     _query = widget.initialQuery;
     _controller.addListener(_onTextChanged);
-    _scrollController.addListener(() => _onScroll(_scrollController));
+    _cardsScroll.addListener(() => _onScroll(_cardsScroll));
+    _worldsScroll.addListener(() => _onScroll(_worldsScroll));
+    _usersScroll.addListener(() => _onScroll(_usersScroll));
+    _postsScroll.addListener(() => _onScroll(_postsScroll));
     if (_query.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
@@ -94,7 +125,11 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _suggestDebounce?.cancel();
-    _scrollController.dispose();
+    _tabController.dispose();
+    _cardsScroll.dispose();
+    _worldsScroll.dispose();
+    _usersScroll.dispose();
+    _postsScroll.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -301,30 +336,34 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  /// 滚动接近底部时按当前 tab 加载下一页。
+  /// 滚动接近底部时给**这个滚动视图所属的 tab** 加载下一页。
+  ///
+  /// 判断依据从「当前 tab 是哪个」换成「是哪个 ScrollController 在滚」：
+  /// TabBarView 过渡期间两页都可能在场，只有真正在滚的那一页该翻页。
   void _onScroll(ScrollController c) {
     if (!c.hasClients) return;
     final pos = c.position;
-    if (pos.pixels >= pos.maxScrollExtent - 300) {
-      if (_tab == SearchTab.cards &&
+    // 阈值与判定公式来自共享分页工具（原来是就地写死的 -300）。
+    if (isNearScrollEnd(pos, threshold: kLoadMoreFeedThreshold)) {
+      if (identical(c, _cardsScroll) &&
           _cardsHasMore &&
           !_cardsLoadingMore &&
           !_loading) {
         setState(() => _cardsLoadingMore = true);
         _loadCards(_query);
-      } else if (_tab == SearchTab.users &&
+      } else if (identical(c, _usersScroll) &&
           _usersHasMore &&
           !_usersLoadingMore &&
           !_loading) {
         setState(() => _usersLoadingMore = true);
         _loadUsers(_query);
-      } else if (_tab == SearchTab.posts &&
+      } else if (identical(c, _postsScroll) &&
           _postsHasMore &&
           !_postsLoadingMore &&
           !_loading) {
         setState(() => _postsLoadingMore = true);
         _loadPosts(_query);
-      } else if (_tab == SearchTab.worlds &&
+      } else if (identical(c, _worldsScroll) &&
           _worldsHasMore &&
           !_worldsLoadingMore &&
           !_loading) {
@@ -476,7 +515,6 @@ class _SearchPageState extends State<SearchPage> {
             _buildSuggestPanel()
           else ...[
             _buildTabs(),
-            const Divider(height: 1),
             Expanded(child: _buildResults()),
           ],
         ],
@@ -560,67 +598,58 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 五个平级视图（同一次查询的不同切面）⇒ M3 的 tab。
+  ///
+  /// 旧实现是手搭的一条 48 高 Row + InkWell：没有指示器、选中态只有颜色，
+  /// 而且两支字重都写了 w500（死代码）。TabBar 自带指示器、选中态、
+  /// 「选项卡 / 已选中」的读屏语义与键盘左右切换（审计 3.1）。
+  /// 图标 + 文字是 M3 primary tabs 的标准形态。
   Widget _buildTabs() {
-    const tabs = <(SearchTab, String, IconData)>[
-      (SearchTab.all, '全部', Icons.apps_outlined),
-      (SearchTab.cards, '角色卡', Icons.badge_outlined),
-      (SearchTab.worlds, '世界', Icons.public_outlined),
-      (SearchTab.users, '用户', Icons.person_outline),
-      (SearchTab.posts, '茶馆帖', Icons.local_cafe_outlined),
-    ];
-    return SizedBox(
-      height: 48,
-      child: Row(
-        children: tabs.map((t) {
-          final selected = _tab == t.$1;
-          return Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _tab = t.$1),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(
-                        t.$3,
-                        size: 16,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        t.$2,
-                        style: TextStyle(
-                          fontWeight: selected
-                              ? FontWeight.w500
-                              : FontWeight.w500,
-                          color: selected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return TabBar(
+      controller: _tabController,
+      tabs: <Widget>[
+        for (final (SearchTab, String, IconData) t in _tabMeta)
+          Tab(icon: Icon(t.$3), text: t.$2),
+      ],
     );
   }
 
   Widget _buildResults() {
+    // 五个 tab 是同一查询的平级切面：交给 TabBarView 负责切换动画、
+    // 懒构建（不可见的 tab 不会建），以及左右滑动。
+    return TabBarView(
+      controller: _tabController,
+      children: <Widget>[
+        _resultsShell(body: _allResults),
+        _resultsShell(body: _cardResults, withSortBar: true),
+        _resultsShell(body: _worldResults),
+        _resultsShell(body: _userResults),
+        _resultsShell(body: _postResults),
+      ],
+    );
+  }
+
+  /// 五个 tab 共用的「未搜索 / 加载中 / 出错 / 结果」外壳。
+  ///
+  /// 搜索是一次请求打底（_search 并发拉四类），四个结果 tab 的加载/错误/
+  /// 未搜索态必须长得一样；把状态判断收在这一处，body 仍是各 tab 原本的
+  /// 结果视图。排序条只属于「角色卡」，位置与改造前一致（tab 下、结果上）。
+  Widget _resultsShell({
+    required Widget Function() body,
+    bool withSortBar = false,
+  }) {
     if (!_searched) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.search, size: 48, color: Colors.grey),
-            SizedBox(height: 8),
-            Text('输入关键词开始搜索'),
+            Icon(
+              Icons.search,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 8),
+            const Text('输入关键词开始搜索'),
           ],
         ),
       );
@@ -640,60 +669,53 @@ class _SearchPageState extends State<SearchPage> {
         ),
       );
     }
-
-    switch (_tab) {
-      case SearchTab.cards:
-        return Column(
-          children: <Widget>[
-            _buildSortBar(),
-            Expanded(child: _cardResults()),
-          ],
-        );
-      case SearchTab.worlds:
-        return _worldResults();
-      case SearchTab.users:
-        return _userResults();
-      case SearchTab.posts:
-        return _postResults();
-      case SearchTab.all:
-        return _allResults();
+    if (!withSortBar) {
+      return body();
     }
+    return Column(
+      children: <Widget>[
+        _buildSortBar(),
+        Expanded(child: body()),
+      ],
+    );
   }
 
   /// 角色卡排序（相关度 / 最热 / 最新），对齐网页版 search。
+  ///
+  /// 排序：互斥 3 项、常显 → SegmentedButton（与探索 / 世界 / 茶馆 / 评论区
+  /// 同一个控件）。原来这里是一行手搭的等宽 InkWell —— 选中态只有颜色，
+  /// 而且两个分支的字重都写成 w500（死代码）。
   Widget _buildSortBar() {
     const sorts = <(String, String)>[
       ('relevance', '相关度'),
       ('hot', '最热'),
       ('new', '最新'),
     ];
-    return SizedBox(
-      height: 44,
-      child: Row(
-        children: sorts.map((s) {
-          final selected = _sort == s.$1;
-          return Expanded(
-            child: InkWell(
-              onTap: () {
-                if (_sort == s.$1) return;
-                setState(() => _sort = s.$1);
-                _loadCards(_query, reset: true);
-              },
-              child: Center(
-                child: Text(
-                  s.$2,
-                  style: TextStyle(
-                    fontSize: AppFontSize.body,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<String>(
+          segments: <ButtonSegment<String>>[
+            for (final (String key, String label) in sorts)
+              ButtonSegment<String>(value: key, label: Text(label)),
+          ],
+          selected: <String>{_sort},
+          onSelectionChanged: (Set<String> picked) {
+            final String next = picked.first;
+            if (next == _sort) return;
+            setState(() => _sort = next);
+            _loadCards(_query, reset: true);
+          },
+          // 不压密度：M3 默认高度 40dp 就是本项目的行为下限
+          // （与探索/世界页的排序控件一致；compact 会把它压到 36）。
+
+        ),
       ),
     );
   }
@@ -706,28 +728,40 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _cardGrid() {
-    return GridView.builder(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: AppInsets.card,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 220,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.62,
-      ),
-      itemCount: _cards.length + (_cardsLoadingMore ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i >= _cards.length) {
-          return const Center(
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        }
-        return CardTile(card: _cards[i], onTap: () => _openCard(_cards[i]));
+    // 列数与格子比例来自 [cardGridMetrics]（与 explore / 我的收藏 / 骨架屏同一套
+    // 算法）。原来这里写死 maxCrossAxisExtent 220 + childAspectRatio 0.62，
+    // 算出来的格子比别处矮一截，同一张卡在不同页面高宽比都不一样（审计 3.3）。
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final CardGridMetrics m = cardGridMetrics(
+          constraints.maxWidth - AppInsets.card.horizontal,
+          // 搜索结果比浏览页更密一档：单列最小 220 而不是 200。
+          minColumnWidth: 220,
+        );
+        return GridView.builder(
+          controller: _cardsScroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: AppInsets.card,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: m.columns,
+            mainAxisSpacing: kCardGridSpacing,
+            crossAxisSpacing: kCardGridSpacing,
+            childAspectRatio: m.childAspectRatio,
+          ),
+          itemCount: _cards.length + (_cardsLoadingMore ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i >= _cards.length) {
+              return const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            return CardTile(card: _cards[i], onTap: () => _openCard(_cards[i]));
+          },
+        );
       },
     );
   }
@@ -739,7 +773,7 @@ class _SearchPageState extends State<SearchPage> {
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.separated(
-        controller: _scrollController,
+        controller: _worldsScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _worlds.length + (_worldsLoadingMore ? 1 : 0),
@@ -763,29 +797,16 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  /// 世界卡搜索结果一行：名字 + 简介 + 元信息。
+  /// 世界卡搜索结果一行。
+  ///
+  /// 与「我的」页共用 [WorldListTile]：同一实体、同一语境（列表 / 定位）
+  /// 就该是同一种行；搜索这边只是多一个 leading 图标（提示「这是一条世界」）
+  /// 和「作者名」这段补充元信息（审计 3.3：世界卡曾有三种形态）。
   Widget _worldTile(WorldCardSummary w) {
-    final scheme = Theme.of(context).colorScheme;
-    final String meta = <String>[
-      if (w.entryCount > 0) '${w.entryCount} 词条',
-      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
-      if (w.copyCount > 0) '复制 ${w.copyCount}',
-      if (w.authorName.isNotEmpty) w.authorName,
-    ].join(' · ');
-    return ListTile(
-      leading: const Icon(Icons.public_outlined),
-      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        w.summary.isEmpty ? meta : '${w.summary}\n$meta',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: AppFontSize.caption,
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
-      isThreeLine: w.summary.isNotEmpty,
-      trailing: const Icon(Icons.chevron_right),
+    return WorldListTile(
+      world: w,
+      leadingIcon: Icons.public_outlined,
+      extraMeta: w.authorName.isEmpty ? null : w.authorName,
       onTap: () => _openWorld(w),
     );
   }
@@ -797,7 +818,7 @@ class _SearchPageState extends State<SearchPage> {
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.separated(
-        controller: _scrollController,
+        controller: _usersScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           vertical: 8,
@@ -866,9 +887,7 @@ class _SearchPageState extends State<SearchPage> {
       trailing: _loggedIn && !isSelf
           ? OutlinedButton(
               style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _toggleFollow(u),
               child: Text(isFollowing ? '已关注' : '关注'),
@@ -928,7 +947,7 @@ class _SearchPageState extends State<SearchPage> {
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.builder(
-        controller: _scrollController,
+        controller: _postsScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _posts.length + (_postsLoadingMore ? 1 : 0),

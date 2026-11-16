@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/tokens.dart';
 
 /// 举报底部表单：选择原因（可选补充说明）后提交。
 ///
@@ -35,7 +34,6 @@ class _ReportSheetState extends State<ReportSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -60,29 +58,25 @@ class _ReportSheetState extends State<ReportSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      for (final r in widget.reasons)
-                        InkWell(
-                          onTap: () => setState(() => _selected = r.key),
-                          borderRadius: BorderRadius.circular(AppRadius.xs),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: <Widget>[
-                                Icon(
-                                  _selected == r.key
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  size: 20,
-                                  color: _selected == r.key
-                                      ? scheme.primary
-                                      : scheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(r.label),
-                              ],
-                            ),
-                          ),
+                      // 原因是一组互斥单选：用 RadioGroup + RadioListTile，
+                      // 行高由组件保证 ≥48dp，键盘/读屏分组语义也是组件给的
+                      // （审计 4.3：以前是 InkWell + 手绘 radio 图标，行高约 32）。
+                      RadioGroup<String>(
+                        groupValue: _selected,
+                        onChanged: (String? v) =>
+                            setState(() => _selected = v),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            for (final r in widget.reasons)
+                              RadioListTile<String>(
+                                contentPadding: EdgeInsets.zero,
+                                value: r.key,
+                                title: Text(r.label),
+                              ),
+                          ],
                         ),
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _detailCtrl,

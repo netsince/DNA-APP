@@ -1,10 +1,10 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import '../../../widgets/state_views.dart';
 import 'package:dna/widgets/app_container.dart';
 import 'package:dna/widgets/brand_icon.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -75,24 +75,10 @@ class ProviderListBody extends StatelessWidget {
         final List<LlmProviderConfig> providers = controller.settings.providers;
 
         if (providers.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  Icons.hub_outlined,
-                  size: AppSize.iconEmpty,
-                  color: cs.outline,
-                ),
-                AppSpacing.hMd,
-                FitText('暂无服务商', style: ts.titleMedium),
-                AppSpacing.hXs,
-                FitText(
-                  '点击下方「添加服务商」新建一个',
-                  style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
+          return const AppEmptyState(
+            icon: Icons.hub_outlined,
+            title: '暂无服务商',
+            description: '点击下方「添加服务商」新建一个',
           );
         }
 
@@ -115,7 +101,7 @@ class ProviderListBody extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.mdAll,
                   side: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    color: cs.outlineVariant.withValues(alpha: AppAlpha.half),
                   ),
                 ),
                 margin: EdgeInsets.zero,

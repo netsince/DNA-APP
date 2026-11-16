@@ -4,6 +4,7 @@ import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_bottom_nav.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/pages/conversation_create_page.dart';
@@ -488,6 +489,84 @@ void main() {
     expect(findText('消息'), findsOneWidget, reason: '系统返回应回主页');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('中等宽度(601-839):换成 NavigationRail,不再用底栏', (
+    WidgetTester tester,
+  ) async {
+    // 契约:顶级导航按**可用宽度**切换,不按横竖屏。
+    // 800 宽是 M3 的 medium 档 —— 该用 rail,而不是"横屏就把抽屉塞进固定宽度"。
+    final AppController c = await boot();
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    final NavigationRail rail = tester.widget<NavigationRail>(
+      find.byType(NavigationRail),
+    );
+    expect(rail.selectedIndex, 0, reason: '默认停在主页');
+    expect(rail.extended, isFalse);
+
+    // 目的地集合与 route 顺序一致(rail 用同一份元数据)。
+    final List<AppSection> sections = AppBottomNav.sectionsFor(c);
+    expect(rail.destinations.length, sections.length);
+    expect(sections.indexOf(AppSection.world), 3);
+  });
+
+  testWidgets('中等宽度:切栏目时 rail 选中项跟着走,且身份/设置允许"无选中"', (
+    WidgetTester tester,
+  ) async {
+    final AppController c = await boot();
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    AppSectionShellState shell() =>
+        tester.state<AppSectionShellState>(find.byType(AppSectionShell));
+
+    shell().navigateTo(AppSection.world);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      3,
+    );
+
+    // 身份不在 rail 里:NavigationRail 允许 selectedIndex 为 null
+    // (NavigationBar 不允许,所以底栏那档要整条不渲染)。
+    shell().navigateTo(AppSection.identity);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      isNull,
+    );
+  });
+
+  testWidgets('宽度类边界:600 仍是 compact(底栏),601 换成 rail', (
+    WidgetTester tester,
+  ) async {
+    final AppController c = await boot();
+    addTearDown(tester.view.reset);
+
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(600, 900);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+
+    tester.view.physicalSize = const Size(601, 900);
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+  });
+
 }
 
 /// 按系统返回键。

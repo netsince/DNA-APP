@@ -79,8 +79,17 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<RootShell> {
+class _RootShellState extends State<RootShell>
+    with SingleTickerProviderStateMixin {
   _TopTab _tab = _TopTab.recommend;
+
+  /// 顶栏三个平级视图（推荐 / 刷一刷 / 探索）的 tab 控制器。
+  ///
+  /// 之前这段是「Row + InkWell + 手画 2px 下划线」的手搭 tab（还有一层
+  /// FittedBox 把字整体缩小）：换成 M3 TabBar 后，指示器、选中态、
+  /// 「选项卡·已选中」读屏语义与键盘左右切换都由组件提供
+  /// （见 docs/MATERIAL_DESIGN_AUDIT.md 3.1 / 4.3）。
+  late final TabController _tabController;
   AppNavTarget _page = AppNavTarget.recommend;
 
   /// 「推荐」Tab 刷新信号：在「推荐」内再次点击该 Tab 时自增，首页监听到后重拉。
@@ -99,6 +108,11 @@ class _RootShellState extends State<RootShell> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _TopTab.values.length,
+      vsync: this,
+      initialIndex: _tab.index,
+    );
     // 监听「去登录」请求：切换到「我」页登录表单。
     AuthSession.instance.loginRequest.addListener(_onLoginRequest);
   }
@@ -112,6 +126,7 @@ class _RootShellState extends State<RootShell> {
     AuthSession.instance.loginRequest.removeListener(_onLoginRequest);
     _recommendRefresh.dispose();
     _imageGenActivate.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -183,6 +198,7 @@ class _RootShellState extends State<RootShell> {
       _page = AppNavTarget.recommend;
       _plusOpen = false;
     });
+    if (_tabController.index != t.index) _tabController.index = t.index;
     if (reRefresh) _recommendRefresh.value++;
   }
 
@@ -341,13 +357,18 @@ class _RootShellState extends State<RootShell> {
         // 社区内部已经退无可退 → 交回主应用。
         widget.onExitToMainApp?.call();
       },
-      child: OrientationBuilder(
-        builder: (context, orientation) {
-          final landscape = orientation == Orientation.landscape;
-          final Widget? bottomBar = landscape ? null : _bottomBar();
-          final PreferredSizeWidget topBar = _topBar(landscape);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 按**可用宽度**决定外壳形态，不按设备方向（审计 3.4）：
+          // 640×360 的手机横屏仍应是 compact；1024 的竖屏平板才该是宽窗口。
+          // 840 是 M3 expanded 的下界；以下是 compact/medium，都保留底栏
+          // （社区自己的底栏只有 5 格，中等宽度也放得下，不必再引入一套 rail）。
+          final bool wide =
+              constraints.maxWidth >= AppBreakpoints.mediumMax;
+          final Widget? bottomBar = wide ? null : _bottomBar();
+          final PreferredSizeWidget topBar = _topBar(wide);
 
-          final Widget content = landscape
+          final Widget content = wide
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -379,8 +400,10 @@ class _RootShellState extends State<RootShell> {
             children: <Widget>[
               Scaffold(
                 key: _scaffoldKey,
-                appBar: landscape ? null : topBar,
-                drawer: landscape ? null : Drawer(child: drawerContent),
+                // 宽窗口的顶栏与侧栏都在外面那层 Row 里（见上面的 content 分支），
+                // Scaffold 这里不能再挂一份，否则两条侧栏/两个顶栏并排。
+                appBar: wide ? null : topBar,
+                drawer: wide ? null : Drawer(child: drawerContent),
                 bottomNavigationBar: bottomBar,
                 body: content,
               ),
@@ -401,12 +424,12 @@ class _RootShellState extends State<RootShell> {
   /// 顶栏布局：**左边是「退」**（侧边栏、返回主应用），**右边是「找」**（通知、搜索）。
   ///
   /// 两个动作簇分开：左半区管「往回走」，右半区管「往外看」，比混在一排好扫。
-  AppBar _topBar(bool landscape) {
+  AppBar _topBar(bool wide) {
     final bool canExit = widget.onExitToMainApp != null;
     return AppBar(
-      // 两个图标占两格，默认 56 宽放不下。
-      leadingWidth: landscape ? null : (canExit ? 96 : null),
-      leading: landscape
+      // 宽窗口左侧有常驻侧栏，顶栏不再需要「退」动作簇。
+      leadingWidth: wide ? null : (canExit ? 96 : null),
+      leading: wide
           ? null
           : Row(
               mainAxisSize: MainAxisSize.min,
@@ -629,53 +652,38 @@ class _RootShellState extends State<RootShell> {
   /// 中间的可用宽度只剩 168px，而三个 tab 要 171px —— 差一点点就溢出。
   /// 这里让它按需整体缩小（最多缩几个百分点，肉眼无感），而不是硬溢出。
   Widget _topTabs() {
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: _TopTab.values.map((t) {
-            final label = switch (t) {
-              _TopTab.recommend => '推荐',
-              _TopTab.swipe => '刷一刷',
-              _TopTab.explore => '探索',
-            };
-            return _topTabButton(label, t);
-          }).toList(),
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    // 不再用 FittedBox 把字整体缩小：三个 tab 装不下时 TabBar 自己横向滚动，
+    // 用户调大系统字号也不会被压回去（审计 4.3）。
+    return SizedBox(
+      height: 48,
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.center,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.label,
+        indicatorWeight: 2,
+        labelPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        labelColor: scheme.primary,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        labelStyle: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w500,
         ),
-      ),
-    );
-  }
-
-  Widget _topTabButton(String label, _TopTab t) {
-    final scheme = Theme.of(context).colorScheme;
-    final selected = _tab == t;
-    return InkWell(
-      onTap: () => _selectTab(t),
-      borderRadius: BorderRadius.circular(AppRadius.xs),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              label,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
+        unselectedLabelStyle: theme.textTheme.titleSmall,
+        onTap: (int index) => _selectTab(_TopTab.values[index]),
+        tabs: <Widget>[
+          for (final _TopTab t in _TopTab.values)
+            Tab(
+              height: 44,
+              text: switch (t) {
+                _TopTab.recommend => '推荐',
+                _TopTab.swipe => '刷一刷',
+                _TopTab.explore => '探索',
+              },
             ),
-            const SizedBox(height: 3),
-            Container(
-              height: 2,
-              width: 20,
-              decoration: BoxDecoration(
-                color: selected ? scheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

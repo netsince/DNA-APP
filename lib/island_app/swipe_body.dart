@@ -209,7 +209,7 @@ class _SwipeBodyState extends State<SwipeBody> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: Colors.black.withValues(alpha: AppAlpha.a35),
               borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             child: const Text(
@@ -229,7 +229,7 @@ class _SwipeBodyState extends State<SwipeBody> {
             tooltip: '换一批',
             onPressed: _refresh,
             style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.35),
+              backgroundColor: Colors.black.withValues(alpha: AppAlpha.a35),
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.refresh),
@@ -289,8 +289,8 @@ class _SwipeCard extends StatelessWidget {
                   stops: const [0.0, 0.5, 1.0],
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.black.withValues(alpha: 0.85),
+                    Colors.black.withValues(alpha: AppAlpha.a45),
+                    Colors.black.withValues(alpha: AppAlpha.a85),
                   ],
                 ),
               ),
@@ -322,7 +322,7 @@ class _SwipeCard extends StatelessWidget {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
+                              color: Colors.white.withValues(alpha: AppAlpha.a22),
                               borderRadius: BorderRadius.circular(AppRadius.xs),
                             ),
                             child: Text(

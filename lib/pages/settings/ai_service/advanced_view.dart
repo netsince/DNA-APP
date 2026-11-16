@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import '../../../widgets/state_views.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import '../../../models/llm_model_config.dart';
@@ -34,22 +35,12 @@ class AiServiceAdvancedView extends StatelessWidget {
         final String activeId = contract.controller.settings.activeModelId;
 
         if (models.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: AppInsets.page,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(Icons.bolt_rounded,
-                      size: AppSize.iconEmpty, color: cs.outline),
-                  AppSpacing.hMd,
-                  FitText('暂无模型预设', style: ts.titleMedium),
-                  AppSpacing.hXs,
-                  FitText('前往「⋮ → 模型」添加模型预设',
-                      textAlign: TextAlign.center,
-                      style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                ],
-              ),
+          return const Padding(
+            padding: AppInsets.page,
+            child: AppEmptyState(
+              icon: Icons.bolt_rounded,
+              title: '暂无模型预设',
+              description: '前往右上角「⋮ → 模型与服务商管理」添加模型预设',
             ),
           );
         }
@@ -70,14 +61,14 @@ class AiServiceAdvancedView extends StatelessWidget {
             return Card(
               elevation: AppElevation.flat,
               color: isActive
-                  ? cs.primaryContainer.withValues(alpha: 0.35)
+                  ? cs.primaryContainer.withValues(alpha: AppAlpha.a35)
                   : null,
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.mdAll,
                 side: BorderSide(
                   color: isActive
                       ? cs.primary
-                      : cs.outlineVariant.withValues(alpha: 0.5),
+                      : cs.outlineVariant.withValues(alpha: AppAlpha.half),
                   width: isActive ? 1.5 : 1.0,
                 ),
               ),

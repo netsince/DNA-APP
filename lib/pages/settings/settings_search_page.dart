@@ -171,23 +171,27 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
               title: '没有找到「$_query」相关的设置',
               description: '换个说法试试，比如搜「主题」「音色」「备份」。',
             )
+          // 结果是一张**列表**，不是一组卡片（审计 3.3）：每条结果的形状
+          // 完全一样、需要逐条扫读，套卡片只会把「一屏能看几条」换成
+          // 「一屏几个框」。行直接贴在 surface 上，行之间一根 Divider，
+          // 缩进与行文字对齐（ListTile 默认内边距 16）。
           : ListView.separated(
               padding: AppInsets.page,
               itemCount: results.length,
-              separatorBuilder: (_, _) => AppSpacing.hXs,
+              separatorBuilder: (_, _) =>
+                  Divider(height: 1, indent: AppSpacing.lg),
               itemBuilder: (BuildContext context, int i) {
                 final SettingsSearchHit hit = results[i];
-                return Card(
-                  child: ListTile(
-                    leading: Icon(
-                      hit.isField ? Icons.tune : hit.icon,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: FitText(hit.title),
-                    subtitle: FitText('${hit.group} · ${hit.subtitle}'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _open(hit),
+                return ListTile(
+                  contentPadding: AppInsets.tile,
+                  leading: Icon(
+                    hit.isField ? Icons.tune : hit.icon,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
+                  title: FitText(hit.title),
+                  subtitle: FitText('${hit.group} · ${hit.subtitle}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _open(hit),
                 );
               },
             ),

@@ -8,6 +8,7 @@ import 'package:dna/island_app/teahouse_compose_page.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/island_app/teahouse_topics_page.dart';
 import 'package:dna/island_app/utils/post_like_fav.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
@@ -83,7 +84,11 @@ class _TeahouseBodyState extends State<TeahouseBody>
   }
 
   void _onScroll() {
-    if (_scrollController.position.extentAfter < 300) {
+    // 阈值与判定公式来自共享分页工具（内容流用 300，非列表页的 400）。
+    if (isNearScrollEnd(
+      _scrollController.position,
+      threshold: kLoadMoreFeedThreshold,
+    )) {
       _loadMore();
     }
   }
@@ -218,20 +223,23 @@ class _TeahouseBodyState extends State<TeahouseBody>
                 child: Row(
                   children: <Widget>[
                     Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _sorts.map((s) {
-                            final selected = _sort == s.$1;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(s.$2),
-                                selected: selected,
-                                onSelected: (_) => _selectSort(s.$1),
+                      // 排序：互斥 2 项、常显 → SegmentedButton（与角色卡探索、
+                      // 世界、评论区、搜索用同一个控件；原来这里是 ChoiceChip）。
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SegmentedButton<String>(
+                          segments: <ButtonSegment<String>>[
+                            for (final (String key, String label) in _sorts)
+                              ButtonSegment<String>(
+                                value: key,
+                                label: Text(label),
                               ),
-                            );
-                          }).toList(),
+                          ],
+                          selected: <String>{_sort},
+                          onSelectionChanged: (Set<String> picked) =>
+                              _selectSort(picked.first),
+                          // 不压密度：保留 M3 默认的 40dp 高度。
+
                         ),
                       ),
                     ),
@@ -296,13 +304,18 @@ class _TeahouseBodyState extends State<TeahouseBody>
                   ),
                 ),
               if (_noMore)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
                     padding: AppInsets.card,
                     child: Center(
                       child: Text(
                         '没有更多了',
-                        style: TextStyle(color: Colors.grey),
+                        // 语义色而不是裸 Colors.grey（审计 4.4）。
+                        style: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
@@ -364,7 +377,11 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.extentAfter < 300) {
+    // 阈值与判定公式来自共享分页工具（内容流用 300，非列表页的 400）。
+    if (isNearScrollEnd(
+      _scrollController.position,
+      threshold: kLoadMoreFeedThreshold,
+    )) {
       _loadMore();
     }
   }

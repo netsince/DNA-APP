@@ -48,15 +48,30 @@ class TaShowcasePage extends StatefulWidget {
   final String taId;
 
   /// 宽于这个宽度就一分为二(与栏目内容列的阈值一致)。
-  static const double wideBreakpoint = 900;
+  /// 双栏阈值（M3 medium 上界）。原本是 900 的字面量，与别页不一致。
+  static const double wideBreakpoint = AppBreakpoints.mediumMax;
 
   @override
   State<TaShowcasePage> createState() => _TaShowcasePageState();
 }
 
-class _TaShowcasePageState extends State<TaShowcasePage> {
-  /// 0 = 介绍,1 = 已有聊天。
-  int _tab = 0;
+class _TaShowcasePageState extends State<TaShowcasePage>
+    with SingleTickerProviderStateMixin {
+  /// 两个平级视图:0 = 介绍,1 = 已有聊天。
+  ///
+  /// 选中态、指示器动画、读屏/tab 语义都交给 M3 的 [TabBar]
+  /// (审计 3.1:以前是自绘胶囊 + GestureDetector 伪装的 tab)。
+  /// 固定两个 tab,不需要动态重建控制器。
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,9 +119,15 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
             children: <Widget>[
               _buildWideHeader(context, ta),
               _buildTabBar(context),
+              // 宽屏有界高度:用标准 TabBarView(左右滑动 + 指示器跟随)。
+              // 每个 tab 自带滚动,等价于原来的"整块 SingleChildScrollView"。
               Expanded(
-                child: SingleChildScrollView(
-                  child: _buildTabContent(context, ta, chats),
+                child: TabBarView(
+                  controller: _tabController,
+                  children: <Widget>[
+                    SingleChildScrollView(child: _buildIntro(context, ta)),
+                    SingleChildScrollView(child: _buildChats(context, chats)),
+                  ],
                 ),
               ),
               _buildStartChatBar(context, ta),
@@ -127,7 +148,14 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _buildTabBar(context),
-              _buildTabContent(context, ta, chats),
+              // 窄屏是"hero + 一条长滚动页",TabBarView 需要的有界高度这里没有,
+              // 所以内容仍按当前 index 渲染并保留原有交叉淡入(行为与改造前等价,
+              // 且不会让两个 tab 的滚动视图同时挂在同一棵树上)。
+              AnimatedBuilder(
+                animation: _tabController,
+                builder: (BuildContext context, Widget? _) =>
+                    _buildTabContent(context, ta, chats),
+              ),
             ],
           ),
         ),
@@ -197,9 +225,9 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    cs.surface.withValues(alpha: 0.35),
-                    cs.surface.withValues(alpha: 0.0),
-                    cs.surface.withValues(alpha: 0.85),
+                    cs.surface.withValues(alpha: AppAlpha.a35),
+                    cs.surface.withValues(alpha: AppAlpha.a0),
+                    cs.surface.withValues(alpha: AppAlpha.a85),
                   ],
                   stops: const <double>[0.0, 0.45, 1.0],
                 ),
@@ -230,8 +258,8 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: <Color>[
-                cs.surface.withValues(alpha: 0.0),
-                cs.surface.withValues(alpha: 0.8),
+                cs.surface.withValues(alpha: AppAlpha.a0),
+                cs.surface.withValues(alpha: AppAlpha.a80),
               ],
               stops: const <double>[0.5, 1.0],
             ),
@@ -308,52 +336,41 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
     );
   }
 
-  // ---------- 长条 tab ----------
+  // ---------- tabs（M3 secondary tabs）----------
 
+  /// 「介绍 / 已有聊天」是同一对象的两个**平级**视图，不是两个目的地，
+  /// 所以该用 M3 的 tab（secondary tabs），而不是自绘胶囊 + GestureDetector
+  /// ——旧实现没有指示器、没有 tab 语义、选中态只靠一块底色（审计 3.1）。
+  ///
+  /// 指示器、选中态、读屏的「选项卡 / 已选中」语义、键盘左右切换都由
+  /// [TabBar] 自己提供；左对齐的短 tab 是 M3 secondary tabs 的标准形态。
   Widget _buildTabBar(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Row(
-          children: <Widget>[
-            _tabButton(context, 0, '介绍'),
-            _tabButton(context, 1, '已有聊天'),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        0,
       ),
-    );
-  }
-
-  Widget _tabButton(BuildContext context, int index, String label) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool selected = _tab == index;
-    return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _tab = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.all(4),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? cs.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: FitText(
-            label,
-            style: TextStyle(
-              color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-              fontWeight: selected ? AppWeight.medium : AppWeight.regular,
-            ),
-          ),
+      child: TabBar.secondary(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        labelColor: cs.primary,
+        unselectedLabelColor: cs.onSurfaceVariant,
+        labelStyle: const TextStyle(
+          fontSize: AppFontSize.body,
+          fontWeight: AppWeight.medium,
         ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: AppFontSize.body,
+          fontWeight: AppWeight.regular,
+        ),
+        tabs: const <Widget>[
+          Tab(child: FitText('介绍')),
+          Tab(child: FitText('已有聊天')),
+        ],
       ),
     );
   }
@@ -381,8 +398,8 @@ class _TaShowcasePageState extends State<TaShowcasePage> {
         );
       },
       child: KeyedSubtree(
-        key: ValueKey<int>(_tab),
-        child: _tab == 0
+        key: ValueKey<int>(_tabController.index),
+        child: _tabController.index == 0
             ? _buildIntro(context, ta)
             : _buildChats(context, chats),
       ),

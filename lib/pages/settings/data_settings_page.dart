@@ -91,9 +91,20 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
     builder: (ctx) => AlertDialog(
       title: const FitText('导入方式'),
       content: FitText(desc),
+      // 主操作是**安全**的那个（仅追加）；「全部替换」会清空现有数据，
+      // 用 error 语义而不是抢主按钮位置（审计 4.1）。
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const FitText('仅追加')),
-        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const FitText('全部替换')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(ctx).colorScheme.error,
+          ),
+          child: const FitText('全部替换'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const FitText('仅追加'),
+        ),
       ],
     ),
   );

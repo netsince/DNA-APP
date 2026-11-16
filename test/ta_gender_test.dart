@@ -95,11 +95,17 @@ void main() {
         isFalse,
         reason: '角色展示页又把裸 ID 画出来了',
       );
-      expect(
-        read('lib/island_app/widgets/card_tile.dart').contains('_GenderBadge(gender)'),
-        isFalse,
-        reason: '社区卡片又把裸 ID 画出来了',
-      );
+      // 2026-11：卡片上的性别标签统一走 StatusBadge（审计 3.3「小标签五套实现」），
+      // 私有类 _GenderBadge 已删除；契约不变 —— 送给徽章的是**映射后的 label**。
+      // 只看代码行：注释里提到旧类名是正常的（那是解释，不是用法）。
+      final String cardTile = read('lib/island_app/widgets/card_tile.dart')
+          .split('\n')
+          .where((String l) => !l.trimLeft().startsWith('//'))
+          .join('\n');
+      expect(cardTile.contains('TaGender.labelOf(gender)'), isTrue,
+          reason: '社区卡片应把 label 交给 StatusBadge');
+      expect(cardTile.contains('_GenderBadge'), isFalse,
+          reason: '旧的私有徽章应已收口到 StatusBadge');
     });
 
     test('编辑页的下拉：value 是 ID、显示是 label', () {

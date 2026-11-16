@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -28,6 +27,11 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _personaController;
   late String _identityId;
+  final ScrollController _scrollController = ScrollController();
+
+  /// 名称必填：未填时就地报错，而不是弹一条 snackbar
+  /// （审计 3.5「表单校验用 snackbar 而不是字段 errorText」）。
+  String? _nameError;
 
   @override
   void initState() {
@@ -42,7 +46,22 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
   void dispose() {
     _nameController.dispose();
     _personaController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 把视口带回第一个出错的字段（名称在本页最上面）。
+  void _revealFirstError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   UserIdentity _buildCurrentIdentity() {
@@ -57,9 +76,8 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
   Future<void> _save() async {
     final String name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请填写身份名称')),
-      );
+      setState(() => _nameError = '请填写身份名称（必填）。');
+      _revealFirstError();
       return;
     }
     final UserIdentity identity = _buildCurrentIdentity();
@@ -211,8 +229,6 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: FitText(widget.identity == null ? '创建身份' : '编辑身份'),
@@ -253,70 +269,101 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
               ),
             ],
           ),
-          IconButton(
-            onPressed: _save,
-            icon: const Icon(Icons.check),
-            tooltip: '保存',
-          ),
         ],
       ),
-      body: ListView(
-        padding: AppEditorLayout.bodyPadding(context),
-        children: <Widget>[
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.badge_outlined, color: theme.colorScheme.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('我的身份信息', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FitText(
-                    '在对话中作为你的专属人设注入给 AI，让 TA 了解你是谁。',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: '身份名称 *',
-                      hintText: '例如：旅行者、指挥官、学弟',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AdaptiveTextField(
-                    controller: _personaController,
-                    minLines: 4,
-                    maxLines: 10,
-                    decoration: const InputDecoration(
-                      labelText: '人设（我的身份设定，发送给 AI）*',
-                      hintText: '描述你的性格、外貌、背景、说话口吻以及与 TA 的关系...',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      // 主操作放回右下 FAB（拇指可达）；顶栏不再放同一个动作（审计回归 R4）。
       floatingActionButton: AppEditorFab(
         onPressed: _save,
         icon: const Icon(Icons.check),
         label: const FitText('保存身份'),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: AppEditorLayout.bodyPadding(context),
+        children: <Widget>[
+          _section(
+            icon: Icons.badge_outlined,
+            title: '我的身份信息',
+            description: '在对话中作为你的专属人设注入给 AI，让 TA 了解你是谁。',
+            children: <Widget>[
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: '身份名称 *',
+                  hintText: '例如：旅行者、指挥官、学弟',
+                  border: const OutlineInputBorder(),
+                  errorText: _nameError,
+                ),
+                onChanged: (String value) {
+                  if (_nameError != null && value.trim().isNotEmpty) {
+                    setState(() => _nameError = null);
+                  }
+                },
+              ),
+              AppSpacing.hLg,
+              AdaptiveTextField(
+                controller: _personaController,
+                minLines: 4,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  labelText: '人设（我的身份设定，发送给 AI）*',
+                  hintText: '描述你的性格、外貌、背景、说话口吻以及与 TA 的关系...',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 一个无容器的字段分组（审计 3.3 / 4.2）：照 lib/widgets/setting_section.dart
+  /// 的写法 —— 图标与标题用 onSurfaceVariant（primary 是交互色），
+  /// 靠标题字号与 AppSpacing.xl 分节，不再整组套一张 Card。
+  Widget _section({
+    IconData? icon,
+    required String title,
+    String? description,
+    required List<Widget> children,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(icon, color: cs.onSurfaceVariant, size: AppSize.iconCard),
+                AppSpacing.wSm,
+              ],
+              Expanded(
+                child: FitText(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: AppWeight.medium,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (description != null) ...<Widget>[
+            AppSpacing.hXs,
+            FitText(
+              description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+          AppSpacing.hSm,
+          ...children,
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/island_app/card_publish_page.dart';
 
@@ -25,6 +26,13 @@ class _MyCardsPageState extends State<MyCardsPage> {
   bool _loadingMore = false;
   bool _noMore = false;
   int _page = 0;
+
+  /// 首屏加载失败的原因（审计 3.5）。
+  ///
+  /// 以前 catch 里只复位 loading，于是请求失败会落到「你还没有发布角色卡」
+  /// 这个空态上 —— 用户看到的是「我没发过东西」的错误结论，也没有重试入口。
+  /// 只在列表为空时置位：翻页失败不能把已加载的卡清掉。
+  String? _error;
 
   @override
   void initState() {
@@ -60,12 +68,14 @@ class _MyCardsPageState extends State<MyCardsPage> {
         _noMore = items.isEmpty || data['has_next'] != true;
         _loading = false;
         _loadingMore = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadingMore = false;
+        if (_cards.isEmpty) _error = '角色卡列表加载失败，请稍后重试';
       });
     }
   }
@@ -170,8 +180,14 @@ class _MyCardsPageState extends State<MyCardsPage> {
         hasMore: !_noMore && _cards.isNotEmpty,
         onLoadMore: () => _load(),
         onRefresh: () => _load(reset: true),
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        separatorBuilder: (_, _) => const SizedBox.shrink(),
+        // 失败 → 共享错误态 + 重试，而不是「你还没有发布角色卡」。
+        error: _error,
+        onRetry: () => _load(reset: true),
+        // 行直接贴在 surface 上：结构同构、需要线性扫读的集合用 list，
+        // 而不是每行一张卡（审计 3.3）。横向内边距交给 ListTile（16）。
+        padding: EdgeInsets.zero,
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, indent: AppSpacing.lg),
         empty: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -213,119 +229,93 @@ class _MyCardsPageState extends State<MyCardsPage> {
     final pinned = card['pinned'] == true;
     final rejected = status == 'rejected';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (intro.isNotEmpty)
-              Text(intro, maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              children: <Widget>[
-                StatusChip(status: status),
-                if (pinned) const MyCardsChip(label: '置顶', neutral: true),
-                if (hidden) const MyCardsChip(label: '已隐藏', neutral: true),
-              ],
-            ),
-          ],
-        ),
-        isThreeLine: false,
-        trailing: PopupMenuButton<String>(
-          onSelected: (v) {
-            switch (v) {
-              case 'edit':
-                _edit(card);
-                break;
-              case 'resubmit':
-                _resubmit(card);
-                break;
-              case 'hidden':
-                _toggleHidden(card);
-                break;
-              case 'pin':
-                _togglePin(card);
-                break;
-              case 'detail':
-                _openDetail(card);
-                break;
-            }
-          },
-          itemBuilder: (context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(value: 'detail', child: Text('查看详情')),
-            const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
-            if (rejected)
-              const PopupMenuItem<String>(
-                value: 'resubmit',
-                child: Text('重新提审'),
-              ),
-            // 只有「已通过」的卡能置顶（服务端同样校验）。
-            if (status == 'approved')
-              PopupMenuItem<String>(
-                value: 'pin',
-                child: Text(pinned ? '取消置顶' : '置顶到主页'),
-              ),
-            PopupMenuItem<String>(
-              value: 'hidden',
-              child: Text(hidden ? '取消隐藏' : '隐藏'),
-            ),
-          ],
-        ),
-        onTap: () => _openDetail(card),
+    // 裸 ListTile：每行本就是这个集合里的一行，不是独立的内容单元，
+    // 套卡片只会让 5 张卡挤满一屏（审计 3.3）。行间距由 Divider 承担。
+    return ListTile(
+      contentPadding: AppInsets.tile,
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (intro.isNotEmpty)
+            Text(intro, maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            children: <Widget>[
+              StatusChip(status: status),
+              // 置顶 / 已隐藏是**只读元信息**，用共享标签；不再是带 raw color 的另一个类。
+              if (pinned) const StatusBadge(label: '置顶'),
+              if (hidden) const StatusBadge(label: '已隐藏'),
+            ],
+          ),
+        ],
       ),
+      isThreeLine: false,
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) {
+          switch (v) {
+            case 'edit':
+              _edit(card);
+              break;
+            case 'resubmit':
+              _resubmit(card);
+              break;
+            case 'hidden':
+              _toggleHidden(card);
+              break;
+            case 'pin':
+              _togglePin(card);
+              break;
+            case 'detail':
+              _openDetail(card);
+              break;
+          }
+        },
+        itemBuilder: (context) => <PopupMenuEntry<String>>[
+          const PopupMenuItem<String>(value: 'detail', child: Text('查看详情')),
+          const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
+          if (rejected)
+            const PopupMenuItem<String>(
+              value: 'resubmit',
+              child: Text('重新提审'),
+            ),
+          // 只有「已通过」的卡能置顶（服务端同样校验）。
+          if (status == 'approved')
+            PopupMenuItem<String>(
+              value: 'pin',
+              child: Text(pinned ? '取消置顶' : '置顶到主页'),
+            ),
+          PopupMenuItem<String>(
+            value: 'hidden',
+            child: Text(hidden ? '取消隐藏' : '隐藏'),
+          ),
+        ],
+      ),
+      onTap: () => _openDetail(card),
     );
   }
 }
 
-/// 审核状态小徽章。
+/// 审核状态小徽章：status → 语义色调的**薄适配**，视觉交给共享 [StatusBadge]。
+///
+/// 保留这个公开类名是为了不动既有调用点；具体怎么画（色对 / 字号 / 圆角 /
+/// 无 ink）只有 [StatusBadge] 一份实现。
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status});
   final String status;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (label, bg, fg) = switch (status) {
-      'approved' => ('已通过', scheme.primaryContainer, scheme.onPrimaryContainer),
-      'rejected' => ('已拒绝', scheme.errorContainer, scheme.onErrorContainer),
-      _ => ('审核中', scheme.tertiaryContainer, scheme.onTertiaryContainer),
+    final (String label, BadgeTone tone) = switch (status) {
+      'approved' => ('已通过', BadgeTone.positive),
+      'rejected' => ('已拒绝', BadgeTone.danger),
+      _ => ('审核中', BadgeTone.caution),
     };
-    return MyCardsChip(label: label, background: bg, foreground: fg);
-  }
-}
-
-class MyCardsChip extends StatelessWidget {
-  const MyCardsChip({
-    super.key,
-    required this.label,
-    this.background,
-    this.foreground,
-    this.neutral = false,
-  });
-
-  final String label;
-  final Color? background;
-  final Color? foreground;
-  final bool neutral;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final Color bg = background ?? scheme.surfaceContainerHighest;
-    final Color fg = foreground ?? scheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
-      ),
+    return StatusBadge(
+      label: label,
+      tone: tone,
+      semanticLabel: '审核状态：$label',
     );
   }
 }

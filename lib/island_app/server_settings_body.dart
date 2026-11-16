@@ -91,9 +91,11 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'DNAISLAND 是开源项目，默认使用官方服务器；你也可以填写自建服务器的地址。',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 12),
               ServerAddressForm(

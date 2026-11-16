@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:dna/theme/tokens.dart';
+
 /// 设置入口列表，无脚手架，由 [RootShell] 承载。
 /// 点击条目通过回调把详情页压入外壳栈，从而保持常驻侧边栏/底栏。
 /// 样式参考 DNA client 的 SettingsPage（居中、最大宽度约束、带副标题的菜单项）。
@@ -21,8 +23,9 @@ class SettingsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double w = constraints.maxWidth > 720
-            ? 720
+        // 内容列上限走令牌（原来是字面量 720，两个页面各写一遍）。
+        final double w = constraints.maxWidth > AppSize.islandContentMaxWidth
+            ? AppSize.islandContentMaxWidth
             : constraints.maxWidth;
         return Center(
           child: ConstrainedBox(

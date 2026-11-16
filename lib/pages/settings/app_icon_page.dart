@@ -48,45 +48,73 @@ class _AppIconPageState extends State<AppIconPage> {
       appBar: AppBar(title: const FitText('换图标')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w = constraints.maxWidth > AppSize.settingsMaxWidth
+              ? AppSize.settingsMaxWidth
+              : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                children: <Widget>[
-                  if (!_iconSupported)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: cs.errorContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: FitText(
-                        '当前平台不支持切换图标，仅展示预览。',
-                        style: TextStyle(color: cs.onErrorContainer),
-                      ),
-                    )
-                  else
-                    FitText(
-                      kIsWeb
-                          ? '选择浏览器标签页上显示的图标，点击后立即应用。'
-                          : '选择启动器上显示的图标，点击后立即应用。',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: cs.onSurfaceVariant),
+              // 图标是**同构的可选项集合**：单列巨型卡片在宽窗口里只会被拉宽，
+              // 一屏还是只看到 2-3 个。改成响应式网格：窄屏 2 列、宽屏 3-4 列
+              // （单格最宽 260），一屏能看到全部候选（审计 3.3）。
+              child: CustomScrollView(
+                slivers: <Widget>[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      0,
                     ),
-                  const SizedBox(height: 16),
-                  for (final opt in AppIconService.availableOptions) ...[
-                    _IconCard(
-                      option: opt,
-                      selected: _iconKey == opt.key,
-                      enabled: _iconSupported,
-                      onTap: () => _selectIcon(opt),
+                    sliver: SliverToBoxAdapter(
+                      child: !_iconSupported
+                          ? Container(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: cs.errorContainer,
+                                borderRadius: AppRadius.xsAll,
+                              ),
+                              child: FitText(
+                                '当前平台不支持切换图标，仅展示预览。',
+                                style: TextStyle(color: cs.onErrorContainer),
+                              ),
+                            )
+                          : FitText(
+                              kIsWeb
+                                  ? '选择浏览器标签页上显示的图标，点击后立即应用。'
+                                  : '选择启动器上显示的图标，点击后立即应用。',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 260,
+                            mainAxisSpacing: AppSpacing.lg,
+                            crossAxisSpacing: AppSpacing.lg,
+                            mainAxisExtent: 200,
+                          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (BuildContext context, int index) {
+                          final AppIconOption opt =
+                              AppIconService.availableOptions[index];
+                          return _IconCard(
+                            option: opt,
+                            selected: _iconKey == opt.key,
+                            enabled: _iconSupported,
+                            onTap: () => _selectIcon(opt),
+                          );
+                        },
+                        childCount: AppIconService.availableOptions.length,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -128,6 +156,8 @@ class _IconCard extends StatelessWidget {
             border: Border.all(color: borderColor, width: selected ? 2 : 1),
           ),
           child: Column(
+            // 网格里单格比内容高，居中才不显得吊在上边。
+            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               // 大图预览
               ClipRRect(

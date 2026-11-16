@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
@@ -172,22 +173,13 @@ class _ExploreBodyState extends State<ExploreBody> {
     ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
   }
 
-  void _onScrollNotification(ScrollNotification notification) {
-    if (notification.metrics.pixels >=
-        notification.metrics.maxScrollExtent - 400) {
-      _loadMore();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
       onRefresh: _reload,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          _onScrollNotification(notification);
-          return false;
-        },
+      // 触底加载走共享封装（阈值用列表页默认的 kLoadMoreThreshold=400）。
+      child: loadMoreListener(
+        onReachEnd: _loadMore,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: _buildSlivers(context),
@@ -255,15 +247,16 @@ class _ExploreBodyState extends State<ExploreBody> {
       }
       if (_noMore && _cards.length > 24) {
         slivers.add(
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               child: Center(
                 child: Text(
                   '到底啦',
                   style: TextStyle(
                     fontSize: AppFontSize.caption,
-                    color: Colors.grey,
+                    // 语义色而不是裸 Colors.grey（审计 4.4）。
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -277,23 +270,25 @@ class _ExploreBodyState extends State<ExploreBody> {
     return slivers;
   }
 
-  /// 加载中的骨架屏网格：与真实卡片同列宽、同间隙。
+  /// 加载中的骨架屏：列数/格子尺寸都取自 [cardGridMetrics]，
+  /// 与真实网格**同构** —— 否则内容一到位卡片会重排、页面跳一下（审计 3.3）。
   Widget _skeletonSliver(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final columns = (width ~/ 200).clamp(2, 6);
-            const spacing = 12.0;
-            final itemWidth = (width - spacing * (columns - 1)) / columns;
+            final CardGridMetrics m = cardGridMetrics(constraints.maxWidth);
             return Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
+              spacing: kCardGridSpacing,
+              runSpacing: kCardGridSpacing,
               children: List<Widget>.generate(
-                columns * 3,
-                (_) => SizedBox(width: itemWidth, child: const _SkeletonCard()),
+                m.columns * 3,
+                (_) => SizedBox(
+                  width: m.cellWidth,
+                  height: m.cellHeight,
+                  child: const _SkeletonCard(),
+                ),
               ),
             );
           },
@@ -367,51 +362,63 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        0,
+      ),
+      // 排序与筛选**同一行**（回滚 R6：此前被拆成两行，把一个本来就紧凑的
+      // 筛选条撑成了两条）。控件换型保留：排序用 SegmentedButton、集合筛选用
+      // FilterChip，语义比原来的自绘胶囊清楚；命中区也保留 ≥40dp
+      // （原胶囊只有 30dp）。
       child: _HSliceScroll(
         child: Row(
           children: <Widget>[
             if (hasFilter)
-              _FilterPill(
-                label: '清除筛选',
-                icon: Icons.close,
-                selected: false,
-                onTap: onClear,
+              // 「清除筛选」是**动作**，不是又一个筛选项：低强调 TextButton，
+              // 不与 FilterChip 同权重（审计 3.5）。
+              TextButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.close, size: AppSize.iconInline),
+                label: const Text('清除筛选'),
               )
             else
-              const Text(
+              Text(
                 '筛选',
                 style: TextStyle(
                   fontSize: AppFontSize.caption,
-                  color: Colors.grey,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
-            const SizedBox(width: 4),
-            // 性别：全部 + 各性别。
-            _FilterPill(
-              label: '全部',
-              selected: gender.isEmpty,
-              onTap: () => onGender(''),
+            AppSpacing.wXs,
+            // 排序：不套 visualDensity.compact —— compact 会把高度压到 36，
+            // 低于回滚要求的 40dp 命中区（默认 40）。
+            SegmentedButton<String>(
+              segments: <ButtonSegment<String>>[
+                for (final (String key, String label) in sorts)
+                  ButtonSegment<String>(value: key, label: Text(label)),
+              ],
+              selected: <String>{sort},
+              onSelectionChanged: (Set<String> picked) => onSort(picked.first),
             ),
-            const SizedBox(width: 4),
-            for (final g in genders) ...[
-              _FilterPill(
-                label: g,
+            AppSpacing.wSm,
+            // 性别：集合筛选 → FilterChip（自带 48dp 命中盒）。
+            FilterChip(
+              label: const Text('全部'),
+              selected: gender.isEmpty,
+              onSelected: (_) => onGender(''),
+            ),
+            AppSpacing.wXs,
+            for (final String g in genders) ...<Widget>[
+              FilterChip(
+                label: Text(g),
                 selected: gender == g,
-                onTap: () => onGender(gender == g ? '' : g),
+                onSelected: (_) => onGender(gender == g ? '' : g),
               ),
-              const SizedBox(width: 4),
-            ],
-            const SizedBox(width: 12),
-            // 排序：最热 / 最新 / 最多赞。
-            for (final (key, label) in sorts) ...[
-              _FilterPill(
-                label: label,
-                selected: sort == key,
-                onTap: () => onSort(key),
-              ),
-              const SizedBox(width: 4),
+              AppSpacing.wXs,
             ],
           ],
         ),
@@ -435,23 +442,29 @@ class _TagBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        0,
+      ),
       child: _HSliceScroll(
         child: Row(
           children: <Widget>[
-            _FilterPill(
-              label: '#全部',
+            // 标签是**集合筛选** → FilterChip（保留勾选标记，不再手搓胶囊）。
+            FilterChip(
+              label: const Text('#全部'),
               selected: selected == null,
-              onTap: () => onSelect(null),
+              onSelected: (_) => onSelect(null),
             ),
-            const SizedBox(width: 4),
-            for (final t in tags) ...[
-              _FilterPill(
-                label: '#${t.tag} ${t.count}',
+            AppSpacing.wXs,
+            for (final ExploreTag t in tags) ...<Widget>[
+              FilterChip(
+                label: Text('#${t.tag} ${t.count}'),
                 selected: selected == t.tag,
-                onTap: () => onSelect(selected == t.tag ? null : t.tag),
+                onSelected: (_) => onSelect(selected == t.tag ? null : t.tag),
               ),
-              const SizedBox(width: 4),
+              AppSpacing.wXs,
             ],
           ],
         ),
@@ -514,54 +527,5 @@ class _HSliceScrollState extends State<_HSliceScroll> {
   }
 }
 
-/// 单个筛选胶囊：选中态用主色容器，未选中用描边。
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (icon != null) ...[
-              Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// 筛选胶囊（_FilterPill）已删除：排序改用 SegmentedButton、集合筛选用 M3 原生
+// FilterChip，全模块不再有自绘胶囊（审计 5 节「排序控件 5 种」的收口点）。

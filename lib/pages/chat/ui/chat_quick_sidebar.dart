@@ -192,12 +192,12 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
           // Material 祖先(InkWell 会直接报错),所以自己带一个;
           // 底色用半透明,配合上面的模糊透出底下的角色立绘。
           child: Material(
-            color: colorScheme.surface.withValues(alpha: 0.72),
+            color: colorScheme.surface.withValues(alpha: AppAlpha.a72),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(
                   right: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: colorScheme.outlineVariant.withValues(alpha: AppAlpha.half),
                   ),
                 ),
               ),
@@ -245,10 +245,11 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
         alignment: Alignment.topCenter,
         child: Padding(
           padding: const EdgeInsets.only(top: 6),
+          // 命中区取满把手宽度（= touchTarget）。去掉 compact 密度与
+          // iconSize:18 的组合：那会把命中区压到 ~28dp（审计 4.3）。
           child: IconButton(
             tooltip: widget.collapsed ? '展开快速切换栏' : '收起快速切换栏',
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
+            iconSize: 20,
             onPressed: widget.onToggleCollapsed,
             icon: AnimatedRotation(
               turns: widget.collapsed ? 0.5 : 0,

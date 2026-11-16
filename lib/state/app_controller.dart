@@ -1641,15 +1641,17 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 把 [oldIndex] 的 TA 移到 [newIndex]。
+  ///
+  /// [newIndex] 是**移除之后**的下标（即 `ReorderableListView.onReorderItem`
+  /// 的口径），不要在这里再减一 —— 旧代码适配的是已弃用的 `onReorder`，
+  /// 它在回调里传的是"移除前"的下标。
   Future<void> reorderTas(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _tas.length) {
       return;
     }
-    if (newIndex < 0 || newIndex > _tas.length) {
+    if (newIndex < 0 || newIndex >= _tas.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<TA> updated = List<TA>.from(_tas);
     final TA moved = updated.removeAt(oldIndex);
@@ -1659,15 +1661,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 同 [reorderTas]：下标口径是"移除之后"。
   Future<void> reorderWorlds(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _worlds.length) {
       return;
     }
-    if (newIndex < 0 || newIndex > _worlds.length) {
+    if (newIndex < 0 || newIndex >= _worlds.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<World> updated = List<World>.from(_worlds);
     final World moved = updated.removeAt(oldIndex);
@@ -1677,15 +1677,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 同 [reorderTas]：下标口径是"移除之后"。
   Future<void> reorderConversations(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _conversations.length) {
       return;
     }
     if (newIndex < 0 || newIndex > _conversations.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<Conversation> updated = List<Conversation>.from(_conversations);
     final Conversation moved = updated.removeAt(oldIndex);
@@ -2226,7 +2224,8 @@ class AppController extends ChangeNotifier {
     } catch (_) {
     }
     _settings = AppSettings.empty();
-    setSnackDuration(const Duration(milliseconds: 1000));
+    // 重置后与 AppSettings 的默认值保持一致（审计 3.5：提示不能只停 1 秒）。
+    setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
     _tas = <TA>[];
     _worlds = <World>[];
     _conversations = <Conversation>[];

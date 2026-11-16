@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -134,7 +133,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -179,7 +178,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                      color: cs.surfaceContainerHighest.withValues(alpha: AppAlpha.a40),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FitText(
@@ -201,7 +200,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -246,7 +245,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                      color: cs.surfaceContainerHighest.withValues(alpha: AppAlpha.a40),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FitText(
@@ -268,7 +267,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -392,7 +391,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -471,7 +470,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -526,7 +525,7 @@ class _PromptStrategyPageState extends State<PromptStrategyPage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
             ),
             child: ListTile(
               leading: Icon(Icons.tune, color: cs.primary, size: 20),

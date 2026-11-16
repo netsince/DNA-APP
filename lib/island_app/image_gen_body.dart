@@ -539,7 +539,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: AppFontSize.tiny,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: scheme.onSurfaceVariant.withValues(alpha: AppAlpha.muted),
               ),
             ),
           ],

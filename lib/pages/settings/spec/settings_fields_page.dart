@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 /// 声明 → 界面的唯一渲染器。
 ///
 /// 输入是 [FieldsEntry]（字段树），输出是一个完整的设置页。页面里**没有任何
@@ -271,7 +270,10 @@ class _SettingItemViewState extends State<_SettingItemView> {
                   for (final ChoiceOption<dynamic> o in item.options)
                     ButtonSegment<dynamic>(
                       value: o.value,
-                      label: FitText(o.label),
+                      // SegmentedButton 按**固有宽度**排段，段里没有换行的余地：
+                      // 这里必须保留「缩字保单行」，否则大字号下段内换行会把
+                      // 整条撑爆（审计 4.3 的换行策略不适用于定宽控件）。
+                      label: FitText(o.label, wrapWhenTooNarrow: false),
                       icon: o.icon == null ? null : Icon(o.icon),
                     ),
                 ],
@@ -285,33 +287,41 @@ class _SettingItemViewState extends State<_SettingItemView> {
           ),
         );
       case ChoiceLayout.radioList:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (item.showTitle && _subtitle(item) != null)
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: AppSpacing.md,
-                  top: AppSpacing.sm,
+        // 组值与回调由 RadioGroup 统一管：RadioListTile 自带的
+        // groupValue/onChanged 已是弃用 API（审计 4.4）。禁用态用
+        // RadioListTile.enabled 表达，不再靠"回调传 null"。
+        return RadioGroup<dynamic>(
+          groupValue: current,
+          onChanged: (dynamic v) => _write(v),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (item.showTitle && _subtitle(item) != null)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    top: AppSpacing.sm,
+                  ),
+                  child: FitText(item.title, style: AppTextStyles.body(theme)),
                 ),
-                child: FitText(item.title, style: AppTextStyles.body(theme)),
-              ),
-            for (final ChoiceOption<dynamic> o in item.options)
-              RadioListTile<dynamic>(
-                contentPadding: AppInsets.tile,
-                value: o.value,
-                groupValue: current,
-                title: FitText(o.label),
-                subtitle: o.subtitle == null ? null : FitText(o.subtitle!),
-                onChanged: enabled ? (dynamic v) => _write(v) : null,
-              ),
-          ],
+              for (final ChoiceOption<dynamic> o in item.options)
+                RadioListTile<dynamic>(
+                  contentPadding: AppInsets.tile,
+                  value: o.value,
+                  enabled: enabled,
+                  title: FitText(o.label),
+                  subtitle: o.subtitle == null ? null : FitText(o.subtitle!),
+                ),
+            ],
+          ),
         );
       case ChoiceLayout.dropdown:
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
           child: DropdownButtonFormField<dynamic>(
-            value: current,
+            // 新 API：initialValue 取代废弃的 value；设置变化时页面重建，
+            // FormFieldState 会跟随 initialValue 更新显示。
+            initialValue: current,
             decoration: InputDecoration(labelText: item.title),
             items: <DropdownMenuItem<dynamic>>[
               for (final ChoiceOption<dynamic> o in item.options)

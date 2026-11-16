@@ -14,45 +14,99 @@ mixin ChatActionsSnapshots on ChatStateMixin {
     if (!mounted) {
       return;
     }
-    final String? action = await showDialog<String>(
+    // 存档管理是一个**管理列表**（浏览 + 选择 + 新建），不是需要立刻拍板的
+    // 决定：按审计 3.2 从 dialog 挪到可滚动的大号 bottom sheet。
+    // 真正该用 dialog 的是下面「确认加载存档」那一步 —— 它会覆盖当前对话。
+    final String? action = await showModalBottomSheet<String>(
       context: context,
-      builder: (BuildContext context) {
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
         return Theme(
           data: _accentTheme,
-          child: AlertDialog(
-            title: const FitText('存档管理'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: snapshots.isEmpty
-                ? const FitText('暂无存档')
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: snapshots.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final ChatSnapshot snapshot = snapshots[index];
-                      final DateTime time = DateTime.fromMillisecondsSinceEpoch(snapshot.timestamp);
-                      return ListTile(
-                        title: FitText(snapshot.name),
-                        subtitle: FitText(time.toString().substring(0, 19)),
-                        onTap: () => Navigator.of(context).pop('load:$index'),
-                      );
-                    },
+          child: SafeArea(
+            top: false,
+            child: ConstrainedBox(
+              // 上限 70% 屏高：存档多时 sheet 内部滚动，不铺满整屏。
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      0,
+                      AppSpacing.xl,
+                      AppSpacing.md,
+                    ),
+                    child: FitText(
+                      '存档管理',
+                      style: Theme.of(sheetContext).textTheme.titleLarge,
+                    ),
                   ),
+                  Flexible(
+                    child: snapshots.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: FitText('暂无存档'),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: snapshots.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final ChatSnapshot snapshot = snapshots[index];
+                              final DateTime time =
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                snapshot.timestamp,
+                              );
+                              return ListTile(
+                                title: FitText(snapshot.name),
+                                subtitle: FitText(time.toString().substring(0, 19)),
+                                onTap: () =>
+                                    Navigator.of(sheetContext).pop('load:$index'),
+                              );
+                            },
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      AppSpacing.md,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: const FitText('取消'),
+                          ),
+                        ),
+                        AppSpacing.wMd,
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop('create'),
+                            child: const FitText('新建存档'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const FitText('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop('create'),
-              child: const FitText('新建存档'),
-            ),
-          ],
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
     if (action == null) {
       return;
     }

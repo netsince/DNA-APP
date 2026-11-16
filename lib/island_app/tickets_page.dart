@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
@@ -118,10 +119,11 @@ class _TicketsPageState extends State<TicketsPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        const Icon(
+                        Icon(
                           Icons.support_agent,
-                          size: 40,
-                          color: Colors.grey,
+                          size: AppSize.iconEmptyCompact,
+                          // 空态图标用 outline：不抢正文、又是语义色（审计 4.4）。
+                          color: scheme.outline,
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -141,9 +143,13 @@ class _TicketsPageState extends State<TicketsPage> {
                         }
                         return false;
                       },
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
+                      child: ListView.separated(
+                        // 行贴 surface，横向内边距交给 ListTile（16）；
+                        // 行之间一根 Divider，缩进与行文字对齐。
+                        padding: EdgeInsets.zero,
                         itemCount: _tickets.length + (_loadingMore ? 1 : 0),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, indent: AppSpacing.lg),
                         itemBuilder: (context, index) {
                           if (index >= _tickets.length) {
                             return const Padding(
@@ -211,48 +217,48 @@ class _TicketsPageState extends State<TicketsPage> {
       _ => null,
     };
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (preview.isNotEmpty)
-              Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Row(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chipBg,
-                    borderRadius: BorderRadius.circular(AppRadius.xs),
-                  ),
-                  child: Text(
-                    ticketStatusLabel(status),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: chipFg),
-                  ),
+    // 裸 ListTile：工单列表是结构同构、需要线性扫读的集合，
+    // 每行一张卡只会把「一屏能看几条」换成「一屏几个框」（审计 3.3）。
+    return ListTile(
+      contentPadding: AppInsets.tile,
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (preview.isNotEmpty)
+            Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
                 ),
-                const Spacer(),
-                Text(
-                  _fmtDate(updated),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                decoration: BoxDecoration(
+                  color: chipBg,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
-              ],
-            ),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openDetail(t),
+                child: Text(
+                  ticketStatusLabel(status),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: chipFg),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _fmtDate(updated),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openDetail(t),
     );
   }
 
@@ -698,6 +704,14 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     );
   }
 
+  /// 气泡最大宽度：窄屏取屏宽 78%，宽屏按阅读宽度封顶。
+  double _bubbleMaxWidth(BuildContext context) {
+    final double screen = MediaQuery.sizeOf(context).width;
+    final double reading = WideContent.reading.maxWidth;
+    final double byScreen = screen * 0.78;
+    return byScreen < reading ? byScreen : reading;
+  }
+
   Widget _messageBubble(Map<String, dynamic> m) {
     final scheme = Theme.of(context).colorScheme;
     final role = (m['sender_role'] ?? 'user').toString();
@@ -717,7 +731,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
+          // 屏宽 78% 只在窄屏成立；宽屏下要按阅读宽度封顶，
+          // 否则 1920 宽时一行近百字（审计 3.4）。
+          maxWidth: _bubbleMaxWidth(context),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(AppSpacing.md),

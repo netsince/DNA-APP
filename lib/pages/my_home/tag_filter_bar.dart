@@ -63,10 +63,11 @@ class TagFilterBar extends StatelessWidget {
 
   Widget _chip(String label, String? value) {
     final bool isOn = selected == value;
-    return ChoiceChip(
+    // 标签筛选是**集合筛选**，该用 FilterChip；勾选标记必须留着 ——
+    // 关掉之后选中态只剩颜色（审计 4.3「只用颜色表达状态」）。
+    return FilterChip(
       label: FitText(label),
       selected: isOn,
-      showCheckmark: false,
       visualDensity: VisualDensity.compact,
       // 再点一次已选中的标签 ⇒ 取消筛选；点「全部」本来就是把选择置空。
       onSelected: (_) => onSelect(isOn && value != null ? null : value),

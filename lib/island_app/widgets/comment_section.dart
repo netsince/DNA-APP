@@ -11,6 +11,7 @@ import 'package:dna/island_app/models/comment.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
@@ -536,23 +537,26 @@ class _CommentSectionState extends State<CommentSection> {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Text(
-                '评论（$_total）',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  '评论（$_total）',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const Spacer(),
-              ChoiceChip(
-                label: const Text('最新'),
-                selected: _sort == 'latest',
-                onSelected: (_) => _setSort('latest'),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('最热'),
-                selected: _sort == 'hottest',
-                onSelected: (_) => _setSort('hottest'),
+              // 排序：互斥 2 项、常显 → SegmentedButton（与探索/世界/茶馆/
+              // 搜索同一个控件；原来是两个 ChoiceChip，样子和别处都不一样）。
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(value: 'latest', label: Text('最新')),
+                  ButtonSegment<String>(value: 'hottest', label: Text('最热')),
+                ],
+                selected: <String>{_sort},
+                onSelectionChanged: (Set<String> picked) =>
+                    _setSort(picked.first),
+                // 不压密度：保留 M3 默认的 40dp 高度。
+
               ),
             ],
           ),
@@ -592,31 +596,41 @@ class _CommentSectionState extends State<CommentSection> {
     }
     return AppRefreshIndicator(
       onRefresh: _reload,
-      child: ListView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        children: <Widget>[
-          ..._items.map((c) => _buildComment(c, false)),
-          if (_hasNext)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: _loadingMore
-                  ? const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : Center(
-                      child: TextButton(
-                        onPressed: _loadMore,
-                        child: const Text('加载更多评论'),
-                      ),
-                    ),
-            ),
-        ],
+      // 触底加载：与茶馆 / 世界 / 通知同一套规则（评论也是内容流，卡片高，
+      // 因此用 feed 阈值 kLoadMoreFeedThreshold=300）。
+      //
+      // 监听只包住 ListView 这一层 —— 输入框在 Column 的下一格，不会被卷进来
+      // （也不会因为滚动列表而触发分页）。
+      child: loadMoreListener(
+        onReachEnd: _loadMore,
+        threshold: kLoadMoreFeedThreshold,
+        child: ListView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          children: <Widget>[
+            ..._items.map((c) => _buildComment(c, false)),
+            // 尾部状态行（原来是「加载更多评论」按钮）：
+            // * 正在加载 → spinner；
+            // * 还有下一页但没在加载 → 同高占位，滚到底即可继续（无限滚动没有按钮）。
+            // 没有更多时什么都不画，保持原来的行为。
+            if (_hasNext)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.lg,
+                ),
+                child: Center(
+                  child: _loadingMore
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const SizedBox(height: 20),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -751,7 +765,7 @@ class _CommentSectionState extends State<CommentSection> {
       duration: AppMotion.medium,
       key: focused ? _focusKey(c.id) : null,
       decoration: BoxDecoration(
-        color: focused ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
+        color: focused ? scheme.primaryContainer.withValues(alpha: AppAlpha.a35) : null,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(

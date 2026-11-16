@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
@@ -135,14 +134,30 @@ class _SettingsScrollBodyState extends State<_SettingsScrollBody> {
   }
 }
 
-/// 一个设置分组：标题 + 一张卡片。
+/// 一个设置分组：分组小标题 + 直接贴在 surface 上的行。
 ///
 /// 分组内容来自 [settingsCatalog]，这里只负责画、不持有数据。
+///
+/// ## 为什么不再「每组一张卡」（审计 3.3 / 4.2）
+///
+/// 卡片是「可整体操作的内容单元」的容器。设置分组不是那种单元 —— 它就是
+/// 一串同构的行。给每组套一张卡，等于用容器（描边/圆角/卡片间距）代替
+/// **字号阶 + 间距**来表达层级，结果一屏七个框，谁也不是重点。
+///
+/// 现在层级由三件事建立：小标题的字号与语义色（`titleSmall` + `onSurfaceVariant`，
+/// `primary` 只留给可交互元素）、组间距、以及组内至多一根 Divider。
 class _GroupTile extends StatelessWidget {
   const _GroupTile({required this.group, required this.onOpen});
 
   final SettingsGroup group;
   final ValueChanged<SettingsEntry> onOpen;
+
+  /// 行内文字的左边缘：行内边距 + leading 图标 + `ListTile` 默认的
+  /// horizontalTitleGap（正好等于 [AppSpacing.lg]）。
+  ///
+  /// Divider 用这个缩进，才能和行标题对齐而不是从屏幕边走。
+  static const double _rowTextIndent =
+      AppSpacing.lg + AppSize.iconCard + AppSpacing.lg;
 
   @override
   Widget build(BuildContext context) {
@@ -152,41 +167,51 @@ class _GroupTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        // 分组小标题：左缘对齐**行的 leading 图标**（AppSpacing.lg = 16）。
+        // 选「与图标同列」而不是「与行标题同列」：图标是一条稳定的竖轨，
+        // 不依赖 ListTile 内部的 horizontalTitleGap；行标题比它再右移 16，
+        // 读起来仍是同一列（图标列）对齐。
         Padding(
           padding: const EdgeInsets.only(
-            left: AppSpacing.xs,
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
             bottom: AppSpacing.sm,
           ),
           child: Row(
             children: <Widget>[
-              Icon(group.icon, size: AppSize.iconCard, color: cs.primary),
+              Icon(
+                group.icon,
+                size: AppSize.iconCard,
+                color: cs.onSurfaceVariant,
+              ),
               AppSpacing.wSm,
               Expanded(
                 child: FitText(
                   group.title,
-                  style: ts.labelLarge?.copyWith(
+                  style: ts.titleSmall?.copyWith(
                     fontWeight: AppWeight.medium,
-                    color: cs.primary,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Card(
-          child: Column(
-            children: <Widget>[
-              for (int i = 0; i < group.entries.length; i++) ...<Widget>[
-                if (i > 0) Divider(height: 1, indent: AppSize.iconInline * 3),
-                _EntryTile(
-                  entry: group.entries[i],
-                  onTap: () => onOpen(group.entries[i]),
-                ),
-              ],
-            ],
+        // 行直接贴在 surface 上；组内最多一根 Divider，缩进与行文字对齐。
+        for (int i = 0; i < group.entries.length; i++) ...<Widget>[
+          if (i > 0)
+            Divider(
+              height: 1,
+              indent: _rowTextIndent,
+              color: cs.outlineVariant,
+            ),
+          _EntryTile(
+            entry: group.entries[i],
+            onTap: () => onOpen(group.entries[i]),
           ),
-        ),
-        AppSpacing.hLg,
+        ],
+        // 组间距现在是唯一的分组信号，所以比原来的卡片间距大一档。
+        AppSpacing.hXl,
       ],
     );
   }
@@ -238,7 +263,7 @@ class _EntryTile extends StatelessWidget {
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: 0.5),
+        color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: AppAlpha.half),
       ),
       onTap: on ? onTap : null,
     );

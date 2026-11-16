@@ -4,6 +4,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 
@@ -200,12 +201,17 @@ class _NotificationsBodyState extends State<NotificationsBody> {
     if (_items.isEmpty) {
       return const EmptyState(icon: Icons.notifications_none, title: '暂时没有通知。');
     }
+    // 宽窗口收窄成阅读宽度（审计 3.4「同一条内容，列表有版心、详情没有」）。
+    final double inset = wideInset(
+      MediaQuery.sizeOf(context).width,
+      maxWidth: WideContent.list.maxWidth,
+    );
     return LoadMoreListView(
       itemCount: _items.length,
       hasMore: !_noMore,
       onLoadMore: _load,
       onRefresh: () => _load(reset: true),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: inset),
       separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
       itemBuilder: (context, index) {
         final n = _items[index];

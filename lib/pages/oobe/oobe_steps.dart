@@ -376,12 +376,13 @@ class WelcomeStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+    // 去卡片化（审计 3.3 / 4.2）：整屏一张 Card 只是给整页内容又套了一层容器，
+    // 层级应由字号与间距表达。步骤内容直接铺在页面底色上，内边距保持不变。
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -455,7 +456,6 @@ class WelcomeStep extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -653,12 +653,13 @@ class CommunityStep extends StatelessWidget {
     final ColorScheme cs = theme.colorScheme;
     final String? statusText = _statusText;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+    // 去卡片化（审计 3.3 / 4.2）：整屏一张 Card 只是给整页内容又套了一层容器，
+    // 层级应由字号与间距表达。步骤内容直接铺在页面底色上，内边距保持不变。
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
             OobeStepHeader(stepIndex: 1, heroSize: heroSize),
             AppSpacing.hLg,
             Expanded(
@@ -738,7 +739,6 @@ class CommunityStep extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -787,12 +787,13 @@ class ApiStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+    // 去卡片化（审计 3.3 / 4.2）：整屏一张 Card 只是给整页内容又套了一层容器，
+    // 层级应由字号与间距表达。步骤内容直接铺在页面底色上，内边距保持不变。
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
             // API 步骤的英雄位画当前服务商的真实品牌标：切服务商时它会重新
             // 描边生长一次，比让用户去看一排小 Chip 更直观。
             OobeStepHeader(
@@ -829,7 +830,6 @@ class ApiStep extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -862,12 +862,13 @@ class ModelStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
+    // 去卡片化（审计 3.3 / 4.2）：整屏一张 Card 只是给整页内容又套了一层容器，
+    // 层级应由字号与间距表达。步骤内容直接铺在页面底色上，内边距保持不变。
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
             OobeStepHeader(stepIndex: 3, heroSize: heroSize),
             AppSpacing.hLg,
             Expanded(
@@ -883,7 +884,6 @@ class ModelStep extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../models/ta.dart';
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 typedef SearchChanged = void Function(String value);
@@ -41,6 +42,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.ta,
     this.titleOverride,
     this.transparentBackground = false,
+    this.immersiveHidden = false,
+    this.onToggleImmersive,
   });
 
   final bool searching;
@@ -70,6 +73,13 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final TA? ta;
   final String? titleOverride;
   final bool transparentBackground;
+
+  /// 当前是否处于沉浸态（隐藏顶栏与输入岛）。只影响菜单项文案，
+  /// 状态本身由聊天页持有。
+  final bool immersiveHidden;
+
+  /// 切换沉浸（⋮ 菜单里的「沉浸模式 / 退出沉浸」）。为 null 时不渲染该菜单项。
+  final VoidCallback? onToggleImmersive;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +132,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : <Widget>[
+              // 视图状态（半屏/全屏、沉浸）不再占用顶栏按钮位：
+              // 半屏/全屏由滚动自动切换恢复（see docs/REGRESSION_AUDIT.md R2），
+              // 沉浸收进右侧 ⋮ 菜单，顶栏回到原来的 3 个动作。
               IconButton(
                 tooltip: '回到底部',
                 onPressed: onScrollToBottom,
@@ -153,6 +166,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onToggleBgm();
                   } else if (value == 'bgm_animation') {
                     onToggleBgmAnimation();
+                  } else if (value == 'immersive') {
+                    onToggleImmersive?.call();
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -206,18 +221,34 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                       title: FitText('显示字数/Token'),
                     ),
                   ),
+                  if (onToggleImmersive != null)
+                    PopupMenuItem<String>(
+                      value: 'immersive',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            immersiveHidden
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                          ),
+                          AppSpacing.wMd,
+                          FitText(immersiveHidden ? '退出沉浸' : '沉浸模式'),
+                        ],
+                      ),
+                    ),
                   const PopupMenuItem<String>(
                     value: 'export',
-                    child: ListTile(
-                      leading: Icon(Icons.file_download_outlined),
-                      title: FitText('导出对话'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[Icon(Icons.file_download_outlined), AppSpacing.wMd, FitText('导出对话')],
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'archive',
-                    child: ListTile(
-                      leading: Icon(Icons.save),
-                      title: FitText('存档'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[Icon(Icons.save), AppSpacing.wMd, FitText('存档')],
                     ),
                   ),
                 ],

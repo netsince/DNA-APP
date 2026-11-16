@@ -12,6 +12,7 @@ import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
@@ -489,8 +490,9 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
               children: <Widget>[
-                for (final String tag in d.tags)
-                  Chip(label: Text(tag), visualDensity: VisualDensity.compact),
+                // 世界卡标签是**只读元信息**：以前用 Chip 画，但它一个回调都没有，
+                // 长成 chip 只会让用户以为能点（审计 3.3 的典型例子）。
+                for (final String tag in d.tags) StatusBadge(label: tag),
               ],
             ),
           ],

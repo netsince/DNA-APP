@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'dart:convert';
 import '../../models/prompt_strategy.dart';
 import '../settings/widgets/strategy_override_editor.dart';
@@ -62,6 +61,8 @@ class WorldEditorForm extends StatefulWidget {
     this.world,
     required this.formController,
     this.tagSuggestions = const <String>[],
+    this.nameError,
+    this.onNameChanged,
   });
 
   /// 初始数据；为空表示新建。
@@ -72,6 +73,15 @@ class WorldEditorForm extends StatefulWidget {
 
   /// 标签候选（热门标签），由外壳注入 —— 表单自己不拉社区接口。
   final List<String> tagSuggestions;
+
+  /// 「世界名称」的字段级错误（由外壳校验后注入）。
+  ///
+  /// 表单本身不判断必填：哪个字段必填、必填到什么程度是宿主决定的事
+  /// （发布要求名称，本地保存也要求，但社区编辑可能另有一套）。
+  final String? nameError;
+
+  /// 名称被编辑时通知外壳 —— 外壳据此清掉上一次的校验错误。
+  final VoidCallback? onNameChanged;
 
   @override
   State<WorldEditorForm> createState() => _WorldEditorFormState();
@@ -230,34 +240,40 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
     return ListView(
         padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
-          // ===== 1. 世界核心信息卡片 =====
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // ===== 1. 世界核心信息（无容器分组）=====
+          // 审计 3.3 / 4.2：分组标题靠字号 + onSurfaceVariant 表达层级，
+          // 不再整组套一张描边 Card（做法同 lib/widgets/setting_section.dart）。
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.public, color: theme.colorScheme.primary, size: 20),
-                      const SizedBox(width: 8),
-                      FitText('世界核心设定', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
-                    ],
+                  Icon(
+                    Icons.public,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    size: AppSize.iconCard,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(width: 8),
                   FitText(
-                    '设定该世界的名称与通用规则，对话时将作为基础背景注入。',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                    '世界核心设定',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: AppWeight.medium,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                ],
+              ),
+              const SizedBox(height: 4),
+              FitText(
+                '设定该世界的名称与通用规则，对话时将作为基础背景注入。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              AppSpacing.hSm,
                   TextField(
                     controller: _nameController,
+                    onChanged: (_) => widget.onNameChanged?.call(),
                     decoration: InputDecoration(
                       labelText: '世界名称 *',
                       hintText: '例如：赛博朋克2077、提瓦特大陆、暗夜修道院',
@@ -265,6 +281,8 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
                       prefixIcon: const Icon(Icons.badge_outlined),
                       filled: true,
                       fillColor: theme.colorScheme.surface,
+                      // 字段级错误：错误跟着字段走，用户知道该改哪个框（审计 3.5）。
+                      errorText: widget.nameError,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -329,13 +347,8 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
                     onChanged: (List<String> next) => setState(() => _tags = next),
                   ),
                 ],
-              ),
-            ),
           ),
-
-          const SizedBox(height: 16),
-
-          const SizedBox(height: 16),
+          AppSpacing.hXl,
 
           // ===== 2. 动态词条库 (World Entries) =====
           Row(
@@ -343,9 +356,19 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(Icons.library_books_outlined, color: theme.colorScheme.primary, size: 20),
+                  Icon(
+                    Icons.library_books_outlined,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    size: AppSize.iconCard,
+                  ),
                   const SizedBox(width: 8),
-                  FitText('动态词条库', style: theme.textTheme.titleMedium?.copyWith(fontWeight: AppWeight.medium)),
+                  FitText(
+                    '动态词条库',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: AppWeight.medium,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -384,7 +407,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: AppAlpha.a40),
                   style: BorderStyle.solid,
                 ),
               ),
@@ -392,7 +415,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
                 padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
                 child: Column(
                   children: <Widget>[
-                    Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                    Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline.withValues(alpha: AppAlpha.half)),
                     const SizedBox(height: 8),
                     FitText('暂无词条', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.outline)),
                     const SizedBox(height: 4),
@@ -433,47 +456,39 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
           // ===== 3. 叙事策略 =====
           // 放在最后一屏：它是进阶项，不该挤占「核心信息 → 词条库」的主流程。
           // 任何一项停在「未设置」就继续继承全局，不会因为没填而变成关闭。
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          // 无容器分组：拆掉外面那张描边 Card，标题样式与其它分组一致
+          // （titleSmall + onSurfaceVariant，审计 3.3 / 4.2）。
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.auto_stories_outlined,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: AppSize.iconCard,
+            ),
+            title: FitText(
+              '叙事策略',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: AppWeight.medium,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: ExpansionTile(
-              leading: Icon(
-                Icons.auto_stories_outlined,
-                color: theme.colorScheme.primary,
-                size: 20,
+            subtitle: FitText(
+              '结构、节奏、揭示、冲突、环境、配角；不设即继承全局',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              title: FitText(
-                '叙事策略',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: AppWeight.medium,
-                ),
-              ),
-              subtitle: FitText(
-                '结构、节奏、揭示、冲突、环境、配角；不设即继承全局',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              shape: const Border(),
-              collapsedShape: const Border(),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              expandedCrossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                StrategyOverrideEditor(
-                  scope: StrategyScope.world,
-                  value: _strategyOverride,
-                  onChanged: (StrategyDetails? v) {
-                    setState(() => _strategyOverride = v);
-                  },
-                ),
-              ],
             ),
+            childrenPadding: const EdgeInsets.only(top: 8),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              StrategyOverrideEditor(
+                scope: StrategyScope.world,
+                value: _strategyOverride,
+                onChanged: (StrategyDetails? v) {
+                  setState(() => _strategyOverride = v);
+                },
+              ),
+            ],
           ),
         ],
     );
@@ -501,10 +516,10 @@ class _WorldEntryCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: AppAlpha.a35),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: AppAlpha.a40)),
       ),
       child: InkWell(
         onTap: onEdit,
@@ -866,7 +881,9 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                       children: <Widget>[
                         Expanded(
                           child: DropdownButtonFormField<WorldPersonGender>(
-                            value: _gender,
+                            // 新 API：initialValue 取代废弃的 value（FormFieldState
+                            // 会在 initialValue 变化时 setValue，显示跟随状态）。
+                            initialValue: _gender,
                             items: const <DropdownMenuItem<WorldPersonGender>>[
                               DropdownMenuItem(value: WorldPersonGender.male, child: FitText('男')),
                               DropdownMenuItem(value: WorldPersonGender.female, child: FitText('女')),
@@ -887,7 +904,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<WorldPersonStatus>(
-                            value: _status,
+                            initialValue: _status,
                             items: const <DropdownMenuItem<WorldPersonStatus>>[
                               DropdownMenuItem(value: WorldPersonStatus.normal, child: FitText('正常')),
                               DropdownMenuItem(value: WorldPersonStatus.dead, child: FitText('死亡')),
@@ -900,7 +917,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _relationTargetId,
+                      initialValue: _relationTargetId,
                       items: <DropdownMenuItem<String>>[
                         const DropdownMenuItem<String>(value: null, child: FitText('无人物关联')),
                         ...widget.availableEntries
@@ -1019,7 +1036,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _decorator,
+                          initialValue: _decorator,
                           items: const <DropdownMenuItem<String>>[
                             DropdownMenuItem<String>(value: 'none', child: FitText('正常激活')),
                             DropdownMenuItem<String>(value: 'activate', child: FitText('强制常驻激活（跳过冷却）')),

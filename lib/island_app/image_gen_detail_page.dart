@@ -233,7 +233,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
         child: Material(
-          color: Colors.black.withValues(alpha: 0.35),
+          color: Colors.black.withValues(alpha: AppAlpha.a35),
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: IconButton(
@@ -346,7 +346,8 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
         builder: (BuildContext context, BoxConstraints constraints) {
           //宽屏（桌面）左右分栏：左边看图、右边看信息，各自滚动。
           //窄屏（手机）保持原来的单列上下排布，观感不变。
-          final bool wide = constraints.maxWidth >= 900;
+          // 双栏阈值走 M3 宽度类令牌（原来写死 900）。
+          final bool wide = constraints.maxWidth >= AppBreakpoints.mediumMax;
           if (!wide) {
             return ListView(
               padding: const EdgeInsets.all(kPagePadding),

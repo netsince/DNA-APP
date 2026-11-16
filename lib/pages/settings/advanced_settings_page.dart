@@ -82,9 +82,9 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cs.errorContainer.withValues(alpha: 0.3),
+              color: cs.errorContainer.withValues(alpha: AppAlpha.a30),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+              border: Border.all(color: cs.error.withValues(alpha: AppAlpha.a30)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,7 +127,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.4),
+                color: cs.outlineVariant.withValues(alpha: AppAlpha.a40),
               ),
             ),
             child: ListTile(

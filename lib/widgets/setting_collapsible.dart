@@ -114,9 +114,9 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         // ===== 收起态:名称 + 当前值(整行可点) =====
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -332,9 +332,9 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         // ===== 收起态:名称 + 当前值(整行可点) =====
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -481,9 +481,9 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -562,6 +562,42 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
               : const SizedBox(width: double.infinity),
         ),
       ],
+    );
+  }
+}
+
+/// 折叠项的「收起态整行」。
+///
+/// 抽出这一层是为了两件事（见 docs/MATERIAL_DESIGN_AUDIT.md 4.3）：
+/// * **命中区 ≥ 48dp**：原来的 `InkWell + vertical padding 12` 只有约 46dp；
+/// * **展开态语义**：自绘的收起行读屏只会念「按钮」，说不出当前是展开还是折叠。
+class _CollapsedHeader extends StatelessWidget {
+  const _CollapsedHeader({
+    required this.expanded,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.xsAll,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppSize.touchTarget),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }

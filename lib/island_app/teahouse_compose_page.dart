@@ -32,6 +32,12 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _topicController = TextEditingController();
 
+  /// 正文聚焦用于「校验失败后把用户带回出错的那个字段」。
+  final FocusNode _contentFocus = FocusNode();
+
+  /// 正文字段的就地校验文案（审计 3.5：校验不能靠 snackbar）。
+  String? _contentError;
+
   XFile? _image;
   bool _pickingImage = false;
 
@@ -55,6 +61,7 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
   void dispose() {
     _contentController.dispose();
     _topicController.dispose();
+    _contentFocus.dispose();
     super.dispose();
   }
 
@@ -153,9 +160,10 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
   Future<void> _submit() async {
     final content = _contentController.text.trim();
     if (content.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入正文内容')));
+      // 就地报错并把焦点/视口带回该字段；一闪而过的 snackbar 会让人
+      // 不知道到底是哪一项没填（审计 3.5）。
+      setState(() => _contentError = '请填写正文再发布');
+      _contentFocus.requestFocus();
       return;
     }
     if (!_loggedIn) {
@@ -221,11 +229,19 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
           // 正文。
           TextField(
             controller: _contentController,
+            focusNode: _contentFocus,
             maxLines: 6,
             maxLength: _maxContentLen,
-            decoration: const InputDecoration(
+            // 一开始打字就把错误撤掉：错误态跟着输入走，不该留到下次提交。
+            onChanged: (_) {
+              if (_contentError != null) {
+                setState(() => _contentError = null);
+              }
+            },
+            decoration: InputDecoration(
               hintText: '说点什么…',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              errorText: _contentError,
             ),
           ),
           // 工具栏：表情包。
@@ -263,7 +279,12 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
           if (_searched && _linkedCardId == null) ...<Widget>[
             const SizedBox(height: 8),
             if (_cardResults.isEmpty)
-              const Text('没有找到可关联的角色卡', style: TextStyle(color: Colors.grey))
+              Text(
+                '没有找到可关联的角色卡',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              )
             else
               ..._cardResults
                   .take(8)
@@ -356,7 +377,7 @@ class _LinkedCardChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.4),
+        color: scheme.primaryContainer.withValues(alpha: AppAlpha.a40),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(

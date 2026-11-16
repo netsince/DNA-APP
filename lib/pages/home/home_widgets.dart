@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/state_views.dart';
+
 import '../../models/conversation.dart';
 import '../../models/ta.dart';
 import '../../models/world.dart';
@@ -43,22 +45,16 @@ class ConversationListBody extends StatelessWidget {
         });
 
         if (visible.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                FitText(
-                  showArchived ? '还没有归档会话。' : '还没有会话，点击右上角 + 新建。',
-                ),
-                const SizedBox(height: 12),
-                if (!showArchived)
-                  FilledButton.icon(
-                    onPressed: onCreateConversation,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('新建会话'),
-                  ),
-              ],
-            ),
+          // 空态统一走共享组件（审计 3.5「空态三套实现」）。
+          return AppEmptyState(
+            icon: showArchived
+                ? Icons.archive_outlined
+                : Icons.chat_bubble_outline,
+            title: showArchived ? '还没有归档会话。' : '还没有会话。',
+            description: showArchived ? null : '点右上角「＋」或下面的按钮新建一个。',
+            actionLabel: showArchived ? null : '新建会话',
+            actionIcon: showArchived ? null : Icons.add,
+            onAction: showArchived ? null : onCreateConversation,
           );
         }
 
@@ -66,14 +62,12 @@ class ConversationListBody extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           buildDefaultDragHandles: false,
           itemCount: visible.length,
-          onReorder: (int oldIndex, int newIndex) async { // ignore: deprecated_member_use
+          // onReorderItem 的 newIndex 已按"移除之后"算好，这里不再手动 -1。
+          onReorderItem: (int oldIndex, int newIndex) async {
             if (oldIndex < 0 || oldIndex >= visible.length) {
               return;
             }
             final List<Conversation> reordered = <Conversation>[...visible];
-            if (newIndex > oldIndex) {
-              newIndex -= 1;
-            }
             final Conversation moved = reordered.removeAt(oldIndex);
             final int targetIndex = newIndex.clamp(0, reordered.length);
             reordered.insert(targetIndex, moved);
@@ -240,17 +234,17 @@ class _ConversationItem extends StatelessWidget {
                   return <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(
                       value: 'unarchive',
-                      child: ListTile(
-                        leading: Icon(Icons.unarchive_outlined),
-                        title: FitText('恢复'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.unarchive_outlined), AppSpacing.wMd, FitText('恢复')],
                       ),
                     ),
                     const PopupMenuDivider(),
                     const PopupMenuItem<String>(
                       value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline),
-                        title: FitText('删除'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.delete_outline), AppSpacing.wMd, FitText('删除')],
                       ),
                     ),
                   ];
@@ -258,32 +252,32 @@ class _ConversationItem extends StatelessWidget {
                 return <PopupMenuEntry<String>>[
                   PopupMenuItem<String>(
                     value: 'pin',
-                    child: ListTile(
-                      leading: Icon(conversation.pinned
+                    child: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: <Widget>[Icon(conversation.pinned
                           ? Icons.push_pin_outlined
-                          : Icons.push_pin),
-                      title: FitText(conversation.pinned ? '取消置顶' : '置顶'),
-                    ),
+                          : Icons.push_pin), AppSpacing.wMd, FitText(conversation.pinned ? '取消置顶' : '置顶')],
+),
                   ),
                   const PopupMenuItem<String>(
                     value: 'duplicate',
-                    child: ListTile(
-                      leading: Icon(Icons.copy_outlined),
-                      title: FitText('复制会话'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[Icon(Icons.copy_outlined), AppSpacing.wMd, FitText('复制会话')],
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: FitText('更改信息'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[Icon(Icons.edit_outlined), AppSpacing.wMd, FitText('更改信息')],
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'archive',
-                    child: ListTile(
-                      leading: Icon(Icons.archive_outlined),
-                      title: FitText('归档'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[Icon(Icons.archive_outlined), AppSpacing.wMd, FitText('归档')],
                     ),
                   ),
                 ];

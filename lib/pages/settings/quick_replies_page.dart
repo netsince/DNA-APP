@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -45,7 +44,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
   }
 
   Future<void> _add() async {
-    final QuickReply? created = await _editDialog();
+    final QuickReply? created = await _editSheet();
     if (created == null) return;
     setState(() {
       _items = <QuickReply>[..._items, created];
@@ -54,7 +53,7 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
   }
 
   Future<void> _edit(QuickReply item) async {
-    final QuickReply? updated = await _editDialog(item);
+    final QuickReply? updated = await _editSheet(item);
     if (updated == null) return;
     setState(() {
       _items = _items
@@ -71,86 +70,18 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
     await _save();
   }
 
-  Future<QuickReply?> _editDialog([QuickReply? existing]) async {
-    final TextEditingController labelCtrl =
-        TextEditingController(text: existing?.label ?? '');
-    final TextEditingController messageCtrl =
-        TextEditingController(text: existing?.message ?? '');
-    final TextEditingController groupCtrl =
-        TextEditingController(text: existing?.group ?? '');
-
-    final bool? ok = await showDialog<bool>(
+  /// 打开编辑表单。
+  ///
+  /// 容器是 bottom sheet 而不是 dialog：这是「填写一张小表单」，不是
+  /// 需要立刻拍板的决定（审计 3.2）。sheet 还带来了富余的横向宽度，
+  /// 原来的 dialog 宽度写死 360，长宏示例在窄窗口里会被挤成三行。
+  Future<QuickReply?> _editSheet([QuickReply? existing]) {
+    return showModalBottomSheet<QuickReply>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: FitText(existing == null ? '新增快速回复' : '编辑快速回复'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: labelCtrl,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: '按钮显示文字',
-                    hintText: '例如：打个招呼、投喂点心',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                AppSpacing.hMd,
-                TextField(
-                  controller: messageCtrl,
-                  maxLines: 4,
-                  minLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: '实际发送内容',
-                    hintText: '支持宏：{{char}} {{user}} {{random 选项A|选项B}} {{newline}}',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                AppSpacing.hMd,
-                TextField(
-                  controller: groupCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '分组标签（选填）',
-                    hintText: '用于归类展示，留空表示通用',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const FitText('保存'),
-          ),
-        ],
-      ),
-    );
-
-    if (ok != true) return null;
-    final String label = labelCtrl.text.trim();
-    final String message = messageCtrl.text.trim();
-    if (message.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: FitText('发送内容不能为空。')),
-        );
-      }
-      return null;
-    }
-    return QuickReply(
-      id: existing?.id ?? newId(),
-      label: label.isEmpty ? message : label,
-      message: message,
-      group: groupCtrl.text.trim().isEmpty ? null : groupCtrl.text.trim(),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) =>
+          _QuickReplySheet(existing: existing),
     );
   }
 
@@ -287,6 +218,149 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
               label: const FitText('新增快速回复'),
             )
           : null,
+    );
+  }
+}
+
+/// 快速回复的编辑表单（bottom sheet）。
+///
+/// 以前是 AlertDialog：宽度写死 360，而且**先关对话框再校验** —— 发送内容
+/// 为空时对话框已经关了，用户只看到一条 snackbar，刚敲的字全丢。现在表单在
+/// sheet 里就地校验（地字段 errorText），不通过就不关，输入原样保留。
+class _QuickReplySheet extends StatefulWidget {
+  const _QuickReplySheet({this.existing});
+
+  final QuickReply? existing;
+
+  @override
+  State<_QuickReplySheet> createState() => _QuickReplySheetState();
+}
+
+class _QuickReplySheetState extends State<_QuickReplySheet> {
+  late final TextEditingController _labelCtrl;
+  late final TextEditingController _messageCtrl;
+  late final TextEditingController _groupCtrl;
+
+  /// 发送内容的就地校验文案；为 null 时不显示错误。
+  String? _messageError;
+
+  @override
+  void initState() {
+    super.initState();
+    _labelCtrl = TextEditingController(text: widget.existing?.label ?? '');
+    _messageCtrl = TextEditingController(text: widget.existing?.message ?? '');
+    _groupCtrl = TextEditingController(text: widget.existing?.group ?? '');
+  }
+
+  @override
+  void dispose() {
+    _labelCtrl.dispose();
+    _messageCtrl.dispose();
+    _groupCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String message = _messageCtrl.text.trim();
+    if (message.isEmpty) {
+      setState(() => _messageError = '发送内容不能为空。');
+      return;
+    }
+    final String label = _labelCtrl.text.trim();
+    final String group = _groupCtrl.text.trim();
+    Navigator.of(context).pop(
+      QuickReply(
+        id: widget.existing?.id ?? newId(),
+        label: label.isEmpty ? message : label,
+        message: message,
+        group: group.isEmpty ? null : group,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Padding(
+      // 键盘避让：sheet 跟着输入法一起抬起，不遮住正在编辑的字段。
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            0,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              FitText(
+                widget.existing == null ? '新增快速回复' : '编辑快速回复',
+                style: theme.textTheme.titleLarge,
+              ),
+              AppSpacing.hLg,
+              TextField(
+                controller: _labelCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '按钮显示文字',
+                  hintText: '例如：打个招呼、投喂点心',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              AppSpacing.hMd,
+              TextField(
+                controller: _messageCtrl,
+                maxLines: 4,
+                minLines: 2,
+                onChanged: (_) {
+                  if (_messageError != null) {
+                    setState(() => _messageError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: '实际发送内容',
+                  hintText: '支持宏：{{char}} {{user}} {{random 选项A|选项B}} {{newline}}',
+                  border: const OutlineInputBorder(),
+                  errorText: _messageError,
+                ),
+              ),
+              AppSpacing.hMd,
+              TextField(
+                controller: _groupCtrl,
+                decoration: const InputDecoration(
+                  labelText: '分组标签（选填）',
+                  hintText: '用于归类展示，留空表示通用',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              AppSpacing.hXl,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const FitText('取消'),
+                    ),
+                  ),
+                  AppSpacing.wMd,
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _submit,
+                      child: const FitText('保存'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

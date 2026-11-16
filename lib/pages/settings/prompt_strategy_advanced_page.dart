@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -126,29 +125,79 @@ class _PromptStrategyAdvancedPageState
     return t.isEmpty ? null : t;
   }
 
+  /// 提示词预览。
+  ///
+  /// 一段**长文本只读预览**：按审计 3.2 从 dialog 换成大号 sheet（占屏 85%）。
+  /// dialog 装长文的毛病是内容一多就自己变成滚动区、还挤在屏幕中间一块小方框里；
+  /// sheet 既保留了上下文，又能真正读完整段提示词。
+  /// 正文仍限宽 560，避免宽窗口下行长拉到不可读。
   void _showPreview() {
     final String text = ChatSystemPrompt.previewStrategy(_strategy);
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const FitText('提示词预览'),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              text,
-              // 字号与行高一律走主题令牌（font_scale 结构约束）。
-              style: Theme.of(context).textTheme.bodySmall,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        final ThemeData theme = Theme.of(sheetContext);
+        return FractionallySizedBox(
+          heightFactor: 0.85,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    0,
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                  ),
+                  child: FitText('提示词预览', style: theme.textTheme.titleLarge),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      0,
+                      AppSpacing.xl,
+                      AppSpacing.lg,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: SelectableText(
+                          text,
+                          // 字号与行高一律走主题令牌（font_scale 结构约束）。
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                    AppSpacing.xl,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const FitText('关闭'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const FitText('关闭'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -603,7 +652,7 @@ class _Section extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -649,10 +698,10 @@ class _ConflictCard extends StatelessWidget {
     final TextTheme ts = theme.textTheme;
     return Card(
       elevation: 0,
-      color: cs.errorContainer.withValues(alpha: 0.35),
+      color: cs.errorContainer.withValues(alpha: AppAlpha.a35),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.error.withValues(alpha: 0.35)),
+        side: BorderSide(color: cs.error.withValues(alpha: AppAlpha.a35)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -711,7 +760,7 @@ class _FoldSection extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
       ),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(

@@ -32,6 +32,9 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
   bool _noMore = false;
   int _page = 0;
 
+  /// 首屏加载失败的原因（审计 3.5）：失败不能被渲染成「暂无内容」。
+  String? _error;
+
   @override
   void initState() {
     super.initState();
@@ -64,12 +67,15 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
         _noMore = items.isEmpty || data['has_next'] != true;
         _loading = false;
         _loadingMore = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadingMore = false;
+        // 翻页失败保留已加载内容；只有「一页都没拿到」才算错误态。
+        if (_cards.isEmpty) _error = '内容加载失败，请稍后重试';
       });
     }
   }
@@ -87,6 +93,8 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
       appBar: AppBar(title: Text(widget.title)),
       body: _loading && _cards.isEmpty
           ? const LoadingState()
+          : _error != null && _cards.isEmpty
+          ? ErrorState(message: _error!, onRetry: () => _load(reset: true))
           : _cards.isEmpty
           ? const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容')
           : AppRefreshIndicator(

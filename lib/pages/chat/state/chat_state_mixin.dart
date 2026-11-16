@@ -286,7 +286,7 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
         primary: accent,
         onPrimary: onAccent,
         primaryContainer:
-            Color.alphaBlend(accent.withValues(alpha: 0.16), base.colorScheme.surface),
+            Color.alphaBlend(accent.withValues(alpha: AppAlpha.a16), base.colorScheme.surface),
         onPrimaryContainer: accent,
       ),
     );

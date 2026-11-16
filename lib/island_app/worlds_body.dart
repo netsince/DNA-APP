@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/world_card_tile.dart';
@@ -191,13 +194,9 @@ class _WorldsBodyState extends State<WorldsBody> {
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
       onRefresh: _reload,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification n) {
-          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-            _loadMore();
-          }
-          return false;
-        },
+      // 触底加载走共享封装（阈值 = 列表页默认的 kLoadMoreThreshold）。
+      child: loadMoreListener(
+        onReachEnd: _loadMore,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: _buildSlivers(context),
@@ -242,7 +241,7 @@ class _WorldsBodyState extends State<WorldsBody> {
         ),
       );
     } else {
-      slivers.add(SliverToBoxAdapter(child: _grid(context)));
+      slivers.add(_gridSliver(context));
       if (_loadingMore) {
         slivers.add(
           const SliverToBoxAdapter(
@@ -279,7 +278,13 @@ class _WorldsBodyState extends State<WorldsBody> {
     return slivers;
   }
 
-  /// 第 1 行：排序（与角色卡探索页同一套胶囊样式）。
+  /// 第 1 行：排序。互斥 2 项、常显 → SegmentedButton。
+  ///
+  /// 第 1 行：排序与「清除筛选」在**同一行**（回滚 R6：此前被拆成两行，
+  /// 还把「清除筛选」挪到了标签行）。
+  ///
+  /// 控件换型保留（比较排序用 SegmentedButton，与探索/茶馆/评论/搜索一致），
+  /// 命中区也保留 ≥40dp（不套 compact，默认就是 40）。
   Widget _filterBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -291,11 +296,11 @@ class _WorldsBodyState extends State<WorldsBody> {
       child: _HorizontalPills(
         children: <Widget>[
           if (_query.hasFilter)
-            _Pill(
-              label: '清除筛选',
-              icon: Icons.close,
-              selected: false,
-              onTap: () => _setFilter(tag: ''),
+            // 「清除筛选」是动作不是筛选项：低强调 TextButton（审计 3.5）。
+            TextButton.icon(
+              onPressed: () => _setFilter(tag: ''),
+              icon: const Icon(Icons.close, size: AppSize.iconInline),
+              label: const Text('清除筛选'),
             )
           else
             Text(
@@ -305,21 +310,22 @@ class _WorldsBodyState extends State<WorldsBody> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-          const SizedBox(width: AppSpacing.xs),
-          for (final (String key, String label) in _sorts) ...<Widget>[
-            _Pill(
-              label: label,
-              selected: _query.sort == key,
-              onTap: () => _setFilter(sort: key),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-          ],
+          AppSpacing.wXs,
+          SegmentedButton<String>(
+            segments: <ButtonSegment<String>>[
+              for (final (String key, String label) in _sorts)
+                ButtonSegment<String>(value: key, label: Text(label)),
+            ],
+            selected: <String>{_query.sort},
+            onSelectionChanged: (Set<String> picked) =>
+                _setFilter(sort: picked.first),
+          ),
         ],
       ),
     );
   }
 
-  /// 第 2 行：热门标签。
+  /// 第 2 行：热门标签（集合筛选 → FilterChip）。
   Widget _tagBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -330,67 +336,58 @@ class _WorldsBodyState extends State<WorldsBody> {
       ),
       child: _HorizontalPills(
         children: <Widget>[
-          _Pill(
-            label: '#全部',
+          // 「清除筛选」回到第 1 行（与排序同行），标签行只放标签 ——
+          // 这是回滚 R6 前的原结构。
+          FilterChip(
+            label: const Text('#全部'),
             selected: _query.tag.isEmpty,
-            onTap: () => _setFilter(tag: ''),
+            onSelected: (_) => _setFilter(tag: ''),
           ),
-          const SizedBox(width: AppSpacing.xs),
+          AppSpacing.wXs,
           for (final ({String tag, int count}) t in _tags) ...<Widget>[
-            _Pill(
-              label: '#${t.tag} ${t.count}',
+            FilterChip(
+              label: Text('#${t.tag} ${t.count}'),
               selected: _query.tag == t.tag,
-              onTap: () => _setFilter(tag: _query.tag == t.tag ? '' : t.tag),
+              onSelected: (_) =>
+                  _setFilter(tag: _query.tag == t.tag ? '' : t.tag),
             ),
-            const SizedBox(width: AppSpacing.xs),
+            AppSpacing.wXs,
           ],
         ],
       ),
     );
   }
 
-  /// 瀑布流：按列轮流投放，每列高度自然参差。
+  /// 瀑布流（真正的 sliver）：列间错落交给 [SliverMasonryGrid]。
   ///
-  /// 不用 GridView / Wrap：前者每行等高（长简介被裁），后者按行对齐（留白很丑）。
-  /// 这里让卡片按内容自己长，列与列之间错落。
-  Widget _grid(BuildContext context) {
-    return Padding(
+  /// 以前是「`Row` 里塞 N 个 `Column`，按 `i % columns` 分桶」，整块套在
+  /// `SliverToBoxAdapter` 里：
+  /// * **没有懒构建** —— 一次性把所有卡片都建出来；
+  /// * **读屏顺序错** —— 按列读，用户听到的是「第 1 列全部、再第 2 列全部」；
+  /// * 列高靠手工对齐，卡片改版就得跟着改分桶逻辑。
+  /// 换成 sliver 后三件事一起解决（审计 3.3）。
+  ///
+  /// 列数仍走全模块唯一那套算法（[cardGridMetrics]），只是这里卡片高度由
+  /// 内容决定，所以只取它的 `columns`。
+  Widget _gridSliver(BuildContext context) {
+    return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final double width = constraints.maxWidth;
-          final int columns = (width ~/ 220).clamp(2, 6);
-          const double spacing = AppSpacing.md;
-          final double itemWidth = (width - spacing * (columns - 1)) / columns;
-
-          final List<List<Widget>> buckets = List<List<Widget>>.generate(
-            columns,
-            (_) => <Widget>[],
-          );
-          for (int i = 0; i < _items.length; i++) {
-            final WorldCardSummary w = _items[i];
-            buckets[i % columns].add(
-              Padding(
-                padding: const EdgeInsets.only(bottom: spacing),
-                child: WorldCardTile(world: w, onTap: () => _openDetail(w)),
-              ),
-            );
-          }
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              for (int c = 0; c < columns; c++) ...<Widget>[
-                if (c > 0) const SizedBox(width: spacing),
-                SizedBox(
-                  width: itemWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: buckets[c],
-                  ),
-                ),
-              ],
-            ],
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final int columns = cardGridMetrics(
+            constraints.crossAxisExtent,
+            minColumnWidth: 220,
+            maxColumns: kCardGridMaxColumns,
+          ).columns;
+          return SliverMasonryGrid.count(
+            crossAxisCount: columns,
+            mainAxisSpacing: AppSpacing.md,
+            crossAxisSpacing: AppSpacing.md,
+            childCount: _items.length,
+            itemBuilder: (BuildContext context, int index) {
+              final WorldCardSummary w = _items[index];
+              return WorldCardTile(world: w, onTap: () => _openDetail(w));
+            },
           );
         },
       ),
@@ -405,7 +402,12 @@ class _WorldsBodyState extends State<WorldsBody> {
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final double width = constraints.maxWidth;
-          final int columns = (width ~/ 220).clamp(2, 6);
+          // 列数与真实瀑布流共用 cardGridMetrics（同一套算法，不再手写）。
+          final int columns = cardGridMetrics(
+            width,
+            minColumnWidth: 220,
+            maxColumns: kCardGridMaxColumns,
+          ).columns;
           const double spacing = AppSpacing.md;
           final double itemWidth = (width - spacing * (columns - 1)) / columns;
           return Shimmer(
@@ -448,54 +450,5 @@ class _HorizontalPills extends StatelessWidget {
   }
 }
 
-/// 单个筛选胶囊。
-class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (icon != null) ...<Widget>[
-              Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// 筛选胶囊（_Pill）已删除：排序改用 SegmentedButton、标签筛选用 M3 原生
+// FilterChip（与角色卡探索页同一套控件）。

@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:dna/theme/tokens.dart';
 
 /// 液态玻璃（第三版）。
 ///
@@ -98,7 +99,7 @@ class LiquidGlass extends StatelessWidget {
         borderRadius: borderRadius,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
+            color: Colors.black.withValues(alpha: AppAlpha.a16),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -135,7 +136,9 @@ class _LiquidGlassPainter extends CustomPainter {
     final double rim = math.min(size.shortestSide * 0.5, 12);
 
     // ① 厚度渐变（左上亮 → 右下沉）
-    final Color base = Color.alphaBlend(Colors.black.withValues(alpha: 0.05 * intensity), fill);
+    // 这组数值是玻璃的**强度乘子**（0.035 / 0.11 / 0.045 等），不是通用透明度档位：
+    // 它们只在 intensity ∈ [0,1] 的插值里出现，硬套 AppAlpha 阶梯反而更晦涩。
+    final Color base = Color.alphaBlend(Colors.black.withValues(alpha: AppAlpha.subtle * intensity), fill);
     final Color top = Color.alphaBlend(Colors.white.withValues(alpha: 0.035 * intensity), base);
     final Color bottom = Color.alphaBlend(Colors.black.withValues(alpha: 0.11 * intensity), base);
     canvas.drawRRect(

@@ -108,7 +108,7 @@ class _RecommendBodyState extends State<RecommendBody> {
       //窄屏列宽下限放宽到150，保证390宽也能排下2列。
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final bool narrow = constraints.maxWidth < 600;
+          final bool narrow = constraints.maxWidth <= AppBreakpoints.compactMax;
           return _buildColumns(
             constraints.maxWidth,
             minColWidth: narrow ? 150 : 210,
@@ -219,7 +219,7 @@ class _RecommendCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: scheme.secondaryContainer.withValues(alpha: 0.4),
+              color: scheme.secondaryContainer.withValues(alpha: AppAlpha.a40),
               borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
             child: Row(

@@ -5,6 +5,15 @@ import 'prompt_strategy.dart';
 import 'quick_reply.dart';
 import 'voice_models.dart';
 
+/// 底部提示（SnackBar）的默认停留时长（毫秒）。
+///
+/// 1 秒读不完一句中文提示，短于 2~4 秒的提示等于没提示（审计 3.5 / 4.3）。
+/// 这里是**默认值的唯一来源**：AppSettings.empty()、fromJson 兜底、
+/// SettingsService 读盘兜底、以及「清空数据」后的重置都引用它。
+/// 注意 utils/ui_feedback.dart 的 kDefaultSnackDuration 必须与它一致
+/// （那边是 UI 侧兜底，不反向依赖模型层）。
+const int kDefaultSnackDurationMs = 4000;
+
 class AppSettings {
   const AppSettings({
     required this.provider,
@@ -127,7 +136,7 @@ class AppSettings {
       enableRegexReplacement: true,
       regexRules: <RegexRule>[],
       appIcon: 'default',
-      snackDurationMs: 1000,
+      snackDurationMs: kDefaultSnackDurationMs,
       sherpaModelSource: 'auto',
       sherpaCustomBaseUrl: null,
       sherpaModelReady: false,
@@ -382,6 +391,11 @@ class AppSettings {
   final bool halfScreenChat;
 
   /// 半屏动态自适应滚动：向上翻看历史消息时自动展开为全屏，向下滑动或滚到底部时自动收敛回半屏。
+  /// 旧名「滚动时自动全半屏」。
+  ///
+  /// 自动跟随滚动切换布局的行为已按审计删除（滚动不该改变界面结构）；
+  /// 这个开关现在只决定**聊天顶栏是否显示「展开为全屏」按钮**。
+  /// key 名称保留是为了不丢老用户的持久化值。
   final bool? _dynamicHalfScreen;
   bool get dynamicHalfScreen => _dynamicHalfScreen ?? false;
 
@@ -592,7 +606,8 @@ class AppSettings {
               .toList() ??
           <RegexRule>[],
       appIcon: (json['appIcon'] as String?) ?? 'default',
-      snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
+      snackDurationMs:
+          (json['snackDurationMs'] as int?) ?? kDefaultSnackDurationMs,
       sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
       sherpaCustomBaseUrl: json['sherpaCustomBaseUrl'] as String?,
       sherpaModelReady: (json['sherpaModelReady'] as bool?) ?? false,

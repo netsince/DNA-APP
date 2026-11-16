@@ -40,11 +40,12 @@ class _TeahouseTopicsPageState extends State<TeahouseTopicsPage> {
         _topics = topics;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$e';
+        // 人话文案，不是 '$e'（审计 3.5：不要把原始异常抛给用户）。
+        _error = '话题加载失败，请稍后重试';
       });
     }
   }
@@ -168,11 +169,11 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
         _loading = false;
         _noMore = !r.hasNext;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$e';
+        _error = '帖子加载失败，请稍后重试';
       });
     }
   }
@@ -263,16 +264,7 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null && _posts.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Text(_error!),
-                  const SizedBox(height: 12),
-                  FilledButton(onPressed: _reload, child: const Text('重试')),
-                ],
-              ),
-            )
+          ? ErrorState(message: _error!, onRetry: _reload)
           : _posts.isEmpty
           ? const Center(child: Text('该话题下还没有帖子'))
           : AppRefreshIndicator(

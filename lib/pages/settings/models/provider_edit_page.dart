@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -187,7 +186,8 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
 
                     // 协议类型
                     DropdownButtonFormField<String>(
-                      value: _selectedType,
+                      // 新 API：initialValue 取代废弃的 value（语义等价）。
+                      initialValue: _selectedType,
                       decoration: const InputDecoration(
                         labelText: '协议类型',
                         border: OutlineInputBorder(),
@@ -293,13 +293,13 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: (_testSuccess ?? false)
-                              ? cs.primaryContainer.withValues(alpha: 0.4)
-                              : cs.errorContainer.withValues(alpha: 0.4),
+                              ? cs.primaryContainer.withValues(alpha: AppAlpha.a40)
+                              : cs.errorContainer.withValues(alpha: AppAlpha.a40),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: (_testSuccess ?? false)
-                                ? cs.primary.withValues(alpha: 0.4)
-                                : cs.error.withValues(alpha: 0.4),
+                                ? cs.primary.withValues(alpha: AppAlpha.a40)
+                                : cs.error.withValues(alpha: AppAlpha.a40),
                           ),
                         ),
                         child: Row(

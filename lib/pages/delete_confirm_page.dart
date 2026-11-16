@@ -371,10 +371,18 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
   }
 
   Widget _buildLongPressButton(ColorScheme cs) {
-    return GestureDetector(
-      onTapDown: (_) => _onPressDown(),
-      onTapUp: (_) => _onPressUp(),
-      onTapCancel: _onPressUp,
+    // 长按 5 秒确认是**作者选定的设计**（比对话框更难误触，配合"页面自动滚动
+    // 供复核"形成一次性核对动作）。这里只补语义，不改交互：
+    // 读屏会念「删除（按住 5 秒）」，明白这是需要持续按压的操作；
+    // 读屏用户的可达路径是「输入名称确认」模式（设置项默认开启）。
+    return Semantics(
+      button: true,
+      label: '删除',
+      hint: '按住 5 秒确认，松开取消',
+      child: GestureDetector(
+        onTapDown: (_) => _onPressDown(),
+        onTapUp: (_) => _onPressUp(),
+        onTapCancel: _onPressUp,
       child: AnimatedBuilder(
         animation: _animController,
         builder: (BuildContext context, Widget? child) {
@@ -419,6 +427,7 @@ class _DeleteConfirmPageState extends State<DeleteConfirmPage>
           );
         },
       ),
+    ),
     );
   }
 }

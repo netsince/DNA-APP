@@ -29,6 +29,7 @@ import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/widgets/world_list_tile.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import '../theme/tokens.dart';
 
@@ -336,6 +337,17 @@ class _ProfileViewState extends State<ProfileView> {
   bool _worldsNoMore = false;
   int _worldsPage = 0;
 
+  // 四个内容区各自的**加载失败**态（审计 3.5）。
+  //
+  // 失败与「还没有内容」必须分开：以前 catch 里只复位 loading，于是请求失败
+  // 会渲染成空态「还没有发布任何角色卡」—— 用户得到的是「你没发过东西」这个
+  // 错误结论，而且没有任何恢复路径。这里只在**首屏请求失败且列表为空**时置位，
+  // 成功返回即清空；列表非空时（翻页失败）不覆盖已加载内容。
+  String? _profileError;
+  String? _commentsError;
+  String? _teahouseError;
+  String? _worldsError;
+
   /// 当前登录用户是否已关注该主页用户（他人主页关注按钮的初始状态）。
   bool _isFollowing = false;
 
@@ -379,12 +391,14 @@ class _ProfileViewState extends State<ProfileView> {
         _commentsNoMore = items.isEmpty || data['has_next'] != true;
         _commentsLoading = false;
         _commentsLoadingMore = false;
+        _commentsError = null;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
           _commentsLoading = false;
           _commentsLoadingMore = false;
+          if (reset) _commentsError = '评论加载失败，请稍后重试';
         });
       }
     }
@@ -420,12 +434,14 @@ class _ProfileViewState extends State<ProfileView> {
         _teahouseNoMore = items.isEmpty || data['has_next'] != true;
         _teahouseLoading = false;
         _teahouseLoadingMore = false;
+        _teahouseError = null;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
           _teahouseLoading = false;
           _teahouseLoadingMore = false;
+          if (reset) _teahouseError = '茶馆帖子加载失败，请稍后重试';
         });
       }
     }
@@ -466,12 +482,14 @@ class _ProfileViewState extends State<ProfileView> {
         _worldsNoMore = items.isEmpty || data['has_next'] != true;
         _worldsLoading = false;
         _worldsLoadingMore = false;
+        _worldsError = null;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
           _worldsLoading = false;
           _worldsLoadingMore = false;
+          if (reset) _worldsError = '世界卡加载失败，请稍后重试';
         });
       }
     }
@@ -513,12 +531,14 @@ class _ProfileViewState extends State<ProfileView> {
         if (items.isEmpty) _noMore = true;
         _loading = false;
         _loadingMore = false;
+        _profileError = null;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
           _loading = false;
           _loadingMore = false;
+          if (reset) _profileError = '角色卡加载失败，请稍后重试';
         });
       }
     }
@@ -719,7 +739,6 @@ class _ProfileViewState extends State<ProfileView> {
                     enabled: !_followBusy,
                     onPressed: _toggleFollow,
                     style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
                       backgroundColor: _isFollowing
                           ? scheme.surfaceContainerHigh
                           : null,
@@ -755,34 +774,30 @@ class _ProfileViewState extends State<ProfileView> {
                   itemBuilder: (_) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(
                       value: 'edit',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('编辑资料'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.edit_outlined), AppSpacing.wMd, Text('编辑资料')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'tickets',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.support_agent),
-                        title: Text('我的工单'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.support_agent), AppSpacing.wMd, Text('我的工单')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'punishments',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.gavel_outlined),
-                        title: Text('我的处罚'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.gavel_outlined), AppSpacing.wMd, Text('我的处罚')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'logout',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.logout),
-                        title: Text('退出登录'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.logout), AppSpacing.wMd, Text('退出登录')],
                       ),
                     ),
                   ],
@@ -1060,6 +1075,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (_loading && _cards.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+    if (_profileError != null && _cards.isEmpty) {
+      return _errorTab(_profileError!, () => _loadProfile(reset: true));
+    }
     if (_cards.isEmpty) {
       return _emptyTab('角色卡', '还没有发布任何角色卡');
     }
@@ -1110,6 +1128,22 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  /// 加载失败的 tab：与 [_emptyTab] **同构**（都可滚动，外层下拉刷新照旧），
+  /// 唯一区别是给了一条恢复路径 ——「重试」。
+  ///
+  /// 用共享的 [ErrorState] 而不是自拼图标+文字，保证与全站错误态一致。
+  Widget _errorTab(String message, VoidCallback onRetry) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: <Widget>[
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ErrorState(message: message, onRetry: onRetry),
+        ),
+      ],
+    );
+  }
+
   /// 切到茶馆 tab 且当前是空态（含曾加载失败、登录后未重拉等）时自动重拉首页，
   /// 避免启动阶段登录态未就绪导致 401 后一直停留在「还没有发布茶馆帖子」。
   void _onTeahouseTabActive() {
@@ -1147,6 +1181,9 @@ class _ProfileViewState extends State<ProfileView> {
     if (_worldsLoading && _worlds.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+    if (_worldsError != null && _worlds.isEmpty) {
+      return _errorTab(_worldsError!, () => _loadWorlds(reset: true));
+    }
     if (_worlds.isEmpty && !_worldsLoading) {
       return _emptyTab('世界', '还没有发布任何世界卡');
     }
@@ -1174,47 +1211,18 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  /// 世界卡一行：名字 + 元信息（+ 自己主页上的审核状态）。
+  /// 世界卡一行：与「搜索结果」共用同一个紧凑行组件（列表语境，扫读优先）。
+  ///
+  /// 元信息口径（词条 / 体积 / 复制 / 创建时间）+ 审核徽章都收在
+  /// [WorldListTile] 里，本页不再自己拼 ListTile（审计 3.3：世界卡曾有三种形态）。
   Widget _worldTile(BuildContext context, WorldCardSummary w) {
-    final scheme = Theme.of(context).colorScheme;
-    final String meta = <String>[
-      if (w.entryCount > 0) '${w.entryCount} 词条',
-      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
-      if (w.copyCount > 0) '复制 ${w.copyCount}',
-      if (w.createdAt != null)
-        formatRelativeTime(w.createdAt!.toIso8601String()),
-    ].join(' · ');
-    final String status = widget.isSelf ? w.statusLabel : '';
-    return ListTile(
-      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (w.summary.isNotEmpty)
-            Text(
-              w.summary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: AppFontSize.caption,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          if (meta.isNotEmpty)
-            Text(
-              meta,
-              style: TextStyle(
-                fontSize: AppFontSize.caption,
-                color: scheme.outline,
-              ),
-            ),
-          if (status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: WorldStatusChip(summary: w),
-            ),
-        ],
-      ),
+    return WorldListTile(
+      world: w,
+      // 审核状态只对自己的主页有意义。
+      showStatus: widget.isSelf,
+      extraMeta: w.createdAt == null
+          ? null
+          : formatRelativeTime(w.createdAt!.toIso8601String()),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => WorldDetailPage(
@@ -1238,6 +1246,9 @@ class _ProfileViewState extends State<ProfileView> {
   Widget _buildTeahouseContent(BuildContext context) {
     if (_teahouseLoading && _teahouse.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_teahouseError != null && _teahouse.isEmpty) {
+      return _errorTab(_teahouseError!, () => _loadTeahouse(reset: true));
     }
     if (_teahouse.isEmpty && !_teahouseLoading) {
       return _emptyTab('茶馆', '还没有发布茶馆帖子');
@@ -1290,6 +1301,9 @@ class _ProfileViewState extends State<ProfileView> {
   Widget _buildCommentsContent(BuildContext context) {
     if (_commentsLoading && _comments.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_commentsError != null && _comments.isEmpty) {
+      return _errorTab(_commentsError!, () => _loadComments(reset: true));
     }
     if (_comments.isEmpty && !_commentsLoading) {
       return _emptyTab('评论', '还没有发表评论');

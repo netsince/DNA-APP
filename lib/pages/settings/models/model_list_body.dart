@@ -1,10 +1,10 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/models/llm_model_config.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import '../../../widgets/state_views.dart';
 import 'package:dna/widgets/app_container.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -75,23 +75,19 @@ class ModelListBody extends StatelessWidget {
         final String activeId = controller.settings.activeModelId;
 
         if (models.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(Icons.psychology_outlined,
-                    size: AppSize.iconEmpty, color: cs.outline),
-                AppSpacing.hMd,
-                FitText('暂无模型预设', style: ts.titleMedium),
-                AppSpacing.hXs,
-                FitText('点击下方「添加模型预设」新建一个',
-                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-            ),
+          return const AppEmptyState(
+            icon: Icons.psychology_outlined,
+            title: '暂无模型预设',
+            description: '点击下方「添加模型预设」新建一个',
           );
         }
 
-        return ListView.separated(
+        return RadioGroup<String>(
+          groupValue: activeId,
+          onChanged: (String? val) {
+            if (val != null) controller.setActiveModel(val);
+          },
+          child: ListView.separated(
           padding: AppInsets.page,
           itemCount: models.length,
           separatorBuilder: (_, _) => AppSpacing.hMd,
@@ -117,12 +113,12 @@ class ModelListBody extends StatelessWidget {
                   side: BorderSide(
                     color: isActive
                         ? cs.primary
-                        : cs.outlineVariant.withValues(alpha: 0.5),
+                        : cs.outlineVariant.withValues(alpha: AppAlpha.half),
                     width: isActive ? 1.5 : 1.0,
                   ),
                 ),
                 color: isActive
-                    ? cs.primaryContainer.withValues(alpha: 0.2)
+                    ? cs.primaryContainer.withValues(alpha: AppAlpha.a20)
                     : null,
                 margin: EdgeInsets.zero,
                 child: InkWell(
@@ -134,15 +130,9 @@ class ModelListBody extends StatelessWidget {
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Radio<String>(
-                          value: m.id,
-                          groupValue: activeId,
-                          onChanged: (String? val) {
-                            if (val != null) {
-                              controller.setActiveModel(val);
-                            }
-                          },
-                        ),
+                        // 组值/回调由外层 RadioGroup 统一管（旧的
+                        // Radio(groupValue:) 已是弃用 API，审计 4.4）。
+                        Radio<String>(value: m.id),
                         AppSpacing.wXs,
                         Expanded(
                           child: Column(
@@ -214,7 +204,7 @@ class ModelListBody extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: cs.tertiaryContainer.withValues(alpha: 0.4),
+                          color: cs.tertiaryContainer.withValues(alpha: AppAlpha.a40),
                           borderRadius: AppRadius.xsAll,
                         ),
                         child: Row(
@@ -247,6 +237,7 @@ class ModelListBody extends StatelessWidget {
               ),
             );
           },
+          ),
         );
       },
     );

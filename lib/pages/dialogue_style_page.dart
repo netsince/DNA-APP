@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+
+import '../../widgets/app_editor_frame.dart';
 
 import '../models/ta.dart';
 import '../state/app_controller.dart';
-import '../widgets/app_editor_frame.dart';
 import '../widgets/fit_text.dart';
 import 'dialogue_style/dialogue_style_form.dart';
 
@@ -109,21 +110,22 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
       appBar: AppBar(
         title: const FitText('对话风格（语气范例）'),
         actions: <Widget>[
-          IconButton(
+          TextButton(
             onPressed: _save,
-            icon: const Icon(Icons.check),
-            tooltip: '保存',
+            child: const FitText('保存'),
           ),
         ],
       ),
-      body: DialogueStyleForm(
-        initial: widget.ta.dialogueStyle,
-        formController: _form,
-      ),
+      // 「添加一轮范例」回到右下 FAB：它是这个页面的高频动作，
+      // 放在拇指区比收进顶栏图标更好按（审计回归 R4）。
       floatingActionButton: AppEditorFab(
         onPressed: _form.addTurn,
         icon: const Icon(Icons.add),
         label: const FitText('添加对话范例'),
+      ),
+      body: DialogueStyleForm(
+        initial: widget.ta.dialogueStyle,
+        formController: _form,
       ),
       ),
     );
