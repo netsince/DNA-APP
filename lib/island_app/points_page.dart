@@ -9,6 +9,7 @@ import 'package:dna/island_app/utils/points_format.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import '../theme/tokens.dart';
 
@@ -87,50 +88,40 @@ class PointsBody extends StatefulWidget {
 }
 
 class _PointsBodyState extends State<PointsBody> {
-  List<Map<String, dynamic>> _txs = const [];
+  /// 余额不是分页状态（每页都会带回最新值），留在页面里。
   Decimal _balance = Decimal.zero;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
-  String? _error;
+
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final PointsData result = await _loader(page: page);
+          // 每页都会带回最新余额，只有成功时才覆盖。
+          _balance = result.balance;
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.page < result.pages,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '加载失败',
+      );
 
   PointsLoader get _loader => widget.loader ?? ApiClient.instance.getPoints;
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await _loader(page: page);
-      if (!mounted) return;
-      setState(() {
-        if (reset) _txs = <Map<String, dynamic>>[];
-        _txs = <Map<String, dynamic>>[..._txs, ...result.items];
-        _page = page;
-        _balance = result.balance;
-        _noMore = !(result.page < result.pages);
-        _loading = false;
-        _loadingMore = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (_txs.isEmpty) _error = '$e';
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   Future<void> _openGetPoints() async {
@@ -200,13 +191,13 @@ class _PointsBodyState extends State<PointsBody> {
 
   Widget _buildList(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (_loading && _txs.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const LoadingState();
     }
-    if (_error != null && _txs.isEmpty) {
-      return ErrorState(onRetry: () => _load(reset: true));
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(message: _paged.error!, onRetry: _paged.refresh);
     }
-    if (_txs.isEmpty) {
+    if (_paged.items.isEmpty) {
       return const EmptyState(icon: Icons.receipt_long_outlined, title: '暂无记录');
     }
     return Column(
@@ -223,14 +214,15 @@ class _PointsBodyState extends State<PointsBody> {
         ),
         Expanded(
           child: LoadMoreListView(
-            itemCount: _txs.length,
-            hasMore: !_noMore,
-            onLoadMore: _load,
-            onRefresh: () => _load(reset: true),
+            loading: _paged.isLoading,
+            itemCount: _paged.items.length,
+            hasMore: _paged.hasMore && _paged.items.isNotEmpty,
+            onLoadMore: _paged.loadMore,
+            onRefresh: _paged.refresh,
             padding: const EdgeInsets.symmetric(vertical: 4),
             separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
             itemBuilder: (context, index) {
-              final t = _txs[index];
+              final t = _paged.items[index];
               final delta = parsePoints(t['delta']);
               final balanceAfter = parsePoints(t['balance_after']);
               final reason = (t['reason'] ?? '').toString();

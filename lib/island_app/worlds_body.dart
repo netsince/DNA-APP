@@ -12,6 +12,7 @@ import 'package:dna/island_app/widgets/world_card_tile.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/paged_controller.dart';
 
 /// 世界卡列表的筛选条件：排序 / 标签。
 ///
@@ -72,14 +73,26 @@ class _WorldsBodyState extends State<WorldsBody> {
     ('copies', '最多复制'),
   ];
 
-  final List<WorldCardSummary> _items = <WorldCardSummary>[];
-  List<({String tag, int count})> _tags = const <({String tag, int count})>[];
+  /// 世界卡列表的分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<WorldCardSummary> _paged =
+      PagedController<WorldCardSummary>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await _fetch(page);
+          return PagedResult<WorldCardSummary>(
+            items: _parse(data),
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '世界列表加载失败，下拉重试',
+      );
 
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _hasNext = false;
-  int _page = 1;
-  String? _error;
+  /// 标签筛选条的标签：**一次性全量**拉取，不是分页列表，所以不套
+  /// [PagedController]（见 [_loadTags]）。
+  List<({String tag, int count})> _tags = const <({String tag, int count})>[];
 
   WorldsQuery _query = const WorldsQuery();
 
@@ -87,7 +100,13 @@ class _WorldsBodyState extends State<WorldsBody> {
   void initState() {
     super.initState();
     _loadTags();
-    _reload();
+    _paged.refresh();
+  }
+
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTags() async {
@@ -122,55 +141,15 @@ class _WorldsBodyState extends State<WorldsBody> {
         .toList();
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _hasNext = false;
-    });
-    try {
-      final Map<String, dynamic> data = await _fetch(1);
-      if (!mounted) return;
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(_parse(data));
-        _page = 1;
-        _hasNext = data['has_next'] == true;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '世界列表加载失败，下拉重试';
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || !_hasNext) return;
-    setState(() => _loadingMore = true);
-    try {
-      final Map<String, dynamic> data = await _fetch(_page + 1);
-      if (!mounted) return;
-      setState(() {
-        _items.addAll(_parse(data));
-        _page += 1;
-        _hasNext = data['has_next'] == true;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
-    }
-  }
-
   void _setFilter({String? sort, String? tag}) {
     final String nextSort = sort ?? _query.sort;
     final String nextTag = tag ?? _query.tag;
     if (nextSort == _query.sort && nextTag == _query.tag) return;
     setState(() => _query = WorldsQuery(sort: nextSort, tag: nextTag));
-    _reload();
+    // 换了筛选，旧结果立即作废：控制器「失败不清列表」是给翻页用的，
+    // 这里必须清掉，否则新筛选失败会把上一个筛选的卡留在屏幕上。
+    _paged.items.clear();
+    _paged.refresh();
   }
 
   void _openDetail(WorldCardSummary item) {
@@ -193,10 +172,10 @@ class _WorldsBodyState extends State<WorldsBody> {
   @override
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
-      onRefresh: _reload,
+      onRefresh: () => _paged.refresh(),
       // 触底加载走共享封装（阈值 = 列表页默认的 kLoadMoreThreshold）。
       child: loadMoreListener(
-        onReachEnd: _loadMore,
+        onReachEnd: () => _paged.loadMore(),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: _buildSlivers(context),
@@ -212,15 +191,18 @@ class _WorldsBodyState extends State<WorldsBody> {
       const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
     ];
 
-    if (_loading) {
+    if (_paged.isLoading) {
       slivers.add(SliverToBoxAdapter(child: _skeleton(context)));
-    } else if (_error != null) {
+    } else if (_paged.error != null) {
       slivers.add(
         SliverToBoxAdapter(
-          child: ErrorState(message: _error!, onRetry: _reload),
+          child: ErrorState(
+            message: _paged.error!,
+            onRetry: () => _paged.refresh(),
+          ),
         ),
       );
-    } else if (_items.isEmpty) {
+    } else if (_paged.items.isEmpty) {
       slivers.add(
         SliverToBoxAdapter(
           child: Padding(
@@ -242,7 +224,7 @@ class _WorldsBodyState extends State<WorldsBody> {
       );
     } else {
       slivers.add(_gridSliver(context));
-      if (_loadingMore) {
+      if (_paged.isLoadingMore) {
         slivers.add(
           const SliverToBoxAdapter(
             child: Padding(
@@ -252,7 +234,7 @@ class _WorldsBodyState extends State<WorldsBody> {
           ),
         );
       }
-      if (!_hasNext && _items.length > 12) {
+      if (!_paged.hasMore && _paged.items.length > 12) {
         slivers.add(
           SliverToBoxAdapter(
             child: Padding(
@@ -383,9 +365,9 @@ class _WorldsBodyState extends State<WorldsBody> {
             crossAxisCount: columns,
             mainAxisSpacing: AppSpacing.md,
             crossAxisSpacing: AppSpacing.md,
-            childCount: _items.length,
+            childCount: _paged.items.length,
             itemBuilder: (BuildContext context, int index) {
-              final WorldCardSummary w = _items[index];
+              final WorldCardSummary w = _paged.items[index];
               return WorldCardTile(world: w, onTap: () => _openDetail(w));
             },
           );

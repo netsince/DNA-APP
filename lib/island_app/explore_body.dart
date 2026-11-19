@@ -6,6 +6,7 @@ import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 探索角色卡分页加载回调（默认走 [ApiClient.getExploreCards]）。
@@ -61,12 +62,28 @@ class _ExploreBodyState extends State<ExploreBody> {
   /// 元数据（性别列表 + 热门标签）；加载失败时为空，不阻塞列表。
   ExploreMeta _meta = (genders: const [], tags: const []);
 
-  List<Map<String, dynamic>> _cards = const [];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 1;
-  String? _error;
+  /// 角色卡网格的分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          // 接口返回记录类型（items / hasNext），交给类型推断，不自造类型名。
+          final result = await _cardsLoader(
+            page: page,
+            sort: _sort,
+            gender: _gender,
+            tag: _tag,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '角色卡列表加载失败，请稍后重试',
+      );
 
   ExploreCardsLoader get _cardsLoader =>
       widget.cardsLoader ?? ApiClient.instance.getExploreCards;
@@ -78,7 +95,7 @@ class _ExploreBodyState extends State<ExploreBody> {
   void initState() {
     super.initState();
     _loadMeta();
-    _reload();
+    _paged.refresh();
   }
 
   /// 拉取探索元数据（性别 + 热门标签）；失败静默（列表仍可用）。
@@ -89,60 +106,6 @@ class _ExploreBodyState extends State<ExploreBody> {
       setState(() => _meta = meta);
     } catch (_) {
       // 元数据缺失时仅不展示筛选栏，不影响卡片列表。
-    }
-  }
-
-  /// 拉取第一页（筛选变化后调用）：清空旧数据并重置分页状态。
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _noMore = false;
-    });
-    try {
-      final result = await _cardsLoader(
-        page: 1,
-        sort: _sort,
-        gender: _gender,
-        tag: _tag,
-      );
-      if (!mounted) return;
-      setState(() {
-        _cards = result.items;
-        _page = 1;
-        _loading = false;
-        _noMore = !result.hasNext;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  /// 追加下一页（滚动接近底部时调用）。
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || _noMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final result = await _cardsLoader(
-        page: _page + 1,
-        sort: _sort,
-        gender: _gender,
-        tag: _tag,
-      );
-      if (!mounted) return;
-      setState(() {
-        _cards = <Map<String, dynamic>>[..._cards, ...result.items];
-        _page += 1;
-        _loadingMore = false;
-        if (!result.hasNext) _noMore = true;
-      });
-    } catch (_) {
-      // 加载更多失败：静默，允许下次滚动再试。
-      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -157,7 +120,10 @@ class _ExploreBodyState extends State<ExploreBody> {
       _gender = nextGender;
       _tag = nextTag;
     });
-    _reload();
+    // 换了筛选，旧结果立即作废：控制器「失败不清列表」是给翻页用的，
+    // 这里必须清掉，否则新筛选失败会把上一个筛选的卡留在屏幕上。
+    _paged.items.clear();
+    _paged.refresh();
   }
 
   void _clearFilter() => _setFilter(gender: '', tag: null);
@@ -176,10 +142,10 @@ class _ExploreBodyState extends State<ExploreBody> {
   @override
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
-      onRefresh: _reload,
+      onRefresh: () => _paged.refresh(),
       // 触底加载走共享封装（阈值用列表页默认的 kLoadMoreThreshold=400）。
       child: loadMoreListener(
-        onReachEnd: _loadMore,
+        onReachEnd: () => _paged.loadMore(),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: _buildSlivers(context),
@@ -215,11 +181,13 @@ class _ExploreBodyState extends State<ExploreBody> {
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
     ];
 
-    if (_loading) {
+    if (_paged.isLoading) {
       slivers.add(_skeletonSliver(context));
-    } else if (_error != null) {
-      slivers.add(SliverToBoxAdapter(child: ErrorState(onRetry: _reload)));
-    } else if (_cards.isEmpty) {
+    } else if (_paged.error != null) {
+      slivers.add(
+        SliverToBoxAdapter(child: ErrorState(onRetry: () => _paged.refresh())),
+      );
+    } else if (_paged.items.isEmpty) {
       slivers.add(
         const SliverToBoxAdapter(
           child: EmptyState(
@@ -232,10 +200,10 @@ class _ExploreBodyState extends State<ExploreBody> {
       slivers.add(
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: ResponsiveCardGrid(cards: _cards, onCardTap: _openCard),
+          sliver: ResponsiveCardGrid(cards: _paged.items, onCardTap: _openCard),
         ),
       );
-      if (_loadingMore) {
+      if (_paged.isLoadingMore) {
         slivers.add(
           const SliverToBoxAdapter(
             child: Padding(
@@ -245,7 +213,7 @@ class _ExploreBodyState extends State<ExploreBody> {
           ),
         );
       }
-      if (_noMore && _cards.length > 24) {
+      if (!_paged.hasMore && _paged.items.length > 24) {
         slivers.add(
           SliverToBoxAdapter(
             child: Padding(

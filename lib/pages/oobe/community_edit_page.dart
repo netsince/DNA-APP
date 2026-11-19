@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart' show ApiClient;
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/server_address_form.dart';
 
@@ -112,8 +113,8 @@ class _CommunityEditPageState extends State<CommunityEditPage> {
       await ServerConfig.setBaseUrl(base);
       if (!mounted) return;
       error = await _validator(base);
-    } catch (_) {
-      error = '检测失败，请稍后重试。';
+    } catch (e) {
+      error = '检测失败：${describeError(e)}';
     }
     if (!mounted) return;
     setState(() {

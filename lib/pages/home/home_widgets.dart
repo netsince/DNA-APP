@@ -8,6 +8,7 @@ import '../../models/world.dart';
 import '../../services/image_storage.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
+import '../../utils/error_display.dart';
 import '../../widgets/app_container.dart';
 import '../chat_page.dart';
 import '../conversation_edit_page.dart';
@@ -183,10 +184,12 @@ class _ConversationItem extends StatelessWidget {
                 } else if (value == 'duplicate') {
                   try {
                     await controller.duplicateConversation(conversation.id);
-                  } catch (_) {
+                  } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: FitText('复制会话失败。')),
+                        SnackBar(
+                          content: FitText('复制会话失败：${describeError(e)}'),
+                        ),
                       );
                     }
                   }

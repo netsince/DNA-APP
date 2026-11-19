@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
+import 'package:dna/utils/error_display.dart';
 
 /// 茶馆帖子点赞/收藏统一逻辑（对齐审计 P2：抽掉 5~6 处重复的
 /// 「登录守卫 + API 调用 + SnackBar」）。
@@ -39,8 +40,8 @@ mixin PostLikeFavMixin<T extends StatefulWidget> on State<T> {
         final r = await call();
         if (!mounted) return;
         apply(postId, r);
-      } catch (_) {
-        _postSnack('操作失败，请重试');
+      } catch (e) {
+        _postSnack('操作失败：${describeError(e)}');
       }
     });
   }

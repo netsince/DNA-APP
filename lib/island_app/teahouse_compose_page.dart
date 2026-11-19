@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
+import 'package:dna/utils/error_display.dart';
 
 /// 发帖页：正文 + 可选单图 + 可选话题 + 可选关联角色卡。
 ///
@@ -79,11 +80,11 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
       );
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('选择图片失败')));
+      ).showSnackBar(SnackBar(content: Text('选择图片失败：${describeError(e)}')));
     } finally {
       if (mounted) setState(() => _pickingImage = false);
     }
@@ -187,11 +188,11 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('发布成功')));
       Navigator.of(context).pop(id);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('发布失败，请重试')));
+      ).showSnackBar(SnackBar(content: Text('发布失败：${describeError(e)}')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
@@ -26,59 +30,49 @@ class TicketsPage extends StatefulWidget {
 }
 
 class _TicketsPageState extends State<TicketsPage> {
-  final List<Map<String, dynamic>> _tickets = <Map<String, dynamic>>[];
+  /// 工单列表的分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一由
+  /// [PagedController] 管，本页只提供「怎么取一页」。
+  ///
+  /// 接口返回的是**记录类型**（items / page / pages / total / hasNext），
+  /// 交给类型推断，不自造类型名。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final result = await ApiClient.instance.getMyTickets(
+            page: page,
+            status: _status,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '工单列表加载失败，请稍后重试',
+      );
+
   String _status = 'all';
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-      } else {
-        _loadingMore = true;
-      }
-    });
-    try {
-      final r = await ApiClient.instance.getMyTickets(
-        page: reset ? 1 : _page + 1,
-        status: _status,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _tickets.clear();
-        _tickets.addAll(r.items);
-        _page = reset ? 1 : _page + 1;
-        _noMore = r.items.isEmpty || !r.hasNext;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _setStatus(String s) {
-    setState(() {
-      _status = s;
-      _page = 0;
-      _noMore = false;
-      _tickets.clear();
-    });
-    _load(reset: true);
+    setState(() => _status = s);
+    // 换了状态筛选，旧结果立即作废：控制器「失败不清列表」是给翻页用的，
+    // 这里必须清掉，否则新筛选失败会把上一个状态的工单留在屏幕上。
+    _paged.items.clear();
+    _paged.refresh();
   }
 
   Future<void> _openDetail(Map<String, dynamic> t) async {
@@ -87,19 +81,18 @@ class _TicketsPageState extends State<TicketsPage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => TicketDetailPage(ticketId: id)),
     );
-    if (mounted) _load(reset: true);
+    if (mounted) _paged.refresh();
   }
 
   Future<void> _openNew() async {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const NewTicketPage()));
-    if (mounted) _load(reset: true);
+    if (mounted) _paged.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('我的工单')),
       floatingActionButton: FloatingActionButton.extended(
@@ -111,59 +104,71 @@ class _TicketsPageState extends State<TicketsPage> {
         children: <Widget>[
           _statusBar(),
           const Divider(height: 1),
-          Expanded(
-            child: _loading && _tickets.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _tickets.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(
-                          Icons.support_agent,
-                          size: AppSize.iconEmptyCompact,
-                          // 空态图标用 outline：不抢正文、又是语义色（审计 4.4）。
-                          color: scheme.outline,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '暂无工单',
-                          style: TextStyle(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  )
-                : AppRefreshIndicator(
-                    onRefresh: () => _load(reset: true),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (n) {
-                        if (n.metrics.pixels >=
-                            n.metrics.maxScrollExtent - 400) {
-                          _load();
-                        }
-                        return false;
-                      },
-                      child: ListView.separated(
-                        // 行贴 surface，横向内边距交给 ListTile（16）；
-                        // 行之间一根 Divider，缩进与行文字对齐。
-                        padding: EdgeInsets.zero,
-                        itemCount: _tickets.length + (_loadingMore ? 1 : 0),
-                        separatorBuilder: (_, _) =>
-                            const Divider(height: 1, indent: AppSpacing.lg),
-                        itemBuilder: (context, index) {
-                          if (index >= _tickets.length) {
-                            return const Padding(
-                              padding: AppInsets.card,
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          return _ticketTile(_tickets[index]);
-                        },
-                      ),
-                    ),
-                  ),
-          ),
+          Expanded(child: _buildList(context)),
         ],
+      ),
+    );
+  }
+
+  /// 列表区：加载中 / 失败（可重试）/ 空 / 有数据，四态分开。
+  ///
+  /// 失败必须与「暂无工单」分开：以前请求失败只复位 loading，用户看到的是
+  /// 「你没有工单」这个错误结论，而且没有任何恢复路径。
+  Widget _buildList(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    if (_paged.isLoading && _paged.items.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(
+        message: _paged.error!,
+        onRetry: () => _paged.refresh(),
+      );
+    }
+    if (_paged.items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              Icons.support_agent,
+              size: AppSize.iconEmptyCompact,
+              // 空态图标用 outline：不抢正文、又是语义色（审计 4.4）。
+              color: scheme.outline,
+            ),
+            const SizedBox(height: 8),
+            Text('暂无工单', style: TextStyle(color: scheme.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+    return AppRefreshIndicator(
+      onRefresh: () => _paged.refresh(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n.metrics.pixels >=
+              n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+            _paged.loadMore();
+          }
+          return false;
+        },
+        child: ListView.separated(
+          // 行贴 surface，横向内边距交给 ListTile（16）；
+          // 行之间一根 Divider，缩进与行文字对齐。
+          padding: EdgeInsets.zero,
+          itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: AppSpacing.lg),
+          itemBuilder: (context, index) {
+            if (index >= _paged.items.length) {
+              return const Padding(
+                padding: AppInsets.card,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return _ticketTile(_paged.items[index]);
+          },
+        ),
       ),
     );
   }
@@ -319,9 +324,9 @@ class _NewTicketPageState extends State<NewTicketPage> {
       );
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('选择图片失败');
+      _snack('选择图片失败：${describeError(e)}');
     }
   }
 
@@ -541,9 +546,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       );
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('选择图片失败');
+      _snack('选择图片失败：${describeError(e)}');
     }
   }
 

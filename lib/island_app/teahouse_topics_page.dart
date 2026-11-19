@@ -4,10 +4,12 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
+import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆话题列表（GET /teahouse/topics）。
 class TeahouseTopicsPage extends StatefulWidget {
@@ -40,12 +42,12 @@ class _TeahouseTopicsPageState extends State<TeahouseTopicsPage> {
         _topics = topics;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        // 人话文案，不是 '$e'（审计 3.5：不要把原始异常抛给用户）。
-        _error = '话题加载失败，请稍后重试';
+        // 人话前缀 + 原始原因：只留一句「请稍后重试」会把真正的原因丢掉。
+        _error = '话题加载失败：${describeError(e)}';
       });
     }
   }
@@ -124,80 +126,46 @@ class TeahouseTopicPage extends StatefulWidget {
 }
 
 class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
-  List<TeaPost> _posts = const <TeaPost>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 1;
-  String? _error;
   final ScrollController _scrollController = ScrollController();
+
+  /// 分页状态（加载中 / 加载更多 / 有没有下一页 / 页码 / 错误）交给共享
+  /// [PagedController]；本页只提供「怎么取一页」。
+  late final PagedController<TeaPost> _paged = PagedController<TeaPost>(
+    fetch: (int page) async {
+      final r = await ApiClient.instance.getTeahouseTopicPosts(
+        widget.topicId,
+        page: page,
+      );
+      return PagedResult<TeaPost>(
+        items: r.items
+            .map((Map<String, dynamic> e) => TeaPost.fromJson(e))
+            .toList(),
+        hasMore: r.hasNext,
+      );
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    firstLoadError: '帖子加载失败，请稍后重试',
+  );
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _reload();
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     if (_scrollController.position.extentAfter < 300) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _noMore = false;
-    });
-    try {
-      final r = await ApiClient.instance.getTeahouseTopicPosts(
-        widget.topicId,
-        page: 1,
-      );
-      if (!mounted) return;
-      setState(() {
-        _posts = r.items.map((e) => TeaPost.fromJson(e)).toList();
-        _page = 1;
-        _loading = false;
-        _noMore = !r.hasNext;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '帖子加载失败，请稍后重试';
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || _noMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final r = await ApiClient.instance.getTeahouseTopicPosts(
-        widget.topicId,
-        page: _page + 1,
-      );
-      if (!mounted) return;
-      setState(() {
-        _posts = <TeaPost>[
-          ..._posts,
-          ...r.items.map((e) => TeaPost.fromJson(e)),
-        ];
-        _page += 1;
-        _loadingMore = false;
-        if (!r.hasNext) _noMore = true;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
+      _paged.loadMore();
     }
   }
 
@@ -215,10 +183,12 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
   }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
+    final int i = _paged.items.indexWhere((TeaPost p) => p.idInt == id);
+    if (i < 0) return;
     setState(() {
-      _posts = _posts
-          .map((p) => p.idInt == id ? p.copyWith(stats: change(p.stats)) : p)
-          .toList();
+      _paged.items[i] = _paged.items[i].copyWith(
+        stats: change(_paged.items[i].stats),
+      );
     });
   }
 
@@ -234,8 +204,8 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
         postId,
         (s) => s.copyWith(liked: r.liked, likeCount: r.count),
       );
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -252,8 +222,8 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
         (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
       );
       _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -261,14 +231,14 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('#${widget.topicName}')),
-      body: _loading
+      body: _paged.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null && _posts.isEmpty
-          ? ErrorState(message: _error!, onRetry: _reload)
-          : _posts.isEmpty
+          : _paged.error != null && _paged.items.isEmpty
+          ? ErrorState(message: _paged.error!, onRetry: _paged.refresh)
+          : _paged.items.isEmpty
           ? const Center(child: Text('该话题下还没有帖子'))
           : AppRefreshIndicator(
-              onRefresh: _reload,
+              onRefresh: _paged.refresh,
               child: ListView.builder(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -278,15 +248,15 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
                     maxWidth: WideContent.reading.maxWidth,
                   ),
                 ),
-                itemCount: _posts.length + (_loadingMore ? 1 : 0),
+                itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
                 itemBuilder: (context, i) {
-                  if (i >= _posts.length) {
+                  if (i >= _paged.items.length) {
                     return const Padding(
                       padding: EdgeInsets.all(AppSpacing.md),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
-                  final post = _posts[i];
+                  final post = _paged.items[i];
                   return TeahousePostTile(
                     post: post,
                     onTap: () => _openPost(post.idInt),

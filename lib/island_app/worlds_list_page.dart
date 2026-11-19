@@ -6,6 +6,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
@@ -72,55 +73,45 @@ class WorldsListPage extends StatefulWidget {
 }
 
 class _WorldsListPageState extends State<WorldsListPage> {
-  final List<WorldCardSummary> _items = <WorldCardSummary>[];
-  bool _loading = true;
-  bool _failed = false;
-  bool _noMore = false;
-  int _page = 1;
+  /// 分页状态（加载中 / 没有更多 / 页码 / 失败）统一由 [PagedController] 管，
+  /// 页面只提供「怎么取一页」。页码从 1 开始（与接口一致）。
+  late final PagedController<WorldCardSummary> _paged =
+      PagedController<WorldCardSummary>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await widget.loader(page);
+          final Object? raw = data['items'];
+          final List<WorldCardSummary> items = raw is List
+              ? raw
+                    .whereType<Map>()
+                    .map(
+                      (Map e) =>
+                          WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                    )
+                    .where((WorldCardSummary w) => w.id.isNotEmpty)
+                    .toList()
+              : <WorldCardSummary>[];
+          return PagedResult<WorldCardSummary>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 首屏失败才显示错误文案；翻页失败保留已加载内容（控制器保证）。
+        firstLoadError: '加载失败，请重试',
+      );
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (reset) {
-      setState(() {
-        _loading = true;
-        _failed = false;
-        _page = 1;
-        _noMore = false;
-      });
-    }
-    try {
-      final Map<String, dynamic> data = await widget.loader(_page);
-      final Object? raw = data['items'];
-      final List<WorldCardSummary> got = raw is List
-          ? raw
-                .whereType<Map>()
-                .map(
-                  (Map e) =>
-                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
-                )
-                .where((WorldCardSummary w) => w.id.isNotEmpty)
-                .toList()
-          : <WorldCardSummary>[];
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items.clear();
-        _items.addAll(got);
-        _noMore = data['has_next'] != true;
-        _page += 1;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _failed = true;
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _snack(String text) {
@@ -153,7 +144,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       await deleter(item.id);
       if (!mounted) return;
       _snack('已撤回');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('撤回失败：$e');
     }
@@ -166,7 +157,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       final bool hidden = await hider(item.id);
       if (!mounted) return;
       _snack(hidden ? '已下架，其他人看不到了' : '已恢复');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('操作失败：$e');
     }
@@ -180,7 +171,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       await resubmitter(item.id);
       if (!mounted) return;
       _snack('已重新提审，等待审核');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('重新提审失败：$e');
     }
@@ -221,7 +212,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
           ),
         );
       }
-      if (mounted) await _load(reset: true);
+      if (mounted) await _paged.refresh();
     } catch (e) {
       _snack('打开编辑器失败：$e');
     }
@@ -243,26 +234,27 @@ class _WorldsListPageState extends State<WorldsListPage> {
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_loading && _items.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_failed && _items.isEmpty) {
-      return ErrorState(message: '加载失败，请重试', onRetry: () => _load(reset: true));
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(message: _paged.error!, onRetry: _paged.refresh);
     }
-    if (_items.isEmpty) {
+    if (_paged.items.isEmpty) {
       return EmptyState(
         icon: Icons.public_off_outlined,
         title: widget.emptyText,
       );
     }
     return LoadMoreListView(
-      itemCount: _items.length,
-      hasMore: !_noMore,
-      onLoadMore: _load,
-      onRefresh: () => _load(reset: true),
+      loading: _paged.isLoading,
+      itemCount: _paged.items.length,
+      hasMore: _paged.hasMore && _paged.items.isNotEmpty,
+      onLoadMore: _paged.loadMore,
+      onRefresh: _paged.refresh,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (BuildContext context, int index) =>
-          _tile(context, _items[index]),
+          _tile(context, _paged.items[index]),
     );
   }
 

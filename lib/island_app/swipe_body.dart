@@ -7,6 +7,7 @@ import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/models/ta_gender.dart';
+import 'package:dna/utils/error_display.dart';
 import '../theme/tokens.dart';
 
 /// 「刷一刷」横向翻页式角色卡浏览。
@@ -34,6 +35,14 @@ class SwipeBody extends StatefulWidget {
 class _SwipeBodyState extends State<SwipeBody> {
   final PageController _pageController = PageController();
 
+  // 这一页**刻意不用 PagedController**（其余列表页都已换过去）。
+  //
+  // 它的取数是「exclude 排除已见 id 再要一批」的**批次语义**，不是页码分页：
+  //   * 空批次不等于到底 —— 本批可能全被「只留有封面的卡」过滤掉，但后面还有；
+  //   * 追加靠 PageView 的 index 预取（距末尾 2 页），不是滚动位置。
+  // 而 PagedController 的统一语义是「空页 = 没有下一页」。硬套会让「刷一刷」
+  // 在遇到一整批无封面卡时提前停住。真要统一，先给控制器加一个
+  // "空页不等于到底" 的开关，并让至少两个页面真的需要它。
   List<Map<String, dynamic>> _cards = <Map<String, dynamic>>[];
   final Set<String> _seenIds = <String>{};
   bool _loading = true;
@@ -104,11 +113,11 @@ class _SwipeBodyState extends State<SwipeBody> {
           ..clear()
           ..addAll(withCover.map((c) => (c['id'] ?? '').toString()));
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
+      ).showSnackBar(SnackBar(content: Text('刷新失败：${describeError(e)}')));
     }
   }
 

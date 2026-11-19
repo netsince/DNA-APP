@@ -9,12 +9,14 @@ import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/server_config.dart';
+import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆帖子详情：展示主帖（含原帖链）+ 回复列表 + 发回复/点赞/收藏/编辑/删除。
 class TeahousePostPage extends StatefulWidget {
@@ -29,34 +31,69 @@ class TeahousePostPage extends StatefulWidget {
 class _TeahousePostPageState extends State<TeahousePostPage> {
   TeaPost? _post;
   List<TeaPost> _chain = const <TeaPost>[];
-  List<TeaPost> _replies = const <TeaPost>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _replyPage = 1;
-  String? _error;
 
   final TextEditingController _replyController = TextEditingController();
   bool _replying = false;
   final ScrollController _scrollController = ScrollController();
 
+  /// 回复流的分页状态交给共享 [PagedController]；主帖与原帖链只在首屏那趟里更新。
+  late final PagedController<TeaPost> _paged = PagedController<TeaPost>(
+    fetch: (int page) async {
+      final d = await ApiClient.instance.getTeahousePostDetail(
+        widget.postId,
+        page: page,
+      );
+      // 首屏这一趟同时带回主帖与原帖链；翻页时按旧行为忽略这两块。
+      if (page == 1) {
+        final postRaw = d['post'];
+        final chainRaw = d['chain'];
+        _post = postRaw is Map ? TeaPost.fromJson(_asMap(postRaw)) : null;
+        _chain = chainRaw is List
+            ? chainRaw
+                  .whereType<Map>()
+                  .map((e) => TeaPost.fromJson(_asMap(e)))
+                  .toList()
+            : const <TeaPost>[];
+      }
+      final repliesRaw = d['replies'];
+      if (repliesRaw is! Map) return PagedResult.empty<TeaPost>();
+      final items = repliesRaw['items'];
+      return PagedResult<TeaPost>(
+        items: items is List
+            ? items
+                  .whereType<Map>()
+                  .map((e) => TeaPost.fromJson(_asMap(e)))
+                  .toList()
+            : <TeaPost>[],
+        hasMore: repliesRaw['has_next'] == true,
+      );
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    // 旧实现把 '$e' 原样抛给用户；首屏失败统一成人话文案（审计 3.5）。
+    firstLoadError: '帖子加载失败，请稍后重试',
+  );
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _load();
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _replyController.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
   void _onScroll() {
+    // 阈值 200：详情页顶部有主帖，多留一点余量。
     if (_scrollController.position.extentAfter < 200) {
-      _loadMoreReplies();
+      _paged.loadMore();
     }
   }
 
@@ -66,81 +103,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
 
   bool get _isOwner => _post?.author?.username == _myUsername;
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final d = await ApiClient.instance.getTeahousePostDetail(widget.postId);
-      if (!mounted) return;
-      final postRaw = d['post'];
-      final chainRaw = d['chain'];
-      final repliesRaw = d['replies'];
-      setState(() {
-        _post = postRaw is Map ? TeaPost.fromJson(_asMap(postRaw)) : null;
-        _chain = chainRaw is List
-            ? chainRaw
-                  .whereType<Map>()
-                  .map((e) => TeaPost.fromJson(_asMap(e)))
-                  .toList()
-            : const <TeaPost>[];
-        if (repliesRaw is Map) {
-          final items = repliesRaw['items'];
-          _replies = items is List
-              ? items
-                    .whereType<Map>()
-                    .map((e) => TeaPost.fromJson(_asMap(e)))
-                    .toList()
-              : const <TeaPost>[];
-          _noMore = repliesRaw['has_next'] != true;
-          _replyPage = (repliesRaw['page'] as num?)?.toInt() ?? 1;
-        }
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
   Map<String, dynamic> _asMap(dynamic m) =>
       (m as Map).map((k, v) => MapEntry(k.toString(), v));
-
-  Future<void> _loadMoreReplies() async {
-    if (_loadingMore || _noMore || _loading) return;
-    setState(() => _loadingMore = true);
-    try {
-      final d = await ApiClient.instance.getTeahousePostDetail(
-        widget.postId,
-        page: _replyPage + 1,
-      );
-      if (!mounted) return;
-      final repliesRaw = d['replies'];
-      if (repliesRaw is Map) {
-        final items = repliesRaw['items'];
-        final newItems = items is List
-            ? items
-                  .whereType<Map>()
-                  .map((e) => TeaPost.fromJson(_asMap(e)))
-                  .toList()
-            : const <TeaPost>[];
-        setState(() {
-          _replies = <TeaPost>[..._replies, ...newItems];
-          _replyPage += 1;
-          _noMore = repliesRaw['has_next'] != true;
-          _loadingMore = false;
-        });
-      } else {
-        setState(() => _loadingMore = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
-    }
-  }
 
   Future<void> _submitReply() async {
     final content = _replyController.text.trim();
@@ -155,10 +119,10 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
       _replyController.clear();
       if (!mounted) return;
       _snack('回复成功');
-      await _load();
-    } catch (_) {
+      await _paged.refresh();
+    } catch (e) {
       if (!mounted) return;
-      _snack('回复失败，请重试');
+      _snack('回复失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _replying = false);
     }
@@ -192,8 +156,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
           stats: _post!.stats.copyWith(liked: r.liked, likeCount: r.count),
         );
       });
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -214,17 +178,19 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
         );
       });
       _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
   /// 按 id 更新回复列表里某条回复的统计。
   void _updateReply(int id, TeaPostStats Function(TeaPostStats) change) {
+    final int i = _paged.items.indexWhere((TeaPost r) => r.idInt == id);
+    if (i < 0) return;
     setState(() {
-      _replies = _replies
-          .map((r) => r.idInt == id ? r.copyWith(stats: change(r.stats)) : r)
-          .toList();
+      _paged.items[i] = _paged.items[i].copyWith(
+        stats: change(_paged.items[i].stats),
+      );
     });
   }
 
@@ -237,8 +203,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
       final r = await ApiClient.instance.toggleTeahouseLike(id);
       if (!mounted) return;
       _updateReply(id, (s) => s.copyWith(liked: r.liked, likeCount: r.count));
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -255,8 +221,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
         (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
       );
       _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -296,11 +262,13 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                 pickedImage = picked;
                 removeImage = false;
               });
-            } catch (_) {
+            } catch (e) {
               if (ctx.mounted) {
                 ScaffoldMessenger.of(
                   ctx,
-                ).showSnackBar(const SnackBar(content: Text('选择图片失败')));
+                ).showSnackBar(
+                  SnackBar(content: Text('选择图片失败：${describeError(e)}')),
+                );
               }
             } finally {
               if (ctx.mounted) setSheetState(() => pickingImage = false);
@@ -446,10 +414,10 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
       );
       if (!mounted) return;
       _snack('已保存');
-      await _load();
-    } catch (_) {
+      await _paged.refresh();
+    } catch (e) {
       if (!mounted) return;
-      _snack('保存失败，请重试');
+      _snack('保存失败：${describeError(e)}');
     }
   }
 
@@ -543,9 +511,9 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
       if (!mounted) return;
       _snack('已删除');
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('删除失败，请重试');
+      _snack('删除失败：${describeError(e)}');
     }
   }
 
@@ -578,15 +546,15 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
             ),
         ],
       ),
-      body: _loading
+      body: _paged.isLoading
           ? const LoadingState()
-          : _error != null && post == null
-          ? ErrorState(message: _error!, onRetry: _load)
+          : _paged.error != null && post == null
+          ? ErrorState(message: _paged.error!, onRetry: _paged.refresh)
           : Column(
               children: <Widget>[
                 Expanded(
                   child: AppRefreshIndicator(
-                    onRefresh: _load,
+                    onRefresh: _paged.refresh,
                     child: ListView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -651,13 +619,13 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                           ),
                         ],
                         _SectionLabel('回复 (${post?.stats.replyCount ?? 0})'),
-                        if (_replies.isEmpty)
+                        if (_paged.items.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(AppSpacing.xl),
                             child: Center(child: Text('还没有回复')),
                           )
                         else
-                          ..._replies.map(
+                          ..._paged.items.map(
                             (r) => TeahousePostTile(
                               post: r,
                               onTap: () => _openPost(r.idInt),
@@ -668,7 +636,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                               onFavorite: () => _toggleReplyFavorite(r.idInt),
                             ),
                           ),
-                        if (_loadingMore)
+                        if (_paged.isLoadingMore)
                           const Padding(
                             padding: EdgeInsets.all(AppSpacing.md),
                             child: Center(
@@ -681,7 +649,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                               ),
                             ),
                           )
-                        else if (_noMore && _replies.isNotEmpty)
+                        else if (!_paged.hasMore && _paged.items.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.all(AppSpacing.md),
                             child: Center(

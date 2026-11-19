@@ -10,6 +10,7 @@ import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/utils/time_format.dart';
+import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
@@ -115,10 +116,10 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         _favoriteCount = parsed.favoriteCount;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '详情加载失败，稍后重试';
+        _error = '详情加载失败：${describeError(e)}';
         _loading = false;
       });
     }
@@ -201,8 +202,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         final Object? count = result['count'];
         if (count is num) _favoriteCount = count.toInt();
       });
-    } catch (_) {
-      if (mounted) _toast('操作失败，请重试');
+    } catch (e) {
+      if (mounted) _toast('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _favoriting = false);
     }
@@ -221,8 +222,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
           (String text) => Clipboard.setData(ClipboardData(text: text));
       await writer(url);
       if (mounted) _toast('已复制网页链接');
-    } catch (_) {
-      if (mounted) _toast('复制失败，请重试');
+    } catch (e) {
+      if (mounted) _toast('复制失败：${describeError(e)}');
     }
   }
 
@@ -273,9 +274,9 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       );
       if (!mounted) return;
       _toast('举报已提交，管理员会尽快处理');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _toast('举报提交失败，请重试');
+      _toast('举报提交失败：${describeError(e)}');
     }
   }
 

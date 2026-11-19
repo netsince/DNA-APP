@@ -240,7 +240,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('世界列表加载失败，下拉重试'), findsWidgets);
+      expect(find.textContaining('世界列表加载失败'), findsWidgets);
+      // 约定：失败文案不能只有一句「请重试」，真实原因必须露出来。
+      expect(find.textContaining('boom'), findsWidgets);
     });
   });
 

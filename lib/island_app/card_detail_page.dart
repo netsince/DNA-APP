@@ -21,6 +21,7 @@ import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/utils/error_display.dart';
 import '../theme/tokens.dart';
 
 /// 角色卡详情数据模型（对应后端 `GET /api/v1/cards/<id>` 的 data）。
@@ -449,8 +450,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       final (next, count) = await toggler(widget.cardId);
       if (!mounted) return;
       setState(() => apply(d, next, count));
-    } catch (_) {
-      _showSnack('操作失败，请重试');
+    } catch (e) {
+      _showSnack('操作失败：${describeError(e)}');
     }
   }
 
@@ -471,9 +472,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await writer(pkg);
       if (!mounted) return;
       _showSnack('已复制角色卡内容');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('复制失败，请重试');
+      _showSnack('复制失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copying = false);
     }
@@ -526,9 +527,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await importer(ta);
       if (!mounted) return;
       _showSnack('已导入到本地角色卡：${ta.name}');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('导入失败，请重试');
+      _showSnack('导入失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copying = false);
     }
@@ -550,9 +551,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await writer(url);
       if (!mounted) return;
       _showSnack('已复制网页链接');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('复制失败，请重试');
+      _showSnack('复制失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copyingLink = false);
     }
@@ -584,9 +585,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (!mounted) return;
       _detail = _detail!.copyWith(isHidden: nextHidden);
       _showSnack(nextHidden ? '已隐藏角色卡' : '已取消隐藏');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('操作失败，请重试');
+      _showSnack('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _hiding = false);
     }
@@ -686,8 +687,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
         final v = _followerCount + (following ? 1 : -1);
         _followerCount = v < 0 ? 0 : v;
       });
-    } catch (_) {
-      _showSnack('操作失败，请重试');
+    } catch (e) {
+      _showSnack('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _followBusy = false);
     }
@@ -788,8 +789,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       );
       if (!mounted) return;
       _showSnack('举报已提交，管理员会尽快处理');
-    } catch (_) {
-      _showSnack('举报提交失败，请重试');
+    } catch (e) {
+      _showSnack('举报提交失败：${describeError(e)}');
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 
 /// 文章分页加载回调（默认走 [ApiClient.getArticles]）。
@@ -43,14 +44,30 @@ class ArticlesBody extends StatefulWidget {
 }
 
 class _ArticlesBodyState extends State<ArticlesBody> {
-  List<Map<String, dynamic>> _items = const [];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
+  /// 排序 / 搜索词是页面自己的查询条件；换了条件就 [PagedController.refresh]。
   String _sort = 'new';
   String _query = '';
-  String? _error;
+
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final ArticlesData result = await _loader(
+            page: page,
+            sort: _sort,
+            query: _query,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '加载失败',
+      );
 
   ArticlesLoader get _loader => widget.loader ?? ApiClient.instance.getArticles;
 
@@ -60,44 +77,13 @@ class _ArticlesBodyState extends State<ArticlesBody> {
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await _loader(page: page, sort: _sort, query: _query);
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items = <Map<String, dynamic>>[];
-        _items = <Map<String, dynamic>>[..._items, ...result.items];
-        _page = page;
-        _noMore = !result.hasNext;
-        _loading = false;
-        _loadingMore = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (_items.isEmpty) _error = '$e';
-      });
-    }
-  }
-
-  void _reload() {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    _load(reset: true);
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _openDetail(Map<String, dynamic> a) {
@@ -140,8 +126,8 @@ class _ArticlesBodyState extends State<ArticlesBody> {
                   : IconButton(
                       icon: const Icon(Icons.close, size: 18),
                       onPressed: () {
-                        _query = '';
-                        _reload();
+                        setState(() => _query = '');
+                        _paged.refresh();
                       },
                     ),
               border: OutlineInputBorder(
@@ -150,8 +136,8 @@ class _ArticlesBodyState extends State<ArticlesBody> {
             ),
             onSubmitted: (v) {
               if (v.trim() == _query) return;
-              _query = v.trim();
-              _reload();
+              setState(() => _query = v.trim());
+              _paged.refresh();
             },
           ),
           const SizedBox(height: 10),
@@ -169,8 +155,8 @@ class _ArticlesBodyState extends State<ArticlesBody> {
                     selected: _sort == key,
                     onTap: () {
                       if (_sort == key) return;
-                      _sort = key;
-                      _reload();
+                      setState(() => _sort = key);
+                      _paged.refresh();
                     },
                   ),
                   const SizedBox(width: 4),
@@ -187,20 +173,20 @@ class _ArticlesBodyState extends State<ArticlesBody> {
     final scheme = Theme.of(context).colorScheme;
     return LoadMoreListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _items.length,
-      hasMore: !_noMore && _items.isNotEmpty,
-      onLoadMore: () => _load(),
-      onRefresh: () => _load(reset: true),
-      loading: _loading,
-      error: _error == null ? null : '加载失败',
-      onRetry: _reload,
+      itemCount: _paged.items.length,
+      hasMore: _paged.hasMore && _paged.items.isNotEmpty,
+      onLoadMore: _paged.loadMore,
+      onRefresh: _paged.refresh,
+      loading: _paged.isLoading,
+      error: _paged.error,
+      onRetry: _paged.refresh,
       empty: EmptyState(
         icon: Icons.article_outlined,
         title: _query.isEmpty ? '暂无文章' : '没有找到相关文章',
       ),
       separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
       itemBuilder: (context, index) {
-        final a = _items[index];
+        final a = _paged.items[index];
         return ListTile(
           onTap: () => _openDetail(a),
           leading: _coverThumb(context, a),

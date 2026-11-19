@@ -13,6 +13,8 @@ import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆 Feed 加载回调（默认走 [ApiClient.getTeahousePosts]）。
 typedef TeahouseFeedLoader =
@@ -59,13 +61,27 @@ class _TeahouseBodyState extends State<TeahouseBody>
   ];
 
   String _sort = 'hot';
-  List<TeaPost> _posts = const <TeaPost>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 1;
-  String? _error;
   final ScrollController _scrollController = ScrollController();
+
+  /// 分页状态（加载中 / 加载更多 / 有没有下一页 / 页码 / 错误）交给共享
+  /// [PagedController]；本页只提供「怎么取一页」。
+  late final PagedController<TeaPost> _paged = PagedController<TeaPost>(
+    fetch: (int page) async {
+      final result = await _loader(page: page, sort: _sort, topicId: null);
+      return PagedResult<TeaPost>(
+        // 软删除的帖子照旧不进列表。
+        items: result.items
+            .map((Map<String, dynamic> e) => TeaPost.fromJson(e))
+            .where((TeaPost p) => !p.isDeleted)
+            .toList(),
+        hasMore: result.hasNext,
+      );
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    firstLoadError: '茶馆帖子加载失败，请稍后重试',
+  );
 
   TeahouseFeedLoader get _loader =>
       widget.feedLoader ?? ApiClient.instance.getTeahousePosts;
@@ -74,12 +90,13 @@ class _TeahouseBodyState extends State<TeahouseBody>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _reload();
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
@@ -89,64 +106,14 @@ class _TeahouseBodyState extends State<TeahouseBody>
       _scrollController.position,
       threshold: kLoadMoreFeedThreshold,
     )) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _noMore = false;
-    });
-    try {
-      final result = await _loader(page: 1, sort: _sort, topicId: null);
-      if (!mounted) return;
-      setState(() {
-        _posts = result.items
-            .map((e) => TeaPost.fromJson(e))
-            .where((p) => !p.isDeleted)
-            .toList();
-        _page = 1;
-        _loading = false;
-        _noMore = !result.hasNext;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || _noMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final result = await _loader(page: _page + 1, sort: _sort, topicId: null);
-      if (!mounted) return;
-      setState(() {
-        _posts = <TeaPost>[
-          ..._posts,
-          ...result.items
-              .map((e) => TeaPost.fromJson(e))
-              .where((p) => !p.isDeleted),
-        ];
-        _page += 1;
-        _loadingMore = false;
-        if (!result.hasNext) _noMore = true;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingMore = false);
+      _paged.loadMore();
     }
   }
 
   void _selectSort(String sort) {
     if (_sort == sort) return;
     setState(() => _sort = sort);
-    _reload();
+    _paged.refresh();
   }
 
   void _openPost(int postId) {
@@ -167,10 +134,12 @@ class _TeahouseBodyState extends State<TeahouseBody>
 
   /// 在列表里按 id 更新某条帖子的统计。
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
+    final int i = _paged.items.indexWhere((TeaPost p) => p.idInt == id);
+    if (i < 0) return;
     setState(() {
-      _posts = _posts
-          .map((p) => p.idInt == id ? p.copyWith(stats: change(p.stats)) : p)
-          .toList();
+      _paged.items[i] = _paged.items[i].copyWith(
+        stats: change(_paged.items[i].stats),
+      );
     });
   }
 
@@ -212,7 +181,7 @@ class _TeahouseBodyState extends State<TeahouseBody>
   Widget build(BuildContext context) {
     return Scaffold(
       body: AppRefreshIndicator(
-        onRefresh: _reload,
+        onRefresh: _paged.refresh,
         child: CustomScrollView(
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
@@ -257,17 +226,20 @@ class _TeahouseBodyState extends State<TeahouseBody>
                 ),
               ),
             ),
-            if (_loading)
+            if (_paged.isLoading)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (_error != null && _posts.isEmpty)
+            else if (_paged.error != null && _paged.items.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: ErrorState(message: _error!, onRetry: _reload),
+                child: ErrorState(
+                  message: _paged.error!,
+                  onRetry: _paged.refresh,
+                ),
               )
-            else if (_posts.isEmpty)
+            else if (_paged.items.isEmpty)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(child: Text('还没有茶馆帖子，来发一条吧～')),
@@ -283,9 +255,9 @@ class _TeahouseBodyState extends State<TeahouseBody>
                   ),
                 ),
                 sliver: SliverList.builder(
-                  itemCount: _posts.length,
+                  itemCount: _paged.items.length,
                   itemBuilder: (context, i) {
-                    final post = _posts[i];
+                    final post = _paged.items[i];
                     return TeahousePostTile(
                       post: post,
                       onTap: () => _openPost(post.idInt),
@@ -296,14 +268,15 @@ class _TeahouseBodyState extends State<TeahouseBody>
                   },
                 ),
               ),
-              if (_loadingMore)
+              if (_paged.isLoadingMore)
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: AppInsets.card,
                     child: Center(child: CircularProgressIndicator()),
                   ),
                 ),
-              if (_noMore)
+              // 与旧语义一致：首屏加载完且确实没有下一页才提示「没有更多了」。
+              if (!_paged.hasMore && _paged.items.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: AppInsets.card,
@@ -355,24 +328,36 @@ class TeahouseFavoritesPage extends StatefulWidget {
 }
 
 class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
-  List<TeaPost> _posts = const <TeaPost>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 1;
-  String? _error;
   final ScrollController _scrollController = ScrollController();
+
+  /// 收藏页是**另一套独立的分页**（数据源不同），所以另建一个控制器。
+  late final PagedController<TeaPost> _paged = PagedController<TeaPost>(
+    fetch: (int page) async {
+      final result = await ApiClient.instance.getTeahouseFavorites(page: page);
+      return PagedResult<TeaPost>(
+        items: result.items
+            .map((Map<String, dynamic> e) => TeaPost.fromJson(e))
+            .toList(),
+        hasMore: result.hasNext,
+      );
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    firstLoadError: '收藏列表加载失败，请稍后重试',
+  );
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _reload();
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
@@ -382,54 +367,7 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
       _scrollController.position,
       threshold: kLoadMoreFeedThreshold,
     )) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _noMore = false;
-    });
-    try {
-      final result = await ApiClient.instance.getTeahouseFavorites(page: 1);
-      if (!mounted) return;
-      setState(() {
-        _posts = result.items.map((e) => TeaPost.fromJson(e)).toList();
-        _page = 1;
-        _loading = false;
-        _noMore = !result.hasNext;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || _noMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final result = await ApiClient.instance.getTeahouseFavorites(
-        page: _page + 1,
-      );
-      if (!mounted) return;
-      setState(() {
-        _posts = <TeaPost>[
-          ..._posts,
-          ...result.items.map((e) => TeaPost.fromJson(e)),
-        ];
-        _page += 1;
-        _loadingMore = false;
-        if (!result.hasNext) _noMore = true;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingMore = false);
+      _paged.loadMore();
     }
   }
 
@@ -447,10 +385,12 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
   }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
+    final int i = _paged.items.indexWhere((TeaPost p) => p.idInt == id);
+    if (i < 0) return;
     setState(() {
-      _posts = _posts
-          .map((p) => p.idInt == id ? p.copyWith(stats: change(p.stats)) : p)
-          .toList();
+      _paged.items[i] = _paged.items[i].copyWith(
+        stats: change(_paged.items[i].stats),
+      );
     });
   }
 
@@ -466,8 +406,8 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
         postId,
         (s) => s.copyWith(liked: r.liked, likeCount: r.count),
       );
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -484,8 +424,8 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
         (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
       );
       _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -493,26 +433,26 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('我的收藏')),
-      body: _loading
+      body: _paged.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null && _posts.isEmpty
-          ? ErrorState(message: _error!, onRetry: _reload)
-          : _posts.isEmpty
+          : _paged.error != null && _paged.items.isEmpty
+          ? ErrorState(message: _paged.error!, onRetry: _paged.refresh)
+          : _paged.items.isEmpty
           ? const Center(child: Text('还没有收藏的帖子'))
           : AppRefreshIndicator(
-              onRefresh: _reload,
+              onRefresh: _paged.refresh,
               child: ListView.builder(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _posts.length + (_loadingMore ? 1 : 0),
+                itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
                 itemBuilder: (context, i) {
-                  if (i >= _posts.length) {
+                  if (i >= _paged.items.length) {
                     return const Padding(
                       padding: EdgeInsets.all(AppSpacing.md),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
-                  final post = _posts[i];
+                  final post = _paged.items[i];
                   return TeahousePostTile(
                     post: post,
                     onTap: () => _openPost(post.idInt),

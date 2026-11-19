@@ -5,6 +5,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/island_app/card_publish_page.dart';
@@ -21,63 +22,44 @@ class MyCardsPage extends StatefulWidget {
 }
 
 class _MyCardsPageState extends State<MyCardsPage> {
-  final List<Map<String, dynamic>> _cards = <Map<String, dynamic>>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
-
-  /// 首屏加载失败的原因（审计 3.5）。
-  ///
-  /// 以前 catch 里只复位 loading，于是请求失败会落到「你还没有发布角色卡」
-  /// 这个空态上 —— 用户看到的是「我没发过东西」的错误结论，也没有重试入口。
-  /// 只在列表为空时置位：翻页失败不能把已加载的卡清掉。
-  String? _error;
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await ApiClient.instance.getMyCards(
+            page: page,
+          );
+          final Object? raw = data['items'];
+          final List<Map<String, dynamic>> items = raw is List
+              ? raw
+                    .whereType<Map>()
+                    .map((Map e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          return PagedResult<Map<String, dynamic>>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 请求失败不能落到「你还没有发布角色卡」这个空态上，
+        // 也不能把翻页失败当成首屏失败（控制器只在列表为空时置错误）。
+        firstLoadError: '角色卡列表加载失败，请稍后重试',
+      );
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-      } else {
-        _loadingMore = true;
-      }
-    });
-    try {
-      final data = await ApiClient.instance.getMyCards(
-        page: reset ? 1 : _page + 1,
-      );
-      if (!mounted) return;
-      final raw = data['items'];
-      final items = raw is List
-          ? raw
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (reset) _cards.clear();
-        _cards.addAll(items);
-        _page = reset ? 1 : _page + 1;
-        _noMore = items.isEmpty || data['has_next'] != true;
-        _loading = false;
-        _loadingMore = false;
-        _error = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (_cards.isEmpty) _error = '角色卡列表加载失败，请稍后重试';
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _openDetail(Map<String, dynamic> card) async {
@@ -86,7 +68,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => CardDetailPage(cardId: id)));
-    if (mounted) _load(reset: true);
+    if (mounted) _paged.refresh();
   }
 
   /// 编辑已发布的角色卡：拉详情 → 转成本地 TA → 打开**软件本体那个编辑器**，
@@ -117,7 +99,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
           ),
         ),
       );
-      if (mounted) _load(reset: true);
+      if (mounted) _paged.refresh();
     } catch (e) {
       _snack('打开编辑器失败：$e');
     }
@@ -129,7 +111,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
       await ApiClient.instance.resubmitCard(id);
       if (!mounted) return;
       _snack('已重新提审，等待审核');
-      _load(reset: true);
+      _paged.refresh();
     } catch (e) {
       if (!mounted) return;
       _snack('重新提审失败：$e');
@@ -142,7 +124,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
       final hidden = await ApiClient.instance.toggleCardHidden(id);
       if (!mounted) return;
       _snack(hidden ? '已隐藏' : '已取消隐藏');
-      _load(reset: true);
+      _paged.refresh();
     } catch (e) {
       if (!mounted) return;
       _snack('操作失败：$e');
@@ -157,7 +139,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
       final pinned = await ApiClient.instance.toggleCardPinned(id);
       if (!mounted) return;
       _snack(pinned ? '已置顶到主页最前' : '已取消置顶');
-      _load(reset: true);
+      _paged.refresh();
     } catch (e) {
       if (!mounted) return;
       _snack('$e');
@@ -175,14 +157,14 @@ class _MyCardsPageState extends State<MyCardsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('我的角色卡')),
       body: LoadMoreListView(
-        loading: _loading,
-        itemCount: _cards.length,
-        hasMore: !_noMore && _cards.isNotEmpty,
-        onLoadMore: () => _load(),
-        onRefresh: () => _load(reset: true),
+        loading: _paged.isLoading,
+        itemCount: _paged.items.length,
+        hasMore: _paged.hasMore && _paged.items.isNotEmpty,
+        onLoadMore: () => _paged.loadMore(),
+        onRefresh: () => _paged.refresh(),
         // 失败 → 共享错误态 + 重试，而不是「你还没有发布角色卡」。
-        error: _error,
-        onRetry: () => _load(reset: true),
+        error: _paged.error,
+        onRetry: () => _paged.refresh(),
         // 行直接贴在 surface 上：结构同构、需要线性扫读的集合用 list，
         // 而不是每行一张卡（审计 3.3）。横向内边距交给 ListTile（16）。
         padding: EdgeInsets.zero,
@@ -216,7 +198,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
             ],
           ),
         ),
-        itemBuilder: (context, index) => _cardTile(_cards[index]),
+        itemBuilder: (context, index) => _cardTile(_paged.items[index]),
       ),
     );
   }

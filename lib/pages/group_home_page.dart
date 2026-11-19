@@ -7,6 +7,7 @@ import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
+import '../utils/error_display.dart';
 import '../widgets/app_container.dart';
 import '../widgets/app_icon_flight.dart';
 import '../widgets/app_responsive_wrap.dart';
@@ -188,10 +189,12 @@ class _GroupItem extends StatelessWidget {
                   } else if (value == 'duplicate') {
                     try {
                       await controller.duplicateConversation(group.id);
-                    } catch (_) {
+                    } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: FitText('复制群聊失败。')),
+                          SnackBar(
+                            content: FitText('复制群聊失败：${describeError(e)}'),
+                          ),
                         );
                       }
                     }

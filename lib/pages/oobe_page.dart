@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import '../utils/api_guard.dart';
 import '../utils/base_url_guard.dart';
 import '../utils/dialogs.dart';
+import '../utils/error_display.dart';
 import '../widgets/fit_text.dart';
 import 'oobe/community_edit_page.dart';
 import 'oobe/oobe_steps.dart';
@@ -231,9 +232,13 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
         baseUrl: _baseUrlController.text,
         apiKey: _apiKeyController.text,
       );
-    } catch (_) {
+    } catch (e) {
       // 校验器约定不抛异常，但真抛了也不能把按钮永远留在转圈状态。
-      result = const ApiCheckResult(success: false, message: '检测失败，请稍后重试。');
+      // 原因也要留下：只写一句「检测失败」等于把真实错误藏住了。
+      result = ApiCheckResult(
+        success: false,
+        message: '检测失败：${describeError(e)}',
+      );
     }
 
     if (!mounted) {
@@ -268,10 +273,10 @@ class _OobePageState extends State<OobePage> with TickerProviderStateMixin {
         baseUrl: _baseUrlController.text,
         apiKey: _apiKeyController.text,
       );
-    } catch (_) {
-      result = const ModelFetchResult(
+    } catch (e) {
+      result = ModelFetchResult(
         models: <String>[],
-        errorMessage: '拉取模型列表失败，请稍后重试。',
+        errorMessage: '拉取模型列表失败：${describeError(e)}',
       );
     }
 
