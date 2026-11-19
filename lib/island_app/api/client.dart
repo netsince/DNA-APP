@@ -2204,12 +2204,14 @@ class ApiClient {
   ///
   /// 返回 `{items, page, pages, total, has_next}`。
   ///
-  /// [includeFailed] 为真时把**失败记录**也带回来（`images` 为空、多一个 `error` 字段）：
-  /// 详情页要显示失败原因，历史里也要能看到失败过。服务端默认不返回失败记录，
-  /// 是为了不打扰老版本 App（它们的历史瀑布流只认图片）。
+  /// 默认只返回**有产出图**的记录，服务端在 SQL 里过滤完再分页（total/pages 也只数这些）。
+  /// 所以瀑布流直接用默认分页即可：哪怕最新的几十条全是失败记录，第 1 页也一定是有图的那些。
   ///
   /// [status] 按状态过滤（`success` / `partial` / `failed`）。传 `failed` 时服务端只返回
   /// 失败记录 —— 「生成失败记录」页用它翻页，否则得先翻过一堆成功记录才凑得齐失败的那些。
+  ///
+  /// 没有 `include_failed` 开关：把失败记录混进瀑布流会让「最新一页全是失败」的用户
+  /// 整页看不到图（曾经的线上事故），失败记录一律走 [status] 那条路单独翻页。
   Future<
     ({
       List<Map<String, dynamic>> items,
@@ -2219,18 +2221,13 @@ class ApiClient {
       bool hasNext,
     })
   >
-  getImageGenLogs({
-    int page = 1,
-    bool includeFailed = false,
-    String? status,
-  }) async {
+  getImageGenLogs({int page = 1, String? status}) async {
     if (ServerConfig.cachedBaseUrl.isEmpty) {
       throw Exception('未配置服务器地址');
     }
     final uri = _apiUri('/api/v1/image-gen/logs').replace(
       queryParameters: {
         'page': '$page',
-        if (includeFailed) 'include_failed': '1',
         if (status != null && status.isNotEmpty) 'status': status,
       },
     );

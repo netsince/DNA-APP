@@ -17,6 +17,8 @@ import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/points_format.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 生图工作台（App 端）：提示词 + 模型 + 张数 + 宽高比 + 参考图，
@@ -58,11 +60,25 @@ class _ImageGenBodyState extends State<ImageGenBody> {
   Timer? _pollTimer;
   final Set<int> _activeTaskIds = <int>{};
 
-  final List<Map<String, dynamic>> _logs = <Map<String, dynamic>>[];
-  bool _logsLoading = false;
-  bool _logsNoMore = false;
-  bool _logsLoadingMore = false;
-  int _logsPage = 0;
+  /// 历史记录列表的分页状态交给共享 [PagedController]；
+  /// 工作台参数（模型 / 点数 / 参考图）与任务轮询不归它管。
+  late final PagedController<Map<String, dynamic>> _logsPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          // 不传 include_failed：失败记录没有产出图，服务端一页 12 条里塞满失败记录时
+          // 这一页就一张图都没有（用户看到的是「完全没有生图记录」）。失败记录有单独入口。
+          final result = await ApiClient.instance.getImageGenLogs(page: page);
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 工作台的记录区没有错误位（旧实现同样是静默失败），这里只是补全语义。
+        firstLoadError: '生成记录加载失败，请稍后重试',
+      );
 
   /// 防止首次激活信号重复触发加载。
   bool _loadInFlight = false;
@@ -91,6 +107,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
   void dispose() {
     widget.loadSignal?.removeListener(_onLoadSignal);
     _pollTimer?.cancel();
+    _logsPaged.dispose();
     _promptController.dispose();
     super.dispose();
   }
@@ -120,7 +137,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
             : null;
         _loading = false;
       });
-      await _loadLogs(reset: true);
+      await _logsPaged.refresh();
       _ensurePolling();
     } catch (e) {
       if (!mounted) return;
@@ -155,9 +172,9 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       setState(() {
         _refs = [..._refs, ...picked.take(remaining)];
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('选择参考图失败');
+      _snack('选择参考图失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _pickingRefs = false);
     }
@@ -322,48 +339,12 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       if (status == 'succeeded') {
         final spent = parsePoints(detail['points_spent']);
         _snack('生图完成，消耗 ${formatPoints(spent)} 点');
-        await _loadLogs(reset: true);
+        await _logsPaged.refresh();
       } else {
         _snack('生图失败：${detail['error'] ?? '未知错误'}');
       }
     } catch (_) {
-      if (mounted) await _loadLogs(reset: true);
-    }
-  }
-
-  // ---------- 历史日志 ----------
-  Future<void> _loadLogs({bool reset = false}) async {
-    if (_logsLoadingMore || (!reset && _logsNoMore)) return;
-    if (!mounted) return;
-    setState(() {
-      if (reset) {
-        _logsLoading = true;
-        _logsPage = 0;
-        _logsNoMore = false;
-      }
-      _logsLoadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _logsPage + 1;
-      final result = await ApiClient.instance.getImageGenLogs(
-        page: page,
-        includeFailed: true,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _logs.clear();
-        _logs.addAll(result.items);
-        _logsPage = page;
-        _logsNoMore = result.items.isEmpty || !result.hasNext;
-        _logsLoading = false;
-        _logsLoadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _logsLoading = false;
-        _logsLoadingMore = false;
-      });
+      if (mounted) await _logsPaged.refresh();
     }
   }
 
@@ -443,8 +424,8 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           final log = logs[i];
           final firstImage = (log['first_image'] ?? '').toString();
           final aspect = _logAspect(log);
-          // 失败记录没有产出图（接口带 include_failed=1 时才回来）：给占位卡片，
-          // 点进去能在详情页看到失败原因。
+          // 兜底：接口只返回有图的记录，真出现空 URL 时也别渲染成裂图 —— 用占位卡片，
+          // 点进去仍能在详情页看到状态。
           final bool failed = firstImage.isEmpty;
           return InkWell(
             onTap: () => onTap(log),
@@ -900,7 +881,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
   }
 
   List<Widget> _buildHistory(BuildContext context) {
-    if (_logsLoading && _logs.isEmpty) {
+    if (_logsPaged.isLoading && _logsPaged.items.isEmpty) {
       return const <Widget>[
         Padding(
           padding: EdgeInsets.all(AppSpacing.xl),
@@ -908,7 +889,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
         ),
       ];
     }
-    if (_logs.isEmpty) {
+    if (_logsPaged.items.isEmpty) {
       return const <Widget>[
         Padding(
           padding: EdgeInsets.all(AppSpacing.xl),
@@ -917,8 +898,13 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       ];
     }
     return <Widget>[
-      _buildMasonry(context, _logs, onTap: _openLog, shrinkWrap: true),
-      if (_logsLoadingMore)
+      _buildMasonry(
+        context,
+        _logsPaged.items,
+        onTap: _openLog,
+        shrinkWrap: true,
+      ),
+      if (_logsPaged.isLoadingMore)
         const Padding(
           padding: EdgeInsets.all(AppSpacing.md),
           child: Center(
@@ -930,10 +916,10 @@ class _ImageGenBodyState extends State<ImageGenBody> {
           ),
         ),
       // 分页：还有更多时点击「加载更多」。
-      if (!_logsNoMore)
+      if (_logsPaged.hasMore)
         Center(
           child: TextButton(
-            onPressed: _logsLoadingMore ? null : _loadLogs,
+            onPressed: _logsPaged.isLoadingMore ? null : _logsPaged.loadMore,
             child: const Text('加载更多'),
           ),
         ),
@@ -952,63 +938,43 @@ class ImageGenHistoryPage extends StatefulWidget {
 
 class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
   final ScrollController _controller = ScrollController();
-  final List<Map<String, dynamic>> _logs = <Map<String, dynamic>>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
+
+  /// 这一页本身就是「一条分页的历史列表」，同样交给共享 [PagedController]。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          // 同上：只翻有图的记录，失败记录去「失败记录」页看。
+          final result = await ApiClient.instance.getImageGenLogs(page: page);
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 旧实现失败时静默（页面没有错误位），文案只为补全控制器语义。
+        firstLoadError: '生成记录加载失败，请稍后重试',
+      );
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onScroll);
-    _load(reset: true);
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     if (_controller.position.pixels >=
         _controller.position.maxScrollExtent - 400) {
-      _load();
-    }
-  }
-
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-        _noMore = false;
-        _page = 0;
-      }
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await ApiClient.instance.getImageGenLogs(
-        page: page,
-        includeFailed: true,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _logs.clear();
-        _logs.addAll(result.items);
-        _page = page;
-        _noMore = result.items.isEmpty || !result.hasNext;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-      });
+      _paged.loadMore();
     }
   }
 
@@ -1031,10 +997,10 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_loading && _logs.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_logs.isEmpty) {
+    if (_paged.items.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1047,13 +1013,13 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
       );
     }
     return RefreshIndicator(
-      onRefresh: () => _load(reset: true),
+      onRefresh: _paged.refresh,
       child: _ImageGenBodyState._buildMasonry(
         context,
-        _logs,
+        _paged.items,
         onTap: _openLog,
         controller: _controller,
-        addLoadingMore: _loadingMore,
+        addLoadingMore: _paged.isLoadingMore,
       ),
     );
   }
