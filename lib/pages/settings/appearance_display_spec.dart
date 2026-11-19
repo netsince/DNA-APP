@@ -336,6 +336,12 @@ final FieldsEntry appearanceEntry = FieldsEntry(
           key: 'autoOpenLastChat',
         ),
         SettingToggle(
+          id: 'appearance.useHomeV2',
+          title: '新版主页',
+          subtitle: '关掉回到旧版主页。',
+          key: 'useHomeV2',
+        ),
+        SettingToggle(
           id: 'appearance.showBottomNav',
           title: '底部导航栏',
           subtitle: '底部常驻四个主页面，方便单手切换。',

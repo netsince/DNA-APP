@@ -64,6 +64,7 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'fontSizeStep': SettingsValueKind.integer,
       'updateCheckEnabled': SettingsValueKind.boolean,
       'showBottomNav': SettingsValueKind.boolean,
+  'useHomeV2': SettingsValueKind.boolean,
       'showExitToMainApp': SettingsValueKind.boolean,
       'chatQuickSidebar': SettingsValueKind.boolean,
       'chatQuickSidebarCollapsed': SettingsValueKind.boolean,
@@ -182,6 +183,8 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(updateCheckEnabled: _asBool(value));
     case 'showBottomNav':
       return s.copyWith(showBottomNav: _asBool(value));
+    case 'useHomeV2':
+      return s.copyWith(useHomeV2: _asBool(value));
     case 'showExitToMainApp':
       return s.copyWith(showExitToMainApp: _asBool(value));
     case 'chatQuickSidebar':

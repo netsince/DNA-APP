@@ -83,6 +83,8 @@ void main() {
       'show_splash_animation': false,
       'enable_community': false,
       'auto_open_last_chat': autoOpen,
+      // 本文件测的是旧版栏目壳（AppSectionShell）：显式关掉 V2 主页。
+      'use_home_v2': false,
     };
     if (pointer != null) {
       initial['resume_last_conversation_id'] = pointer;

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
+import 'pages/home_v2/home_v2_page.dart';
 import 'pages/auth_page.dart';
 import 'pages/chat_page.dart';
 import 'state/app_controller.dart';
@@ -355,6 +356,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _requireAuth = false;
   bool _authPassed = false;
   bool _hasBeenPaused = false;
+
+  /// 当前生效的主页版本（与 settings.useHomeV2 同步）。
+  late bool _homeV2 = widget.controller.settings.useHomeV2;
   DateTime? _pausedTime;
 
   /// 本次冷启动是否已经尝试过「自动继续上次聊天」。
@@ -511,11 +515,16 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     final bool newRequireAuth =
         PlatformCapabilities.biometricAuthSupported &&
         widget.controller.settings.requireAuthForApp;
-    if ((newShowHome != _showHome || newRequireAuth != _requireAuth) &&
+    // 切主页（V1/V2）要立刻生效，否则用户改完设置得重启才看得到。
+    final bool newHomeV2 = widget.controller.settings.useHomeV2;
+    if ((newShowHome != _showHome ||
+            newRequireAuth != _requireAuth ||
+            newHomeV2 != _homeV2) &&
         mounted) {
       setState(() {
         _showHome = newShowHome;
         _requireAuth = newRequireAuth;
+        _homeV2 = newHomeV2;
       });
     }
     // 用户在设置里重新打开社区：补一次预热（已预热过则内部直接返回）。
@@ -661,7 +670,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
               index: _showHome ? 1 : 0,
               children: <Widget>[
                 OobePage(controller: widget.controller),
-                AppSectionShell(controller: widget.controller),
+                // 主页两套：V2 是精简入口页（设置 → 外观 → 启动与导航 →
+                // 「新版主页」可切回旧版栏目壳）。默认 V2。
+                widget.controller.settings.useHomeV2
+                    ? HomeV2Page(controller: widget.controller)
+                    : AppSectionShell(controller: widget.controller),
               ],
             ),
     );

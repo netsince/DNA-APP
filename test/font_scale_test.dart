@@ -39,6 +39,8 @@ Future<AppController> boot({int fontSizeStep = 0}) async {
     'show_splash_animation': false,
     'enable_community': false,
     'font_size_step': fontSizeStep,
+    // 本文件要拿到栏目壳（AppSectionShell）里的 textScaler：关掉 V2 主页。
+    'use_home_v2': false,
   });
   final AppController controller = AppController(
     settingsService: SettingsService(),

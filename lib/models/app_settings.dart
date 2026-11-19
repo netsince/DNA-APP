@@ -43,6 +43,7 @@ class AppSettings {
     this.unboundedModelList = false,
     this.fontSizeStep = 0,
     required this.showBottomNav,
+    required this.useHomeV2,
     this.showExitToMainApp = true,
     required this.chatQuickSidebar,
     required this.chatQuickSidebarCollapsed,
@@ -126,6 +127,7 @@ class AppSettings {
       unboundedModelList: false,
       fontSizeStep: 0,
       showBottomNav: true,
+      useHomeV2: true,
       showExitToMainApp: true,
       chatQuickSidebar: true,
       chatQuickSidebarCollapsed: false,
@@ -282,6 +284,12 @@ class AppSettings {
 
   /// 是否在主页等页面底部显示「主页 / 群聊 / 我家 / 世界」导航栏。默认关闭。
   final bool showBottomNav;
+
+  /// 是否使用 V2 主页（`lib/pages/home_v2`）。
+  ///
+  /// 默认 **true**：新版主页是精简入口页，不带底栏/侧栏，只放一个设置入口；
+  /// 关掉则回到旧版主页（栏目壳：底栏 + 抽屉）。
+  final bool useHomeV2;
 
   /// 是否在「社区」顶栏右上角显示「返回主应用」。**默认开启**。
   ///
@@ -495,6 +503,7 @@ class AppSettings {
       'fontSizeStep': fontSizeStep,
       'updateCheckEnabled': updateCheckEnabled,
       'showBottomNav': showBottomNav,
+    'useHomeV2': useHomeV2,
       'showExitToMainApp': showExitToMainApp,
       'chatQuickSidebar': chatQuickSidebar,
       'chatQuickSidebarCollapsed': chatQuickSidebarCollapsed,
@@ -591,6 +600,7 @@ class AppSettings {
       fontSizeStep: (json['fontSizeStep'] as int?) ?? 0,
       updateCheckEnabled: (json['updateCheckEnabled'] as bool?) ?? true,
       showBottomNav: (json['showBottomNav'] as bool?) ?? true,
+      useHomeV2: (json['useHomeV2'] as bool?) ?? true,
       showExitToMainApp: (json['showExitToMainApp'] as bool?) ?? true,
       chatQuickSidebar: (json['chatQuickSidebar'] as bool?) ?? true,
       chatQuickSidebarCollapsed:
@@ -715,6 +725,7 @@ class AppSettings {
     int? fontSizeStep,
     bool? updateCheckEnabled,
     bool? showBottomNav,
+    bool? useHomeV2,
     bool? showExitToMainApp,
     bool? chatQuickSidebar,
     bool? chatQuickSidebarCollapsed,
@@ -799,6 +810,7 @@ class AppSettings {
       fontSizeStep: fontSizeStep ?? this.fontSizeStep,
     updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
       showBottomNav: showBottomNav ?? this.showBottomNav,
+      useHomeV2: useHomeV2 ?? this.useHomeV2,
       showExitToMainApp: showExitToMainApp ?? this.showExitToMainApp,
       chatQuickSidebar: chatQuickSidebar ?? this.chatQuickSidebar,
       chatQuickSidebarCollapsed:

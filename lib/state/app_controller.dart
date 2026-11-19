@@ -602,6 +602,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「使用新版主页」开关（V2 主页 ↔ 旧版栏目壳）。
+  Future<void> saveUseHomeV2(bool value) async {
+    _settings = _settings.copyWith(useHomeV2: value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
   Future<void> saveChatQuickSidebar(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebar: value);
