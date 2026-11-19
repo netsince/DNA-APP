@@ -11,6 +11,8 @@ import '../../utils/id_utils.dart';
 import '../../widgets/adaptive_text_field.dart';
 import '../../widgets/app_editor_frame.dart';
 import '../../widgets/fit_text.dart';
+import '../../widgets/form_draft.dart';
+import '../../widgets/form_fields.dart';
 import '../../widgets/tag_input.dart';
 
 /// 世界观表单的句柄：外壳用它取值、回填、判断是否有未保存改动。
@@ -670,68 +672,107 @@ class _WorldEntryModal extends StatefulWidget {
 }
 
 class _WorldEntryModalState extends State<_WorldEntryModal> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _keysController;
-  late final TextEditingController _regexController;
-  late final TextEditingController _ageController;
-  late final TextEditingController _relationController;
-  late final TextEditingController _cooldownController;
-  late final TextEditingController _delayController;
-  late final TextEditingController _orderController;
+  /// 所有文本 / 单选字段都走草稿（控制器与错误落点归 [FormDraft] 管）。
+  late final FormDraft _draft;
+  final ScrollController _scrollController = ScrollController();
+
+  /// 下拉选项：草稿里存字符串，枚举在 [_submit] / 回填处转换。
+  static const List<FormOption> _genderOptions = <FormOption>[
+    (value: 'male', label: '男'),
+    (value: 'female', label: '女'),
+    (value: 'other', label: '其他'),
+  ];
+  static const List<FormOption> _statusOptions = <FormOption>[
+    (value: 'normal', label: '正常'),
+    (value: 'dead', label: '死亡'),
+  ];
+  static const List<FormOption> _decoratorOptions = <FormOption>[
+    (value: 'none', label: '正常激活'),
+    (value: 'activate', label: '强制常驻激活（跳过冷却）'),
+    (value: 'dont_activate', label: '禁止激活'),
+  ];
 
   late WorldEntryType _type;
-  late WorldPersonGender _gender;
-  late WorldPersonStatus _status;
-  String? _relationTargetId;
+
+  /// 三个 FilterChip 的开关：不是「文本 / 实体选择」形态，保持原样。
   late bool _caseSensitive;
   late bool _matchWholeWords;
   late bool _recursive;
-  late String _decorator;
 
   @override
   void initState() {
     super.initState();
     final WorldEntry? e = widget.initialEntry;
-    _nameController = TextEditingController(text: e?.name ?? '');
-    _descriptionController = TextEditingController(text: e?.description ?? '');
-    _keysController = TextEditingController(text: (e?.keys ?? <String>[]).join(', '));
-    _regexController = TextEditingController(text: e?.keyRegex ?? '');
-    _ageController = TextEditingController(text: e?.age ?? '');
-    _relationController = TextEditingController(text: e?.relation?.content ?? '');
-    _cooldownController = TextEditingController(
-      text: (e?.cooldownRounds ?? 0) > 0 ? '${e!.cooldownRounds}' : '',
+    _draft = FormDraft(
+      textFields: const <String>[
+        'name',
+        'description',
+        'keys',
+        'regex',
+        'age',
+        'relationContent',
+        'cooldown',
+        'delay',
+        'order',
+      ],
     );
-    _delayController = TextEditingController(
-      text: (e?.delayRounds ?? 0) > 0 ? '${e!.delayRounds}' : '',
-    );
+    _draft.controller('name').text = e?.name ?? '';
+    _draft.controller('description').text = e?.description ?? '';
+    _draft.controller('keys').text = (e?.keys ?? <String>[]).join(', ');
+    _draft.controller('regex').text = e?.keyRegex ?? '';
+    _draft.controller('age').text = e?.age ?? '';
+    _draft.controller('relationContent').text = e?.relation?.content ?? '';
+    _draft.controller('cooldown').text =
+        (e?.cooldownRounds ?? 0) > 0 ? '${e!.cooldownRounds}' : '';
+    _draft.controller('delay').text =
+        (e?.delayRounds ?? 0) > 0 ? '${e!.delayRounds}' : '';
     // 排序：0 是默认值，显示成空更干净。
-    _orderController = TextEditingController(
-      text: (e?.order ?? 0) > 0 ? '${e!.order}' : '',
-    );
+    _draft.controller('order').text = (e?.order ?? 0) > 0 ? '${e!.order}' : '';
+
+    _draft.select('gender', (e?.gender ?? WorldPersonGender.other).name);
+    _draft.select('status', (e?.status ?? WorldPersonStatus.normal).name);
+    _draft.select('relationTarget', e?.relation?.targetId);
+    _draft.select('decorator', e?.decorator ?? 'none');
 
     _type = e?.type ?? WorldEntryType.noun;
-    _gender = e?.gender ?? WorldPersonGender.other;
-    _status = e?.status ?? WorldPersonStatus.normal;
-    _relationTargetId = e?.relation?.targetId;
     _caseSensitive = e?.caseSensitive ?? false;
     _matchWholeWords = e?.matchWholeWords ?? false;
     _recursive = e?.recursive ?? false;
-    _decorator = e?.decorator ?? 'none';
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _keysController.dispose();
-    _regexController.dispose();
-    _ageController.dispose();
-    _relationController.dispose();
-    _cooldownController.dispose();
-    _delayController.dispose();
-    _orderController.dispose();
+    _draft.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 把视口带回第一个出错的字段（名称在最上面）。
+  void _revealFirstError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  WorldPersonGender _genderValue() {
+    final String? raw = _draft.selection('gender');
+    for (final WorldPersonGender gender in WorldPersonGender.values) {
+      if (gender.name == raw) return gender;
+    }
+    return WorldPersonGender.other;
+  }
+
+  WorldPersonStatus _statusValue() {
+    final String? raw = _draft.selection('status');
+    for (final WorldPersonStatus status in WorldPersonStatus.values) {
+      if (status.name == raw) return status;
+    }
+    return WorldPersonStatus.normal;
   }
 
   List<String> _parseKeys(String raw) {
@@ -743,39 +784,45 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
   }
 
   void _submit() {
-    final String name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('请填写词条名称')),
-      );
+    // 名称必填：错误落到字段上（文案与原来的 snackbar 完全一致）。
+    final bool ok = _draft.validateRequired(<(String, String)>[
+      ('name', '请填写词条名称'),
+    ]);
+    if (!ok) {
+      setState(() {});
+      _revealFirstError();
       return;
     }
 
-    final String relContent = _relationController.text.trim();
+    final String? relationTarget = _draft.selection('relationTarget');
+    final String relContent = _draft.text('relationContent');
     WorldEntryRelation? relation;
-    if (_type == WorldEntryType.person && _relationTargetId != null && relContent.isNotEmpty) {
-      relation = WorldEntryRelation(targetId: _relationTargetId!, content: relContent);
+    if (_type == WorldEntryType.person &&
+        relationTarget != null &&
+        relContent.isNotEmpty) {
+      relation = WorldEntryRelation(targetId: relationTarget, content: relContent);
     }
+    final String decorator = _draft.selection('decorator') ?? 'none';
 
     final WorldEntry entry = WorldEntry(
       id: widget.initialEntry?.id ?? newId(),
-      name: name,
-      description: _descriptionController.text.trim(),
+      name: _draft.text('name'),
+      description: _draft.text('description'),
       type: _type,
-      gender: _type == WorldEntryType.person ? _gender : null,
-      age: _type == WorldEntryType.person ? _ageController.text.trim() : null,
-      status: _type == WorldEntryType.person ? _status : null,
+      gender: _type == WorldEntryType.person ? _genderValue() : null,
+      age: _type == WorldEntryType.person ? _draft.text('age') : null,
+      status: _type == WorldEntryType.person ? _statusValue() : null,
       relation: relation,
-      keys: _parseKeys(_keysController.text),
-      keyRegex: _regexController.text.trim().isEmpty ? null : _regexController.text.trim(),
+      keys: _parseKeys(_draft.rawText('keys')),
+      keyRegex: _draft.text('regex').isEmpty ? null : _draft.text('regex'),
       caseSensitive: _caseSensitive,
       matchWholeWords: _matchWholeWords,
       recursive: _recursive,
       // 排序：预算裁剪时按 order 升序注入，越小越靠前。
-      order: (int.tryParse(_orderController.text.trim()) ?? 0).clamp(0, 9999),
-      cooldownRounds: (int.tryParse(_cooldownController.text.trim()) ?? 0).clamp(0, 100),
-      delayRounds: (int.tryParse(_delayController.text.trim()) ?? 0).clamp(0, 100),
-      decorator: _decorator == 'none' ? null : _decorator,
+      order: (int.tryParse(_draft.text('order')) ?? 0).clamp(0, 9999),
+      cooldownRounds: (int.tryParse(_draft.text('cooldown')) ?? 0).clamp(0, 100),
+      delayRounds: (int.tryParse(_draft.text('delay')) ?? 0).clamp(0, 100),
+      decorator: decorator == 'none' ? null : decorator,
     );
 
     widget.onSave(entry);
@@ -786,6 +833,15 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isEditing = widget.initialEntry != null;
+    // 关联候选：排除自己（与旧下拉的过滤一致）。
+    final List<FormOption> relationOptions = <FormOption>[
+      for (final WorldEntry entry in widget.availableEntries)
+        if (entry.id != widget.initialEntry?.id)
+          (
+            value: entry.id,
+            label: entry.name.isEmpty ? '未命名词条' : entry.name,
+          ),
+    ];
 
     return Padding(
       padding: EdgeInsets.only(
@@ -815,6 +871,7 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
 
           Flexible(
             child: SingleChildScrollView(
+              controller: _scrollController,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -839,112 +896,119 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 词条名称
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: '词条名称（主触发词）*',
-                      hintText: '例如：圣剑·誓约、帝国第一军校、艾莲娜',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.title),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 词条描述
-                  AdaptiveTextField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: '设定描述 / 内容 *',
-                      hintText: '输入该词条的背景、功能、来历或人物特征...',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.notes),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 附加别名
-                  TextField(
-                    controller: _keysController,
-                    decoration: const InputDecoration(
-                      labelText: '附加触发词 / 别名（逗号分隔）',
-                      hintText: '例如：黄金圣剑, 圣剑（提到这些词也会激活本条目）',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-
-                  // 人物专属字段
-                  if (_type == WorldEntryType.person) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: DropdownButtonFormField<WorldPersonGender>(
-                            // 新 API：initialValue 取代废弃的 value（FormFieldState
-                            // 会在 initialValue 变化时 setValue，显示跟随状态）。
-                            initialValue: _gender,
-                            items: const <DropdownMenuItem<WorldPersonGender>>[
-                              DropdownMenuItem(value: WorldPersonGender.male, child: FitText('男')),
-                              DropdownMenuItem(value: WorldPersonGender.female, child: FitText('女')),
-                              DropdownMenuItem(value: WorldPersonGender.other, child: FitText('其他')),
-                            ],
-                            onChanged: (v) => setState(() => _gender = v ?? WorldPersonGender.other),
-                            decoration: const InputDecoration(labelText: '性别', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _ageController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: '年龄', hintText: '例如：24', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DropdownButtonFormField<WorldPersonStatus>(
-                            initialValue: _status,
-                            items: const <DropdownMenuItem<WorldPersonStatus>>[
-                              DropdownMenuItem(value: WorldPersonStatus.normal, child: FitText('正常')),
-                              DropdownMenuItem(value: WorldPersonStatus.dead, child: FitText('死亡')),
-                            ],
-                            onChanged: (v) => setState(() => _status = v ?? WorldPersonStatus.normal),
-                            decoration: const InputDecoration(labelText: '状态', border: OutlineInputBorder(), isDense: true),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _relationTargetId,
-                      items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: null, child: FitText('无人物关联')),
-                        ...widget.availableEntries
-                            .where((WorldEntry e) => e.id != widget.initialEntry?.id)
-                            .map(
-                              (WorldEntry e) => DropdownMenuItem<String>(
-                                value: e.id,
-                                child: FitText(e.name.isEmpty ? '未命名词条' : e.name),
-                              ),
-                            ),
-                      ],
-                      onChanged: (String? v) => setState(() => _relationTargetId = v),
-                      decoration: const InputDecoration(labelText: '关联其他词条', border: OutlineInputBorder(), isDense: true),
-                    ),
-                    if (_relationTargetId != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _relationController,
+                  FormSection(
+                    title: '词条内容',
+                    children: <Widget>[
+                      FormTextField(
+                        draft: _draft,
+                        id: 'name',
+                        label: '词条名称（主触发词）*',
+                        hint: '例如：圣剑·誓约、帝国第一军校、艾莲娜',
+                        // 原实现是描边输入框 + 标题图标，按原样补回观感。
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.title),
+                        // 名称必填：错误落在字段上，输入即清（原来是一句 snackbar）。
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppSpacing.hMd,
+                      // 例外：原实现用 AdaptiveTextField（按内容行数自适应高度），
+                      // 共享层的 FormTextField 只能固定行数，硬套会改掉输入体验，
+                      // 所以这里保留原构件；控制器仍取自草稿，取值逻辑不变。
+                      AdaptiveTextField(
+                        controller: _draft.controller('description'),
                         decoration: const InputDecoration(
-                          labelText: '关联关系描述',
-                          hintText: '例如：导师、宿敌、挚友',
+                          labelText: '设定描述 / 内容 *',
+                          hintText: '输入该词条的背景、功能、来历或人物特征...',
                           border: OutlineInputBorder(),
-                          isDense: true,
+                          prefixIcon: Icon(Icons.notes),
                         ),
                       ),
+                      AppSpacing.hMd,
+                      FormTextField(
+                        draft: _draft,
+                        id: 'keys',
+                        label: '附加触发词 / 别名（逗号分隔）',
+                        hint: '例如：黄金圣剑, 圣剑（提到这些词也会激活本条目）',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
                     ],
-                  ],
+                  ),
+
+                  // 人物专属字段：type == person 才出现（5 个条件字段）
+                  if (_type == WorldEntryType.person)
+                    FormSection(
+                      title: '人物设定',
+                      children: <Widget>[
+                        // 原实现把「性别 / 年龄 / 状态」排成一行三列，
+                        // 这里保持同一排布（窄屏靠 Expanded 等分，不换行）。
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: FormEntitySelect(
+                                draft: _draft,
+                                id: 'gender',
+                                label: '性别',
+                                options: _genderOptions,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FormTextField(
+                                draft: _draft,
+                                id: 'age',
+                                label: '年龄',
+                                hint: '例如：24',
+                                keyboardType: TextInputType.number,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FormEntitySelect(
+                                draft: _draft,
+                                id: 'status',
+                                label: '状态',
+                                options: _statusOptions,
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                          ],
+                        ),
+                        AppSpacing.hMd,
+                        FormEntitySelect(
+                          draft: _draft,
+                          id: 'relationTarget',
+                          label: '关联其他词条',
+                          allowNone: true,
+                          noneLabel: '无人物关联',
+                          // 原下拉里「无人物关联」是初始选中项，不只是备选项。
+                          selectNoneInitially: true,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          options: relationOptions,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        // 二级条件：选了关联词条才需要填关系描述。
+                        if (_draft.selection('relationTarget') != null) ...<Widget>[
+                          AppSpacing.hMd,
+                          FormTextField(
+                            draft: _draft,
+                            id: 'relationContent',
+                            label: '关联关系描述',
+                            hint: '例如：导师、宿敌、挚友',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ],
+                      ],
+                    ),
 
                   const SizedBox(height: 8),
 
@@ -960,94 +1024,95 @@ class _WorldEntryModalState extends State<_WorldEntryModal> {
                       leading: Icon(Icons.settings_suggest_outlined, color: theme.colorScheme.primary, size: 18),
                       childrenPadding: const EdgeInsets.only(top: 4, bottom: 8),
                       children: <Widget>[
-                        TextField(
-                          controller: _regexController,
-                          decoration: const InputDecoration(
-                            labelText: '正则匹配规则（可选）',
-                            hintText: '例如：\\b雨夜\\b',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        FormSection(
+                          title: '匹配规则',
                           children: <Widget>[
-                            FilterChip(
-                              label: const FitText('大小写敏感'),
-                              selected: _caseSensitive,
-                              onSelected: (v) => setState(() => _caseSensitive = v),
+                            FormTextField(
+                              draft: _draft,
+                              id: 'regex',
+                              label: '正则匹配规则（可选）',
+                              hint: '例如：\\b雨夜\\b',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
                             ),
-                            FilterChip(
-                              label: const FitText('全词匹配'),
-                              selected: _matchWholeWords,
-                              onSelected: (v) => setState(() => _matchWholeWords = v),
-                            ),
-                            FilterChip(
-                              label: const FitText('递归联动扫描'),
-                              selected: _recursive,
-                              onSelected: (v) => setState(() => _recursive = v),
+                            AppSpacing.hMd,
+                            // 三个布尔开关是 chip 形态（不是文本 / 实体选择），
+                            // 共享层没有对应构件，保持原样。
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: <Widget>[
+                                FilterChip(
+                                  label: const FitText('大小写敏感'),
+                                  selected: _caseSensitive,
+                                  onSelected: (v) => setState(() => _caseSensitive = v),
+                                ),
+                                FilterChip(
+                                  label: const FitText('全词匹配'),
+                                  selected: _matchWholeWords,
+                                  onSelected: (v) => setState(() => _matchWholeWords = v),
+                                ),
+                                FilterChip(
+                                  label: const FitText('递归联动扫描'),
+                                  selected: _recursive,
+                                  onSelected: (v) => setState(() => _recursive = v),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Row(
+                        FormSection(
+                          title: '触发节奏',
                           children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _orderController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '排序',
-                                  hintText: '越小越靠前',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
+                            // 三个数字字段仍是一行三列（layout 不变），clamp 在 _submit 里。
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: FormTextField(
+                                    draft: _draft,
+                                    id: 'order',
+                                    label: '排序',
+                                    hint: '越小越靠前',
+                                    keyboardType: TextInputType.number,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
                                 ),
-                              ),
+                                AppSpacing.wSm,
+                                Expanded(
+                                  child: FormTextField(
+                                    draft: _draft,
+                                    id: 'cooldown',
+                                    label: '冷却轮数',
+                                    hint: '触发后静默轮数',
+                                    keyboardType: TextInputType.number,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                                AppSpacing.wSm,
+                                Expanded(
+                                  child: FormTextField(
+                                    draft: _draft,
+                                    id: 'delay',
+                                    label: '延迟轮数',
+                                    hint: '提及后延迟触发',
+                                    keyboardType: TextInputType.number,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _cooldownController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '冷却轮数',
-                                  hintText: '触发后静默轮数',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _delayController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: '延迟轮数',
-                                  hintText: '提及后延迟触发',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
+                            AppSpacing.hMd,
+                            FormEntitySelect(
+                              draft: _draft,
+                              id: 'decorator',
+                              label: '激活装饰符',
+                              options: _decoratorOptions,
+                              onChanged: (_) => setState(() {}),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: _decorator,
-                          items: const <DropdownMenuItem<String>>[
-                            DropdownMenuItem<String>(value: 'none', child: FitText('正常激活')),
-                            DropdownMenuItem<String>(value: 'activate', child: FitText('强制常驻激活（跳过冷却）')),
-                            DropdownMenuItem<String>(value: 'dont_activate', child: FitText('禁止激活')),
-                          ],
-                          onChanged: (String? v) => setState(() => _decorator = v ?? 'none'),
-                          decoration: const InputDecoration(
-                            labelText: '激活装饰符',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
                         ),
                       ],
                     ),

@@ -7,6 +7,9 @@ import '../../utils/id_utils.dart';
 import '../../utils/message_processor.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/form_draft.dart';
+import 'package:dna/widgets/form_fields.dart';
+import 'package:dna/widgets/form_sheet.dart';
 import 'package:dna/widgets/setting_section.dart';
 
 /// 消息清洗规则管理页。
@@ -71,10 +74,8 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
   /// 容器从 dialog 改成 bottom sheet（审计 3.2）：这是填写表单，不是
   /// 需要立刻拍板的决定；sheet 还顺手解决了 dialog 宽度写死 360 的问题。
   Future<RegexRule?> _editRule(RegexRule? existing) {
-    return showModalBottomSheet<RegexRule>(
+    return FormSheet.show<RegexRule>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (BuildContext sheetContext) =>
           _RegexRuleSheet(existing: existing),
     );
@@ -211,8 +212,12 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
 
 /// 清洗规则的编辑表单（bottom sheet）。
 ///
+/// 骨架（标题 / 字段间距 / 键盘避让 / 取消·保存）来自共享 [FormSheet]，
+/// 字段值走 [FormDraft]、校验用 [FormDraft.validateRequired] 落到字段
+/// errorText 上：匹配文字为空时就地报错、不关表单。
+///
 /// 以前是 dialog，而且**匹配文字为空时静默 return null** —— 用户点了
-/// 「保存规则」，对话框关掉，什么也没发生。现在就地报错、不关表单。
+/// 「保存规则」，对话框关掉，什么也没发生。
 class _RegexRuleSheet extends StatefulWidget {
   const _RegexRuleSheet({this.existing});
 
@@ -223,38 +228,37 @@ class _RegexRuleSheet extends StatefulWidget {
 }
 
 class _RegexRuleSheetState extends State<_RegexRuleSheet> {
-  late final TextEditingController _patternCtrl;
-  late final TextEditingController _replacementCtrl;
-
-  /// 「要匹配的文字」的就地校验文案；为 null 时不显示错误。
-  String? _patternError;
+  late final FormDraft _draft;
 
   @override
   void initState() {
     super.initState();
-    _patternCtrl = TextEditingController(text: widget.existing?.pattern ?? '');
-    _replacementCtrl =
-        TextEditingController(text: widget.existing?.replacement ?? '');
+    final RegexRule? existing = widget.existing;
+    _draft = FormDraft(textFields: const <String>['pattern', 'replacement']);
+    _draft.controller('pattern').text = existing?.pattern ?? '';
+    _draft.controller('replacement').text = existing?.replacement ?? '';
   }
 
   @override
   void dispose() {
-    _patternCtrl.dispose();
-    _replacementCtrl.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final String pattern = _patternCtrl.text.trim();
-    if (pattern.isEmpty) {
-      setState(() => _patternError = '请填写要匹配的文字');
+    // 必填校验落在「要匹配的文字」这个字段上（不是静默返回）。
+    if (!_draft.validateRequired(<(String, String)>[
+      ('pattern', '请填写要匹配的文字'),
+    ])) {
+      setState(() {});
       return;
     }
     Navigator.of(context).pop(
       RegexRule(
         id: widget.existing?.id ?? newId(),
-        pattern: pattern,
-        replacement: _replacementCtrl.text,
+        pattern: _draft.text('pattern'),
+        // 替换内容**不 trim**：尾随空格也是规则的一部分（与改造前一致）。
+        replacement: _draft.rawText('replacement'),
       ),
     );
   }
@@ -262,86 +266,38 @@ class _RegexRuleSheetState extends State<_RegexRuleSheet> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Padding(
-      // 键盘避让：sheet 跟着输入法一起抬起，不遮住正在编辑的字段。
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            0,
-            AppSpacing.xl,
-            AppSpacing.xl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              FitText(
-                widget.existing == null ? '新增清洗规则' : '编辑清洗规则',
-                style: theme.textTheme.titleLarge,
-              ),
-              AppSpacing.hLg,
-              TextField(
-                controller: _patternCtrl,
-                autofocus: true,
-                onChanged: (_) {
-                  if (_patternError != null) {
-                    setState(() => _patternError = null);
-                  }
-                },
-                decoration: InputDecoration(
-                  labelText: '要匹配的文字',
-                  hintText: r'例如：\*[^*]+\* 或 (喵|喵呜)',
-                  helperText: '用「模式」描述想找的文字，方括号和竖线表示可选',
-                  border: const OutlineInputBorder(),
-                  errorText: _patternError,
-                ),
-              ),
-              AppSpacing.hMd,
-              TextField(
-                controller: _replacementCtrl,
-                decoration: const InputDecoration(
-                  labelText: '替换为',
-                  hintText: '留空表示直接删除匹配内容',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              AppSpacing.hMd,
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FitText(
-                  '规则按从上到下的顺序生效，写错的规则会被自动跳过。',
-                  style: AppTextStyles.caption(theme).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              AppSpacing.hXl,
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const FitText('取消'),
-                    ),
-                  ),
-                  AppSpacing.wMd,
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _submit,
-                      child: const FitText('保存规则'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    return FormSheet(
+      title: widget.existing == null ? '新增清洗规则' : '编辑清洗规则',
+      submitLabel: '保存规则',
+      onSubmit: _submit,
+      children: <Widget>[
+        FormTextField(
+          draft: _draft,
+          id: 'pattern',
+          label: '要匹配的文字',
+          hint: r'例如：\*[^*]+\* 或 (喵|喵呜)',
+          helperText: '用「模式」描述想找的文字，方括号和竖线表示可选',
+          // 打开 sheet 就能直接输入。
+          autofocus: true,
+          // 一输入就清掉必填错误（FormTextField 只清草稿，重建归页面）。
+          onChanged: (_) => setState(() {}),
+        ),
+        FormTextField(
+          draft: _draft,
+          id: 'replacement',
+          label: '替换为',
+          hint: '留空表示直接删除匹配内容',
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FitText(
+            '规则按从上到下的顺序生效，写错的规则会被自动跳过。',
+            style: AppTextStyles.caption(theme).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

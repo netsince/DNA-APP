@@ -7,6 +7,9 @@ import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/widgets/form_draft.dart';
+import 'package:dna/widgets/form_fields.dart';
+import 'package:dna/widgets/form_sheet.dart';
 import 'package:dna/widgets/setting_section.dart';
 
 /// 快速回复管理页：新增 / 编辑 / 删除聊天输入栏上方的一键发送按钮。
@@ -76,10 +79,8 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
   /// 需要立刻拍板的决定（审计 3.2）。sheet 还带来了富余的横向宽度，
   /// 原来的 dialog 宽度写死 360，长宏示例在窄窗口里会被挤成三行。
   Future<QuickReply?> _editSheet([QuickReply? existing]) {
-    return showModalBottomSheet<QuickReply>(
+    return FormSheet.show<QuickReply>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (BuildContext sheetContext) =>
           _QuickReplySheet(existing: existing),
     );
@@ -224,9 +225,12 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
 
 /// 快速回复的编辑表单（bottom sheet）。
 ///
+/// 骨架（标题 / 字段间距 / 键盘避让 / 取消·保存）来自共享 [FormSheet]，
+/// 字段值走 [FormDraft]、校验用 [FormDraft.validateRequired] 落到字段
+/// errorText 上：不通过就不关表单，输入原样保留。
+///
 /// 以前是 AlertDialog：宽度写死 360，而且**先关对话框再校验** —— 发送内容
-/// 为空时对话框已经关了，用户只看到一条 snackbar，刚敲的字全丢。现在表单在
-/// sheet 里就地校验（地字段 errorText），不通过就不关，输入原样保留。
+/// 为空时对话框已经关了，用户只看到一条 snackbar，刚敲的字全丢。
 class _QuickReplySheet extends StatefulWidget {
   const _QuickReplySheet({this.existing});
 
@@ -237,40 +241,41 @@ class _QuickReplySheet extends StatefulWidget {
 }
 
 class _QuickReplySheetState extends State<_QuickReplySheet> {
-  late final TextEditingController _labelCtrl;
-  late final TextEditingController _messageCtrl;
-  late final TextEditingController _groupCtrl;
-
-  /// 发送内容的就地校验文案；为 null 时不显示错误。
-  String? _messageError;
+  late final FormDraft _draft;
 
   @override
   void initState() {
     super.initState();
-    _labelCtrl = TextEditingController(text: widget.existing?.label ?? '');
-    _messageCtrl = TextEditingController(text: widget.existing?.message ?? '');
-    _groupCtrl = TextEditingController(text: widget.existing?.group ?? '');
+    final QuickReply? existing = widget.existing;
+    _draft = FormDraft(
+      textFields: const <String>['label', 'message', 'group'],
+    );
+    _draft.controller('label').text = existing?.label ?? '';
+    _draft.controller('message').text = existing?.message ?? '';
+    _draft.controller('group').text = existing?.group ?? '';
   }
 
   @override
   void dispose() {
-    _labelCtrl.dispose();
-    _messageCtrl.dispose();
-    _groupCtrl.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final String message = _messageCtrl.text.trim();
-    if (message.isEmpty) {
-      setState(() => _messageError = '发送内容不能为空。');
+    // 必填校验落在「实际发送内容」这个字段上（不是 snackbar）。
+    if (!_draft.validateRequired(<(String, String)>[
+      ('message', '发送内容不能为空。'),
+    ])) {
+      setState(() {});
       return;
     }
-    final String label = _labelCtrl.text.trim();
-    final String group = _groupCtrl.text.trim();
+    final String message = _draft.text('message');
+    final String label = _draft.text('label');
+    final String group = _draft.text('group');
     Navigator.of(context).pop(
       QuickReply(
         id: widget.existing?.id ?? newId(),
+        // 没填按钮文字就用发送内容兜底（和聊天栏里看到的那个按钮一致）。
         label: label.isEmpty ? message : label,
         message: message,
         group: group.isEmpty ? null : group,
@@ -280,87 +285,35 @@ class _QuickReplySheetState extends State<_QuickReplySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Padding(
-      // 键盘避让：sheet 跟着输入法一起抬起，不遮住正在编辑的字段。
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            0,
-            AppSpacing.xl,
-            AppSpacing.xl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              FitText(
-                widget.existing == null ? '新增快速回复' : '编辑快速回复',
-                style: theme.textTheme.titleLarge,
-              ),
-              AppSpacing.hLg,
-              TextField(
-                controller: _labelCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '按钮显示文字',
-                  hintText: '例如：打个招呼、投喂点心',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              AppSpacing.hMd,
-              TextField(
-                controller: _messageCtrl,
-                maxLines: 4,
-                minLines: 2,
-                onChanged: (_) {
-                  if (_messageError != null) {
-                    setState(() => _messageError = null);
-                  }
-                },
-                decoration: InputDecoration(
-                  labelText: '实际发送内容',
-                  hintText: '支持宏：{{char}} {{user}} {{random 选项A|选项B}} {{newline}}',
-                  border: const OutlineInputBorder(),
-                  errorText: _messageError,
-                ),
-              ),
-              AppSpacing.hMd,
-              TextField(
-                controller: _groupCtrl,
-                decoration: const InputDecoration(
-                  labelText: '分组标签（选填）',
-                  hintText: '用于归类展示，留空表示通用',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              AppSpacing.hXl,
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const FitText('取消'),
-                    ),
-                  ),
-                  AppSpacing.wMd,
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _submit,
-                      child: const FitText('保存'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+    return FormSheet(
+      title: widget.existing == null ? '新增快速回复' : '编辑快速回复',
+      onSubmit: _submit,
+      children: <Widget>[
+        FormTextField(
+          draft: _draft,
+          id: 'label',
+          label: '按钮显示文字',
+          hint: '例如：打个招呼、投喂点心',
+          // 打开 sheet 就能直接输入。
+          autofocus: true,
         ),
-      ),
+        FormTextField(
+          draft: _draft,
+          id: 'message',
+          label: '实际发送内容',
+          hint: '支持宏：{{char}} {{user}} {{random 选项A|选项B}} {{newline}}',
+          minLines: 2,
+          maxLines: 4,
+          // 一输入就清掉必填错误（FormTextField 只清草稿，重建归页面）。
+          onChanged: (_) => setState(() {}),
+        ),
+        FormTextField(
+          draft: _draft,
+          id: 'group',
+          label: '分组标签（选填）',
+          hint: '用于归类展示，留空表示通用',
+        ),
+      ],
     );
   }
 }
