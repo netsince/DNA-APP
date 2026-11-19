@@ -1,4 +1,4 @@
-part of '../chat_page.dart';
+part of 'chat_surface.dart';
 
 mixin ChatSummaryHelpers on ChatStateMixin {
   bool _hasSummaryPrompt();

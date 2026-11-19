@@ -22,7 +22,7 @@ const double kChatSidebarFullWidth =
 /// 浮层盖在**全宽的聊天视图**上,于是角色背景立绘会一直铺到侧栏底下,
 /// 侧栏用「半透明 + 高斯模糊」把它虚化透出来 —— 与气泡透出背景是
 /// 同一套设计语言,不会出现一块和背景无关的死板色块。
-/// 聊天内容则按侧栏宽度整体内缩(见 `ChatConversationView.contentLeftInset`),
+/// 聊天内容则按侧栏宽度整体内缩(见 `ChatSurface.contentLeftInset`),
 /// 所以浮层不会压住消息。
 ///
 /// ## 收起/展开

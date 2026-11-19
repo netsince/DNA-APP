@@ -1,4 +1,4 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatStreamHandlers on ChatStateMixin {
   /// 生成失败的助手消息 id → 给人看的失败原因。

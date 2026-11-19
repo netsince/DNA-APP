@@ -3,7 +3,7 @@ import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
-import 'package:dna/pages/chat_page.dart';
+import 'package:dna/pages/chat/chat_surface.dart';
 import 'package:dna/pages/ta_editor_page.dart';
 import 'package:dna/pages/ta_showcase_page.dart';
 import 'package:dna/services/hive_service.dart';
@@ -174,7 +174,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       tester
-          .widget<ChatConversationView>(find.byType(ChatConversationView))
+          .widget<ChatSurface>(find.byType(ChatSurface))
           .conversationId,
       'c2',
     );
@@ -198,7 +198,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(c.conversations.length, before + 1);
-    expect(find.byType(ChatConversationView), findsOneWidget);
+    expect(find.byType(ChatSurface), findsOneWidget);
   });
   testWidgets('宽窗口一分为二:hero 在左,信息栏在右', (WidgetTester tester) async {
     final AppController c = await boot();

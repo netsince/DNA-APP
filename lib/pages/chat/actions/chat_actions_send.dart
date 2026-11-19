@@ -1,4 +1,4 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({

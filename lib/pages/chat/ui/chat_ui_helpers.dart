@@ -1,4 +1,4 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatUiHelpers on ChatStateMixin {
   Future<void> _showSummaryDetail(String summaryId);
@@ -261,9 +261,12 @@ mixin ChatUiHelpers on ChatStateMixin {
       // Web 端走 navigator.share，部分浏览器不支持或用户取消，需容错。
       try {
         await Share.share(message.text);
-      } catch (_) {
+      } catch (e) {
         if (mounted) {
-          showSnack(context, '分享失败，当前环境可能不支持系统分享');
+          showSnack(
+            context,
+            '分享失败（当前环境可能不支持系统分享）：${describeError(e)}',
+          );
         }
       }
       return;

@@ -1,4 +1,4 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatPayloadBuilders on ChatStateMixin {
   // ignore: unused_element

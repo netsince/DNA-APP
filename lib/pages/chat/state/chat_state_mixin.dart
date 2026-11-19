@@ -1,6 +1,6 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
-mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
+mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
