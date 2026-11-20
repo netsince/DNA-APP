@@ -9,6 +9,7 @@ import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../utils/conversation_labels.dart';
 import '../utils/id_utils.dart';
+import '../widgets/detail_section.dart';
 import '../widgets/fit_text.dart';
 import '../widgets/ta_avatar.dart';
 import '../widgets/ta_cover.dart';
@@ -125,7 +126,7 @@ class _TaShowcasePageState extends State<TaShowcasePage>
                 child: TabBarView(
                   controller: _tabController,
                   children: <Widget>[
-                    SingleChildScrollView(child: _buildIntro(context, ta)),
+                    SingleChildScrollView(child: _buildIntro(ta)),
                     SingleChildScrollView(child: _buildChats(context, chats)),
                   ],
                 ),
@@ -400,7 +401,7 @@ class _TaShowcasePageState extends State<TaShowcasePage>
       child: KeyedSubtree(
         key: ValueKey<int>(_tabController.index),
         child: _tabController.index == 0
-            ? _buildIntro(context, ta)
+            ? _buildIntro(ta)
             : _buildChats(context, chats),
       ),
     );
@@ -408,7 +409,7 @@ class _TaShowcasePageState extends State<TaShowcasePage>
 
   // ---------- 介绍 ----------
 
-  Widget _buildIntro(BuildContext context, TA ta) {
+  Widget _buildIntro(TA ta) {
     final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
@@ -432,10 +433,21 @@ class _TaShowcasePageState extends State<TaShowcasePage>
           // gender 存的是 ID（沿用的中文值），显示走映射：将来出英文只改那一列。
           if (TaGender.labelOf(ta.gender).isNotEmpty)
             _kv(context, '性别', TaGender.labelOf(ta.gender)),
-          _section(context, '简介', ta.intro),
-          _section(context, '人设', ta.persona),
-          _section(context, '开场白', ta.opening),
-          _section(context, '作者备注', ta.authorNote ?? ''),
+          // 四个纯文本区块：描述在 spec 里，画法用 plainHeading
+          // （小标题 + 正文，与原来的 _section 逐像素一致）；空值自动不占位。
+          ...DetailSections.buildAll(
+            <DetailSectionSpec>[
+              DetailSectionSpec(id: 'intro', title: '简介', body: ta.intro),
+              DetailSectionSpec(id: 'persona', title: '人设', body: ta.persona),
+              DetailSectionSpec(id: 'opening', title: '开场白', body: ta.opening),
+              DetailSectionSpec(
+                id: 'authorNote',
+                title: '作者备注',
+                body: ta.authorNote ?? '',
+              ),
+            ],
+            style: DetailSectionStyle.plainHeading,
+          ),
           if (ta.dialogueStyle.isNotEmpty) ...<Widget>[
             FitText(
               '对话风格',
@@ -447,34 +459,6 @@ class _TaShowcasePageState extends State<TaShowcasePage>
             for (final DialogueTurn turn in ta.dialogueStyle.take(3))
               _dialogueSample(context, turn),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _section(BuildContext context, String title, String body) {
-    if (body.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final ThemeData theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          FitText(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          FitText(
-            body,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: AppLineHeight.body,
-            ),
-          ),
         ],
       ),
     );
