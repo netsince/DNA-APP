@@ -23,6 +23,7 @@ import '../models/user_identity.dart';
 import '../models/service_results.dart';
 import '../models/world.dart';
 import '../services/conversation_export_import_service.dart';
+import '../services/conversation_markdown_export.dart';
 import '../services/bgm_player.dart';
 import '../services/image_storage.dart';
 import '../services/llm_request.dart';
@@ -880,6 +881,31 @@ class _ChatConversationViewState extends State<ChatConversationView>
     setState(() {});
   }
 
+  /// 导出当前会话为人类可读的 Markdown。
+  Future<void> _exportCurrentConversationMarkdown() async {
+    final Map<String, String> names = <String, String>{
+      for (final TA t in widget.controller.tas)
+        if (t.name.trim().isNotEmpty) t.id: t.name.trim(),
+    };
+    final String title = _isGroup
+        ? (_conversation.groupName.trim().isNotEmpty
+            ? _conversation.groupName.trim()
+            : '群聊')
+        : (names[_conversation.taId] ?? '对话');
+    try {
+      final String? path = await ConversationMarkdownExport.exportMarkdown(
+        conversation: _conversation,
+        taNames: names,
+        title: title,
+      );
+      if (!mounted) return;
+      showSnack(context, path == null ? '已取消导出' : '已导出 Markdown');
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, '导出失败：$e');
+    }
+  }
+
   Future<void> _exportCurrentConversation() async {
     final ExportOptions? options = await showExportOptionsDialog(
       context: context,
@@ -1161,6 +1187,7 @@ class _ChatConversationViewState extends State<ChatConversationView>
                       setState(() => _showTokenCounts = !_showTokenCounts),
                   onManageSnapshots: _manageSnapshots,
                   onExport: _exportCurrentConversation,
+                  onExportMarkdown: _exportCurrentConversationMarkdown,
                   backgroundMode: _conversation.backgroundMode,
                   ta: ta,
                   titleOverride: _isGroup
