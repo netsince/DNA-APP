@@ -11,6 +11,9 @@ import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/form_fields.dart';
+import '../widgets/submit_form.dart';
 import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
@@ -282,25 +285,38 @@ class NewTicketPage extends StatefulWidget {
 }
 
 class _NewTicketPageState extends State<NewTicketPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _content = TextEditingController();
+  // 两个文本字段的控制器统一由草稿持有（页面不再各 new 一个）。
+  final FormDraft _draft = FormDraft(
+    textFields: const <String>['title', 'content'],
+  );
+
+  // 一次性提交的忙态 + 失败原因（原因就地显示，不再只弹一句 snackbar）。
+  final SubmitFormState _submit = SubmitFormState();
+
   List<Map<String, dynamic>> _categories = const <Map<String, dynamic>>[];
   int? _categoryId;
   XFile? _image;
-  bool _submitting = false;
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
+    // 提交态变了就重建：顶栏按钮转圈 / 顶部横幅出现或消失。
+    _submit.addListener(_onSubmitChanged);
     _loadCategories();
+  }
+
+  /// 提交态（忙 / 失败原因）变了就重建。
+  void _onSubmitChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _title.dispose();
-    _content.dispose();
+    // 只摘监听、不 dispose _submit：提交请求可能在页面 pop 之后才回来，
+    // 那时 run() 还会 notifyListeners()。
+    _submit.removeListener(_onSubmitChanged);
+    _draft.dispose();
     super.dispose();
   }
 
@@ -357,30 +373,33 @@ class _NewTicketPageState extends State<NewTicketPage> {
     }
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _onSubmit() async {
+    // 必填校验落在「主题」字段上（文案与时机同原来的 Form validator）。
+    if (!_draft.validateRequired(const <(String, String)>[
+      ('title', '请填写工单主题'),
+    ])) {
+      setState(() {});
+      return;
+    }
     if (!AuthSession.instance.isLoggedIn) {
       _snack('请先登录');
       return;
     }
-    setState(() => _submitting = true);
-    try {
-      final image = await _readImage();
-      await ApiClient.instance.createTicket(
-        title: _title.text.trim(),
-        content: _content.text.trim(),
-        categoryId: _categoryId,
-        imageData: image,
-      );
-      if (!mounted) return;
-      _snack('工单已提交，请等待管理员回复');
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      _snack('提交失败：$e');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    await _submit.run(
+      errorPrefix: '提交失败',
+      action: () async {
+        final image = await _readImage();
+        await ApiClient.instance.createTicket(
+          title: _draft.text('title'),
+          content: _draft.text('content'),
+          categoryId: _categoryId,
+          imageData: image,
+        );
+        if (!mounted) return;
+        _snack('工单已提交，请等待管理员回复');
+        Navigator.of(context).pop(true);
+      },
+    );
   }
 
   void _snack(String msg) {
@@ -396,85 +415,92 @@ class _NewTicketPageState extends State<NewTicketPage> {
         actions: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: _submitting
-                ? const Center(child: CircularProgressIndicator())
-                : FilledButton(onPressed: _submit, child: const Text('提交')),
+            // 忙时禁用并转圈（占位尺寸不变，按钮不跳）。
+            child: FormSubmitButton(
+              label: '提交',
+              busy: _submit.busy,
+              onPressed: _onSubmit,
+            ),
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: AppInsets.card,
-          children: <Widget>[
-            if (_categories.isNotEmpty) ...<Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: '分类（可选）',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  for (final c in _categories)
-                    DropdownMenuItem<int>(
-                      value: (c['id'] as num?)?.toInt(),
-                      child: Text((c['name'] ?? '').toString()),
-                    ),
-                ],
-                onChanged: (v) => _categoryId = v,
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextFormField(
-              controller: _title,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '请填写工单主题' : null,
+      body: ListView(
+        padding: AppInsets.card,
+        children: <Widget>[
+          // 提交失败的真实原因就地显示（不再只弹一句「提交失败」）。
+          FormErrorBanner(
+            message: _submit.errorText,
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          ),
+          if (_categories.isNotEmpty) ...<Widget>[
+            DropdownButtonFormField<int>(
+              initialValue: _categoryId,
               decoration: const InputDecoration(
-                labelText: '主题 *',
+                labelText: '分类（可选）',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _content,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: '问题描述',
-                hintText: '请详细描述你遇到的问题（也可只传图）',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                if (_image != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.xs),
-                    child: Image.file(
-                      File(_image!.path),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                if (_image != null) const SizedBox(width: 12),
-                TextButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: Text(_image != null ? '更换图片' : '添加图片（可选）'),
-                ),
-                if (_image != null)
-                  TextButton(
-                    onPressed: () => setState(() => _image = null),
-                    child: const Text('移除'),
+              items: [
+                for (final c in _categories)
+                  DropdownMenuItem<int>(
+                    value: (c['id'] as num?)?.toInt(),
+                    child: Text((c['name'] ?? '').toString()),
                   ),
               ],
+              onChanged: (v) => _categoryId = v,
             ),
+            const SizedBox(height: 12),
           ],
-        ),
+          FormTextField(
+            draft: _draft,
+            id: 'title',
+            label: '主题 *',
+            isDense: true,
+            border: const OutlineInputBorder(),
+            // 一输入就把该字段的必填错误清掉（重建归页面）。
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          // 问题描述保留原 TextFormField：多行标签靠 alignLabelWithHint 顶到
+          // 首行，共享的 FormTextField 没有透传这个参数，换过去标签会回到垂直
+          // 居中（观感变化），所以只把控制器换成草稿里的那一个。
+          TextFormField(
+            controller: _draft.controller('content'),
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: '问题描述',
+              hintText: '请详细描述你遇到的问题（也可只传图）',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: <Widget>[
+              if (_image != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                  child: Image.file(
+                    File(_image!.path),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              if (_image != null) const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(_image != null ? '更换图片' : '添加图片（可选）'),
+              ),
+              if (_image != null)
+                TextButton(
+                  onPressed: () => setState(() => _image = null),
+                  child: const Text('移除'),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

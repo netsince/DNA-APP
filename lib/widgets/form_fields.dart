@@ -56,6 +56,10 @@ class FormTextField extends StatelessWidget {
     this.maxLines = 1,
     this.autofocus = false,
     this.keyboardType,
+    this.focusNode,
+    this.obscureText = false,
+    this.suffixIcon,
+    this.maxLength,
     this.prefixIcon,
     this.border,
     this.isDense = false,
@@ -81,6 +85,18 @@ class FormTextField extends StatelessWidget {
   /// 键盘类型（数字字段要 `TextInputType.number`，否则移动端弹全键盘）。
   final TextInputType? keyboardType;
 
+  /// 外部持有的焦点节点（原文有些页面用来「校验失败后聚焦该字段」）。
+  final FocusNode? focusNode;
+
+  /// 是否密文显示（API Key 这类）。
+  final bool obscureText;
+
+  /// 后缀图标（如「显示 / 隐藏密文」）。
+  final Widget? suffixIcon;
+
+  /// 最大长度（如备注 120 字）。
+  final int? maxLength;
+
   /// 前置图标（原有页面里 `Icons.title` 这类）。
   final Widget? prefixIcon;
 
@@ -98,6 +114,9 @@ class FormTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: draft.controller(id),
+      focusNode: focusNode,
+      obscureText: obscureText,
+      maxLength: maxLength,
       minLines: minLines,
       maxLines: maxLines,
       autofocus: autofocus,
@@ -108,6 +127,7 @@ class FormTextField extends StatelessWidget {
         helperText: helperText,
         errorText: draft.error(id),
         prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
         border: border,
         isDense: isDense,
         filled: filled,

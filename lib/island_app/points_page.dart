@@ -11,6 +11,8 @@ import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/submit_form.dart';
 import '../theme/tokens.dart';
 
 /// 积分明细分页加载回调（默认走 [ApiClient.getPoints]）。
@@ -332,10 +334,17 @@ class PointsRedeemPage extends StatefulWidget {
 }
 
 class _PointsRedeemPageState extends State<PointsRedeemPage> {
-  final _singleController = TextEditingController();
-  final _multiController = TextEditingController();
+  // 两个输入框的控制器统一由草稿持有。
+  final FormDraft _draft = FormDraft(
+    textFields: const <String>['single', 'multi'],
+  );
+
+  // 兑换中的忙态 + 失败原因（失败原因就地显示，前缀沿用原文案）。
+  final SubmitFormState _submit = SubmitFormState();
+
   bool _isMulti = false;
-  bool _redeeming = false;
+
+  /// 本地校验提示（空码 / 超过 50 个），与提交失败分开显示。
   String? _error;
   List<Map<String, dynamic>> _results = const [];
 
@@ -343,9 +352,23 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       widget.redeemer ?? ApiClient.instance.redeemPoints;
 
   @override
+  void initState() {
+    super.initState();
+    // 提交态变了就重建：输入框 / 切换按钮 / 兑换按钮一起跟着禁用。
+    _submit.addListener(_onSubmitChanged);
+  }
+
+  /// 提交态（忙 / 失败原因）变了就重建。
+  void _onSubmitChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
-    _singleController.dispose();
-    _multiController.dispose();
+    // 只摘监听、不 dispose _submit：兑换请求可能在页面 pop 之后才回来，
+    // 那时 run() 还会 notifyListeners()。
+    _submit.removeListener(_onSubmitChanged);
+    _draft.dispose();
     super.dispose();
   }
 
@@ -356,16 +379,18 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       final text = await Clipboard.getData(Clipboard.kTextPlain);
       final value = text?.text?.trim() ?? '';
       if (value.isEmpty) return;
-      _singleController.text = value;
+      _draft.controller('single').text = value;
     } catch (_) {
       // 剪贴板不可用时静默。
     }
   }
 
   Future<void> _redeem() async {
-    if (_redeeming) return;
+    if (_submit.busy) return;
+    // 每次尝试先清掉上一次的提交失败横幅（对应原来「开始请求即清空 _error」）。
+    _submit.clearError();
     // 单码模式取单码输入；多行模式按行拆分去重。
-    final raw = _isMulti ? _multiController.text : _singleController.text;
+    final raw = _isMulti ? _draft.rawText('multi') : _draft.rawText('single');
     final codes = {
       ...raw
           .split(RegExp(r'[\r\n,，\s]+'))
@@ -381,29 +406,26 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       return;
     }
     setState(() {
-      _redeeming = true;
       _error = null;
       _results = const [];
     });
-    try {
-      final result = await _redeemer(codes);
-      if (!mounted) return;
-      setState(() => _results = result.results);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.successCount > 0
-                ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
-                : '全部兑换失败，请检查兑换码',
+    await _submit.run(
+      errorPrefix: '兑换失败',
+      action: () async {
+        final result = await _redeemer(codes);
+        if (!mounted) return;
+        setState(() => _results = result.results);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.successCount > 0
+                  ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
+                  : '全部兑换失败，请检查兑换码',
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = '$e');
-    } finally {
-      if (mounted) setState(() => _redeeming = false);
-    }
+        );
+      },
+    );
   }
 
   @override
@@ -431,8 +453,8 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           const SizedBox(height: 16),
           if (_isMulti) ...<Widget>[
             TextField(
-              controller: _multiController,
-              enabled: !_redeeming,
+              controller: _draft.controller('multi'),
+              enabled: !_submit.busy,
               maxLines: 6,
               keyboardType: TextInputType.multiline,
               style: const TextStyle(fontFamily: 'monospace'),
@@ -444,8 +466,8 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
             ),
           ] else ...<Widget>[
             TextField(
-              controller: _singleController,
-              enabled: !_redeeming,
+              controller: _draft.controller('single'),
+              enabled: !_submit.busy,
               style: const TextStyle(fontFamily: 'monospace'),
               decoration: InputDecoration(
                 labelText: '输入兑换码',
@@ -454,7 +476,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.content_paste_outlined),
                   tooltip: '粘贴',
-                  onPressed: _redeeming ? null : _paste,
+                  onPressed: _submit.busy ? null : _paste,
                 ),
               ),
               onSubmitted: (_) => _redeem(),
@@ -464,7 +486,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: _redeeming ? null : _toggleMode,
+              onPressed: _submit.busy ? null : _toggleMode,
               child: Text(_isMulti ? '单码快捷兑换' : '多行批量兑换（批量粘贴）'),
             ),
           ),
@@ -474,10 +496,12 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
               child: Text(_error!, style: TextStyle(color: scheme.error)),
             ),
           ],
+          // 兑换失败的真实原因就地显示（前缀沿用原文案「兑换失败」）。
+          FormErrorBanner(message: _submit.errorText),
           const SizedBox(height: 12),
           AsyncActionButton(
             variant: AsyncButtonVariant.filled,
-            enabled: !_redeeming,
+            enabled: !_submit.busy,
             onPressed: _redeem,
             loadingSize: 20,
             style: FilledButton.styleFrom(
