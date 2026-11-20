@@ -218,10 +218,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         if (report.recordsError != null)
           _WarningBanner(text: report.recordsError!),
         _buildOverview(context, report),
-        if (_orphans.isNotEmpty) ...<Widget>[
-          AppSpacing.hLg,
-          _buildOrphanSection(context),
-        ],
+        AppSpacing.hLg,
         _buildCategories(context, report),
       ],
     );
@@ -230,85 +227,56 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   Widget _buildOverview(BuildContext context, StorageUsageReport report) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
+    final int kinds = report.categories
+        .where((StorageCategoryUsage usage) => usage.bytes > 0)
+        .length;
     return SettingSection(
-      icon: Icons.donut_small_outlined,
+      icon: Icons.pie_chart_outline,
       title: '占用总览',
-      description: report.filesScanned
-          ? '本应用自己占了多大一块，以及都去哪儿了。'
-          : '网页版读不到本地目录，这里只统计浏览器里存的数据。',
-      children: <Widget>[
-        _UsageBar(report: report),
-        AppSpacing.hMd,
-        FitText(_compositionLine(report), style: AppTextStyles.body(theme)),
-        AppSpacing.hXs,
-        FitText(
-          _diskLine(report),
-          style: AppTextStyles.caption(
-            theme,
-          ).copyWith(color: cs.onSurfaceVariant),
-        ),
-        if (report.unreadableRecords > 0) ...<Widget>[
-          AppSpacing.hSm,
-          SettingHint(
-            '有 ${report.unreadableRecords} 条数据读不出来（内容可能坏了），没算进明细里。',
-            icon: Icons.report_gmailerrorred_outlined,
-            color: cs.error,
-          ),
-        ],
-        AppSpacing.hSm,
-        FitText(
-          _scannedAtLine(report),
-          style: AppTextStyles.tiny(theme).copyWith(color: cs.outline),
-        ),
-      ],
-    );
-  }
-
-  /// 孤儿附件区：只在真的有孤儿时出现。
-  Widget _buildOrphanSection(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    return SettingSection(
-      icon: Icons.cleaning_services_outlined,
-      title: '可回收空间',
-      description: '这些附件已经没有消息在用了。',
       children: <Widget>[
         Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: <Widget>[
-            Expanded(
-              child: FitText(
-                '${_orphans.length} 个附件 · ${formatStorageBytes(_orphanBytes)}',
-                style: AppTextStyles.body(theme),
+            FitText(
+              formatStorageBytes(report.totalBytes),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: AppWeight.medium,
               ),
             ),
-            FilledButton.tonalIcon(
-              onPressed: _cleaning ? null : _cleanOrphans,
-              icon: _cleaning
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_outline, size: 18),
-              label: FitText(_cleaning ? '清理中…' : '清理'),
+            const SizedBox(width: AppSpacing.sm),
+            FitText(
+              '$kinds 类',
+              style: AppTextStyles.caption(theme).copyWith(color: cs.outline),
             ),
           ],
         ),
-        AppSpacing.hXs,
-        FitText(
-          '判定只看「有没有消息引用」，不动其它任何东西。',
-          style: AppTextStyles.caption(theme).copyWith(color: cs.onSurfaceVariant),
-        ),
+        AppSpacing.hMd,
+        _UsageBar(report: report),
+        if (_orphans.isNotEmpty) ...<Widget>[
+          AppSpacing.hMd,
+          _OrphanCleanupRow(
+            count: _orphans.length,
+            bytes: _orphanBytes,
+            cleaning: _cleaning,
+            onClean: _cleanOrphans,
+          ),
+        ],
+        if (report.unreadableRecords > 0) ...<Widget>[
+          AppSpacing.hSm,
+          FitText(
+            '有 ${report.unreadableRecords} 条数据读不出来，没算进明细。',
+            style: AppTextStyles.caption(theme).copyWith(color: cs.error),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildCategories(BuildContext context, StorageUsageReport report) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
     return SettingSection(
       icon: Icons.folder_outlined,
       title: '分类明细',
-      description: '点任意一类，看看这些空间都被谁占了。',
       children: <Widget>[
         for (final StorageCategoryUsage usage in report.categories)
           _CategoryRow(
@@ -323,161 +291,101 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
               ),
             ),
           ),
-        AppSpacing.hSm,
-        SettingHint(
-          '只算本应用自己写进「文档」目录的东西；你放在那里的其它文件不算在内。',
-          icon: Icons.info_outline,
-          color: cs.outline,
-        ),
       ],
     );
   }
 
-  /// 「共占用 X，其中 ……」—— 分类列表的一行话版。
-  String _compositionLine(StorageUsageReport report) {
-    final List<StorageCategoryUsage> nonEmpty = report.categories
-        .where((StorageCategoryUsage usage) => usage.bytes > 0)
-        .toList()
-      ..sort(
-        (StorageCategoryUsage a, StorageCategoryUsage b) =>
-            b.bytes.compareTo(a.bytes),
-      );
-    if (nonEmpty.isEmpty) {
-      return '共占用 0 B，还没有存下任何东西。';
-    }
-    final String top = nonEmpty
-        .take(3)
-        .map(
-          (StorageCategoryUsage usage) =>
-              '${storageCategoryLabel(usage.category)} '
-              '${formatStorageBytes(usage.bytes)}',
-        )
-        .join('、');
-    final String tail = nonEmpty.length > 3 ? ' 等 ${nonEmpty.length} 类' : '';
-    return '共占用 ${formatStorageBytes(report.totalBytes)}，其中 $top$tail';
-  }
-
-  /// 磁盘那一行。拿不到就明说「未知」，绝不按已用 × 系数倒推总量。
-  String _diskLine(StorageUsageReport report) {
-    if (!report.filesScanned) {
-      return '磁盘总量：未知（浏览器里拿不到）。';
-    }
-    final StorageDiskSpace? disk = report.disk;
-    final int? used = disk?.usedBytes;
-    if (disk != null && disk.hasTotal && used != null) {
-      final String label = disk.label ?? '磁盘';
-      final String shareText = _percent(report.totalBytes, disk.totalBytes!);
-      // 占比太小时条形显示的是「本应用构成」，这里要说一句，不然用户会
-      // 拿条形当磁盘占比读。
-      final bool tiny = report.totalBytes / disk.totalBytes! < 0.03;
-      return '$label 已用 ${formatStorageBytes(used)} / 共 '
-          '${formatStorageBytes(disk.totalBytes!)}'
-          '（${_percent(used, disk.totalBytes!)}）· '
-          '剩余 ${formatStorageBytes(disk.freeBytes!)} · '
-          '本应用占 $shareText${tiny ? '（条形改为显示本应用构成）' : ''}';
-    }
-    return '磁盘总量：未知（这个平台拿不到），只能显示本应用占了多少。';
-  }
-
-  String _scannedAtLine(StorageUsageReport report) {
-    final DateTime at = report.scannedAt;
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '清点时间 ${two(at.hour)}:${two(at.minute)} · '
-        '数据有变化就点右上角刷新';
-  }
 }
 
-/// 顶部那条占用条。
+/// 顶部那条占用条：整条 = 本应用占用，按分类切段。
 ///
-/// 两种画法：
-/// * **占比模式**（拿得到磁盘总量，且本应用占比 >= 3%）：整条 = 磁盘，
-///   左边填满的部分 = 本应用，内部再按分类切段；
-/// * **构成模式**（拿不到磁盘总量，或占比太小）：整条 = 本应用自己的分布。
-///   占比很小的时候按磁盘铺满画出来只有一条 3px 的发丝，用户会以为没数据，
-///   所以这时改成看构成，具体百分比交给下面那行文字。
-///
-/// 无论哪种模式，具体数字一律以文字为准。
+/// 段的颜色不是同色系深浅 —— 那样七段看起来就是一条颜色。这里从当前
+/// ColorScheme 的 primary 出发按色相均分（莫奈取色跟着壁纸走），保证相邻段
+/// 肉眼能区分。
 class _UsageBar extends StatelessWidget {
   const _UsageBar({required this.report});
 
   final StorageUsageReport report;
 
-  /// 占用条高度（[AppSpacing.md]，与页面其它细条的视觉重量一致）。
-  static const double _height = AppSpacing.md;
-
-  /// 应用占用极小时的最小可见宽度。
-  static const double _minFilledWidth = 3;
+  static const double _height = 18;
+  static const double _gap = 2;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final StorageDiskSpace? disk = report.disk;
-    final int? diskTotal = (disk != null && disk.hasTotal)
-        ? disk.totalBytes
-        : null;
-    final double share = diskTotal == null
-        ? 1
-        : (report.totalBytes / diskTotal).clamp(0.0, 1.0);
-    // 占比太小时（比如 0.02%），按磁盘铺满画出来只有一条 3px 的发丝，
-    // 看起来像「没有数据」。这种情况改成「构成模式」：整条 = 本应用自己
-    // 的分布，占磁盘多少交给下面那行文字说清楚。
-    final bool composition = diskTotal == null || share < 0.03;
     final List<StorageCategoryUsage> used = report.categories
         .where((StorageCategoryUsage usage) => usage.bytes > 0)
         .toList();
-
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double width = constraints.maxWidth;
-        final double filled = report.totalBytes == 0
-            ? 0
-            : (composition ? width : (width * share).clamp(_minFilledWidth, width));
-        return ClipRRect(
-          borderRadius: AppRadius.pillAll,
-          child: SizedBox(
-            // 给测试一个抓手：占用条是页面上唯一「总览图」，段数与配色错了
-            // 用户看到的总览就和下面的列表对不上，必须能被断言住。
-            key: const ValueKey<String>('storage_usage_bar'),
-            height: _height,
-            child: Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: ColoredBox(color: cs.surfaceContainerHighest),
-                ),
-                if (filled > 0)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: filled,
-                    child: Row(
-                      // 必须 stretch：ColoredBox 没有子节点，按内容量高会得到 0，
-                      // 于是色段只有宽度没有高度 —— 整条看起来就只剩背景色。
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        for (final StorageCategoryUsage usage in used)
-                          Expanded(
-                            flex: usage.bytes,
-                            child: ColoredBox(
-                              key: ValueKey<String>(
-                                'storage_usage_seg_${usage.category.name}',
-                              ),
-                              color: _categoryColor(cs, usage.category),
-                            ),
-                          ),
-                      ],
+    return ClipRRect(
+      borderRadius: AppRadius.xsAll,
+      child: Container(
+        key: const ValueKey<String>('storage_usage_bar'),
+        height: _height,
+        color: cs.surfaceContainerHighest,
+        child: report.totalBytes == 0
+            ? const SizedBox.shrink()
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  for (int i = 0; i < used.length; i++) ...<Widget>[
+                    if (i > 0) const SizedBox(width: _gap),
+                    Expanded(
+                      flex: used[i].bytes,
+                      child: ColoredBox(
+                        key: ValueKey<String>(
+                          'storage_usage_seg_${used[i].category.name}',
+                        ),
+                        color: storageCategoryColor(cs, used[i].category),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+                  ],
+                ],
+              ),
+      ),
     );
   }
 }
 
-/// 分类行：图标 + 名称 + 大小 + 占比，点进去看明细。
+/// 可回收附件：条形下面一行，够用就行，不另起一块 section。
+class _OrphanCleanupRow extends StatelessWidget {
+  const _OrphanCleanupRow({
+    required this.count,
+    required this.bytes,
+    required this.cleaning,
+    required this.onClean,
+  });
+
+  final int count;
+  final int bytes;
+  final bool cleaning;
+  final VoidCallback onClean;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Row(
+      children: <Widget>[
+        Icon(Icons.auto_delete_outlined, size: 18, color: cs.tertiary),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: FitText(
+            '可回收 $count 个附件 · ${formatStorageBytes(bytes)}',
+            style: AppTextStyles.body(theme),
+          ),
+        ),
+        TextButton(
+          onPressed: cleaning ? null : onClean,
+          child: FitText(cleaning ? '清理中…' : '清理'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 分类行：色点 + 名称 + 项数 / 右侧占比与大小，点进去看明细。
+///
+/// 色点与占用条上的一段同色，用户扫一眼就能把「条上这块」和「列表这行」对上。
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.usage,
@@ -493,42 +401,54 @@ class _CategoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
-    final Color color = _categoryColor(cs, usage.category);
+    final Color color = storageCategoryColor(cs, usage.category);
     final bool empty = usage.itemCount == 0;
+    final TextStyle? valueStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: AppWeight.medium,
+    );
     return ListTile(
       contentPadding: EdgeInsets.zero,
       enabled: !empty,
       onTap: empty ? null : onTap,
-      leading: Container(
-        width: AppSize.iconBox,
-        height: AppSize.iconBox,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: AppAlpha.a12),
-          borderRadius: AppRadius.xsAll,
-        ),
-        child: Icon(
-          _categoryIcon(usage.category),
-          size: AppSize.iconCard,
-          color: color,
+      leading: SizedBox(
+        width: 24,
+        child: Center(
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: empty ? cs.outlineVariant : color,
+              shape: BoxShape.circle,
+            ),
+          ),
         ),
       ),
       title: FitText(storageCategoryLabel(usage.category)),
       subtitle: FitText(
-        empty
-            ? '暂无'
-            : '共 ${usage.itemCount} 项 · 占 '
-                  '${_percent(usage.bytes, totalBytes)}',
+        empty ? '暂无' : '${usage.itemCount} 项',
+        style: AppTextStyles.caption(theme).copyWith(color: cs.outline),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          FitText(
-            formatStorageBytes(usage.bytes),
-            style: AppTextStyles.body(
-              theme,
-            ).copyWith(fontWeight: AppWeight.medium),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              FitText(
+                empty ? '—' : _percent(usage.bytes, totalBytes),
+                style: valueStyle,
+              ),
+              FitText(
+                formatStorageBytes(usage.bytes),
+                style: AppTextStyles.caption(
+                  theme,
+                ).copyWith(color: cs.outline),
+              ),
+            ],
           ),
-          const Icon(Icons.chevron_right),
+          const SizedBox(width: AppSpacing.xs),
+          Icon(Icons.chevron_right, color: cs.outline),
         ],
       ),
     );
@@ -590,17 +510,30 @@ class _StorageCategoryDetailPageState
       body: items.isEmpty
           ? const AppEmptyState(
               icon: Icons.folder_off_outlined,
-              title: '这一类还没有东西',
-              description: '等有了内容再回来看。',
+              title: '这一类还是空的',
             )
           : ListView(
               padding: AppInsets.page,
               children: <Widget>[
-                FitText(
-                  '共 ${usage.itemCount} 项 · '
-                  '${formatStorageBytes(usage.bytes)}'
-                  ' · 占全部 ${_percent(usage.bytes, widget.appTotalBytes)}',
-                  style: AppTextStyles.body(theme),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: <Widget>[
+                    FitText(
+                      formatStorageBytes(usage.bytes),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: AppWeight.medium,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    FitText(
+                      '${usage.itemCount} 项 · 占全部 '
+                      '${_percent(usage.bytes, widget.appTotalBytes)}',
+                      style: AppTextStyles.caption(
+                        theme,
+                      ).copyWith(color: cs.outline),
+                    ),
+                  ],
                 ),
                 if (usage.truncated) ...<Widget>[
                   AppSpacing.hXs,
@@ -687,7 +620,7 @@ class _WarningBanner extends StatelessWidget {
             AppSpacing.wSm,
             Expanded(
               child: FitText(
-                '$text。下面这些分类可能不全，点右上角刷新可以重试。',
+                '$text。下面的数字可能不全，点右上角刷新重试。',
                 style: AppTextStyles.caption(
                   theme,
                 ).copyWith(color: cs.onErrorContainer),
@@ -704,22 +637,21 @@ class _WarningBanner extends StatelessWidget {
 ///
 /// 不引入调色板常量（项目禁止硬编码颜色），也不用七种无关色相 ——
 /// 色阶顺序即分类顺序，和上面列表的行序对得上。
-Color _categoryColor(ColorScheme cs, StorageCategory category) {
-  final int last = StorageCategory.values.length - 1;
-  final double t = last <= 0 ? 0 : (category.index / last) * 0.85;
-  return Color.lerp(cs.primary, cs.tertiary, t) ?? cs.primary;
+/// 每个分类一个颜色：从当前主题的主色出发，按色相均分取七种色系。
+///
+/// 不用「同色相深浅」——那七段看起来就是一条颜色；也不直接用满饱和度的
+/// 原色，那样像荧光彩虹。这里压低饱和度、把亮度拉齐，得到一组柔和的七色。
+Color storageCategoryColor(ColorScheme cs, StorageCategory category) {
+  final HSLColor base = HSLColor.fromColor(cs.primary);
+  final int total = StorageCategory.values.length;
+  final double hue = (base.hue + category.index * 360 / total) % 360;
+  return HSLColor.fromAHSL(
+    1,
+    hue,
+    0.42,
+    0.55,
+  ).toColor();
 }
-
-/// 分类图标。
-IconData _categoryIcon(StorageCategory category) => switch (category) {
-  StorageCategory.conversations => Icons.forum_outlined,
-  StorageCategory.characters => Icons.person_outline,
-  StorageCategory.worlds => Icons.public_outlined,
-  StorageCategory.cache => Icons.bolt_outlined,
-  StorageCategory.downloads => Icons.cloud_download_outlined,
-  StorageCategory.attachments => Icons.attach_file,
-  StorageCategory.other => Icons.more_horiz,
-};
 
 /// 占比文字。整数位够用时不留小数，太小的小数写成「<0.1%」。
 String _percent(int part, int total) {

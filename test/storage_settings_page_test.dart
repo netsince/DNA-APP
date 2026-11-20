@@ -88,13 +88,13 @@ void main() {
     expect(find.textContaining('128 条消息'), findsWidgets);
   });
 
-  testWidgets('占用条：每个非零分类一段、总宽铺满、颜色按分类顺序', (WidgetTester tester) async {
+  testWidgets('占用条：每类一段、七种不同色、段间留缝、宽度铺满', (WidgetTester tester) async {
     await pump(tester, _FakeUsage(_report()));
     final ThemeData theme =
         Theme.of(tester.element(find.byType(StorageSettingsPage)));
-    final ColorScheme cs = theme.colorScheme;
     final Finder bar = find.byKey(const ValueKey<String>('storage_usage_bar'));
-    expect(bar, findsOneWidget);
+    final Size barSize = tester.getSize(bar);
+    expect(barSize.height >= 16, isTrue, reason: '条形太细撑不起总览');
 
     const List<StorageCategory> drawn = <StorageCategory>[
       StorageCategory.conversations,
@@ -103,31 +103,38 @@ void main() {
       StorageCategory.downloads,
       StorageCategory.attachments,
     ];
-    double sumWidth = 0;
+    final List<Color> colors = <Color>[];
+    double segWidth = 0;
     for (final StorageCategory category in drawn) {
       final Finder seg =
           find.byKey(ValueKey<String>('storage_usage_seg_${category.name}'));
       expect(seg, findsOneWidget, reason: '${category.name} 没画出色段');
       final Size size = tester.getSize(seg);
-      expect(size.width > 0, isTrue,
-          reason: '${category.name} 的色段宽度是 ${size.width}，等于没画');
-      expect(size.height > 0, isTrue);
-      sumWidth += size.width;
-      final double t =
-          category.index / (StorageCategory.values.length - 1) * 0.85;
-      final Color expected = Color.lerp(cs.primary, cs.tertiary, t) ?? cs.primary;
-      expect(tester.widget<ColoredBox>(seg).color, expected);
+      expect(size.width > 0 && size.height > 0, isTrue,
+          reason: '${category.name} 色段尺寸为 ${size.width}x${size.height}');
+      segWidth += size.width;
+      final Color actual = tester.widget<ColoredBox>(seg).color;
+      expect(actual, storageCategoryColor(theme.colorScheme, category),
+          reason: '${category.name} 的颜色与分类色不一致');
+      colors.add(actual);
     }
-    // 零字节的分类不该有段。
-    expect(
-      find.byKey(const ValueKey<String>('storage_usage_seg_cache')),
-      findsNothing,
-    );
-    // 占比极小时走构成模式：各段加起来应当接近整条宽度。
-    final Size barSize = tester.getSize(bar);
-    expect(barSize.width > 0, isTrue);
-    expect(sumWidth > barSize.width * 0.95, isTrue,
-        reason: '段总宽 ${sumWidth.toStringAsFixed(1)} 明显小于整条 ${barSize.width}');
+    // 每一段必须是不同的颜色，而且离得够远（以前是同色相插值，肉眼分不出）。
+    for (int i = 0; i < colors.length; i++) {
+      for (int j = i + 1; j < colors.length; j++) {
+        final int dr = ((colors[i].r - colors[j].r) * 255).abs().round();
+        final int dg = ((colors[i].g - colors[j].g) * 255).abs().round();
+        final int db = ((colors[i].b - colors[j].b) * 255).abs().round();
+        final int dist = (dr * dr + dg * dg + db * db);
+        expect(dist > 60 * 60, isTrue,
+            reason: '第 $i 段和第 $j 段颜色太接近（RGB 距离平方 $dist）');
+      }
+    }
+    // 零字节分类不画段。
+    expect(find.byKey(const ValueKey<String>('storage_usage_seg_cache')),
+        findsNothing);
+    // 总量条被切成若干段 + 段间留缝，加起来应当接近整条宽度。
+    expect(segWidth > barSize.width * 0.9, isTrue,
+        reason: '段总宽 ${segWidth.toStringAsFixed(1)} 与整条 ${barSize.width} 差得太多');
   });
 
   testWidgets('扫描失败要说明原因并给重试', (WidgetTester tester) async {
