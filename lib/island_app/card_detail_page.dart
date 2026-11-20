@@ -22,6 +22,7 @@ import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/utils/error_display.dart';
+import 'package:dna/utils/action_table.dart';
 import '../theme/tokens.dart';
 import '../widgets/detail_section.dart';
 
@@ -841,91 +842,60 @@ class _CardDetailPageState extends State<CardDetailPage> {
           leading: leading,
           title: Text(d.name),
           actions: <Widget>[
-            // 举报入口（更多菜单）。
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+            // 举报入口（更多菜单）：可见条件（仅作者 / 有本地库可写）与忙碌态
+            // （导入中 / 复制中）都写成数据，画法交给共享的 rowActionMenu ——
+            // 项内图标 20、间距 12 就是原来手搓 Row 的那两个数字。
+            rowActionMenu(
               tooltip: '更多',
-              onSelected: (v) {
-                if (v == 'toggle_hidden') _toggleHidden();
-                if (v == 'copy_link') _copyCardLink();
-                if (v == 'import_ta') _importCard();
-                if (v == 'copy_card') _copyCard();
-                if (v == 'teahouse') _quoteToTeahouse();
-                if (v == 'report') _openReport();
-              },
-              itemBuilder: (_) => <PopupMenuEntry<String>>[
-                if (_owner)
-                  PopupMenuItem<String>(
-                    value: 'toggle_hidden',
-                    enabled: !_hiding,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(
-                          _detail!.isHidden
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(_detail!.isHidden ? '取消隐藏' : '隐藏'),
-                      ],
-                    ),
-                  ),
+              icon: const Icon(Icons.more_vert),
+              iconSize: 20,
+              iconGap: 12,
+              actions: <RowAction>[
+                RowAction(
+                  id: 'toggle_hidden',
+                  label: d.isHidden ? '取消隐藏' : '隐藏',
+                  icon: d.isHidden
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  visible: _owner,
+                  enabled: !_hiding,
+                  onSelected: _toggleHidden,
+                ),
                 // 直接导入：只在有本地库可写（社区嵌进主应用）时出现。
-                if (widget.cardImporter != null)
-                  PopupMenuItem<String>(
-                    value: 'import_ta',
-                    enabled: !_copying,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(Icons.download_outlined, size: 20),
-                        const SizedBox(width: 12),
-                        const Text('导入到本地'),
-                      ],
-                    ),
-                  ),
-                // 复制：从主按钮挪进菜单（主位让给「导入到本地」）。
-                PopupMenuItem<String>(
-                  value: 'copy_card',
+                RowAction(
+                  id: 'import_ta',
+                  label: '导入到本地',
+                  icon: Icons.download_outlined,
+                  visible: widget.cardImporter != null,
                   enabled: !_copying,
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.content_copy, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('复制卡片'),
-                    ],
-                  ),
+                  onSelected: _importCard,
                 ),
-                PopupMenuItem<String>(
-                  value: 'copy_link',
+                // 复制：从主按钮挪进菜单（主位让给「导入到本地」）。
+                RowAction(
+                  id: 'copy_card',
+                  label: '复制卡片',
+                  icon: Icons.content_copy,
+                  enabled: !_copying,
+                  onSelected: _copyCard,
+                ),
+                RowAction(
+                  id: 'copy_link',
+                  label: '复制链接',
+                  icon: Icons.link,
                   enabled: !_copyingLink,
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.link, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('复制链接'),
-                    ],
-                  ),
+                  onSelected: _copyCardLink,
                 ),
-                const PopupMenuItem<String>(
-                  value: 'teahouse',
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.local_cafe_outlined, size: 20),
-                      SizedBox(width: 12),
-                      Text('引用到茶馆'),
-                    ],
-                  ),
+                RowAction(
+                  id: 'teahouse',
+                  label: '引用到茶馆',
+                  icon: Icons.local_cafe_outlined,
+                  onSelected: _quoteToTeahouse,
                 ),
-                const PopupMenuItem<String>(
-                  value: 'report',
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.flag_outlined, size: 20),
-                      SizedBox(width: 12),
-                      Text('举报'),
-                    ],
-                  ),
+                RowAction(
+                  id: 'report',
+                  label: '举报',
+                  icon: Icons.flag_outlined,
+                  onSelected: _openReport,
                 ),
               ],
             ),

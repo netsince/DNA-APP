@@ -23,7 +23,7 @@
 | 动作表 | ✅ | `lib/utils/action_table.dart`（285 行）+ 3 条测试，`81565db` | 导出/导入 3 处、放弃确认 5 处、行内菜单 2 处；10 个文件在用 |
 | 列表项模板（五态骨架） | ✅ | `lib/widgets/paged_list_body.dart`（108 行） | 四页全部换完：我的卡、我的收藏（网格）、通知、我的世界卡；顺带修掉通知页的**双版心缩进**（宽屏被缩两次，1200 宽时内容只剩约 320px） |
 | 详情区块（`DetailSectionSpec`） | 🚧 2/3 | `lib/widgets/detail_section.dart`（163 行） | 卡片详情 ✅（6 个区块，其中 3 个 `custom`）、角色展示 ✅（4 个区块）；**世界详情保持原样**——它的头卡是「状态横幅 + 名称 + 统计 + 简介 + 标签 Wrap + 作者行」的不规则组合，两种 style 都套不上，套了就是改观感 |
-| 动作表剩余同类 | ⬜ | — | 已核清具体缺口：`card_detail` 的项内图标是 20px + 12 间距（共享层是 18 + 8）、顶栏按钮显式 `Icons.more_vert`；`world_detail` / `comment_section` 用 `ListTile(dense)` 项样式；`world_page` / `home_widgets` / `group_home_page` 是「归档两套列表 + 分隔线」；`chat_app_bar` 用 `CheckedPopupMenuItem`。补 `icon/iconSize/iconGap` + `listTile` 项样式 + `divider` + `checked` 四项后即可覆盖 |
+| 动作表剩余同类 | ✅ | 同上（`action_table.dart` 扩到 3 种项样式） | 七处全部换完：卡片详情、评论回复、世界详情、聊天顶栏（9 项含勾选/禁用）、世界列表、会话列表、群聊列表（归档两套表 → 一张表 + `visible` + `dividerAfter`）。共享层新增 `icon / child / iconSize / iconGap / itemStyle(listTile · listTilePadded · listTileRegular) / checked / dividerAfter / per-item 覆盖` |
 | 表单 + submit 描述符 | ⬜ | — | 代理配置 / 服务器地址 / 工单新建 / 积分兑换 |
 | 异常显性化（配套，非本审计项） | ✅ | `utils/error_display.dart` + `DESIGN_SPEC.md` §7.3 | 49 处「失败，请重试」改成「前缀：真实原因」 |
 

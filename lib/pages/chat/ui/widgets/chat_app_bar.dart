@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../models/ta.dart';
-import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 typedef SearchChanged = void Function(String value);
@@ -147,112 +147,84 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                   backgroundMode == 'image' ? Icons.image_not_supported : Icons.image,
                 ),
               ),
-              PopupMenuButton<String>(
+              rowActionMenu(
                 tooltip: '更多',
-                onSelected: (String value) {
-                  if (value == 'archive') {
-                    onManageSnapshots();
-                  } else if (value == 'export') {
-                    onExport();
-                  } else if (value == 'search') {
-                    onToggleSearch();
-                  } else if (value == 'tokens') {
-                    onToggleTokens();
-                  } else if (value == 'force_summary') {
-                    onForceSummary();
-                  } else if (value == 'range_summary') {
-                    onRangeSummary();
-                  } else if (value == 'bgm') {
-                    onToggleBgm();
-                  } else if (value == 'bgm_animation') {
-                    onToggleBgmAnimation();
-                  } else if (value == 'immersive') {
-                    onToggleImmersive?.call();
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  if (showBgmOption)
-                    CheckedPopupMenuItem<String>(
-                      value: 'bgm',
-                      checked: bgmEnabled,
-                      child: const ListTile(
-                        leading: Icon(Icons.music_note_outlined),
-                        title: FitText('背景音乐'),
-                      ),
-                    ),
-                  if (showBgmAnimationOption)
-                    CheckedPopupMenuItem<String>(
-                      value: 'bgm_animation',
-                      checked: bgmAnimated,
-                      child: const ListTile(
-                        leading: Icon(Icons.animation_outlined),
-                        title: FitText('动态背景'),
-                      ),
-                    ),
-                  PopupMenuItem<String>(
-                    value: 'range_summary',
+                child: const Icon(Icons.more_horiz),
+                iconSize: 24,
+                // 前 6 项原来是 ListTile（非紧凑 + 水平 16 内边距），
+                // 后 3 项原来是 Row(Icon, 12, 文案)：用项级样式覆盖回紧凑行。
+                itemStyle: RowActionItemStyle.listTilePadded,
+                iconGap: 12,
+                actions: <RowAction>[
+                  RowAction(
+                    id: 'bgm',
+                    label: '背景音乐',
+                    icon: Icons.music_note_outlined,
+                    visible: showBgmOption,
+                    checked: bgmEnabled,
+                    onSelected: onToggleBgm,
+                  ),
+                  RowAction(
+                    id: 'bgm_animation',
+                    label: '动态背景',
+                    icon: Icons.animation_outlined,
+                    visible: showBgmAnimationOption,
+                    checked: bgmAnimated,
+                    onSelected: onToggleBgmAnimation,
+                  ),
+                  RowAction(
+                    id: 'range_summary',
+                    label: '范围总结',
+                    icon: Icons.summarize_outlined,
                     enabled: !rangeSummaryInProgress,
-                    child: const ListTile(
-                      leading: Icon(Icons.summarize_outlined),
-                      title: FitText('范围总结'),
-                    ),
+                    onSelected: onRangeSummary,
                   ),
-                  PopupMenuItem<String>(
-                    value: 'force_summary',
+                  RowAction(
+                    id: 'force_summary',
+                    label: '强制摘要',
+                    icon: Icons.auto_awesome,
                     enabled: !summaryInProgress,
-                    child: const ListTile(
-                      leading: Icon(Icons.auto_awesome),
-                      title: FitText('强制摘要'),
-                    ),
+                    onSelected: onForceSummary,
                   ),
-                  CheckedPopupMenuItem<String>(
-                    value: 'search',
+                  RowAction(
+                    id: 'search',
+                    label: '消息搜索',
+                    icon: Icons.search,
                     checked: searching,
-                    child: const ListTile(
-                      leading: Icon(Icons.search),
-                      title: FitText('消息搜索'),
-                    ),
+                    onSelected: onToggleSearch,
                   ),
-                  CheckedPopupMenuItem<String>(
-                    value: 'tokens',
+                  RowAction(
+                    id: 'tokens',
+                    label: '显示字数/Token',
+                    icon: Icons.numbers,
                     checked: showTokenCounts,
-                    child: const ListTile(
-                      leading: Icon(Icons.numbers),
-                      title: FitText('显示字数/Token'),
-                    ),
+                    onSelected: onToggleTokens,
                   ),
-                  if (onToggleImmersive != null)
-                    PopupMenuItem<String>(
-                      value: 'immersive',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            immersiveHidden
-                                ? Icons.fullscreen_exit
-                                : Icons.fullscreen,
-                          ),
-                          AppSpacing.wMd,
-                          FitText(immersiveHidden ? '退出沉浸' : '沉浸模式'),
-                        ],
-                      ),
-                    ),
-                  const PopupMenuItem<String>(
-                    value: 'export',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[Icon(Icons.file_download_outlined), AppSpacing.wMd, FitText('导出对话')],
-                    ),
+                  RowAction(
+                    id: 'immersive',
+                    label: immersiveHidden ? '退出沉浸' : '沉浸模式',
+                    icon: immersiveHidden
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    visible: onToggleImmersive != null,
+                    onSelected: () => onToggleImmersive?.call(),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'archive',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[Icon(Icons.save), AppSpacing.wMd, FitText('存档')],
-                    ),
+                  RowAction(
+                    id: 'export',
+                    label: '导出对话',
+                    icon: Icons.file_download_outlined,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    onSelected: onExport,
+                  ),
+                  RowAction(
+                    id: 'archive',
+                    label: '存档',
+                    icon: Icons.save,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    onSelected: onManageSnapshots,
                   ),
                 ],
-                child: const Icon(Icons.more_horiz),
               ),
             ],
     );

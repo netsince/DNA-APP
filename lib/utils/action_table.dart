@@ -31,6 +31,24 @@ Future<bool> confirmDiscardEdits(BuildContext context) {
   );
 }
 
+/// 菜单项的两种既有画法。
+enum RowActionItemStyle {
+  /// `Row(Icon, 间距, FitText)` —— 紧凑单行（多数页面用这种）。
+  compactRow,
+
+  /// `ListTile(dense, contentPadding: zero, leading: Icon, title)` ——
+  /// 行高与间距交给 ListTile（世界详情 / 回复菜单用这种）。
+  listTile,
+
+  /// 非紧凑 `ListTile`（默认行高 + 水平 16 内边距）—— 聊天顶栏那种
+  /// 「48→56 行高、不贴边」的观感。
+  listTilePadded,
+
+  /// 非紧凑 `ListTile` + 零内边距 —— 世界/群聊列表行那种
+  /// 「默认字号、不贴内边距」的观感。
+  listTileRegular,
+}
+
 /// 行内动作：一条 = id + 文案 + 可见条件 + 执行体。
 class RowAction {
   const RowAction({
@@ -41,6 +59,9 @@ class RowAction {
     this.visible = true,
     this.danger = false,
     this.enabled = true,
+    this.checked,
+    this.dividerAfter = false,
+    this.itemStyle,
   });
 
   final String id;
@@ -56,6 +77,15 @@ class RowAction {
 
   /// 当前是否可点（忙碌中置灰，但仍显示 —— 与原来 `enabled: false` 的观感一致）。
   final bool enabled;
+
+  /// 是否带勾选态（非 null 时渲染成 `CheckedPopupMenuItem`，用于开关式菜单项）。
+  final bool? checked;
+
+  /// 该项之后是否画一条分隔线（只在后面还有可见项时才画）。
+  final bool dividerAfter;
+
+  /// 该项的样式覆盖（同一个菜单里混用两种项样式时用；不传就跟菜单级设置）。
+  final RowActionItemStyle? itemStyle;
 }
 
 /// 是否还有可见动作（页面据此决定要不要渲染菜单按钮）。
@@ -68,6 +98,13 @@ bool hasVisibleRowAction(List<RowAction> actions) =>
 Widget rowActionMenu({
   required List<RowAction> actions,
   String tooltip = '更多操作',
+  Widget? icon,
+  /// 顶栏按钮的自定义外观（原文用 `child: Icon(...)` 的页面传这个，
+  /// 与 [icon] 互斥：两者都传时以 [child] 为准）。
+  Widget? child,
+  double iconSize = 18,
+  double iconGap = 8,
+  RowActionItemStyle itemStyle = RowActionItemStyle.compactRow,
 }) {
   final List<RowAction> visible = actions
       .where((RowAction a) => a.visible)
@@ -75,6 +112,8 @@ Widget rowActionMenu({
   assert(visible.isNotEmpty, 'rowActionMenu: 没有可见动作时不要渲染菜单');
   return PopupMenuButton<String>(
     tooltip: tooltip,
+    icon: child == null ? icon : null,
+    child: child,
     onSelected: (String id) {
       for (final RowAction a in visible) {
         if (a.id == id) {
@@ -85,28 +124,71 @@ Widget rowActionMenu({
     },
     itemBuilder: (BuildContext context) {
       final ColorScheme scheme = Theme.of(context).colorScheme;
-      return <PopupMenuEntry<String>>[
-        for (final RowAction a in visible)
-          PopupMenuItem<String>(
-            value: a.id,
-            enabled: a.enabled,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                if (a.icon != null) ...<Widget>[
-                  Icon(a.icon, size: 18, color: a.danger ? scheme.error : null),
-                  const SizedBox(width: 8),
+      final List<PopupMenuEntry<String>> entries = <PopupMenuEntry<String>>[];
+      for (int i = 0; i < visible.length; i++) {
+        final RowAction a = visible[i];
+        final TextStyle? labelStyle = a.danger
+            ? TextStyle(color: scheme.error)
+            : null;
+        final RowActionItemStyle style = a.itemStyle ?? itemStyle;
+        final Widget child = style == RowActionItemStyle.compactRow
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (a.icon != null) ...<Widget>[
+                    Icon(
+                      a.icon,
+                      size: iconSize,
+                      color: a.danger ? scheme.error : null,
+                    ),
+                    SizedBox(width: iconGap),
+                  ],
+                  Flexible(child: Text(a.label, style: labelStyle)),
                 ],
-                Flexible(
-                  child: Text(
-                    a.label,
-                    style: a.danger ? TextStyle(color: scheme.error) : null,
-                  ),
-                ),
-              ],
+              )
+            : ListTile(
+                dense: style == RowActionItemStyle.listTile,
+                contentPadding: switch (style) {
+                  // M3 下 ListTile 默认是 start 16 / end 24，对齐它才能与
+                  // 「原本没传 contentPadding」的菜单逐像素一致。
+                  RowActionItemStyle.listTilePadded =>
+                    const EdgeInsetsDirectional.only(start: 16, end: 24),
+                  _ => EdgeInsets.zero,
+                },
+                leading: a.icon == null
+                    ? null
+                    : Icon(
+                        a.icon,
+                        size: iconSize,
+                        color: a.danger ? scheme.error : null,
+                      ),
+                title: Text(a.label, style: labelStyle),
+              );
+        final bool? checked = a.checked;
+        if (checked != null) {
+          entries.add(
+            CheckedPopupMenuItem<String>(
+              value: a.id,
+              checked: checked,
+              enabled: a.enabled,
+              child: child,
             ),
-          ),
-      ];
+          );
+        } else {
+          entries.add(
+            PopupMenuItem<String>(
+              value: a.id,
+              enabled: a.enabled,
+              child: child,
+            ),
+          );
+        }
+        // 分隔线只在「后面还有可见项」时画，避免菜单末尾悬空一条线。
+        if (a.dividerAfter && i < visible.length - 1) {
+          entries.add(const PopupMenuDivider());
+        }
+      }
+      return entries;
     },
   );
 }

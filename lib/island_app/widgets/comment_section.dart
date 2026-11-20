@@ -15,6 +15,7 @@ import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
+import 'package:dna/utils/action_table.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import '../../theme/tokens.dart';
@@ -897,21 +898,25 @@ class _CommentSectionState extends State<CommentSection> {
     required VoidCallback onPin,
     required VoidCallback onDelete,
   }) {
-    return PopupMenuButton<String>(
+    // 置顶只在卡作者处出现、删除只在自己发的评论上出现 —— 条件写成数据，
+    // 画法交给共享 rowActionMenu（无项内图标，紧凑单行，按钮图标尺寸原样）。
+    // 调用点已保证 owner / isMine 至少有一个成立，菜单里不会空。
+    return rowActionMenu(
       icon: const Icon(Icons.more_horiz, size: 18),
-      itemBuilder: (_) => <PopupMenuEntry<String>>[
-        if (owner)
-          PopupMenuItem<String>(
-            value: 'pin',
-            child: Text(comment.isPinned ? '取消置顶' : '置顶'),
-          ),
-        if (comment.isMine)
-          const PopupMenuItem<String>(value: 'delete', child: Text('删除')),
+      actions: <RowAction>[
+        RowAction(
+          id: 'pin',
+          label: comment.isPinned ? '取消置顶' : '置顶',
+          visible: owner,
+          onSelected: onPin,
+        ),
+        RowAction(
+          id: 'delete',
+          label: '删除',
+          visible: comment.isMine,
+          onSelected: onDelete,
+        ),
       ],
-      onSelected: (v) {
-        if (v == 'pin') onPin();
-        if (v == 'delete') onDelete();
-      },
     );
   }
 }
