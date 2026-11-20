@@ -88,6 +88,48 @@ void main() {
     expect(find.textContaining('128 条消息'), findsWidgets);
   });
 
+  testWidgets('占用条：每个非零分类一段、总宽铺满、颜色按分类顺序', (WidgetTester tester) async {
+    await pump(tester, _FakeUsage(_report()));
+    final ThemeData theme =
+        Theme.of(tester.element(find.byType(StorageSettingsPage)));
+    final ColorScheme cs = theme.colorScheme;
+    final Finder bar = find.byKey(const ValueKey<String>('storage_usage_bar'));
+    expect(bar, findsOneWidget);
+
+    const List<StorageCategory> drawn = <StorageCategory>[
+      StorageCategory.conversations,
+      StorageCategory.characters,
+      StorageCategory.worlds,
+      StorageCategory.downloads,
+      StorageCategory.attachments,
+    ];
+    double sumWidth = 0;
+    for (final StorageCategory category in drawn) {
+      final Finder seg =
+          find.byKey(ValueKey<String>('storage_usage_seg_${category.name}'));
+      expect(seg, findsOneWidget, reason: '${category.name} 没画出色段');
+      final Size size = tester.getSize(seg);
+      expect(size.width > 0, isTrue,
+          reason: '${category.name} 的色段宽度是 ${size.width}，等于没画');
+      expect(size.height > 0, isTrue);
+      sumWidth += size.width;
+      final double t =
+          category.index / (StorageCategory.values.length - 1) * 0.85;
+      final Color expected = Color.lerp(cs.primary, cs.tertiary, t) ?? cs.primary;
+      expect(tester.widget<ColoredBox>(seg).color, expected);
+    }
+    // 零字节的分类不该有段。
+    expect(
+      find.byKey(const ValueKey<String>('storage_usage_seg_cache')),
+      findsNothing,
+    );
+    // 占比极小时走构成模式：各段加起来应当接近整条宽度。
+    final Size barSize = tester.getSize(bar);
+    expect(barSize.width > 0, isTrue);
+    expect(sumWidth > barSize.width * 0.95, isTrue,
+        reason: '段总宽 ${sumWidth.toStringAsFixed(1)} 明显小于整条 ${barSize.width}');
+  });
+
   testWidgets('扫描失败要说明原因并给重试', (WidgetTester tester) async {
     await pump(tester, _FakeUsage(null));
     expect(find.textContaining('磁盘不可读'), findsWidgets);

@@ -5,7 +5,12 @@ import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 import 'package:dna/widgets/state_views.dart';
 
+import '../../models/conversation.dart';
+import '../../models/message_attachment.dart';
+import '../../services/attachment_gc.dart';
 import '../../services/storage_usage_service.dart';
+import '../../state/app_controller.dart';
+import '../../utils/ui_feedback.dart';
 
 /// 「存储空间」设置页：先给一个总览（占用条 + 一句话），再给七类明细。
 ///
@@ -22,10 +27,16 @@ import '../../services/storage_usage_service.dart';
 /// 第一层（本页）= 总览 + 七个分类；第二层（_StorageCategoryDetailPage）
 /// = 某一类的明细，按大小排序，点任意一行就能看见「都下过什么」。
 class StorageSettingsPage extends StatefulWidget {
-  const StorageSettingsPage({super.key, this.service});
+  const StorageSettingsPage({super.key, this.service, this.controller});
 
   /// 盘点服务。留空走真实实现；测试可以注入假数据源。
   final StorageUsageService? service;
+
+  /// 用来算「哪些附件还被消息引用着」。
+  ///
+  /// 为空时（纯测试场景）不显示回收入口 —— 没有引用集合就没法判断谁是孤儿，
+  /// 宁可不给按钮，也不做「猜着删」。
+  final AppController? controller;
 
   @override
   State<StorageSettingsPage> createState() => _StorageSettingsPageState();
@@ -39,10 +50,97 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   String? _error;
   bool _scanning = false;
 
+  /// 当前没人引用的附件（删会话/回溯后留下的孤儿）。
+  List<String> _orphans = const <String>[];
+  int _orphanBytes = 0;
+  bool _cleaning = false;
+
   @override
   void initState() {
     super.initState();
     _scan();
+  }
+
+  /// 统计孤儿附件：**只统计，不删**。真正的删除要用户点按钮确认。
+  ///
+  /// 没有引用集合（未传 controller）时直接跳过 —— 没有判据就不给入口。
+  Future<void> _scanOrphans() async {
+    final AppController? controller = widget.controller;
+    if (controller == null) return;
+    try {
+      final Set<String> liveRefs = <String>{};
+      for (final Conversation c in controller.allConversations) {
+        for (final ConversationMessage m in c.messages) {
+          for (final MessageAttachment a in m.attachments) {
+            liveRefs.add(a.ref);
+          }
+        }
+      }
+      final List<String> orphans =
+          await AttachmentGc.findOrphans(liveRefs: liveRefs);
+      final int bytes = await AttachmentGc.orphanBytes(orphans);
+      if (!mounted) return;
+      setState(() {
+        _orphans = orphans;
+        _orphanBytes = bytes;
+      });
+    } catch (e) {
+      // 统计失败不影响页面主体：孤儿回收是附加能力，不该把总览拖垮。
+      debugPrint('[storage] 孤儿统计失败: $e');
+    }
+  }
+
+  /// 回收孤儿附件（会二次确认）。
+  Future<void> _cleanOrphans() async {
+    if (_cleaning || _orphans.isEmpty) return;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const FitText('清理未引用的附件'),
+        content: FitText(
+          '有 ${_orphans.length} 个附件已经没有消息在引用了（${formatStorageBytes(_orphanBytes)}）。'
+          '清理后无法恢复。',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const FitText('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const FitText('清理'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final AppController? controller = widget.controller;
+    if (controller == null) return;
+    setState(() => _cleaning = true);
+    try {
+      final Set<String> liveRefs = <String>{};
+      for (final Conversation c in controller.allConversations) {
+        for (final ConversationMessage m in c.messages) {
+          for (final MessageAttachment a in m.attachments) {
+            liveRefs.add(a.ref);
+          }
+        }
+      }
+      final AttachmentGcResult result =
+          await AttachmentGc.collect(liveRefs: liveRefs);
+      if (!mounted) return;
+      setState(() => _cleaning = false);
+      showSnack(
+        context,
+        '已清理 ${result.deleted} 个附件（${formatStorageBytes(result.bytesFreed)}）'
+        '${result.partialsRemoved > 0 ? '，另清掉 ${result.partialsRemoved} 个临时文件' : ''}',
+      );
+      await _scan();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cleaning = false);
+      showSnack(context, '清理失败：$e');
+    }
   }
 
   /// 扫一遍。失败时把原因留在 [_error] 里，让页面显示「为什么」+「重试」。
@@ -59,6 +157,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         _report = report;
         _scanning = false;
       });
+      await _scanOrphans();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -119,6 +218,10 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         if (report.recordsError != null)
           _WarningBanner(text: report.recordsError!),
         _buildOverview(context, report),
+        if (_orphans.isNotEmpty) ...<Widget>[
+          AppSpacing.hLg,
+          _buildOrphanSection(context),
+        ],
         _buildCategories(context, report),
       ],
     );
@@ -156,6 +259,45 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         FitText(
           _scannedAtLine(report),
           style: AppTextStyles.tiny(theme).copyWith(color: cs.outline),
+        ),
+      ],
+    );
+  }
+
+  /// 孤儿附件区：只在真的有孤儿时出现。
+  Widget _buildOrphanSection(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return SettingSection(
+      icon: Icons.cleaning_services_outlined,
+      title: '可回收空间',
+      description: '这些附件已经没有消息在用了。',
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: FitText(
+                '${_orphans.length} 个附件 · ${formatStorageBytes(_orphanBytes)}',
+                style: AppTextStyles.body(theme),
+              ),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: _cleaning ? null : _cleanOrphans,
+              icon: _cleaning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline, size: 18),
+              label: FitText(_cleaning ? '清理中…' : '清理'),
+            ),
+          ],
+        ),
+        AppSpacing.hXs,
+        FitText(
+          '判定只看「有没有消息引用」，不动其它任何东西。',
+          style: AppTextStyles.caption(theme).copyWith(color: cs.onSurfaceVariant),
         ),
       ],
     );
@@ -224,11 +366,15 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     final int? used = disk?.usedBytes;
     if (disk != null && disk.hasTotal && used != null) {
       final String label = disk.label ?? '磁盘';
+      final String shareText = _percent(report.totalBytes, disk.totalBytes!);
+      // 占比太小时条形显示的是「本应用构成」，这里要说一句，不然用户会
+      // 拿条形当磁盘占比读。
+      final bool tiny = report.totalBytes / disk.totalBytes! < 0.03;
       return '$label 已用 ${formatStorageBytes(used)} / 共 '
           '${formatStorageBytes(disk.totalBytes!)}'
           '（${_percent(used, disk.totalBytes!)}）· '
           '剩余 ${formatStorageBytes(disk.freeBytes!)} · '
-          '本应用占 ${_percent(report.totalBytes, disk.totalBytes!)}';
+          '本应用占 $shareText${tiny ? '（条形改为显示本应用构成）' : ''}';
     }
     return '磁盘总量：未知（这个平台拿不到），只能显示本应用占了多少。';
   }
@@ -243,11 +389,14 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
 
 /// 顶部那条占用条。
 ///
-/// * 拿得到磁盘总量：整条 = 磁盘，左边填满的部分 = 本应用（再按分类切段）；
-/// * 拿不到：整条 = 本应用自己的构成（「仅已用」）。
+/// 两种画法：
+/// * **占比模式**（拿得到磁盘总量，且本应用占比 >= 3%）：整条 = 磁盘，
+///   左边填满的部分 = 本应用，内部再按分类切段；
+/// * **构成模式**（拿不到磁盘总量，或占比太小）：整条 = 本应用自己的分布。
+///   占比很小的时候按磁盘铺满画出来只有一条 3px 的发丝，用户会以为没数据，
+///   所以这时改成看构成，具体百分比交给下面那行文字。
 ///
-/// 本应用占比极小时按最小 3 像素画 —— 否则条形看不见，用户会以为没数据；
-/// 具体百分比一律以文字为准。
+/// 无论哪种模式，具体数字一律以文字为准。
 class _UsageBar extends StatelessWidget {
   const _UsageBar({required this.report});
 
@@ -269,6 +418,10 @@ class _UsageBar extends StatelessWidget {
     final double share = diskTotal == null
         ? 1
         : (report.totalBytes / diskTotal).clamp(0.0, 1.0);
+    // 占比太小时（比如 0.02%），按磁盘铺满画出来只有一条 3px 的发丝，
+    // 看起来像「没有数据」。这种情况改成「构成模式」：整条 = 本应用自己
+    // 的分布，占磁盘多少交给下面那行文字说清楚。
+    final bool composition = diskTotal == null || share < 0.03;
     final List<StorageCategoryUsage> used = report.categories
         .where((StorageCategoryUsage usage) => usage.bytes > 0)
         .toList();
@@ -278,10 +431,13 @@ class _UsageBar extends StatelessWidget {
         final double width = constraints.maxWidth;
         final double filled = report.totalBytes == 0
             ? 0
-            : (width * share).clamp(_minFilledWidth, width);
+            : (composition ? width : (width * share).clamp(_minFilledWidth, width));
         return ClipRRect(
           borderRadius: AppRadius.pillAll,
           child: SizedBox(
+            // 给测试一个抓手：占用条是页面上唯一「总览图」，段数与配色错了
+            // 用户看到的总览就和下面的列表对不上，必须能被断言住。
+            key: const ValueKey<String>('storage_usage_bar'),
             height: _height,
             child: Stack(
               children: <Widget>[
@@ -295,11 +451,17 @@ class _UsageBar extends StatelessWidget {
                     bottom: 0,
                     width: filled,
                     child: Row(
+                      // 必须 stretch：ColoredBox 没有子节点，按内容量高会得到 0，
+                      // 于是色段只有宽度没有高度 —— 整条看起来就只剩背景色。
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         for (final StorageCategoryUsage usage in used)
                           Expanded(
                             flex: usage.bytes,
                             child: ColoredBox(
+                              key: ValueKey<String>(
+                                'storage_usage_seg_${usage.category.name}',
+                              ),
                               color: _categoryColor(cs, usage.category),
                             ),
                           ),

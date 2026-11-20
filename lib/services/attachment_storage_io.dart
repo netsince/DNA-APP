@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
@@ -106,6 +106,31 @@ class AttachmentStore {
     if (!isValidRef(ref)) return null;
     final File f = await _fileFor(ref);
     return await f.exists() ? f.path : null;
+  }
+
+  /// 清掉崩溃/断电留下的临时文件（`*.part`），返回删掉的个数。
+  ///
+  /// 这些残片不被 listRefs/totalBytes 统计，但确实占盘 —— 回收时顺手扫一遍。
+  Future<int> cleanPartials() async {
+    int removed = 0;
+    try {
+      final Directory root = Directory(await _rootPath());
+      if (!await root.exists()) return 0;
+      await for (final FileSystemEntity entity
+          in root.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        if (!entity.path.endsWith(_partSuffix)) continue;
+        try {
+          await entity.delete();
+          removed++;
+        } catch (_) {
+          // 单个删不掉不影响其它
+        }
+      }
+    } catch (e) {
+      debugPrint('[attachment] 清理临时文件失败: $e');
+    }
+    return removed;
   }
 
   Future<bool> exists(String ref) async {

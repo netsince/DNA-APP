@@ -129,7 +129,7 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
     icon: Icons.pie_chart_outline,
     title: '存储空间',
     subtitle: '占了多少、都花在哪儿',
-    builder: (AppController c) => const StorageSettingsPage(),
+    builder: (AppController c) => StorageSettingsPage(controller: c),
   ),
   securityEntry,
   conversationAdvancedEntry,

@@ -474,7 +474,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
       builder: (BuildContext sheetContext) {
         final ColorScheme cs = Theme.of(sheetContext).colorScheme;
         return SafeArea(
-          child: Column(
+          // 矮屏 / 横屏 / 键盘顶起时，固定高度会溢出：让抽屉自己可滚。
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
@@ -508,7 +510,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: FitText(
-                          '当前模型未开启图片支持，只能发文件。可在「模型设置」里打开。',
+                          '当前模型未开启图片支持，只能发文件（可在模型设置里打开）。',
                           style: TextStyle(fontSize: AppFontSize.caption, color: cs.outline),
                         ),
                       ),
@@ -516,6 +518,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ),
                 ),
             ],
+            ),
           ),
         );
       },
