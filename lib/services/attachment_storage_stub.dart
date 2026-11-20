@@ -61,6 +61,9 @@ class AttachmentStore {
   /// Web 端没有文件系统路径：恒为 null（调用方退化到按字节处理）。
   Future<String?> pathFor(String ref) async => null;
 
+  /// Web 没有文件系统残片，恒返回 0。
+  Future<int> cleanPartials() async => 0;
+
   Future<bool> exists(String ref) async {
     if (!isValidRef(ref)) return false;
     try {

@@ -127,10 +127,15 @@ class ChatMessageBuilder {
       if (a.isText) {
         final String body = a.textPreview ?? '';
         if (body.trim().isEmpty) continue;
+        // 只发前 kAttachmentPreviewChars 字：要在文本里说清楚「这是节选」，
+        // 否则模型会当成全文读完，用户也以为整份文件都进去了。
+        final bool truncated = a.textChars > body.length;
         sb
           ..write('\n\n[附件「')
           ..write(a.name)
-          ..write('」内容开始]\n')
+          ..write(truncated
+              ? '」内容开始（全文 ${a.textChars} 字，这里只给前 ${body.length} 字）]\n'
+              : '」内容开始]\n')
           ..write(body)
           ..write('\n[附件「')
           ..write(a.name)

@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../services/conversation_export_import_service.dart';
+import '../../services/web_download.dart';
 import '../../utils/ui_feedback.dart';
 
 /// 处理导出结果：保存为文件、分享或复制到剪贴板（Web 端）。
@@ -66,14 +67,20 @@ Future<void> _handleBinaryExport(
       ? '，含 ${result.attachmentCount} 个附件（${(result.attachmentBytes / 1024 / 1024).toStringAsFixed(1)} MB）'
       : '';
   if (kIsWeb) {
-    // Web 端没有临时目录可分享：直接给用户一句可操作的话，而不是静默失败。
-    if (context.mounted) {
-      showSnack(
-        context,
-        '带附件的导出包请在桌面/手机上操作（Web 端暂不支持打包下载）$summary',
-        behavior: SnackBarBehavior.floating,
-      );
-    }
+    // Web：Blob + <a download> 直接下载（不依赖临时目录）。
+    final bool ok = downloadBytes(
+      bytes: bytes,
+      fileName: result.suggestedFileName,
+      mime: 'application/zip',
+    );
+    if (!context.mounted) return;
+    showSnack(
+      context,
+      ok
+          ? '已开始下载导出包$summary'
+          : '浏览器拦下了下载，请允许本站下载后重试$summary',
+      behavior: SnackBarBehavior.floating,
+    );
     return;
   }
   final File tmp = File(

@@ -85,8 +85,10 @@ void main() {
     WidgetTester tester, {
     required AttachmentDraft draft,
     required String style,
+    bool visionEnabled = true,
+    double height = 220,
   }) async {
-    tester.view.physicalSize = const Size(420, 220);
+    tester.view.physicalSize = Size(420, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -104,6 +106,7 @@ void main() {
     addTearDown(input.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
           fontFamily: 'SourceHanSans',
@@ -117,7 +120,7 @@ void main() {
               inputController: input,
               inputFocusNode: FocusNode(),
               attachments: draft,
-              visionEnabled: true,
+              visionEnabled: visionEnabled,
               sending: false,
               inspirationInProgress: false,
               onSend: () {},
@@ -152,6 +155,34 @@ void main() {
     await expectLater(
       find.byType(ChatInputBar),
       matchesGoldenFile('goldens/attachment_input_classic.png'),
+    );
+  });
+
+  testWidgets('点回形针弹出的上传抽屉', (WidgetTester tester) async {
+    final AttachmentDraft draft = AttachmentDraft();
+    await pumpBar(tester, draft: draft, style: 'capsule', height: 640);
+    await tester.tap(find.byTooltip('上传文件'));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/attachment_sheet.png'),
+    );
+  });
+
+  testWidgets('模型不支持视觉时的抽屉（相册/照相隐藏 + 说明）', (WidgetTester tester) async {
+    final AttachmentDraft draft = AttachmentDraft();
+    await pumpBar(
+      tester,
+      draft: draft,
+      style: 'capsule',
+      visionEnabled: false,
+      height: 640,
+    );
+    await tester.tap(find.byTooltip('上传文件'));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/attachment_sheet_no_vision.png'),
     );
   });
 
