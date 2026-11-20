@@ -131,7 +131,7 @@ void main() {
     await tester.pumpAndSettle();
     // 点整行（ListTile），点 Text 会因为有 FitText 包裹而命中不到。
     await tester.tap(find.ancestor(
-      of: find.text('角色卡类').first,
+      of: find.text('角色卡').first,
       matching: find.byType(InkWell),
     ).first);
     await tester.pumpAndSettle();

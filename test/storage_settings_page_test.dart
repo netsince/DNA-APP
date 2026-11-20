@@ -68,13 +68,13 @@ void main() {
   testWidgets('总览 + 七类明细都渲染出来', (WidgetTester tester) async {
     await pump(tester, _FakeUsage(_report()));
     for (final String label in <String>[
-      '会话类',
-      '角色卡类',
-      '世界类',
-      '缓存类',
-      '下载类',
-      '附件类',
-      '其他类',
+      '会话',
+      '角色卡',
+      '世界',
+      '缓存',
+      '下载',
+      '附件',
+      '其他',
     ]) {
       expect(find.text(label), findsWidgets, reason: '$label 没显示');
     }
@@ -82,7 +82,7 @@ void main() {
 
   testWidgets('点分类进明细页，能看到条目', (WidgetTester tester) async {
     await pump(tester, _FakeUsage(_report()));
-    await tester.tap(find.text('会话类').first);
+    await tester.tap(find.text('会话').first);
     await tester.pumpAndSettle();
     expect(find.text('和她的第一个夜晚'), findsWidgets);
     expect(find.textContaining('128 条消息'), findsWidgets);
