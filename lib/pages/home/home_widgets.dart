@@ -8,6 +8,7 @@ import '../../models/world.dart';
 import '../../services/image_storage.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
+import '../../utils/action_table.dart';
 import '../../utils/error_display.dart';
 import '../../widgets/app_container.dart';
 import '../chat_page.dart';
@@ -163,129 +164,126 @@ class _ConversationItem extends StatelessWidget {
               child: const Icon(Icons.drag_handle),
             ),
             const SizedBox(width: 8),
-            PopupMenuButton<String>(
+            rowActionMenu(
               tooltip: '更多操作',
-              onSelected: (String value) async {
-                if (value == 'edit') {
-                  if (!context.mounted) return;
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (BuildContext context) => ConversationEditPage(
-                        controller: controller,
-                        conversation: conversation,
-                      ),
-                    ),
-                  );
-                } else if (value == 'pin') {
-                  await controller.setConversationPinned(
-                    id: conversation.id,
-                    pinned: !conversation.pinned,
-                  );
-                } else if (value == 'duplicate') {
-                  try {
-                    await controller.duplicateConversation(conversation.id);
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: FitText('复制会话失败：${describeError(e)}'),
-                        ),
-                      );
-                    }
-                  }
-                } else if (value == 'archive') {
-                  await controller.setConversationArchived(
-                    id: conversation.id,
-                    archived: true,
-                  );
-                } else if (value == 'unarchive') {
-                  await controller.setConversationArchived(
-                    id: conversation.id,
-                    archived: false,
-                  );
-                } else if (value == 'delete') {
-                  if (!context.mounted) return;
-                  final TA? ta = controller.getTaById(conversation.taId);
-                  final String taName = ta?.name ?? '';
-                  final List<String> validNames =
-                      taName.isNotEmpty ? <String>[taName] : <String>[];
-                  final String promptHint = taName.isNotEmpty
-                      ? '请完整输入你对话的角色名「$taName」以确认删除'
-                      : '该对话关联角色名缺失，请输入任意文字以确认删除';
-                  await Navigator.of(context).push<bool>(
-                    MaterialPageRoute<bool>(
-                      builder: (BuildContext context) => DeleteConfirmPage(
-                        controller: controller,
-                        title: '删除对话',
-                        entityName: taName.isNotEmpty ? taName : '该对话',
-                        validNames: validNames,
-                        promptHint: promptHint,
-                        contentBuilder: (BuildContext ctx) =>
-                            buildConversationPreviewSections(
-                                ctx, controller, conversation),
-                        onDelete: () =>
-                            controller.deleteConversationWithBackup(
-                                conversation.id),
-                        requireName: controller.settings.requireNameToDelete,
-                      ),
-                    ),
-                  );
-                }
-              },
-              itemBuilder: (BuildContext context) {
-                if (conversation.archived) {
-                  return <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'unarchive',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[Icon(Icons.unarchive_outlined), AppSpacing.wMd, FitText('恢复')],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[Icon(Icons.delete_outline), AppSpacing.wMd, FitText('删除')],
-                      ),
-                    ),
-                  ];
-                }
-                return <PopupMenuEntry<String>>[
-                  PopupMenuItem<String>(
-                    value: 'pin',
-                    child: Row(
-  mainAxisSize: MainAxisSize.min,
-  children: <Widget>[Icon(conversation.pinned
-                          ? Icons.push_pin_outlined
-                          : Icons.push_pin), AppSpacing.wMd, FitText(conversation.pinned ? '取消置顶' : '置顶')],
-),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'duplicate',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[Icon(Icons.copy_outlined), AppSpacing.wMd, FitText('复制会话')],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[Icon(Icons.edit_outlined), AppSpacing.wMd, FitText('更改信息')],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'archive',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[Icon(Icons.archive_outlined), AppSpacing.wMd, FitText('归档')],
-                    ),
-                  ),
-                ];
-              },
               child: const Icon(Icons.more_vert),
+              // 归档态 / 未归档态共用这一张动作表：可见项由 visible 区分。
+              // 菜单项沿用本页原来的 Row(Icon, 间距, FitText) 画法：
+              // 图标 24、图标与文字之间 12（= AppSpacing.md）。
+              iconSize: 24,
+              iconGap: AppSpacing.md,
+              actions: <RowAction>[
+                RowAction(
+                  id: 'pin',
+                  label: conversation.pinned ? '取消置顶' : '置顶',
+                  icon: conversation.pinned
+                      ? Icons.push_pin_outlined
+                      : Icons.push_pin,
+                  visible: !conversation.archived,
+                  onSelected: () async {
+                    await controller.setConversationPinned(
+                      id: conversation.id,
+                      pinned: !conversation.pinned,
+                    );
+                  },
+                ),
+                RowAction(
+                  id: 'duplicate',
+                  label: '复制会话',
+                  icon: Icons.copy_outlined,
+                  visible: !conversation.archived,
+                  onSelected: () async {
+                    try {
+                      await controller.duplicateConversation(conversation.id);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: FitText('复制会话失败：${describeError(e)}'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                RowAction(
+                  id: 'edit',
+                  label: '更改信息',
+                  icon: Icons.edit_outlined,
+                  visible: !conversation.archived,
+                  onSelected: () async {
+                    if (!context.mounted) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => ConversationEditPage(
+                          controller: controller,
+                          conversation: conversation,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                RowAction(
+                  id: 'archive',
+                  label: '归档',
+                  icon: Icons.archive_outlined,
+                  visible: !conversation.archived,
+                  onSelected: () async {
+                    await controller.setConversationArchived(
+                      id: conversation.id,
+                      archived: true,
+                    );
+                  },
+                ),
+                RowAction(
+                  id: 'unarchive',
+                  label: '恢复',
+                  icon: Icons.unarchive_outlined,
+                  visible: conversation.archived,
+                  // 原来「恢复」与「删除」之间的那条分隔线。
+                  dividerAfter: true,
+                  onSelected: () async {
+                    await controller.setConversationArchived(
+                      id: conversation.id,
+                      archived: false,
+                    );
+                  },
+                ),
+                RowAction(
+                  id: 'delete',
+                  label: '删除',
+                  icon: Icons.delete_outline,
+                  visible: conversation.archived,
+                  onSelected: () async {
+                    if (!context.mounted) return;
+                    final TA? ta = controller.getTaById(conversation.taId);
+                    final String taName = ta?.name ?? '';
+                    final List<String> validNames =
+                        taName.isNotEmpty ? <String>[taName] : <String>[];
+                    final String promptHint = taName.isNotEmpty
+                        ? '请完整输入你对话的角色名「$taName」以确认删除'
+                        : '该对话关联角色名缺失，请输入任意文字以确认删除';
+                    await Navigator.of(context).push<bool>(
+                      MaterialPageRoute<bool>(
+                        builder: (BuildContext context) => DeleteConfirmPage(
+                          controller: controller,
+                          title: '删除对话',
+                          entityName: taName.isNotEmpty ? taName : '该对话',
+                          validNames: validNames,
+                          promptHint: promptHint,
+                          contentBuilder: (BuildContext ctx) =>
+                              buildConversationPreviewSections(
+                                  ctx, controller, conversation),
+                          onDelete: () =>
+                              controller.deleteConversationWithBackup(
+                                  conversation.id),
+                          requireName: controller.settings.requireNameToDelete,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             const SizedBox(width: 8),
             const Icon(Icons.chevron_right),

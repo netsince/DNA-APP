@@ -33,11 +33,12 @@ void main() {
     await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
 
-    expect(find.text('查看详情'), findsOneWidget);
-    expect(find.text('隐藏'), findsOneWidget);
+    // FitText 是 Text 的子类，短标签内部还会再套一层 Text，所以用 findsWidgets。
+    expect(find.text('查看详情'), findsWidgets);
+    expect(find.text('隐藏'), findsWidgets);
     expect(find.text('重新提审'), findsNothing, reason: 'visible=false 的动作不该出现');
 
-    await tester.tap(find.text('隐藏'));
+    await tester.tap(find.text('隐藏').first);
     await tester.pumpAndSettle();
     expect(fired, <String>['hidden']);
   });
@@ -57,9 +58,49 @@ void main() {
     await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
 
-    final BuildContext ctx = tester.element(find.text('删除'));
-    final Text text = tester.widget<Text>(find.text('删除'));
-    expect(text.style?.color, Theme.of(ctx).colorScheme.error);
+    final BuildContext ctx = tester.element(find.text('删除').first);
+    final Iterable<Text> texts = tester.widgetList<Text>(find.text('删除'));
+    expect(
+      texts.any((Text t) => t.style?.color == Theme.of(ctx).colorScheme.error),
+      isTrue,
+      reason: '危险动作的文字应为 error 色',
+    );
+  });
+
+  testWidgets('勾选项渲染成 CheckedPopupMenuItem，带分隔线的项后面有线', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: rowActionMenu(
+            itemStyle: RowActionItemStyle.listTile,
+            actions: <RowAction>[
+              RowAction(
+                id: 'bgm',
+                label: '背景音乐',
+                checked: true,
+                icon: Icons.music_note_outlined,
+                onSelected: () {},
+              ),
+              RowAction(
+                id: 'export',
+                label: '导出对话',
+                dividerAfter: true,
+                onSelected: () {},
+              ),
+              RowAction(id: 'archive', label: '存档', onSelected: () {}),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CheckedPopupMenuItem<String>), findsOneWidget);
+    expect(find.byType(PopupMenuDivider), findsOneWidget);
+    expect(find.text('导出对话'), findsWidgets);
   });
 
   test('hasVisibleRowAction：全不可见时为 false', () {

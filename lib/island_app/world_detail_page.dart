@@ -20,6 +20,7 @@ import 'package:dna/models/world.dart';
 import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 
 /// 世界卡详情：元信息 + 词条索引（分组 / 搜索 / 折叠）+ 1 条示例 + 「导入到我的世界」。
 ///
@@ -345,41 +346,31 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
             icon: Icon(_favorited ? Icons.bookmark : Icons.bookmark_border),
             onPressed: _favoriting ? null : _toggleFavorite,
           ),
-          PopupMenuButton<String>(
+          // 菜单项由动作表渲染：项样式/图标尺寸照原来的
+          // `ListTile(dense, contentPadding: zero, Icon 20)` 传，观感不变。
+          rowActionMenu(
             tooltip: '更多',
-            onSelected: (String value) {
-              if (value == 'link') _copyLink();
-              if (value == 'report') _openReport();
-              if (value == 'edit') _edit();
-            },
-            itemBuilder: (_) => <PopupMenuEntry<String>>[
-              if (_isMine)
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.edit_outlined, size: 20),
-                    title: Text('编辑'),
-                  ),
-                ),
-              const PopupMenuItem<String>(
-                value: 'link',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.link, size: 20),
-                  title: Text('复制链接'),
-                ),
+            itemStyle: RowActionItemStyle.listTile,
+            iconSize: 20,
+            actions: <RowAction>[
+              RowAction(
+                id: 'edit',
+                label: '编辑',
+                icon: Icons.edit_outlined,
+                visible: _isMine,
+                onSelected: _edit,
               ),
-              const PopupMenuItem<String>(
-                value: 'report',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.flag_outlined, size: 20),
-                  title: Text('举报'),
-                ),
+              RowAction(
+                id: 'link',
+                label: '复制链接',
+                icon: Icons.link,
+                onSelected: _copyLink,
+              ),
+              RowAction(
+                id: 'report',
+                label: '举报',
+                icon: Icons.flag_outlined,
+                onSelected: _openReport,
               ),
             ],
           ),
