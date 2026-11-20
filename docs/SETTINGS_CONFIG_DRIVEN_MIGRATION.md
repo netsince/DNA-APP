@@ -3,6 +3,9 @@
 > 目标：设置项由**声明**产生界面、产生搜索索引、产生写入口；页面不再手写
 > 分组、字段与落盘逻辑。
 
+> 注：文中提到的「离线语音输入（STT）」已于 2026-11 移除，相关的 `sherpaCustomBaseUrl`、
+> `sherpaModelReady`、`sherpaModelPath` 等键随之下线；其余迁移结论仍然有效。
+
 ## 一、四层结构
 
 | 层 | 文件 | 职责 |
@@ -33,7 +36,7 @@
 ## 三、进度
 
 * 声明驱动的字段页：**10 个**（安全与隐私、外观与聊天界面、回复与发送、
-  剧情摘要与上下文、消息与高级、语音合成、语音输入、采样参数、自由剪图、检查更新）。
+  剧情摘要与上下文、消息与高级、语音合成、采样参数、自由剪图、检查更新）。
 * key 归属：**待迁移桶已删除**。82 个键现在的分布是：已声明 60 / 内部状态 11 /
   动作项托管 3 / 由手写页面管理 11（每条附理由）。
 * 渲染器已支持 `SettingDouble` 的折叠编辑（`CollapsibleDoubleSetting`），
@@ -53,7 +56,6 @@
 |---|---|
 | `ttsGlobalSeed` | 可空整数：null = 恢复默认种子，与 0 是两种音色；`SettingInt` 只能写 int |
 | `customAccentColor` | 可空 ARGB：切回「自动取色」要真清空，`copyWith` 的 `??` 语义表达不了 |
-| `sherpaCustomBaseUrl` | 文本：输入即写且要 trim，声明层还没有文本项 |
 
 等声明层补上「可空数值项」「文本项」之后，这个桶应该缩到空。
 
@@ -75,11 +77,11 @@
    `retrySequential` 旧版是 `SettingSwitch.description`（开关右侧同一行）。
    声明层补了 `SettingToggle.inlineNote`，三条已改回行内，不再多占一行。
 4. **Beta 徽标**。`SettingSectionSpec` 补了 `trailing`，TTS「语音朗读」与
-   语音输入「离线语音识别」两张卡重新挂上 `BetaTag`。
-5. **两态副标题**。TTS 开关（就绪 / 未就绪）与语音输入开关的副标题旧版随状态
-   切换。声明层补了 `SettingItemSpec.subtitleOf(SettingsRuntime)`，两者已恢复
-   两态；TTS 的来源是运行态 `ttsModelsReady`，语音输入的来源是
-   `sherpaModelReady` + `sherpaModelPath`（都在 AppSettings 里）。
+   （语音输入页已随 STT 移除，不再列。）
+5. **两态副标题**。TTS 开关（就绪 / 未就绪）的副标题旧版随状态
+   切换。声明层补了 `SettingItemSpec.subtitleOf(SettingsRuntime)`，已恢复
+   两态；来源是运行态 `ttsModelsReady`。（原先还有离线语音输入的副标题，
+   该功能已于 2026-11 移除。）
 
 ### 仍是差异（文案级，不是行为）
 
@@ -105,7 +107,7 @@
 ## 七、待办（都不是本次目标的一部分）
 
 1. 补「可空数值项」「文本项」两种声明类型，把动作项托管的 3 个 key 收进声明
-   （`ttsGlobalSeed` / `customAccentColor` / `sherpaCustomBaseUrl`）。
+   （`ttsGlobalSeed` / `customAccentColor`）。
 2. 若将来要动 AI 服务页：它现在是「表单 + 异步探测 + 3 tab 分栏」的复合页面，
    要声明化得先把它拆成「连接表单（自定义）」+「其余字段（声明）」两块。
 3. 第五节的四条文案级差异，属于「要不要给 `SettingSectionSpec` 加 trailing /

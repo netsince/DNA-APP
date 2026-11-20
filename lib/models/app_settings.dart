@@ -3,7 +3,6 @@ import 'llm_model_config.dart';
 import 'llm_provider_config.dart';
 import 'prompt_strategy.dart';
 import 'quick_reply.dart';
-import 'voice_models.dart';
 
 /// 底部提示（SnackBar）的默认停留时长（毫秒）。
 ///
@@ -55,14 +54,8 @@ class AppSettings {
     this.regexRules = const <RegexRule>[],
     required this.appIcon,
     required this.snackDurationMs,
-    required this.sherpaModelSource,
-    this.sherpaCustomBaseUrl,
-    required this.sherpaModelReady,
-    this.sherpaModelPath,
-    required this.selectedVoiceModelId,
     required this.accentMode,
     this.customAccentColor,
-    required this.voiceInputEnabled,
     required this.ttsEnabled,
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
@@ -137,14 +130,8 @@ class AppSettings {
       regexRules: <RegexRule>[],
       appIcon: 'default',
       snackDurationMs: kDefaultSnackDurationMs,
-      sherpaModelSource: 'auto',
-      sherpaCustomBaseUrl: null,
-      sherpaModelReady: false,
-      sherpaModelPath: null,
-      selectedVoiceModelId: kVoiceModelDefaultId,
       accentMode: 'auto',
       customAccentColor: null,
-      voiceInputEnabled: false,
       ttsEnabled: false,
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
@@ -321,19 +308,14 @@ class AppSettings {
 
   /// 语音识别模型来源偏好：'auto' | 'modelscope' | 'github' | 'custom'。
   /// 'auto' 才会探测并回退；其余为严格单选，失败直接报错。
-  final String sherpaModelSource;
 
   /// 自定义模型服务器根地址（source 为 'custom' 时生效）。
-  final String? sherpaCustomBaseUrl;
 
   /// 模型是否已下载就绪（本地存在可用模型）。
-  final bool sherpaModelReady;
 
   /// 已下载模型的本地目录路径。
-  final String? sherpaModelPath;
 
   /// 当前选中的语音识别模型 id。
-  final String selectedVoiceModelId;
 
   /// 强调色（莫奈取色）模式：'auto' 跟随系统/角色卡；'custom' 使用自定义色。
   final String accentMode;
@@ -341,8 +323,6 @@ class AppSettings {
   /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
   final int? customAccentColor;
 
-  /// 是否启用离线语音输入（STT）。关闭时聊天输入框不显示麦克风按钮。
-  final bool voiceInputEnabled;
 
   /// 是否启用端侧语音合成（TTS）。
   final bool ttsEnabled;
@@ -506,15 +486,9 @@ class AppSettings {
       'regexRules': regexRules.map((RegexRule r) => r.toJson()).toList(),
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
-      'sherpaModelSource': sherpaModelSource,
-      'sherpaCustomBaseUrl': sherpaCustomBaseUrl,
-      'sherpaModelReady': sherpaModelReady,
-      'sherpaModelPath': sherpaModelPath,
-      'selectedVoiceModelId': selectedVoiceModelId,
-      'accentMode': accentMode,
+                'accentMode': accentMode,
       'customAccentColor': customAccentColor,
-      'voiceInputEnabled': voiceInputEnabled,
-      'ttsEnabled': ttsEnabled,
+        'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
       'showParenButton': showParenButton,
@@ -608,15 +582,8 @@ class AppSettings {
       appIcon: (json['appIcon'] as String?) ?? 'default',
       snackDurationMs:
           (json['snackDurationMs'] as int?) ?? kDefaultSnackDurationMs,
-      sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
-      sherpaCustomBaseUrl: json['sherpaCustomBaseUrl'] as String?,
-      sherpaModelReady: (json['sherpaModelReady'] as bool?) ?? false,
-      sherpaModelPath: json['sherpaModelPath'] as String?,
-      selectedVoiceModelId:
-          (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
       accentMode: (json['accentMode'] as String?) ?? 'auto',
       customAccentColor: json['customAccentColor'] as int?,
-      voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? false,
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
@@ -726,14 +693,8 @@ class AppSettings {
     List<RegexRule>? regexRules,
     String? appIcon,
     int? snackDurationMs,
-    String? sherpaModelSource,
-    String? sherpaCustomBaseUrl,
-    bool? sherpaModelReady,
-    String? sherpaModelPath,
-    String? selectedVoiceModelId,
     String? accentMode,
     int? customAccentColor,
-    bool? voiceInputEnabled,
     bool? ttsEnabled,
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
@@ -812,14 +773,8 @@ class AppSettings {
       regexRules: regexRules ?? this.regexRules,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
-      sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,
-      sherpaCustomBaseUrl: sherpaCustomBaseUrl ?? this.sherpaCustomBaseUrl,
-      sherpaModelReady: sherpaModelReady ?? this.sherpaModelReady,
-      sherpaModelPath: sherpaModelPath ?? this.sherpaModelPath,
-      selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
       accentMode: accentMode ?? this.accentMode,
       customAccentColor: customAccentColor ?? this.customAccentColor,
-      voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,

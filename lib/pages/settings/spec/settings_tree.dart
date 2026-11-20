@@ -41,7 +41,6 @@ import '../sampler_settings_spec.dart';
 import '../security_settings_spec.dart';
 import '../tts_settings_spec.dart';
 import '../update_settings_spec.dart';
-import '../voice_input_settings_spec.dart';
 
 /// 全部设置分组，**列表顺序即界面顺序**。
 ///
@@ -114,7 +113,6 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
   conversationSendEntry,
   conversationSummaryEntry,
   ttsEntry,
-  voiceInputEntry,
   appearanceEntry,
   CustomEntry(
     id: 'dataBackup',

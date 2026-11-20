@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +19,7 @@ import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../utils/message_processor.dart';
 import '../utils/platform_capabilities.dart';
+import '../services/removed_stt_cleanup.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
 import '../services/zhipu_service.dart';
@@ -193,12 +195,12 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 升级清理：旧版本装的离线语音模型（文档目录下几百 MB）与设置键已无人使用，
+    // 首启后台删一次；跑过就只是一次字典查找，不挡启动。
+    unawaited(cleanupRemovedSpeechInput());
     // 同步激活配置到顶层遗留字段
     _syncActiveModelToLegacyFields();
     // 平台能力门控：Web 上强制关闭不支持的功能设置（置灰，不触发原生调用）。
-    if (!PlatformCapabilities.voiceInputSupported) {
-      _settings = _settings.copyWith(voiceInputEnabled: false);
-    }
     if (!PlatformCapabilities.ttsSupported) {
       _settings = _settings.copyWith(ttsEnabled: false);
     }
@@ -680,36 +682,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存语音识别模型来源偏好。
-  Future<void> saveSherpaModelSource(String source) async {
-    _settings = _settings.copyWith(sherpaModelSource: source);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
-  /// 保存自定义模型服务器根地址。
-  Future<void> saveSherpaCustomBaseUrl(String? url) async {
-    _settings = _settings.copyWith(sherpaCustomBaseUrl: url);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 记录模型是否已下载就绪及其本地目录。
-  Future<void> setSherpaModelReady(String? modelPath) async {
-    _settings = _settings.copyWith(
-      sherpaModelReady: modelPath != null && modelPath.isNotEmpty,
-      sherpaModelPath: modelPath,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存当前选中的语音识别模型 id。
-  Future<void> saveSelectedVoiceModel(String id) async {
-    _settings = _settings.copyWith(selectedVoiceModelId: id);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
   /// 保存强调色（莫奈取色）模式：'auto' 或 'custom'。
   Future<void> saveAccentMode(String mode) async {
@@ -898,13 +871,6 @@ class AppController extends ChangeNotifier {
       repetitionPenalty: 1.0,
       repetitionPenaltySlope: 0.0,
     );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「离线语音输入（STT）」开关。
-  Future<void> saveVoiceInputEnabled(bool value) async {
-    _settings = _settings.copyWith(voiceInputEnabled: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }

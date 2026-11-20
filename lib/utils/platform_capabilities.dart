@@ -7,8 +7,6 @@ import 'package:flutter/foundation.dart';
 abstract class PlatformCapabilities {
   PlatformCapabilities._();
 
-  /// 离线语音输入（sherpa-onnx + record）。
-  static bool get voiceInputSupported => !kIsWeb;
 
   /// 端侧语音合成（ChatTTS + onnxruntime）。
   static bool get ttsSupported => !kIsWeb;

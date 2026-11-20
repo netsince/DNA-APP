@@ -7,7 +7,6 @@ import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
 import '../models/prompt_strategy.dart';
 import '../models/quick_reply.dart';
-import '../models/voice_models.dart';
 
 class SettingsService {
   static const String _simpleModelModeKey = 'simple_model_mode';
@@ -40,18 +39,12 @@ class SettingsService {
   static const String _fontSizeStepKey = 'font_size_step';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
-  static const String _sherpaModelSourceKey = 'sherpa_model_source';
-  static const String _sherpaCustomBaseUrlKey = 'sherpa_custom_base_url';
-  static const String _sherpaModelReadyKey = 'sherpa_model_ready';
-  static const String _sherpaModelPathKey = 'sherpa_model_path';
-  static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
   static const String _accentModeKey = 'accent_mode';
   static const String _customAccentColorKey = 'custom_accent_color';
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _bgmVolumeKey = 'bgm_volume';
   static const String _bgmSizeLimitUnlockedKey = 'bgm_size_limit_unlocked';
-  static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showParenButtonKey = 'show_paren_button';
   static const String _showMessageAvatarKey = 'show_message_avatar';
   static const String _showMessageRetryKey = 'show_message_retry';
@@ -192,20 +185,12 @@ class SettingsService {
       // 兜底值与 AppSettings 的默认值同源（审计 3.5：提示不能只停 1 秒）。
       snackDurationMs:
           _readInt(prefs, _snackDurationMsKey, kDefaultSnackDurationMs),
-      sherpaModelSource:
-          prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
-      sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,
-      sherpaCustomBaseUrl: prefs.getString(_sherpaCustomBaseUrlKey),
-      sherpaModelPath: prefs.getString(_sherpaModelPathKey),
-      selectedVoiceModelId:
-          prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
       customAccentColor: _readNullableInt(prefs, _customAccentColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
       ttsGlobalSeed: _readNullableInt(prefs, _ttsGlobalSeedKey),
       bgmVolume: _readInt(prefs, _bgmVolumeKey, 50),
       bgmSizeLimitUnlocked: prefs.getBool(_bgmSizeLimitUnlockedKey) ?? false,
-      voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
       showMessageAvatar: prefs.getBool(_showMessageAvatarKey) ?? true,
       showMessageRetry: prefs.getBool(_showMessageRetryKey) ?? true,
@@ -312,21 +297,6 @@ class SettingsService {
     await prefs.setInt(_fontSizeStepKey, settings.fontSizeStep);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
-    await prefs.setString(_sherpaModelSourceKey, settings.sherpaModelSource);
-    if (settings.sherpaCustomBaseUrl != null) {
-      await prefs.setString(
-          _sherpaCustomBaseUrlKey, settings.sherpaCustomBaseUrl!);
-    } else {
-      await prefs.remove(_sherpaCustomBaseUrlKey);
-    }
-    await prefs.setBool(_sherpaModelReadyKey, settings.sherpaModelReady);
-    if (settings.sherpaModelPath != null) {
-      await prefs.setString(_sherpaModelPathKey, settings.sherpaModelPath!);
-    } else {
-      await prefs.remove(_sherpaModelPathKey);
-    }
-    await prefs.setString(
-        _sherpaSelectedModelKey, settings.selectedVoiceModelId);
     await prefs.setString(_accentModeKey, settings.accentMode);
     if (settings.customAccentColor != null) {
       await prefs.setInt(
@@ -342,7 +312,6 @@ class SettingsService {
     }
     await prefs.setInt(_bgmVolumeKey, settings.bgmVolume);
     await prefs.setBool(_bgmSizeLimitUnlockedKey, settings.bgmSizeLimitUnlocked);
-    await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showParenButtonKey, settings.showParenButton);
     await prefs.setBool(_showMessageAvatarKey, settings.showMessageAvatar);
     await prefs.setBool(_showMessageRetryKey, settings.showMessageRetry);

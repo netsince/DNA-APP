@@ -44,7 +44,7 @@
 
 | 位置 | 规模 | 管什么 |
 |---|---|---|
-| `pages/settings/*_spec.dart`（11 个） | 3247 行 | 外观/对话/摘要/采样/TTS/语音输入/安全/更新/自由剪图 |
+| `pages/settings/*_spec.dart`（10 个） | 2846 行 | 外观/对话/摘要/采样/TTS/安全/更新/自由剪图（`voice_input` 随 STT 移除） |
 | `settings/spec/settings_spec.dart` | 547 行 | 6 种字段：Toggle / Choice / Int / Double / Action / Info |
 | `settings/spec/settings_fields_page.dart` | 548 行 | 字段树渲染器 |
 | `settings/spec/settings_tree.dart` | 180 行 | 分组 + 入口表 |

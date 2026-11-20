@@ -6,10 +6,7 @@ import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../models/quick_reply.dart';
-import '../../../../services/speech_to_text_service.dart';
 import '../../../../state/app_controller.dart';
-import '../../../../utils/platform_capabilities.dart';
-import '../../../../utils/ui_feedback.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class ChatInputBar extends StatefulWidget {
@@ -83,71 +80,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 防止程序化修改文本时递归触发自动补全。
   bool _isAdjusting = false;
 
-  /// 是否处于「语音输入模式」（隐藏普通输入栏，显示语音条）。
-  bool _voiceMode = false;
-
-  /// 是否正在聆听。
-  bool _voiceListening = false;
-
-  /// 点击停止后进入「待确认」状态：长条裂变为 修改 / 发送 / 取消。
-  bool _voiceReview = false;
-
-  /// 本次聆听是否由「长按」触发：
-  /// 长按松开 = 直接发送；点击 = 再点一次停止并进入待确认。
-  bool _enteredByLongPress = false;
-
-  /// start() 正在进行中（防止重复触发导致并发 start）。
-  bool _starting = false;
-
-  /// 长按松开发生在 start() 完成之前时标记：start 完成后立即停止并发送。
-  bool _pendingSend = false;
-
-  /// 长按被系统中断且 start() 未完成时标记：start 完成后立即取消。
-  bool _pendingCancel = false;
-
-  /// 按下计时器：用于区分长按（>=180ms）与点击。
-  Timer? _longPressTimer;
-
-  /// 当前是否有指针按下未抬起。
-  bool _pressActive = false;
-
-  /// 本次按下是否已触发长按（计时器到点）。
-  bool _longPressFired = false;
-
-  /// 语音模式下的实时识别文本。
-  String _transcript = '';
-
-  /// 进入语音模式前输入框里已有的文字，发送时拼接到识别结果前。
-  String _preRecordText = '';
-
-  StreamSubscription<String>? _partialSub;
-
   @override
   void initState() {
     super.initState();
     _prevText = widget.inputController.text;
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
-    // Web 端不支持离线语音输入：不初始化语音服务，避免触发原生调用。
-    if (PlatformCapabilities.voiceInputSupported) {
-      _partialSub = SpeechToTextService.instance.partial.listen(_onPartial);
-    }
   }
 
   @override
   void dispose() {
-    _longPressTimer?.cancel();
     widget.inputController.removeListener(_onInputChanged);
-    _partialSub?.cancel();
     super.dispose();
-  }
-
-  /// 当前选中的模型是否已下载就绪。
-  bool get _voiceReady {
-    final String? p = widget.controller.settings.sherpaModelPath;
-    return widget.controller.settings.sherpaModelReady &&
-        p != null &&
-        p.endsWith(widget.controller.settings.selectedVoiceModelId);
   }
 
   void _onInputChanged() {
@@ -156,16 +100,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
       setState(() {
         _hasInput = hasText;
       });
-    }
-  }
-
-  /// 语音识别实时结果：聆听中同步到语音条的识别文本。
-  void _onPartial(String text) {
-    if (!_voiceListening) {
-      return;
-    }
-    if (mounted) {
-      setState(() => _transcript = text);
     }
   }
 
@@ -339,488 +273,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
-  /// 点击麦克风：进入语音输入模式（隐藏普通输入框，显示语音条）。
-  void _enterVoiceMode() {
-    if (!_voiceReady) {
-      showSnack(context, '请先在「设置 → 语音输入」中下载模型');
-      return;
-    }
-    if (mounted) {
-      setState(() {
-        _voiceMode = true;
-        _voiceListening = false;
-        _voiceReview = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-        _preRecordText = widget.inputController.text;
-      });
-    }
-    // 预热识别器：进入语音模式时即开始构建，按下长按/点击时 start() 几乎无延迟。
-    // 失败忽略：真正按下时 _startListening 会再次初始化并提示错误。
-    final String p = widget.controller.settings.sherpaModelPath!;
-    SpeechToTextService.instance.ensureInitialized(p).catchError((Object _) {});
-  }
 
-  /// 退出语音模式，回到普通文本输入。
-  void _exitVoiceMode() {
-    if (_voiceListening) {
-      SpeechToTextService.instance.cancel();
-    }
-    if (mounted) {
-      setState(() {
-        _voiceMode = false;
-        _voiceListening = false;
-        _voiceReview = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-      });
-    }
-  }
 
-  Future<void> _startListening() async {
-    if (_voiceListening || _starting) {
-      return;
-    }
-    _starting = true;
-    try {
-      final String? p = widget.controller.settings.sherpaModelPath;
-      await SpeechToTextService.instance.ensureInitialized(p!);
-      final bool ok = await SpeechToTextService.instance.start();
-      if (!ok) {
-        if (mounted) {
-          showSnack(context, '无法使用麦克风，请检查系统麦克风权限');
-        }
-        return;
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceListening = true;
-        _transcript = '';
-      });
-      // 松手/中断发生在 start() 完成之前：现在按当时的意图处理。
-      if (_pendingSend) {
-        _pendingSend = false;
-        _stopAndSend();
-      } else if (_pendingCancel) {
-        _pendingCancel = false;
-        _cancelToListenIdle();
-      }
-    } catch (e) {
-      // 任何初始化/启动异常都复位状态，避免卡在「聆听中」。
-      _pendingSend = false;
-      _pendingCancel = false;
-      _enteredByLongPress = false;
-      if (mounted) {
-        showSnack(context, '语音启动失败：$e');
-      }
-    } finally {
-      _starting = false;
-    }
-  }
 
-  /// 长按松开：停止并直接发送；若没识别到内容则回到未聆听语音模式以便重试。
-  /// 任何异常都会复位状态，避免卡在「聆听中」。
-  Future<void> _stopAndSend() async {
-    if (!_voiceListening) {
-      return;
-    }
-    String text;
-    try {
-      text = await SpeechToTextService.instance.stop();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-        setState(() {
-          _voiceListening = false;
-          _enteredByLongPress = false;
-          _transcript = '';
-        });
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    final String t = text.trim();
-    if (t.isEmpty) {
-      // 没识别到内容：不发送，回到未聆听的语音模式。
-      setState(() {
-        _voiceListening = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-      });
-      return;
-    }
-    setState(() {
-      _voiceListening = false;
-      _transcript = text;
-    });
-    _commitAndExit(text);
-  }
 
-  /// 点击停止：进入待确认状态（长条裂变为 修改 / 发送 / 取消）。
-  Future<void> _stopAndReview() async {
-    if (!_voiceListening) {
-      return;
-    }
-    String text;
-    try {
-      text = await SpeechToTextService.instance.stop();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-        setState(() {
-          _voiceListening = false;
-          _enteredByLongPress = false;
-          _transcript = '';
-        });
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _voiceListening = false;
-      _voiceReview = true;
-      _transcript = text;
-    });
-  }
 
-  /// 长按被系统中断：取消聆听，回到未聆听的语音模式。
-  Future<void> _cancelToListenIdle() async {
-    try {
-      await SpeechToTextService.instance.cancel();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-      }
-    }
-    if (mounted) {
-      setState(() {
-        _voiceListening = false;
-        _transcript = '';
-      });
-    }
-  }
 
-  /// 待确认 → 修改：回到文本模式，输入框带上识别结果。
-  void _editTranscript() {
-    final String t = _transcript.trim();
-    final String base = _preRecordText;
-    final String msg = base.isEmpty
-        ? t
-        : (base.endsWith(' ') || t.isEmpty ? '$base$t' : '$base $t');
-    widget.inputController.text = msg;
-    widget.inputController.selection =
-        TextSelection.collapsed(offset: msg.length);
-    _exitVoiceMode();
-  }
-
-  /// 待确认 → 发送。
-  void _sendFromReview() {
-    _commitAndExit(_transcript);
-  }
-
-  /// 待确认 → 取消：回到未聆听的语音模式（丢弃本次识别）。
-  void _discardReview() {
-    if (mounted) {
-      setState(() {
-        _voiceReview = false;
-        _transcript = '';
-      });
-    }
-  }
-
-  /// 把识别文字拼上进入前已有文字，写入输入框并发送，退出语音模式。
-  void _commitAndExit(String transcript) {
-    final String t = transcript.trim();
-    if (t.isEmpty) {
-      _exitVoiceMode();
-      return;
-    }
-    final String base = _preRecordText;
-    final String msg = base.isEmpty
-        ? t
-        : (base.endsWith(' ') ? '$base$t' : '$base $t');
-    widget.inputController.text = msg;
-    _exitVoiceMode();
-    widget.onSend();
-  }
-
-  /// 普通文本模式下的麦克风按钮：点击进入语音输入模式。
-  /// Web 端不支持离线语音输入，置灰禁用。
-  Widget _buildMic() {
-    return IconButton(
-      tooltip: PlatformCapabilities.voiceInputSupported
-          ? (_voiceReady ? '语音输入' : '语音输入（需先下载模型）')
-          : '语音输入（当前平台不可用）',
-      onPressed: PlatformCapabilities.voiceInputSupported
-          ? (_voiceReady
-              ? _enterVoiceMode
-              : () =>
-                  showSnack(context, '请先在「设置 → 语音输入」中下载语音模型'))
-          : null,
-      icon: Icon(_voiceReady ? Icons.mic : Icons.mic_none_outlined),
-    );
-  }
-
-  /// 语音输入模式面板：根据 聆听 / 待确认 / 未聆听 三态切换布局。
-  Widget _buildVoicePanel() {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    final bool hasText = _transcript.trim().isNotEmpty;
-
-    // 待确认：长条裂变为 修改 / 取消 / 发送
-    if (_voiceReview) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildBackRow(cs),
-              const SizedBox(height: 8),
-              _buildTranscriptArea(theme, cs, hasText, '识别完成'),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _editTranscript,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const FitText('修改'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _discardReview,
-                      icon: const Icon(Icons.close),
-                      label: const FitText('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: _sendFromReview,
-                      icon: const Icon(Icons.send),
-                      label: const FitText('发送'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 聆听中：返回按钮隐藏，大长条占满底部
-    if (_voiceListening) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildTranscriptArea(theme, cs, hasText, '聆听中…'),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 120,
-                child: _buildBigVoiceButton(cs, listening: true),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 未聆听：返回按钮 + 小区域 + 大长条
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _buildBackRow(cs),
-            const SizedBox(height: 8),
-            _buildTranscriptArea(theme, cs, hasText, '长按或点击下方按钮说话'),
-            const SizedBox(height: 8),
-            _buildBigVoiceButton(cs, listening: false),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 语音模式顶部返回按钮：退出语音模式，回到文本输入。
-  Widget _buildBackRow(ColorScheme cs) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: IconButton(
-        tooltip: '返回',
-        onPressed: _exitVoiceMode,
-        icon: const Icon(Icons.arrow_back),
-      ),
-    );
-  }
-
-  /// 上方小区域：显示实时识别文本或占位提示。
-  Widget _buildTranscriptArea(
-      ThemeData theme, ColorScheme cs, bool hasText, String placeholder) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: cs.outlineVariant),
-        borderRadius: AppRadius.smAll,
-        color: _voiceListening
-            ? cs.errorContainer.withValues(alpha: AppAlpha.a12)
-            : cs.surfaceContainerHighest,
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FitText(
-          hasText ? _transcript : placeholder,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: hasText ? cs.onSurface : cs.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 大长条语音按钮：用 Listener + Timer 自己判定长按/点击，避免手势识别器竞态。
-  /// - 按住 >=180ms = 长按：聆听，松开直接发送；
-  /// - 快速点击：开始聆听，再点一次停止并进入待确认。
-  Widget _buildBigVoiceButton(ColorScheme cs, {required bool listening}) {
-    final bool pressed = _pressActive;
-    final Color background = listening
-        ? cs.error
-        : (pressed ? cs.errorContainer : cs.surfaceContainerHighest);
-    final Color foreground = listening
-        ? cs.onError
-        : (pressed ? cs.onErrorContainer : cs.onSurfaceVariant);
-    // 无障碍（审计 4.3）：Listener 只认裸指针事件，读屏/键盘用户根本够不着这个
-    // 按钮，也没有任何语义可读。这里在外面套一层 Semantics：
-    // 报「按住说话」这个按钮、给用法提示，并把 tap 挂成语义动作
-    // （读屏双击 = 这里原有的点击语义；"松开即发送"无法用语义动作表达）。
-    // 同时补上可见的按下态（以前按下除录音色外没有任何反馈）与文字标签：
-    // 空闲态从"只有一个 28px 图标"变成 ≥48dp 的明确控件。
-    return Semantics(
-      button: true,
-      label: listening ? '正在聆听，点击停止' : '按住说话',
-      hint: listening ? '点击结束录音并确认识别结果' : '长按说话，松开即发送',
-      onTap: listening ? _stopAndReview : _startListening,
-      onLongPress: _startListening,
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: _onPointerDown,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: AppRadius.mdAll,
-          ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(listening ? Icons.mic : Icons.mic_none, color: foreground, size: 28),
-              AppSpacing.hXs,
-              FitText(
-                listening ? '正在聆听' : '按住说话',
-                style: TextStyle(
-                  fontSize: AppFontSize.caption,
-                  color: foreground,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _onPointerDown(PointerDownEvent event) {
-    _pressActive = true;
-    _longPressFired = false;
-    // 让「按下态」真的画出来：以前 _pressActive 只在下次 setState 时才被
-    // build 读到，按钮在"按住但还没开始录音"的那一下没有任何视觉反馈。
-    if (mounted) {
-      setState(() {});
-    }
-    _longPressTimer?.cancel();
-    _longPressTimer = Timer(const Duration(milliseconds: 180), () {
-      _longPressFired = true;
-      _enteredByLongPress = true;
-      _startListening(); // 长按到点：开始聆听
-    });
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    if (!_pressActive) {
-      return;
-    }
-    _pressActive = false;
-    if (mounted) {
-      setState(() {});
-    }
-    _longPressTimer?.cancel();
-    _longPressTimer = null;
-    if (_longPressFired) {
-      // 长按下抬起：直接发送（长按语义）
-      if (_voiceListening) {
-        _stopAndSend();
-      } else {
-        _pendingSend = true; // start 未完成，待其完成后发送
-      }
-    } else {
-      // 快速点击抬起：点击语义
-      _enteredByLongPress = false;
-      if (!_voiceListening) {
-        _startListening();
-      } else if (!_enteredByLongPress) {
-        _stopAndReview();
-      } else {
-        _stopAndSend(); // 兜底
-      }
-    }
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    if (!_pressActive) {
-      return;
-    }
-    _pressActive = false;
-    if (mounted) {
-      setState(() {});
-    }
-    _longPressTimer?.cancel();
-    _longPressTimer = null;
-    if (_longPressFired) {
-      // 长按被系统中断
-      if (_voiceListening) {
-        _cancelToListenIdle();
-      } else {
-        _pendingCancel = true; // start 未完成，待其完成后取消
-      }
-    } else {
-      _enteredByLongPress = false;
-    }
-  }
 
   /// 快速回复按钮行：横向滚动的精致卡片胶囊，点击立即发送对应内容。
   Widget _buildQuickReplies() {
@@ -886,9 +344,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (_voiceMode) {
-      return _buildVoicePanel();
-    }
     final ColorScheme cs = Theme.of(context).colorScheme;
     // 输入栏样式：'capsule'（默认，胶囊输入岛）/ 'classic'（0.2.0 旧样式）。
     // 两种都在「设置 → 界面与显示 → 聊天输入栏」里可选，功能完全一致。
@@ -992,10 +447,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
           gap,
         ] else if (!_hasInput) ...<Widget>[
           // 语音输入按钮
-          if (widget.controller.settings.voiceInputEnabled) ...<Widget>[
-            _buildMic(),
-            gap,
-          ],
           // 灵感按钮
           IconButton(
             tooltip: '灵感',
