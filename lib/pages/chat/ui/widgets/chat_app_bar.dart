@@ -37,6 +37,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onToggleTokens,
     required this.onManageSnapshots,
     required this.onExport,
+    required this.onExportMarkdown,
     this.backgroundMode = '',
     this.ta,
     this.titleOverride,
@@ -66,6 +67,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onToggleTokens;
   final Future<void> Function() onManageSnapshots;
   final Future<void> Function() onExport;
+
+  /// 导出为人类可读的 Markdown（与 JSON 备份互补）。
+  final Future<void> Function() onExportMarkdown;
   final String backgroundMode;
   final TA? ta;
   final String? titleOverride;
@@ -141,6 +145,8 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onManageSnapshots();
                   } else if (value == 'export') {
                     onExport();
+                  } else if (value == 'export_md') {
+                    onExportMarkdown();
                   } else if (value == 'search') {
                     onToggleSearch();
                   } else if (value == 'tokens') {
@@ -211,6 +217,13 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: ListTile(
                       leading: Icon(Icons.file_download_outlined),
                       title: FitText('导出对话'),
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'export_md',
+                    child: ListTile(
+                      leading: Icon(Icons.description_outlined),
+                      title: FitText('导出为 Markdown'),
                     ),
                   ),
                   const PopupMenuItem<String>(
