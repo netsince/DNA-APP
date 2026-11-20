@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/form_fields.dart';
+import '../widgets/submit_form.dart';
 
 /// BYOK 代理（外链/API 转发）配置页。
 ///
@@ -15,13 +18,17 @@ class ProxyConfigPage extends StatefulWidget {
 }
 
 class _ProxyConfigPageState extends State<ProxyConfigPage> {
-  final TextEditingController _baseUrlController = TextEditingController();
-  final TextEditingController _apiKeyController = TextEditingController();
-  final TextEditingController _remarkController = TextEditingController();
+  /// 三个文本字段的草稿（控制器由草稿持有，页面不再各 new 一个）。
+  final FormDraft _draft = FormDraft(
+    textFields: <String>['baseUrl', 'apiKey', 'remark'],
+  );
+
+  /// 提交态（忙态 + 就地错误）。保存 / 重置 / 删除共用这一份。
+  final SubmitFormState _submit = SubmitFormState();
+
   final FocusNode _baseUrlFocus = FocusNode();
 
   bool _loading = true;
-  bool _saving = false;
   bool _configured = false;
   bool _enabled = true;
   bool _editing = false;
@@ -33,14 +40,22 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
   @override
   void initState() {
     super.initState();
+    _submit.addListener(_onSubmitChanged);
     _load();
+  }
+
+  /// 提交态变了就重建（忙态按钮 / 错误横幅都从这里来）。
+  void _onSubmitChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _baseUrlController.dispose();
-    _apiKeyController.dispose();
-    _remarkController.dispose();
+    // 只摘监听、不 dispose _submit：提交请求可能在页面 pop 之后才回来，
+    // 那时 run() 会 notifyListeners()，对已 dispose 的 ChangeNotifier 通知会断言失败；
+    // 摘掉监听后既不会 setState-after-dispose，也没有监听者需要唤醒。
+    _submit.removeListener(_onSubmitChanged);
+    _draft.dispose();
     _baseUrlFocus.dispose();
     super.dispose();
   }
@@ -55,8 +70,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
         _enabled = cfg['enabled'] == true;
         _publicBaseUrl = (cfg['public_base_url'] ?? '').toString();
         _token = (cfg['token'] ?? '').toString();
-        _baseUrlController.text = (cfg['upstream_base_url'] ?? '').toString();
-        _remarkController.text = (cfg['remark'] ?? '').toString();
+        _draft.controller('baseUrl').text =
+            (cfg['upstream_base_url'] ?? '').toString();
+        _draft.controller('remark').text = (cfg['remark'] ?? '').toString();
         _editing = false;
         _loading = false;
       });
@@ -77,7 +93,8 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
   }
 
   Future<void> _save() async {
-    final baseUrl = _baseUrlController.text.trim();
+    final baseUrl = _draft.text('baseUrl');
+    // 校验时机与提示保持不变：仍先弹一句、再把焦点带回该字段。
     if (baseUrl.isEmpty) {
       _snack('请填写上游 Base URL');
       _baseUrlFocus.requestFocus();
@@ -88,23 +105,20 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       _baseUrlFocus.requestFocus();
       return;
     }
-    setState(() => _saving = true);
-    try {
-      await ApiClient.instance.saveProxyConfig(
-        upstreamBaseUrl: baseUrl,
-        upstreamApiKey: _apiKeyController.text.trim(),
-        remark: _remarkController.text.trim(),
-        enabled: _enabled,
-      );
-      if (!mounted) return;
-      _snack(_configured ? '配置已更新' : '配置已保存');
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      _snack('保存失败：$e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await _submit.run(
+      errorPrefix: '保存失败',
+      action: () async {
+        await ApiClient.instance.saveProxyConfig(
+          upstreamBaseUrl: baseUrl,
+          upstreamApiKey: _draft.text('apiKey'),
+          remark: _draft.text('remark'),
+          enabled: _enabled,
+        );
+        if (!mounted) return;
+        _snack(_configured ? '配置已更新' : '配置已保存');
+        await _load();
+      },
+    );
   }
 
   Future<void> _resetToken() async {
@@ -126,17 +140,15 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _saving = true);
-    try {
-      final newToken = await ApiClient.instance.resetProxyToken();
-      if (!mounted) return;
-      setState(() => _token = newToken);
-      _snack('令牌已重置');
-    } catch (e) {
-      if (mounted) _snack('重置失败：$e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await _submit.run(
+      errorPrefix: '重置失败',
+      action: () async {
+        final newToken = await ApiClient.instance.resetProxyToken();
+        if (!mounted) return;
+        setState(() => _token = newToken);
+        _snack('令牌已重置');
+      },
+    );
   }
 
   Future<void> _deleteConfig() async {
@@ -161,18 +173,16 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _saving = true);
-    try {
-      await ApiClient.instance.deleteProxyConfig();
-      if (!mounted) return;
-      _snack('配置已删除');
-      _apiKeyController.clear();
-      await _load();
-    } catch (e) {
-      if (mounted) _snack('删除失败：$e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await _submit.run(
+      errorPrefix: '删除失败',
+      action: () async {
+        await ApiClient.instance.deleteProxyConfig();
+        if (!mounted) return;
+        _snack('配置已删除');
+        _draft.controller('apiKey').clear();
+        await _load();
+      },
+    );
   }
 
   void _copy(String text) {
@@ -237,9 +247,9 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _labelRow(context, '状态', _enabled ? '已启用' : '已停用'),
-              _labelRow(context, '上游 Base URL', _baseUrlController.text),
-              if (_remarkController.text.isNotEmpty)
-                _labelRow(context, '备注', _remarkController.text),
+              _labelRow(context, '上游 Base URL', _draft.rawText('baseUrl')),
+              if (_draft.rawText('remark').isNotEmpty)
+                _labelRow(context, '备注', _draft.rawText('remark')),
               const Divider(height: 24),
               _copyableRow(
                 context,
@@ -253,18 +263,26 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
         ),
       ),
       const SizedBox(height: 16),
+      // 重置令牌 / 删除配置的失败原因就地显示在这里（它们都在已配置视图）。
+      FormErrorBanner(message: _submit.errorText),
       Row(
         children: <Widget>[
           Expanded(
             child: FilledButton.tonal(
-              onPressed: _saving ? null : () => setState(() => _editing = true),
+              onPressed: _submit.busy
+                  ? null
+                  : () => setState(() {
+                    // 切视图时清掉上一次的失败原因，避免旧错误残留在横幅里。
+                    _submit.clearError();
+                    _editing = true;
+                  }),
               child: const Text('编辑配置'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
-              onPressed: _saving ? null : _resetToken,
+              onPressed: _submit.busy ? null : _resetToken,
               child: const Text('重置令牌'),
             ),
           ),
@@ -273,7 +291,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
       const SizedBox(height: 12),
       Center(
         child: TextButton.icon(
-          onPressed: _saving ? null : _deleteConfig,
+          onPressed: _submit.busy ? null : _deleteConfig,
           style: TextButton.styleFrom(foregroundColor: scheme.error),
           icon: const Icon(Icons.delete_outline),
           label: const Text('删除转发配置'),
@@ -285,56 +303,55 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
   List<Widget> _buildEditView(BuildContext context, ColorScheme scheme) {
     return <Widget>[
       _sectionTitle(context, _configured ? '编辑配置' : '新建配置'),
-      TextField(
-        controller: _baseUrlController,
-        focusNode: _baseUrlFocus,
+      FormTextField(
+        draft: _draft,
+        id: 'baseUrl',
+        label: '上游 Base URL',
+        hint: 'https://api.openai.com/v1',
         keyboardType: TextInputType.url,
-        decoration: const InputDecoration(
-          labelText: '上游 Base URL',
-          hintText: 'https://api.openai.com/v1',
-          border: OutlineInputBorder(),
-        ),
+        focusNode: _baseUrlFocus,
+        border: const OutlineInputBorder(),
       ),
       const SizedBox(height: 16),
-      TextField(
-        controller: _apiKeyController,
+      FormTextField(
+        draft: _draft,
+        id: 'apiKey',
+        label: '上游 API Key',
+        hint: _configured ? '留空保持不变' : 'sk-...',
         obscureText: _obscureKey,
-        decoration: InputDecoration(
-          labelText: '上游 API Key',
-          hintText: _configured ? '留空保持不变' : 'sk-...',
-          border: const OutlineInputBorder(),
-          suffixIcon: IconButton(
-            icon: Icon(_obscureKey ? Icons.visibility : Icons.visibility_off),
-            onPressed: () => setState(() => _obscureKey = !_obscureKey),
-          ),
+        border: const OutlineInputBorder(),
+        suffixIcon: IconButton(
+          icon: Icon(_obscureKey ? Icons.visibility : Icons.visibility_off),
+          onPressed: () => setState(() => _obscureKey = !_obscureKey),
         ),
       ),
       const SizedBox(height: 16),
-      TextField(
-        controller: _remarkController,
+      FormTextField(
+        draft: _draft,
+        id: 'remark',
+        label: '备注（可选）',
+        hint: '如：主力模型代理',
         maxLength: 120,
-        decoration: const InputDecoration(
-          labelText: '备注（可选）',
-          hintText: '如：主力模型代理',
-          border: OutlineInputBorder(),
-        ),
+        border: const OutlineInputBorder(),
       ),
+      // 保存失败的原因就地显示在字段下方（原来只弹一句 snackbar）。
+      FormErrorBanner(message: _submit.errorText),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('启用转发'),
         subtitle: const Text('停用后令牌将无法转发请求'),
         value: _enabled,
-        onChanged: _saving ? null : (v) => setState(() => _enabled = v),
+        onChanged: _submit.busy ? null : (v) => setState(() => _enabled = v),
       ),
       const SizedBox(height: 16),
       Row(
         children: <Widget>[
           Expanded(
             child: OutlinedButton(
-              onPressed: _saving || !_configured
+              onPressed: _submit.busy || !_configured
                   ? null
                   : () {
-                      _apiKeyController.clear();
+                      _draft.controller('apiKey').clear();
                       setState(() => _editing = false);
                     },
               child: const Text('取消'),
@@ -342,15 +359,10 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('保存'),
+            child: FormSubmitButton(
+              label: '保存',
+              busy: _submit.busy,
+              onPressed: _save,
             ),
           ),
         ],
