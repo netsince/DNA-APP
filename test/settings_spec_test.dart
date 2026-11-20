@@ -218,24 +218,6 @@ void main() {
       expect(tts.resolveRuntime, isNotNull);
     });
 
-    test('语音输入：下载中禁掉「换模型」「换源」（旧页面的防错手）', () {
-      final SettingItemSpec model = itemById('voiceInput.model');
-      final SettingItemSpec source = itemById('voiceInput.source');
-      final SettingsRuntime idle = SettingsRuntime(settings: base);
-      final SettingsRuntime busy = SettingsRuntime(
-        settings: base,
-        modelDownloading: true,
-      );
-
-      expect(settingsItemEnabled(model, idle), isTrue);
-      expect(settingsItemEnabled(source, idle), isTrue);
-      expect(
-        settingsItemEnabled(model, busy),
-        isFalse,
-        reason: '下载中还能换模型 → 完成后的就绪标记会和当前选择对不上',
-      );
-      expect(settingsItemEnabled(source, busy), isFalse);
-    });
 
     test('两态副标题：TTS 随模型就绪切换（来源是运行态）', () {
       final SettingItemSpec item = itemById('tts.enabled');
@@ -254,26 +236,6 @@ void main() {
       );
     });
 
-    test('两态副标题：语音输入随识别模型就绪切换（来源是设置字段）', () {
-      final SettingItemSpec item = itemById('voiceInput.enabled');
-      expect(item.subtitleOf, isNotNull, reason: '语音输入副标题应该是状态指示');
-      final AppSettings ready = base.copyWith(
-        sherpaModelReady: true,
-        sherpaModelPath: '/models/${base.selectedVoiceModelId}',
-      );
-      final String notReady = item.subtitleOf!(
-        SettingsRuntime(settings: base),
-      );
-      final String readyText = item.subtitleOf!(
-        SettingsRuntime(settings: ready),
-      );
-      expect(notReady.trim(), isNotEmpty);
-      expect(
-        notReady == readyText,
-        isFalse,
-        reason: '语音输入的两态副标题退化成了一句常量',
-      );
-    });
 
     test('行内短说明仍是行内（不能被降级成 subtitle 多占一行）', () {
       for (final String id in <String>[
@@ -296,8 +258,8 @@ void main() {
       }
     });
 
-    test('Beta 徽标：语音两张卡的分组标题右侧仍有标记', () {
-      for (final String entryId in <String>['tts', 'voiceInput']) {
+    test('Beta 徽标：TTS 页的分组标题右侧仍有标记', () {
+      for (final String entryId in <String>['tts']) {
         final FieldsEntry entry = _allFieldEntries().firstWhere(
           (FieldsEntry e) => e.id == entryId,
         );
@@ -405,8 +367,6 @@ SettingsValueKind _kindOfValue(Object value) {
 /// 模型是否下载好、当前激活的模型 id），或者是编辑器维护的复合对象。
 const Set<String> settingsInternalKeys = <String>{
   'completedOobe',
-  'sherpaModelPath',
-  'sherpaModelReady',
   'chatQuickSidebarCollapsed',
   'activeModelId',
   'promptStrategy',
@@ -432,8 +392,6 @@ const Set<String> settingsActionManagedKeys = <String>{
   'ttsGlobalSeed',
   // 可空 ARGB：切回「自动取色」要能真的清空，copyWith 的 ?? 语义表达不了。
   'customAccentColor',
-  // 文本：输入即写且要 trim，声明层还没有文本项。
-  'sherpaCustomBaseUrl',
 };
 
 /// **由手写页面管理的键：键 → 为什么不能声明化。**

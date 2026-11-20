@@ -75,14 +75,8 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'regexRules': SettingsValueKind.object,
       'appIcon': SettingsValueKind.text,
       'snackDurationMs': SettingsValueKind.integer,
-      'sherpaModelSource': SettingsValueKind.text,
-      'sherpaCustomBaseUrl': SettingsValueKind.text,
-      'sherpaModelReady': SettingsValueKind.boolean,
-      'sherpaModelPath': SettingsValueKind.text,
-      'selectedVoiceModelId': SettingsValueKind.text,
       'accentMode': SettingsValueKind.text,
       'customAccentColor': SettingsValueKind.integer,
-      'voiceInputEnabled': SettingsValueKind.boolean,
       'ttsEnabled': SettingsValueKind.boolean,
       'ttsGlobalSeed': SettingsValueKind.integer,
       'ttsQuoteOnly': SettingsValueKind.boolean,
@@ -204,16 +198,6 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(appIcon: _asText(value));
     case 'snackDurationMs':
       return s.copyWith(snackDurationMs: _asInt(value));
-    case 'sherpaModelSource':
-      return s.copyWith(sherpaModelSource: _asText(value));
-    case 'sherpaCustomBaseUrl':
-      return s.copyWith(sherpaCustomBaseUrl: _asNullableText(value));
-    case 'sherpaModelReady':
-      return s.copyWith(sherpaModelReady: _asBool(value));
-    case 'sherpaModelPath':
-      return s.copyWith(sherpaModelPath: _asNullableText(value));
-    case 'selectedVoiceModelId':
-      return s.copyWith(selectedVoiceModelId: _asText(value));
     case 'accentMode':
       return s.copyWith(accentMode: _asText(value));
     case 'customAccentColor':
@@ -221,8 +205,6 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return value == null
           ? s.clearCustomAccentColor()
           : s.copyWith(customAccentColor: _asInt(value));
-    case 'voiceInputEnabled':
-      return s.copyWith(voiceInputEnabled: _asBool(value));
     case 'ttsEnabled':
       return s.copyWith(ttsEnabled: _asBool(value));
     case 'ttsGlobalSeed':
@@ -324,4 +306,3 @@ String _asText(Object? v) {
   return v.toString();
 }
 
-String? _asNullableText(Object? v) => v is String ? v : null;

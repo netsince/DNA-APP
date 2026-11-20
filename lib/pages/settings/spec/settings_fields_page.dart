@@ -22,7 +22,6 @@ import 'settings_spec.dart';
 bool settingsGateOpen(SettingsGate gate) => switch (gate) {
   SettingsGate.always => true,
   SettingsGate.tts => PlatformCapabilities.ttsSupported,
-  SettingsGate.voiceInput => PlatformCapabilities.voiceInputSupported,
   SettingsGate.biometric => PlatformCapabilities.biometricAuthSupported,
 };
 
@@ -53,7 +52,6 @@ class SettingsFieldsPage extends StatelessWidget {
     required this.controller,
     this.biometricEnrolled = false,
     this.ttsModelsReady,
-    this.modelDownloading = false,
     this.focusItemId,
   });
 
@@ -67,7 +65,6 @@ class SettingsFieldsPage extends StatelessWidget {
   final bool? ttsModelsReady;
 
   /// 是否有端侧模型正在下载。
-  final bool modelDownloading;
 
   /// 从搜索跳进来时命中的字段 id：该字段会展开并滚到可见位置。
   final String? focusItemId;
@@ -84,8 +81,7 @@ class SettingsFieldsPage extends StatelessWidget {
             settings: settings,
             biometricEnrolled: biometricEnrolled,
             ttsModelsReady: ttsModelsReady,
-            modelDownloading: modelDownloading,
-          );
+                );
           // 每帧只序列化一次，向下传同一份快照。
           final Map<String, dynamic> json = settings.toJson();
           final List<Widget> sections = <Widget>[];

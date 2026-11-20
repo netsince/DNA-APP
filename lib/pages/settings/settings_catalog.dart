@@ -12,7 +12,6 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
-import '../../services/model_download_state.dart';
 import '../../state/app_controller.dart';
 import '../../utils/platform_capabilities.dart';
 import 'spec/settings_fields_page.dart';
@@ -134,26 +133,17 @@ class _FieldsEntryHost extends StatefulWidget {
 class _FieldsEntryHostState extends State<_FieldsEntryHost> {
   bool _biometricEnrolled = false;
   bool? _ttsModelsReady;
-  bool _modelDownloading = ModelDownloads.isDownloading;
   bool _resolved = false;
 
   @override
   void initState() {
     super.initState();
-    ModelDownloads.notifier.addListener(_onDownloadsChanged);
     _resolveRuntime();
   }
 
   @override
   void dispose() {
-    ModelDownloads.notifier.removeListener(_onDownloadsChanged);
     super.dispose();
-  }
-
-  /// 下载开始/结束要让页面重建：依赖下载状态的选项要跟着置灰/恢复。
-  void _onDownloadsChanged() {
-    if (!mounted) return;
-    setState(() => _modelDownloading = ModelDownloads.isDownloading);
   }
 
   /// 解析一次运行态：先补齐宿主自己知道的能力，再交给声明里的钩子。
@@ -190,7 +180,6 @@ class _FieldsEntryHostState extends State<_FieldsEntryHost> {
       controller: widget.controller,
       biometricEnrolled: enrolled,
       ttsModelsReady: _ttsModelsReady,
-      modelDownloading: _modelDownloading,
       focusItemId: widget.focusItemId,
     );
   }

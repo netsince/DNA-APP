@@ -82,8 +82,9 @@ void main() {
       );
     });
 
-    test('入口总数为 14', () {
-      expect(settingsTree.length, 14);
+    // 离线语音输入入口随 STT 移除后为 13 个。
+    test('入口总数为 13', () {
+      expect(settingsTree.length, 13);
     });
 
     test('入口 id 唯一（搜索与测试靠它定位）', () {

@@ -185,13 +185,6 @@ const List<_OssItem> _kOssItems = <_OssItem>[
     url: 'https://pub.dev/packages/file_picker',
   ),
   _OssItem(
-    name: 'sherpa_onnx',
-    purpose: '端侧语音识别 / 合成（基于 sherpa-onnx）',
-    license: 'Apache-2.0',
-    url: 'https://pub.dev/packages/sherpa_onnx',
-    notice: 'sherpa-onnx 使用 Apache-2.0 许可证，并可能包含第三方语音模型（各模型按其各自许可证使用）。',
-  ),
-  _OssItem(
     name: 'onnxruntime',
     purpose: 'ONNX 模型推理（TTS 合成）',
     license: 'MIT',
@@ -215,12 +208,6 @@ const List<_OssItem> _kOssItems = <_OssItem>[
     purpose: '哈希与加密',
     license: 'BSD-3-Clause',
     url: 'https://pub.dev/packages/crypto',
-  ),
-  _OssItem(
-    name: 'record',
-    purpose: '音频录音',
-    license: 'MIT',
-    url: 'https://pub.dev/packages/record',
   ),
   _OssItem(
     name: 'flutter_lints',

@@ -29,7 +29,6 @@ class SettingsRuntime {
     required this.settings,
     this.biometricEnrolled = false,
     this.ttsModelsReady,
-    this.modelDownloading = false,
   });
 
   final AppSettings settings;
@@ -47,7 +46,6 @@ class SettingsRuntime {
   ///
   /// 为 true 时，依赖「下载目标」的选项要置灰：中途换模型/换源会让完成后的
   /// 就绪标记与当前选择对不上。
-  final bool modelDownloading;
 }
 
 /// 进入页面时解析一次运行态（异步能力探测 + 必要的一次性校正）。
@@ -95,7 +93,7 @@ class SettingsGroupSpec {
 }
 
 /// 设置项的可用性门槛（由平台能力决定）。
-enum SettingsGate { always, tts, voiceInput, biometric }
+enum SettingsGate { always, tts, biometric }
 
 /// 值的写入时机。
 ///
