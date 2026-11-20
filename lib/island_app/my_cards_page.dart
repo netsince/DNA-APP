@@ -4,9 +4,9 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/utils/action_table.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/island_app/card_publish_page.dart';
@@ -157,20 +157,14 @@ class _MyCardsPageState extends State<MyCardsPage> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('我的角色卡')),
-      body: LoadMoreListView(
-        loading: _paged.isLoading,
-        itemCount: _paged.items.length,
-        hasMore: _paged.hasMore && _paged.items.isNotEmpty,
-        onLoadMore: () => _paged.loadMore(),
-        onRefresh: () => _paged.refresh(),
-        // 失败 → 共享错误态 + 重试，而不是「你还没有发布角色卡」。
-        error: _paged.error,
-        onRetry: () => _paged.refresh(),
+      // 五态 + 下拉刷新 + 触底加载由 [PagedListBody] 统一负责（失败 → 错误态
+      // + 重试，而不是「你还没有发布角色卡」）。
+      body: PagedListBody<Map<String, dynamic>>(
+        controller: _paged,
         // 行直接贴在 surface 上：结构同构、需要线性扫读的集合用 list，
         // 而不是每行一张卡（审计 3.3）。横向内边距交给 ListTile（16）。
         padding: EdgeInsets.zero,
-        separatorBuilder: (_, _) =>
-            const Divider(height: 1, indent: AppSpacing.lg),
+        separator: (_, _) => const Divider(height: 1, indent: AppSpacing.lg),
         empty: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

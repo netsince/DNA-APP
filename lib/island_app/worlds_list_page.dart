@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
@@ -230,32 +230,19 @@ class _WorldsListPageState extends State<WorldsListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: _buildBody(context),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_paged.error != null && _paged.items.isEmpty) {
-      return ErrorState(message: _paged.error!, onRetry: _paged.refresh);
-    }
-    if (_paged.items.isEmpty) {
-      return EmptyState(
-        icon: Icons.public_off_outlined,
-        title: widget.emptyText,
-      );
-    }
-    return LoadMoreListView(
-      loading: _paged.isLoading,
-      itemCount: _paged.items.length,
-      hasMore: _paged.hasMore && _paged.items.isNotEmpty,
-      onLoadMore: _paged.loadMore,
-      onRefresh: _paged.refresh,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (BuildContext context, int index) =>
-          _tile(context, _paged.items[index]),
+      // 五态 + 下拉刷新 + 触底加载由 [PagedListBody] 统一负责；本页只给
+      // 「一行怎么画」（行菜单已经是动作表，见 [_tile]）。空态文案仍由
+      // [emptyText] 注入。
+      body: PagedListBody<WorldCardSummary>(
+        controller: _paged,
+        separator: (_, _) => const Divider(height: 1),
+        empty: EmptyState(
+          icon: Icons.public_off_outlined,
+          title: widget.emptyText,
+        ),
+        itemBuilder: (BuildContext context, int index) =>
+            _tile(context, _paged.items[index]),
+      ),
     );
   }
 
