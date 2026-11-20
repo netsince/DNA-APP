@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/card_detail_page.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 
 /// 卡片分页加载回调（默认走 [ApiClient.getMyFavorites]/[getMyLikes]）。
 typedef MyCardsLoader = Future<Map<String, dynamic>> Function({int page});
@@ -76,44 +76,23 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: _paged.isLoading && _paged.items.isEmpty
-          ? const LoadingState()
-          : _paged.error != null && _paged.items.isEmpty
-          ? ErrorState(message: _paged.error!, onRetry: _paged.refresh)
-          : _paged.items.isEmpty
-          ? const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容')
-          : AppRefreshIndicator(
-              onRefresh: _paged.refresh,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-                    _paged.loadMore();
-                  }
-                  return false;
-                },
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: <Widget>[
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      sliver: ResponsiveCardGrid(
-                        cards: _paged.items,
-                        minColumnWidth: 180,
-                        maxColumns: 6,
-                        onCardTap: _openCard,
-                      ),
-                    ),
-                    if (_paged.isLoadingMore)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+      // 五态 + 下拉刷新 + 触底加载由 [PagedGridBody] 统一负责；
+      // 具体怎么排（ResponsiveCardGrid）仍留在本页，不强行统一布局算法。
+      body: PagedGridBody<Map<String, dynamic>>(
+        controller: _paged,
+        empty: const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容'),
+        sliverBuilder: (BuildContext context, List<Map<String, dynamic>> items) {
+          return SliverPadding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            sliver: ResponsiveCardGrid(
+              cards: items,
+              minColumnWidth: 180,
+              maxColumns: 6,
+              onCardTap: _openCard,
             ),
+          );
+        },
+      ),
     );
   }
 }
