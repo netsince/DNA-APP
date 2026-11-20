@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dna/models/attachment_draft.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -180,6 +181,8 @@ Widget hostBar(AppController controller, WidgetTester tester) {
             controller: controller,
             inputController: TextEditingController(),
             inputFocusNode: FocusNode(),
+            attachments: AttachmentDraft(),
+            visionEnabled: false,
             sending: false,
             inspirationInProgress: false,
             onSend: () => sent++,

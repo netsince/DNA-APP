@@ -1,4 +1,5 @@
 import '../../models/conversation.dart';
+import '../../models/message_attachment.dart';
 import 'chat_stream_parser.dart';
 
 class ChatMessageBuilder {
@@ -42,32 +43,111 @@ class ChatMessageBuilder {
   /// - 相邻 user 消息需合并(Anthropic 要求严格交替;OpenAI 兼容端合并亦无害),
   ///   见 [mergeAdjacentSameRole];
   /// - 切换发言角色会改变历史的角色归属 → KV cache 全量失效一次,属可接受代价。
-  static Map<String, String> historyEntryFor({
+  static Map<String, dynamic> historyEntryFor({
     required ConversationMessage message,
     required bool groupPerspective,
     String? perspectiveTaId,
     String? Function(String? speakerTaId)? speakerNameResolver,
     String humanLabel = '用户',
+    Map<String, String> imageDataUrls = const <String, String>{},
   }) {
-    final String text = stripThoughtTags(message.text);
+    final String text =
+        _withAttachmentText(message, stripThoughtTags(message.text));
     if (!groupPerspective) {
-      // 单聊:原样映射,不做任何加工。
-      return <String, String>{'role': message.role, 'content': text};
+      // 单聊:原样映射,不做任何加工（附件文本已拼在 text 里）。
+      return <String, dynamic>{
+        'role': message.role,
+        'content': _withImages(message, text, imageDataUrls),
+      };
     }
     final String? sid = message.speakerTaId;
     if (message.role == 'assistant' &&
         (sid == null || sid.isEmpty || sid == perspectiveTaId)) {
       // 当前角色本人的发言(speakerTaId 为空的存量数据回退归入当前角色):
       // 自己的声音,绝不加标注。
-      return <String, String>{'role': 'assistant', 'content': text};
+      return <String, dynamic>{'role': 'assistant', 'content': text};
     }
     if (message.role == 'user') {
-      return <String, String>{'role': 'user', 'content': '[$humanLabel] $text'};
+      return <String, dynamic>{
+        'role': 'user',
+        'content': _withImages(message, '[$humanLabel] $text', imageDataUrls),
+      };
     }
     // 其他成员的发言 → user 通道 + 方括号标注。
     final String? name = speakerNameResolver?.call(sid);
     final String label = (name == null || name.isEmpty) ? '成员' : name;
-    return <String, String>{'role': 'user', 'content': '[$label] $text'};
+    return <String, dynamic>{
+      'role': 'user',
+      'content': _withImages(message, '[$label] $text', imageDataUrls),
+    };
+  }
+
+  /// 把图片附件接成多模态内容部分。
+  ///
+  /// 没有图片、或图片数据没准备好（读盘失败/超出本次请求的图片配额）时，
+  /// 原样返回字符串 —— 纯文本请求永远保持最兼容的形态。
+  static Object _withImages(
+    ConversationMessage message,
+    String text,
+    Map<String, String> imageDataUrls,
+  ) {
+    if (message.attachments.isEmpty || imageDataUrls.isEmpty) return text;
+    final List<Map<String, dynamic>> parts = <Map<String, dynamic>>[];
+    if (text.isNotEmpty) {
+      parts.add(<String, dynamic>{'type': 'text', 'text': text});
+    }
+    for (final MessageAttachment a in message.attachments) {
+      if (!a.isImage) continue;
+      final String? url = imageDataUrls[a.ref];
+      if (url == null) continue;
+      parts.add(<String, dynamic>{
+        'type': 'image_url',
+        'image_url': <String, dynamic>{'url': url},
+      });
+    }
+    if (parts.length <= 1) return text;
+    return parts;
+  }
+
+  /// 把附件内容拼进这条消息的文本。
+  ///
+  /// * **文本类附件**：把抽取出的内容整段塞进去（任何模型都能读）；
+  /// * **图片**：先只留一行说明，真正的多模态 part 由请求层按模型能力组装；
+  ///   这样纯文本模型至少知道「用户附了张图」，而不是对着一句空话回答；
+  /// * **其他文件**（暂时喂不进去的，比如 PDF/压缩包）：同样留一行说明。
+  ///
+  /// 这条规则只影响「发给模型的内容」，消息本身存的仍是用户原话 + 附件元数据。
+  static String _withAttachmentText(
+    ConversationMessage message,
+    String text,
+  ) {
+    if (message.attachments.isEmpty) return text;
+    final StringBuffer sb = StringBuffer(text);
+    for (final MessageAttachment a in message.attachments) {
+      if (a.isText) {
+        final String body = a.textPreview ?? '';
+        if (body.trim().isEmpty) continue;
+        sb
+          ..write('\n\n[附件「')
+          ..write(a.name)
+          ..write('」内容开始]\n')
+          ..write(body)
+          ..write('\n[附件「')
+          ..write(a.name)
+          ..write('」内容结束]');
+      } else if (a.isImage) {
+        sb
+          ..write('\n\n[用户附了一张图片：')
+          ..write(a.name)
+          ..write(']');
+      } else {
+        sb
+          ..write('\n\n[用户附加了文件：')
+          ..write(a.name)
+          ..write(']');
+      }
+    }
+    return sb.toString();
   }
 
   /// 摘要作为一条 system 消息注入时的前缀。
@@ -132,7 +212,7 @@ class ChatMessageBuilder {
   /// 严格交替,OpenAI 兼容端点对连续同角色也兼容但合并后语义一致且更省请求结构。
   /// 必须在追加本轮真实 user 输入([buildMessagesFrom] 的 extraUserText)**之前**
   /// 调用,避免把新输入并进历史。
-  static void mergeAdjacentSameRole(List<Map<String, String>> payload) {
+  static void mergeAdjacentSameRole(List<Map<String, dynamic>> payload) {
     for (int i = payload.length - 1; i > 0; i--) {
       if (payload[i]['role'] == payload[i - 1]['role']) {
         payload[i - 1]['content'] =
@@ -141,7 +221,7 @@ class ChatMessageBuilder {
     }
   }
 
-  static List<Map<String, String>> buildMessagesFrom({
+  static List<Map<String, dynamic>> buildMessagesFrom({
     required String systemPrompt,
     required List<ConversationMessage> messages,
     String? summaryText,
@@ -153,20 +233,21 @@ class ChatMessageBuilder {
     String? authorNote,
     int authorNoteInterval = 0,
     String? loreText,
+    Map<String, String> imageDataUrls = const <String, String>{},
   }) {
     // 缓存友好布局：静态 system prompt 在前，摘要随后，历史按追加顺序排列，
     // 动态内容（Lorebook 词条、Author's Note）统一放在历史之后。
     // 这样 system + 摘要 + 历史的组合前缀保持稳定，最大化 KV cache 命中。
     // （群聊视角下切换发言角色会使角色归属变化、缓存失效一次，属已知代价。）
-    final List<Map<String, String>> payload = <Map<String, String>>[];
+    final List<Map<String, dynamic>> payload = <Map<String, dynamic>>[];
     if (systemPrompt.trim().isNotEmpty) {
-      payload.add(<String, String>{'role': 'system', 'content': systemPrompt.trim()});
+      payload.add(<String, dynamic>{'role': 'system', 'content': systemPrompt.trim()});
     }
     if (summaryText != null &&
         summaryText.trim().isNotEmpty &&
         summaryPrefix != null &&
         summaryPrefix.isNotEmpty) {
-      payload.add(<String, String>{
+      payload.add(<String, dynamic>{
         'role': 'system',
         'content': '$summaryPrefix${summaryText.trim()}',
       });
@@ -180,6 +261,7 @@ class ChatMessageBuilder {
         groupPerspective: groupPerspective,
         perspectiveTaId: perspectiveTaId,
         speakerNameResolver: speakerNameResolver,
+        imageDataUrls: imageDataUrls,
       ));
     }
     if (groupPerspective) {
@@ -187,27 +269,27 @@ class ChatMessageBuilder {
     }
     // 动态尾部：Lorebook 激活词条（按需注入，不污染前缀）。
     if (loreText != null && loreText.trim().isNotEmpty) {
-      payload.add(<String, String>{'role': 'system', 'content': loreText.trim()});
+      payload.add(<String, dynamic>{'role': 'system', 'content': loreText.trim()});
     }
     // 动态尾部：作者注释 Author's Note。interval > 0 时以固定位置注入，
     // 避免深度注入导致历史中部前缀不稳定。
     if (authorNote != null &&
         authorNote.trim().isNotEmpty &&
         authorNoteInterval > 0) {
-      payload.add(<String, String>{'role': 'system', 'content': authorNote.trim()});
+      payload.add(<String, dynamic>{'role': 'system', 'content': authorNote.trim()});
     }
     if (extraUserText != null && extraUserText.trim().isNotEmpty) {
-      payload.add(<String, String>{'role': 'user', 'content': extraUserText.trim()});
+      payload.add(<String, dynamic>{'role': 'user', 'content': extraUserText.trim()});
     }
     return payload;
   }
 
   /// 生成 Lorebook 动态尾部的 system 消息（为空返回 null）。
   /// 供 [buildMessagesFrom] 与手工组装 payload 的入口（如"继续"）复用。
-  static Map<String, String>? loreSystemMessage(String loreText) {
+  static Map<String, dynamic>? loreSystemMessage(String loreText) {
     if (loreText.trim().isEmpty) {
       return null;
     }
-    return <String, String>{'role': 'system', 'content': loreText.trim()};
+    return <String, dynamic>{'role': 'system', 'content': loreText.trim()};
   }
 }

@@ -19,6 +19,8 @@ import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../utils/message_processor.dart';
 import '../utils/platform_capabilities.dart';
+import '../services/attachment_storage.dart';
+import '../services/model_capabilities.dart';
 import '../services/removed_stt_cleanup.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
@@ -135,7 +137,7 @@ class AppController extends ChangeNotifier {
   /// baseUrl/apiKey/model 一律从激活的配置实体(activeModel/activeProviderConfig)
   /// 派生,采样参数按「模型自定义覆盖全局」的既有规则合并——
   /// 请求路径不再依赖 legacy 扁平字段是否被正确同步。
-  LlmRequest buildLlmRequest({required List<Map<String, String>> messages}) {
+  LlmRequest buildLlmRequest({required List<Map<String, dynamic>> messages}) {
     final LlmModelConfig model = activeModel;
     final LlmProviderConfig provider = activeProviderConfig;
     final AppSettings s = _settings;
@@ -198,6 +200,8 @@ class AppController extends ChangeNotifier {
     // 升级清理：旧版本装的离线语音模型（文档目录下几百 MB）与设置键已无人使用，
     // 首启后台删一次；跑过就只是一次字典查找，不挡启动。
     unawaited(cleanupRemovedSpeechInput());
+    // 预热模型能力快照（约 70KB，读一次常驻内存），供「能不能传图」判断用。
+    unawaited(ModelCapabilities.instance.ensureLoaded());
     // 同步激活配置到顶层遗留字段
     _syncActiveModelToLegacyFields();
     // 平台能力门控：Web 上强制关闭不支持的功能设置（置灰，不触发原生调用）。
@@ -1838,6 +1842,7 @@ class AppController extends ChangeNotifier {
     List<String> conversationIds, {
     required bool includeCharacterCards,
     required ConversationExportFormat format,
+    bool includeAttachments = true,
   }) async {
     try {
       final List<Conversation> selected = allConversations
@@ -1855,6 +1860,7 @@ class AppController extends ChangeNotifier {
         tasById: tasById,
         format: format,
         includeCharacterCards: includeCharacterCards,
+        includeAttachments: includeAttachments,
       );
       return ExportImportResult(success: true, data: result);
     } catch (e) {
@@ -2037,6 +2043,29 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// 把备份包里的附件还原到本机附件库（幂等）。
+  Future<void> _restoreAttachments(
+    Map<String, List<int> Function()> data,
+  ) async {
+    if (data.isEmpty) return;
+    int restored = 0;
+    for (final MapEntry<String, List<int> Function()> entry in data.entries) {
+      try {
+        if (await AttachmentStore.instance.exists(entry.key)) continue;
+        final String ext =
+            entry.key.contains('.') ? entry.key.split('.').last : 'bin';
+        await AttachmentStore.instance.save(
+          Uint8List.fromList(entry.value()),
+          ext: ext,
+        );
+        restored++;
+      } catch (e) {
+        debugPrint('[backup] 附件还原失败 ${entry.key}: $e');
+      }
+    }
+    debugPrint('[backup] 附件还原 $restored 个');
+  }
+
   Future<ExportImportResult<DataImportReport>> _applyImport(
     ExportImportResult<ParsedBackup> parsed, {
     required bool replaceAll,
@@ -2048,6 +2077,10 @@ class AppController extends ChangeNotifier {
       );
     }
     final ParsedBackup backup = parsed.data!;
+
+    // 附件先落盘：内容寻址，已存在的直接跳过（天然去重，同一份文件不会存两遍）。
+    // 这里**不清旧附件**：它们可能被别的会话共用，回收要靠按引用 GC。
+    await _restoreAttachments(backup.attachmentBytes);
 
     String? backupPath;
     String? backupError;

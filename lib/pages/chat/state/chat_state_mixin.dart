@@ -2,6 +2,9 @@ part of '../chat_surface.dart';
 
 mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
+
+  /// 待发送附件草稿（输入区加/删，回溯时回填；发送后清空）。
+  final AttachmentDraft _attachmentDraft = AttachmentDraft();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   // 记录上一次键盘是否处于展开状态，用于检测「键盘被收起」的时刻
@@ -149,6 +152,7 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onSettingsChanged);
+    _attachmentDraft.dispose();
     _inputController.dispose();
     _inputFocusNode.dispose();
     _scrollController.dispose();

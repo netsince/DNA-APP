@@ -7,9 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import '../models/conversation.dart';
+import '../models/message_attachment.dart';
 import '../models/ta.dart';
 import '../models/user_identity.dart';
 import '../models/world.dart';
+import 'attachment_storage.dart';
 import 'image_storage.dart';
 import 'ta_export_import_service.dart';
 import 'ta_service.dart';
@@ -34,6 +36,64 @@ class DataBackupService {
       if (file.name == name) return file;
     }
     return null;
+  }
+
+
+  /// 把所有会话引用到的附件写进备份包。
+  ///
+  /// 按引用（内容哈希）去重：同一张图被三个会话引用，包里也只出现一次。
+  /// 本机已丢失的附件直接跳过 —— 备份不该因为一个坏引用就整包失败。
+
+  /// 会话引用到的附件（去重）。
+  static Set<String> _attachmentRefs(List<Conversation> conversations) {
+    final Set<String> refs = <String>{};
+    for (final Conversation c in conversations) {
+      for (final ConversationMessage m in c.messages) {
+        for (final MessageAttachment a in m.attachments) {
+          refs.add(a.ref);
+        }
+      }
+    }
+    return refs;
+  }
+
+  /// 以磁盘流把附件写进备份包（IO 平台；内存峰值只有一个文件）。
+  static Future<int> _addAttachmentsStreamed(
+    Archive archive,
+    List<Conversation> conversations,
+  ) async {
+    int added = 0;
+    for (final String ref in _attachmentRefs(conversations)) {
+      final String? p = await AttachmentStore.instance.pathFor(ref);
+      if (p == null) continue;
+      archive.addFile(
+        ArchiveFile.stream('attachments/$ref', InputFileStream(p)),
+      );
+      added++;
+    }
+    return added;
+  }
+
+  static Future<int> _addAttachments(
+    Archive archive,
+    List<Conversation> conversations,
+  ) async {
+    final Set<String> refs = <String>{};
+    for (final Conversation c in conversations) {
+      for (final ConversationMessage m in c.messages) {
+        for (final MessageAttachment a in m.attachments) {
+          refs.add(a.ref);
+        }
+      }
+    }
+    int added = 0;
+    for (final String ref in refs) {
+      final Uint8List? bytes = await AttachmentStore.instance.read(ref);
+      if (bytes == null) continue;
+      archive.addFile(ArchiveFile('attachments/$ref', bytes.length, bytes));
+      added++;
+    }
+    return added;
   }
 
   /// 将全部数据（角色 / 世界 / 对话 / 身份，不含设置）打包为 ZIP 字节
@@ -122,6 +182,8 @@ class DataBackupService {
         'identities.json',
         identities.map((UserIdentity i) => i.toJson()).toList(),
       );
+
+      await _addAttachments(archive, conversations);
 
       final List<int> encoded = ZipEncoder().encode(archive);
       return ExportImportResult(
@@ -227,6 +289,8 @@ class DataBackupService {
         'identities.json',
         identities.map((UserIdentity i) => i.toJson()).toList(),
       );
+
+      await _addAttachmentsStreamed(archive, conversations);
 
       final OutputFileStream output = OutputFileStream(zipPath);
       try {
@@ -422,6 +486,18 @@ class DataBackupService {
         }
       }
 
+      // 聊天附件懒加载：与图片/音乐同一套思路。
+      final Map<String, List<int> Function()> attachmentBytes =
+          <String, List<int> Function()>{};
+      for (final ArchiveFile file in archive.files) {
+        if (file.isFile && file.name.startsWith('attachments/')) {
+          final String ref = file.name.substring('attachments/'.length);
+          if (ref.isNotEmpty && !ref.contains('/')) {
+            attachmentBytes[ref] = () => file.content as List<int>;
+          }
+        }
+      }
+
       return ExportImportResult(
         success: true,
         data: ParsedBackup(
@@ -432,6 +508,7 @@ class DataBackupService {
           identities: identities,
           imageBytes: imageBytes,
           musicBytes: musicBytes,
+          attachmentBytes: attachmentBytes,
           dispose: dispose,
         ),
       );

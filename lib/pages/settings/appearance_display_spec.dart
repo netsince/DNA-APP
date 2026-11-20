@@ -246,6 +246,13 @@ final FieldsEntry appearanceEntry = FieldsEntry(
             ChoiceOption<String>(value: 'classic', label: '经典'),
           ],
         ),
+        SettingToggle(
+          id: 'appearance.showUploadButton',
+          title: '显示上传文件按钮',
+          subtitle: '在输入栏旁显示「上传文件」入口。',
+          key: 'showUploadButton',
+          defaultValue: true,
+        ),
         SettingInt(
           id: 'appearance.chatMaskStrength',
           title: '背景遮罩强度',

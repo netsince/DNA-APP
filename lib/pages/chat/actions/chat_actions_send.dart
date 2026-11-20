@@ -2,7 +2,7 @@ part of '../chat_surface.dart';
 
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({
-    required List<Map<String, String>> payload,
+    required List<Map<String, dynamic>> payload,
     required String assistantId,
     required ConversationMessage assistantMessage,
   });
@@ -154,7 +154,16 @@ mixin ChatActionsSend on ChatStateMixin {
 
   Future<void> _send() async {
     String text = _inputController.text.trim();
-    if (text.isEmpty || _sending) {
+    // 附件也能单独发：只带文件、不写字是合法输入。
+    final List<MessageAttachment> pending =
+        List<MessageAttachment>.of(_attachmentDraft.items);
+    if ((text.isEmpty && pending.isEmpty) || _sending) {
+      return;
+    }
+    // 模型吃不下图片就别发出去（入口已置灰，这里兜住手快的情况）。
+    final bool vision = resolveVisionSupport(widget.controller.activeModel);
+    if (!vision && pending.any((MessageAttachment a) => a.isImage)) {
+      showSnack(context, '当前模型未开启图片支持，请在「模型设置」里打开，或先移除图片。');
       return;
     }
     // 发送前按「命令宏 + 正则替换」处理用户输入。
@@ -173,7 +182,7 @@ mixin ChatActionsSend on ChatStateMixin {
         widget.controller.settings.regexRules,
       ).trim();
     }
-    if (text.isEmpty) {
+    if (text.isEmpty && pending.isEmpty) {
       return;
     }
     final TA? ta = _ta;
@@ -182,8 +191,10 @@ mixin ChatActionsSend on ChatStateMixin {
       role: 'user',
       text: text,
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      attachments: pending,
     );
     _inputController.clear();
+    _attachmentDraft.clear();
     final List<ConversationMessage> updated = <ConversationMessage>[
       ..._conversation.messages,
       userMessage,
@@ -238,7 +249,13 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryText: latestSummary?.text,
     );
     final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
+    // 塞进请求体全是白费，还可能把请求撑大。
+    final Map<String, String> imageDataUrls =
+        resolveVisionSupport(widget.controller.activeModel)
+            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
+            : const <String, String>{};
+    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
         world: _world,
@@ -256,6 +273,7 @@ mixin ChatActionsSend on ChatStateMixin {
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
+      imageDataUrls: imageDataUrls,
     );
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
@@ -316,7 +334,7 @@ mixin ChatActionsSend on ChatStateMixin {
       tokenModel: widget.controller.settings.selectedModel,
       summaryText: latestSummary?.text,
     );
-    final List<Map<String, String>> payload = <Map<String, String>>[];
+    final List<Map<String, dynamic>> payload = <Map<String, String>>[];
     final String sys = ChatSystemPrompt.build(
       ta: ta,
       world: _world,
@@ -352,7 +370,7 @@ mixin ChatActionsSend on ChatStateMixin {
       ChatMessageBuilder.mergeAdjacentSameRole(payload);
     }
     // 动态尾部：Lorebook 激活词条。
-    final Map<String, String>? lore = ChatMessageBuilder.loreSystemMessage(
+    final Map<String, dynamic>? lore = ChatMessageBuilder.loreSystemMessage(
       _loreTextFor(slice.messages),
     );
     if (lore != null) {
@@ -437,7 +455,13 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryText: latestSummary?.text,
     );
     final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
+    // 塞进请求体全是白费，还可能把请求撑大。
+    final Map<String, String> imageDataUrls =
+        resolveVisionSupport(widget.controller.activeModel)
+            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
+            : const <String, String>{};
+    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
         world: _world,
@@ -455,6 +479,7 @@ mixin ChatActionsSend on ChatStateMixin {
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
+      imageDataUrls: imageDataUrls,
     );
     // 群聊输出防线:剥掉模型自带「自己名字：」前缀(全/半角冒号),
     // 避免候选文本入库后与历史前缀叠成「名字：名字：」。
@@ -470,7 +495,7 @@ mixin ChatActionsSend on ChatStateMixin {
   /// 并发生成一批「重说」候选(默认 3 条),不涉及任何 UI。
   /// 请求间加入错峰延迟,降低同时并发触发限流的概率。
   Future<List<String>> _generateRetries(
-    List<Map<String, String>> payload,
+    List<Map<String, dynamic>> payload,
   ) async {
     try {
       final List<Future<String?>> tasks =
@@ -498,7 +523,7 @@ mixin ChatActionsSend on ChatStateMixin {
   }
 
   Future<List<String>> _generateRetriesSequential(
-    List<Map<String, String>> payload,
+    List<Map<String, dynamic>> payload,
   ) async {
     final List<String> results = <String>[];
     for (int i = 0; i < 3; i++) {
@@ -557,7 +582,13 @@ mixin ChatActionsSend on ChatStateMixin {
       summaryText: latestSummary?.text,
     );
     final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    final List<Map<String, String>> payload = ChatMessageBuilder.buildMessagesFrom(
+    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
+    // 塞进请求体全是白费，还可能把请求撑大。
+    final Map<String, String> imageDataUrls =
+        resolveVisionSupport(widget.controller.activeModel)
+            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
+            : const <String, String>{};
+    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
       systemPrompt: ChatSystemPrompt.build(
         ta: ta,
         world: _world,
@@ -575,6 +606,7 @@ mixin ChatActionsSend on ChatStateMixin {
       authorNote: _effectiveAuthorNote(ta),
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
+      imageDataUrls: imageDataUrls,
     );
     final bool streamed = await _streamAssistantResponse(
       payload: payload,

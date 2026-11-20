@@ -46,6 +46,7 @@ class ParsedBackup {
     required this.identities,
     required this.imageBytes,
     required this.musicBytes,
+    required this.attachmentBytes,
     this.dispose,
   });
 
@@ -61,6 +62,9 @@ class ParsedBackup {
 
   /// 相对文件名 -> 懒加载的音乐字节（`music/` 目录）。访问后即可释放引用。
   final Map<String, List<int> Function()> musicBytes;
+
+  /// 聊天附件：ref → 懒加载字节闭包（与图片同一套思路，落盘时逐个解压）。
+  final Map<String, List<int> Function()> attachmentBytes;
 
   /// 解析完成后释放底层文件流等资源（IO 平台文件流需要显式关闭）。
   final Future<void> Function()? dispose;

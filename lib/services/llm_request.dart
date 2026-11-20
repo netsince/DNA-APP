@@ -26,7 +26,7 @@ class LlmRequest {
   final String baseUrl;
   final String apiKey;
   final String model;
-  final List<Map<String, String>> messages;
+  final List<Map<String, dynamic>> messages;
 
   final double temperature;
   final double frequencyPenalty;
@@ -57,7 +57,7 @@ class LlmRequest {
     String? baseUrl,
     String? apiKey,
     String? model,
-    List<Map<String, String>>? messages,
+    List<Map<String, dynamic>>? messages,
     double? temperature,
     double? frequencyPenalty,
     double? presencePenalty,

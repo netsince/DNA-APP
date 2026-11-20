@@ -7,6 +7,8 @@ import 'package:dna/state/app_controller.dart';
 import 'package:dna/utils/id_utils.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
+import '../../../services/model_capabilities.dart';
+import '../../../services/model_vision.dart';
 import 'model_sampler_settings_page.dart';
 
 /// 模型预设编辑全屏页面（添加 / 修改）。
@@ -58,6 +60,9 @@ class _ModelEditPageState extends State<ModelEditPage> {
   int? _maxContextMessages;
   int? _maxContextTokens;
 
+  /// 视觉能力三态：null = 自动（快照/名字推断），true/false = 用户显式指定。
+  bool? _supportsVision;
+
   bool _fetchingModels = false;
 
   bool get _isEditing => widget.existingConfig != null;
@@ -95,6 +100,11 @@ class _ModelEditPageState extends State<ModelEditPage> {
     _repetitionPenaltySlope = existing?.repetitionPenaltySlope;
     _maxContextMessages = existing?.maxContextMessages;
     _maxContextTokens = existing?.maxContextTokens;
+    _supportsVision = existing?.supportsVision;
+    // 快照要读了才能给「自动判断」的依据；读失败也不影响本页使用。
+    ModelCapabilities.instance.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -258,6 +268,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
       maxContextTokens: _maxContextTokens,
       deepseekThinkingEnabled: _deepseekThinkingEnabled,
       deepseekThinkingEffort: _deepseekThinkingEffort,
+      supportsVision: _supportsVision,
     );
 
     await widget.controller.saveModelConfig(updated);
@@ -428,7 +439,47 @@ class _ModelEditPageState extends State<ModelEditPage> {
                 ],
               ),
 
-            // ===== 3. 专属采样参数微调（完整复用） =====
+            // ===== 3. 多模态能力（决定输入栏能不能发图片） =====
+            SettingSection(
+              icon: Icons.image_outlined,
+              title: '多模态能力',
+              description: '决定输入栏能否发图片。',
+              children: <Widget>[
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: <Widget>[
+                    ChoiceChip(
+                      label: const FitText('自动判断'),
+                      selected: _supportsVision == null,
+                      onSelected: (_) => setState(() => _supportsVision = null),
+                    ),
+                    ChoiceChip(
+                      label: const FitText('支持图片'),
+                      selected: _supportsVision == true,
+                      onSelected: (_) => setState(() => _supportsVision = true),
+                    ),
+                    ChoiceChip(
+                      label: const FitText('不支持图片'),
+                      selected: _supportsVision == false,
+                      onSelected: (_) => setState(() => _supportsVision = false),
+                    ),
+                  ],
+                ),
+                AppSpacing.hSm,
+                FitText(
+                  _supportsVision == null
+                      ? '自动判断：${describeVisionSource(LlmModelConfig(id: '', alias: '', providerId: '', modelName: _modelNameCtrl.text.trim()))}'
+                      : '已手动指定：${_supportsVision! ? '支持图片' : '不支持图片'}',
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+
+            // ===== 4. 专属采样参数微调（完整复用） =====
             SettingSection(
               icon: Icons.tune_outlined,
               title: '专属采样参数',

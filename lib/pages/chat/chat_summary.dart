@@ -139,7 +139,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     final String convo = _summaryTranscript(slice);
     final String personaContext = _buildPersonaWorldContext();
     final World? world = _world;
-    final List<Map<String, String>> payload = <Map<String, String>>[
+    final List<Map<String, dynamic>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
         'content':
@@ -216,7 +216,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     final ConversationSummary? previous = ChatMessageSlice.latestSummary(_conversation);
     final String personaContext = _buildPersonaWorldContext();
     final World? world = _world;
-    final List<Map<String, String>> payload = <Map<String, String>>[
+    final List<Map<String, dynamic>> payload = <Map<String, String>>[
       <String, String>{
         'role': 'system',
         'content': previous != null && previous.text.trim().isNotEmpty

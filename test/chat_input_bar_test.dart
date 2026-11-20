@@ -1,3 +1,4 @@
+import 'package:dna/models/attachment_draft.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,8 @@ void main() {
           controller: controller,
           inputController: input,
           inputFocusNode: focus,
+          attachments: AttachmentDraft(),
+          visionEnabled: false,
           sending: sending,
           inspirationInProgress: false,
           onSend: () => sendCalls++,

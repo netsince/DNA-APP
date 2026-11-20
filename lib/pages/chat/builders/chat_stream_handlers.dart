@@ -32,7 +32,7 @@ mixin ChatStreamHandlers on ChatStateMixin {
 
   // ignore: unused_element
   Future<bool> _streamAssistantResponse({
-    required List<Map<String, String>> payload,
+    required List<Map<String, dynamic>> payload,
     required String assistantId,
     required ConversationMessage assistantMessage,
   }) async {

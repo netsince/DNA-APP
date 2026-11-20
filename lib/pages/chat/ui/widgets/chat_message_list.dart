@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:dna/theme/tokens.dart';
 
 import '../../../../models/conversation.dart';
+import '../../../../models/message_attachment.dart';
+import '../../../../services/attachment_storage.dart';
+import '../../../../utils/ui_feedback.dart';
 import '../../../../services/tts/tts_player.dart';
 import '../../../../services/tts/tts_service.dart';
 import '../../../../utils/light_markdown.dart';
@@ -344,6 +347,13 @@ class ChatMessageList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
+                ],
+                if (message.attachments.isNotEmpty) ...<Widget>[
+                  _MessageAttachments(
+                    attachments: message.attachments,
+                    bubbleColor: bubbleColor,
+                  ),
+                  if (message.text.trim().isNotEmpty) const SizedBox(height: 6),
                 ],
                 Text.rich(
                   _buildHighlightedText(
@@ -1035,4 +1045,91 @@ TextSpan _buildHighlightedText(
     children.addAll(buildPlainSpans(run.text, style));
   }
   return TextSpan(children: children, style: base);
+}
+
+/// 气泡里的附件列表：一行一个，图标 + 名字 + 大小。
+///
+/// 图片额外给一个缩略图（点开看大图）；文本类只列名字（内容已经进了上下文，
+/// 在气泡里再铺一遍反而吵）。
+class _MessageAttachments extends StatelessWidget {
+  const _MessageAttachments({
+    required this.attachments,
+    required this.bubbleColor,
+  });
+
+  final List<MessageAttachment> attachments;
+  final Color bubbleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final Color ink = FitText.inkFor(bubbleColor, cs.surface);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (final MessageAttachment a in attachments)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: InkWell(
+              borderRadius: AppRadius.xsAll,
+              onTap: a.isImage ? () => _openImage(context, a) : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: AppRadius.xsAll,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      a.isImage
+                          ? Icons.image_outlined
+                          : (a.isText
+                              ? Icons.description_outlined
+                              : Icons.attach_file_rounded),
+                      size: 15,
+                      color: ink.withValues(alpha: AppAlpha.a72),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FitText(
+                        a.name,
+                        style: theme.textTheme.bodySmall?.copyWith(color: ink),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FitText(
+                      a.sizeLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: ink.withValues(alpha: AppAlpha.muted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openImage(BuildContext context, MessageAttachment a) async {
+    final Uint8List? bytes = await AttachmentStore.instance.read(a.ref);
+    if (!context.mounted) return;
+    if (bytes == null) {
+      showSnack(context, '附件已不在本机（可能被清理或来自其他设备）');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => Dialog(
+        child: InteractiveViewer(
+          child: Image.memory(bytes, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
 }

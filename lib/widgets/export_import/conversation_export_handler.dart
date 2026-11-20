@@ -16,6 +16,11 @@ import '../../utils/ui_feedback.dart';
 /// IO 平台先把内容写入临时文件，再走「移动端分享 / 桌面选择路径后系统级复制」，
 /// 避免把大文本/大 JSON 通过 saveFile(bytes:) 整体传入 MethodChannel 导致 OOM。
 Future<void> handleExportResult(BuildContext context, ConversationExportResult result) async {
+  // 打包成 zip（含附件）时走二进制分支：内容为空、bytes 有值。
+  if (result.isBinary) {
+    await _handleBinaryExport(context, result);
+    return;
+  }
   final content = result.content;
   if (kIsWeb) {
     await Clipboard.setData(ClipboardData(text: content));
@@ -48,4 +53,46 @@ Future<void> handleExportResult(BuildContext context, ConversationExportResult r
   final target = out.endsWith(ext) ? out : '$out$ext';
   await tmp.copy(target);
   if (context.mounted) showSnack(context, '已导出到：$target');
+}
+
+/// 二进制导出（zip：conversations.json + attachments/*）。
+Future<void> _handleBinaryExport(
+  BuildContext context,
+  ConversationExportResult result,
+) async {
+  final Uint8List? bytes = result.bytes;
+  if (bytes == null) return;
+  final String summary = result.attachmentCount > 0
+      ? '，含 ${result.attachmentCount} 个附件（${(result.attachmentBytes / 1024 / 1024).toStringAsFixed(1)} MB）'
+      : '';
+  if (kIsWeb) {
+    // Web 端没有临时目录可分享：直接给用户一句可操作的话，而不是静默失败。
+    if (context.mounted) {
+      showSnack(
+        context,
+        '带附件的导出包请在桌面/手机上操作（Web 端暂不支持打包下载）$summary',
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+    return;
+  }
+  final File tmp = File(
+    path.join((await getTemporaryDirectory()).path, result.suggestedFileName),
+  );
+  await tmp.writeAsBytes(bytes, flush: true);
+  if (Platform.isAndroid || Platform.isIOS) {
+    if (!context.mounted) return;
+    await Share.shareXFiles(<XFile>[XFile(tmp.path)], subject: 'DNA 对话导出$summary');
+    return;
+  }
+  final String? out = await FilePicker.platform.saveFile(
+    dialogTitle: '导出对话（含附件）',
+    fileName: result.suggestedFileName,
+    type: FileType.custom,
+    allowedExtensions: const <String>['zip'],
+  );
+  if (out == null) return;
+  final String target = out.toLowerCase().endsWith('.zip') ? out : '$out.zip';
+  await tmp.copy(target);
+  if (context.mounted) showSnack(context, '已导出到：$target$summary');
 }

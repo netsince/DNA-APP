@@ -81,6 +81,7 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'ttsGlobalSeed': SettingsValueKind.integer,
       'ttsQuoteOnly': SettingsValueKind.boolean,
       'showParenButton': SettingsValueKind.boolean,
+      'showUploadButton': SettingsValueKind.boolean,
       'showMessageAvatar': SettingsValueKind.boolean,
       'showMessageRetry': SettingsValueKind.boolean,
       'showMessageCopy': SettingsValueKind.boolean,
@@ -214,6 +215,8 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
           : s.copyWith(ttsGlobalSeed: _asInt(value));
     case 'ttsQuoteOnly':
       return s.copyWith(ttsQuoteOnly: _asBool(value));
+    case 'showUploadButton':
+      return s.copyWith(showUploadButton: _asBool(value));
     case 'showParenButton':
       return s.copyWith(showParenButton: _asBool(value));
     case 'showMessageAvatar':

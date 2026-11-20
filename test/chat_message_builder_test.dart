@@ -25,11 +25,11 @@ void main() {
         summaryText: '简短摘要',
         summaryPrefix: '对话摘要：\n',
       );
-      expect(payload, <Map<String, String>>[
-        <String, String>{'role': 'system', 'content': '你是TA。'},
-        <String, String>{'role': 'system', 'content': '对话摘要：\n简短摘要'},
-        <String, String>{'role': 'user', 'content': '你好'},
-        <String, String>{'role': 'assistant', 'content': '嗨！'},
+      expect(payload, <Map<String, dynamic>>[
+        <String, dynamic>{'role': 'system', 'content': '你是TA。'},
+        <String, dynamic>{'role': 'system', 'content': '对话摘要：\n简短摘要'},
+        <String, dynamic>{'role': 'user', 'content': '你好'},
+        <String, dynamic>{'role': 'assistant', 'content': '嗨！'},
       ]);
     });
 
@@ -43,11 +43,11 @@ void main() {
         loreText: '当前激活的世界知识：城堡位于北方。',
       );
       // 前两条必须与无 Lorebook 时完全一致，保证前缀稳定。
-      expect(payload.take(2), <Map<String, String>>[
-        <String, String>{'role': 'system', 'content': '你是TA。'},
-        <String, String>{'role': 'user', 'content': '你好'},
+      expect(payload.take(2), <Map<String, dynamic>>[
+        <String, dynamic>{'role': 'system', 'content': '你是TA。'},
+        <String, dynamic>{'role': 'user', 'content': '你好'},
       ]);
-      expect(payload.last, <String, String>{
+      expect(payload.last, <String, dynamic>{
         'role': 'system',
         'content': '当前激活的世界知识：城堡位于北方。',
       });
@@ -128,7 +128,7 @@ void main() {
         ],
         fallbackAssistantName: '艾莉',
         speakerNameResolver: (String? id) =>
-            <String, String>{'ta-eli': '艾莉', 'ta-xue': '小雪'}[id],
+            <String, dynamic>{'ta-eli': '艾莉', 'ta-xue': '小雪'}[id],
       );
 
       expect(transcript, '用户：你们好\n艾莉：我是艾莉\n小雪：我是小雪');

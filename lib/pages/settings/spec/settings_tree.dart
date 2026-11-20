@@ -39,6 +39,7 @@ import '../data_settings_page.dart';
 import '../free_image_settings_spec.dart';
 import '../sampler_settings_spec.dart';
 import '../security_settings_spec.dart';
+import '../storage_settings_page.dart';
 import '../tts_settings_spec.dart';
 import '../update_settings_spec.dart';
 
@@ -121,6 +122,14 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
     title: '备份与还原',
     subtitle: '定期备份、换设备时迁移',
     builder: (AppController c) => DataSettingsPage(controller: c),
+  ),
+  CustomEntry(
+    id: 'storageUsage',
+    groupId: SettingsGroupId.dataSecurity,
+    icon: Icons.pie_chart_outline,
+    title: '存储空间',
+    subtitle: '占了多少、都花在哪儿',
+    builder: (AppController c) => const StorageSettingsPage(),
   ),
   securityEntry,
   conversationAdvancedEntry,
