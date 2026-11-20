@@ -16,6 +16,7 @@ import 'package:dna/models/world.dart';
 import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 
 /// 世界卡的**通用列表页**：给「我的世界卡」「我收藏的世界卡」这类入口复用。
 ///
@@ -272,6 +273,33 @@ class _WorldsListPageState extends State<WorldsListPage> {
       if (when.isNotEmpty) when,
     ].join(' · ');
 
+    // 逐行动作表：可见项随审核状态 / 下架状态变（文案与图标与原来逐字一致）。
+    final List<RowAction> actions = <RowAction>[
+      RowAction(id: 'open', label: '查看详情', onSelected: () => _open(item)),
+      RowAction(id: 'edit', label: '编辑', onSelected: () => _edit(item)),
+      // 下架 / 取消下架：只有已通过的世界卡才有（服务端同样校验）。
+      RowAction(
+        id: 'hidden',
+        label: item.isHidden ? '取消下架' : '下架',
+        visible: item.status == 'approved',
+        onSelected: () => _toggleHidden(item),
+      ),
+      // 重新提审：被拒绝或已撤回的条目。
+      RowAction(
+        id: 'resubmit',
+        label: '重新提审',
+        visible: item.status == 'rejected' || item.status == 'deleted',
+        onSelected: () => _resubmit(item),
+      ),
+      // 撤回：已撤回的条目不再给这个动作。
+      RowAction(
+        id: 'withdraw',
+        label: '撤回',
+        visible: item.status != 'deleted',
+        onSelected: () => _withdraw(item),
+      ),
+    ];
+
     return ListTile(
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
@@ -292,41 +320,13 @@ class _WorldsListPageState extends State<WorldsListPage> {
           ],
         ],
       ),
-      trailing: widget.manageable
-          ? PopupMenuButton<String>(
-              onSelected: (String value) {
-                switch (value) {
-                  case 'open':
-                    _open(item);
-                  case 'edit':
-                    _edit(item);
-                  case 'hidden':
-                    _toggleHidden(item);
-                  case 'resubmit':
-                    _resubmit(item);
-                  case 'withdraw':
-                    _withdraw(item);
-                }
-              },
-              itemBuilder: (_) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(value: 'open', child: Text('查看详情')),
-                const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
-                if (item.status == 'approved')
-                  PopupMenuItem<String>(
-                    value: 'hidden',
-                    child: Text(item.isHidden ? '取消下架' : '下架'),
-                  ),
-                if (item.status == 'rejected' || item.status == 'deleted')
-                  const PopupMenuItem<String>(
-                    value: 'resubmit',
-                    child: Text('重新提审'),
-                  ),
-                if (item.status != 'deleted')
-                  const PopupMenuItem<String>(
-                    value: 'withdraw',
-                    child: Text('撤回'),
-                  ),
-              ],
+      // 行内菜单由动作表渲染：可见项随状态变，页面只说「有哪些动作」。
+      trailing: widget.manageable && hasVisibleRowAction(actions)
+          ? rowActionMenu(
+              actions: actions,
+              // 原实现未传 tooltip（= Material 的本地化默认），这里传入同一取值，
+              // 免得换成共享层默认的「更多操作」。
+              tooltip: MaterialLocalizations.of(context).showMenuTooltip,
             )
           : const Icon(Icons.chevron_right, size: 20),
       onTap: () => _open(item),
