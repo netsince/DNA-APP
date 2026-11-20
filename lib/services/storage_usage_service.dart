@@ -62,13 +62,13 @@ enum StorageCategory {
 
 /// 分类的显示名（界面与明细页标题共用）。
 String storageCategoryLabel(StorageCategory category) => switch (category) {
-  StorageCategory.conversations => '会话类',
-  StorageCategory.characters => '角色卡类',
-  StorageCategory.worlds => '世界类',
-  StorageCategory.cache => '缓存类',
-  StorageCategory.downloads => '下载类',
-  StorageCategory.attachments => '附件类',
-  StorageCategory.other => '其他类',
+  StorageCategory.conversations => '会话',
+  StorageCategory.characters => '角色卡',
+  StorageCategory.worlds => '世界',
+  StorageCategory.cache => '缓存',
+  StorageCategory.downloads => '下载',
+  StorageCategory.attachments => '附件',
+  StorageCategory.other => '其他',
 };
 
 /// 分类下面的一行（明细页的一项）。
