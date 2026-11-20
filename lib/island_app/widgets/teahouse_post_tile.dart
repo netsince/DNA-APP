@@ -128,6 +128,12 @@ class TeahousePostTile extends StatelessWidget {
                     child: Image.network(
                       ServerConfig.resolveUrl(imageUrl),
                       fit: BoxFit.cover,
+                      // 贴在列表里只有 160 高，按屏宽限宽解码即可（原图常见 1080+）。
+                      cacheWidth: (MediaQuery.sizeOf(context).width *
+                              MediaQuery.devicePixelRatioOf(context) *
+                              0.5)
+                          .clamp(240, 960)
+                          .round(),
                       height: 160,
                       width: double.infinity,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),

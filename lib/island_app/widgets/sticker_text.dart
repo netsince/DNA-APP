@@ -134,6 +134,11 @@ class StickerText extends StatelessWidget {
                       child: FadeInNetworkImage(
                         url: ServerConfig.resolveUrl(url),
                         fit: BoxFit.contain,
+                        // 表情显示多大就解多大（原来是原图整张解进 32px 格子里）。
+                        cacheWidth: (size *
+                                MediaQuery.devicePixelRatioOf(context))
+                            .clamp(32, 256)
+                            .round(),
                         placeholder: const SizedBox.shrink(),
                       ),
                     ),
@@ -363,6 +368,9 @@ class _StickerGrid extends StatelessWidget {
           child: FadeInNetworkImage(
             url: ServerConfig.resolveUrl(url),
             fit: BoxFit.contain,
+            cacheWidth: (64 * MediaQuery.devicePixelRatioOf(context))
+                .clamp(64, 256)
+                .round(),
             placeholder: const SizedBox.shrink(),
           ),
         );

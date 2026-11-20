@@ -92,6 +92,24 @@ class _RootShellState extends State<RootShell>
   late final TabController _tabController;
   AppNavTarget _page = AppNavTarget.recommend;
 
+  /// 已挂载过的页（懒挂载：没进过就不构建）。
+  ///
+  /// 以前是「一进社区就把 10 个页面全建出来」，每个页面的 initState 又各自
+  /// 发请求、各自解码一屏图 —— 实测光这一步就吃掉几十 MB 并留下大量原生缓冲。
+  final Set<AppNavTarget> _mountedPages = <AppNavTarget>{AppNavTarget.recommend};
+
+  /// 最多同时常驻几页；超了就把最久没看的卸掉，回来时重新加载。
+  ///
+  /// 取 3 是因为「主页面 + 推荐组 + 上一个看过的页」已经覆盖实际使用，
+  /// 再多的常驻只会让内存随浏览历史无上限增长。
+  static const int _maxMountedPages = 3;
+
+  /// 页面的访问顺序（最近看过的在前）。
+  final List<AppNavTarget> _pageLru = <AppNavTarget>[AppNavTarget.recommend];
+
+  /// 推荐组内三个子页的挂载状态（组内同理懒挂载）。
+  final Set<_TopTab> _mountedTabs = <_TopTab>{_TopTab.recommend};
+
   /// 「推荐」Tab 刷新信号：在「推荐」内再次点击该 Tab 时自增，首页监听到后重拉。
   final ValueNotifier<int> _recommendRefresh = ValueNotifier<int>(0);
 
@@ -195,6 +213,7 @@ class _RootShellState extends State<RootShell>
     final reRefresh = _tab == t && t == _TopTab.recommend;
     setState(() {
       _tab = t;
+      _mountedTabs.add(t);
       _page = AppNavTarget.recommend;
       _plusOpen = false;
     });
@@ -244,11 +263,27 @@ class _RootShellState extends State<RootShell>
   }
 
   /// 通过侧边栏/底栏选中导航目标。
+  /// 标记某页需要挂载，并按 LRU 卸掉多余的页。
+  void _touchPage(AppNavTarget target) {
+    _mountedPages.add(target);
+    _pageLru.remove(target);
+    _pageLru.insert(0, target);
+    while (_pageLru.length > _maxMountedPages) {
+      final AppNavTarget eldest = _pageLru.removeLast();
+      if (eldest == target) {
+        _pageLru.insert(0, eldest);
+        break;
+      }
+      _mountedPages.remove(eldest);
+    }
+  }
+
   void _onSelectNav(AppNavTarget target) {
     _scaffoldKey.currentState?.closeDrawer();
     final firstShow = _page != target;
     setState(() {
       _page = target;
+      _touchPage(target);
       // 底栏是从 ＋ 浮层「挖空」的那块里露出来的（见 PlusHubOverlay），
       // 点它不经过蒙层、不会触发 onClose，所以必须在这里顺手收掉 ——
       // 否则会切到茶馆、浮层却还盖在上面。
@@ -273,35 +308,54 @@ class _RootShellState extends State<RootShell>
     );
   }
 
-  /// 主页面常驻栈：索引 = 导航目标；推荐页内部按顶栏 tab 切换。
+  /// 主页面栈：索引 = 导航目标；推荐页内部按顶栏 tab 切换。
+  ///
+  /// **懒挂载**：没访问过的页只放一个空占位，不进 initState、不发请求、
+  /// 不解码图片。已挂载的页按 LRU 限制在 [_maxMountedPages] 个以内。
   Widget _buildContentStack() {
+    Widget page(AppNavTarget target, Widget Function() build) {
+      if (!_mountedPages.contains(target)) return const SizedBox.shrink();
+      return build();
+    }
+
     return IndexedStack(
       index: _page == AppNavTarget.recommend ? 0 : _page.index,
       children: <Widget>[
-        // 推荐页：内部用 IndexedStack 保活 推荐/刷一刷/探索 三个子页。
+        // 推荐组：组内三个子页同样懒挂载（刷一刷/探索没点过就不建）。
         IndexedStack(
           index: _tab.index,
           children: <Widget>[
-            HomeBody(
-              onOpenCard: _openCardDetail,
-              refreshCounter: _recommendRefresh,
-            ),
-            SwipeBody(onOpenCard: _openCardDetail),
-            ExploreBody(
-              onOpenCard: _openCardDetail,
-              cardsLoader: ApiClient.instance.getExploreCards,
-              metaLoader: ApiClient.instance.getExploreMeta,
-            ),
+            _mountedTabs.contains(_TopTab.recommend)
+                ? HomeBody(
+                    onOpenCard: _openCardDetail,
+                    refreshCounter: _recommendRefresh,
+                  )
+                : const SizedBox.shrink(),
+            _mountedTabs.contains(_TopTab.swipe)
+                ? SwipeBody(onOpenCard: _openCardDetail)
+                : const SizedBox.shrink(),
+            _mountedTabs.contains(_TopTab.explore)
+                ? ExploreBody(
+                    onOpenCard: _openCardDetail,
+                    cardsLoader: ApiClient.instance.getExploreCards,
+                    metaLoader: ApiClient.instance.getExploreMeta,
+                  )
+                : const SizedBox.shrink(),
           ],
         ),
-        WorldsBody(importSink: widget.worldImportSink),
-        const TeahouseBody(),
-        CardPublishStartBody(source: widget.cardPublishSource),
-        ImageGenBody(
-          onRequireLogin: () => _onSelectNav(AppNavTarget.me),
-          loadSignal: _imageGenActivate,
-        ),
-        MePage(importSink: widget.worldImportSink),
+        page(AppNavTarget.worlds,
+            () => WorldsBody(importSink: widget.worldImportSink)),
+        page(AppNavTarget.teahouse, () => const TeahouseBody()),
+        page(AppNavTarget.upload,
+            () => CardPublishStartBody(source: widget.cardPublishSource)),
+        page(
+            AppNavTarget.imagegen,
+            () => ImageGenBody(
+                  onRequireLogin: () => _onSelectNav(AppNavTarget.me),
+                  loadSignal: _imageGenActivate,
+                )),
+        page(AppNavTarget.me,
+            () => MePage(importSink: widget.worldImportSink)),
       ],
     );
   }

@@ -1,8 +1,10 @@
 import 'dart:convert';
+import '../../widgets/memo_image.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -965,15 +967,13 @@ class _CommentImage extends StatelessWidget {
         ),
       );
     }
-    final comma = dataUrl.indexOf(',');
-    final b64 = comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl;
-    Uint8List? bytes;
-    try {
-      bytes = base64Decode(b64);
-    } catch (_) {
-      bytes = null;
-    }
-    if (bytes == null) {
+    // 复用 provider：同一个 data URL 只解码一次，并按 180 逻辑像素限宽，
+    // 不把原图整张解进缩略图（原来每次 build 都重新 base64Decode + 解码）。
+    final int target =
+        (180 * MediaQuery.devicePixelRatioOf(context)).clamp(180, 720).round();
+    final ImageProvider? provider =
+        MemoImage.dataUrl(dataUrl, cacheWidth: target);
+    if (provider == null) {
       return Text(
         '[图片]',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -985,8 +985,8 @@ class _CommentImage extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        child: Image.memory(
-          bytes,
+        child: Image(
+          image: provider,
           width: 180,
           height: 180,
           fit: BoxFit.cover,

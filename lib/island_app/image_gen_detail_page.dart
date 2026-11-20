@@ -164,7 +164,14 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
               return InteractiveViewer(
                 child: Center(
                   child: Image(
-                    image: AuthNetworkImage(widget.urls[i]),
+                    image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(widget.urls[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Text(
                       '图片加载失败',
@@ -425,7 +432,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(kRadiusMd),
               child: Image(
-                image: AuthNetworkImage(_images[_current]),
+                image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[_current]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => ColoredBox(
                   color: scheme.surfaceContainerHighest,
@@ -523,7 +537,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
         child: AspectRatio(
           aspectRatio: _aspect,
           child: Image(
-            image: AuthNetworkImage(_images[_current]),
+            image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[_current]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => ColoredBox(
               color: scheme.surfaceContainerHighest,
@@ -558,7 +579,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(kRadiusSm - 1),
                 child: Image(
-                  image: AuthNetworkImage(_images[i]),
+                  image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) =>
                       ColoredBox(color: scheme.surfaceContainerHighest),
@@ -723,7 +751,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
                   child: SizedBox(
                     width: 72,
                     child: Image(
-                      image: AuthNetworkImage(_refs[i]),
+                      image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_refs[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) =>
                           ColoredBox(color: scheme.surfaceContainerHighest),

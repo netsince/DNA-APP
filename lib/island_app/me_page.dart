@@ -1,6 +1,7 @@
-import 'dart:convert';
+import '../widgets/memo_image.dart';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/world_import_sink.dart';
@@ -72,32 +73,25 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    Widget child;
+    final Widget fallback =
+        Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
     final a = avatar;
-    if (a.isEmpty) {
-      child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
-    } else if (a.startsWith('data:')) {
-      final comma = a.indexOf(',');
-      final b64 = comma >= 0 ? a.substring(comma + 1) : a;
-      try {
-        final bytes = base64Decode(b64);
-        child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
-      } catch (_) {
-        child = Icon(
-          Icons.person,
-          size: radius,
-          color: scheme.onSurfaceVariant,
-        );
-      }
-    } else {
-      child = Image.network(
-        ServerConfig.resolveUrl(a),
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) =>
-            Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
-      );
-    }
+    final int target =
+        (radius * 2 * MediaQuery.devicePixelRatioOf(context)).clamp(32, 256).round();
+    // data URL 与网络图都走同一个带缓存的 provider，并按其显示尺寸解码。
+    final ImageProvider? provider = a.isEmpty
+        ? null
+        : (a.startsWith('data:')
+            ? MemoImage.dataUrl(a, cacheWidth: target)
+            : MemoImage.network(ServerConfig.resolveUrl(a), cacheWidth: target));
+    final Widget child = provider == null
+        ? fallback
+        : Image(
+            image: provider,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => fallback,
+          );
     return CircleAvatar(
       radius: radius,
       backgroundColor: scheme.surfaceContainerHighest,

@@ -441,7 +441,15 @@ class _ImageGenBodyState extends State<ImageGenBody> {
                         children: <Widget>[
                           ColoredBox(color: scheme.surfaceContainerHighest),
                           Image(
-                            image: AuthNetworkImage(firstImage),
+                            // 生图产出图动辄 1024~2048px，原尺寸解码一张就是
+                            // 4~16MB 纹理；这里按卡片宽度限宽，够看又不炸内存。
+                            image: ResizeImage(
+                              AuthNetworkImage(firstImage),
+                              width:
+                                  (320 * MediaQuery.devicePixelRatioOf(context))
+                                      .clamp(320, 1080)
+                                      .round(),
+                            ),
                             fit: BoxFit.cover,
                             width: double.infinity,
                             errorBuilder: (_, _, _) => ColoredBox(
