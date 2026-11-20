@@ -1,0 +1,22 @@
+refactor(动作表): 导出导入、放弃确认与行内菜单改成数据描述
+
+把三类「动作」从手写流程收成数据描述（docs/PAGE_DATA_DRIVEN_AUDIT.md 的「动作表」一项）。
+
+新增 lib/utils/action_table.dart（285 行）：
+- confirmDiscardEdits：「放弃修改？」确认，5 个外壳原来各抄一遍
+- RowAction / rowActionMenu / hasVisibleRowAction：行内菜单（可见条件、危险色、图标、禁用态）
+- ExportActionSpec / runExportAction：询问目的地 → 生成内容 → 剪贴板/文件 → 提示
+- ImportActionSpec / runImportAction：询问来源 → 读文本 → 解析 → 交回页面回填
+
+替换：
+- identity_editor_page 347→255、world_editor_page 307→223、ta_editor_form 821→795：导出/导入三段式
+- dialogue_style_page / ta_editor_page / card_publish_page / world_publish_page：放弃确认（各 −14）
+- my_cards_page、worlds_list_page：行内菜单 → 动作表（含「被拒才能重审」「已通过才能置顶」等状态条件）
+
+为保持行为不变，共享层按需扩了三轮参数：extraOptions（压缩图片勾选）、异步 buildContent/parse、
+onBeforeBuild（正在导出…）、copyFailedMessage（原文硬编码文案）、fileDialogTitle（导出角色卡≠导出角色）、
+onImported（保证「正在导入图片… → 恢复 → 导入成功」时序）、RowAction.enabled。
+
+已知两处统一代价（文案逐字未变）：放弃按钮由 TextButton 变 FilledButton；失败提示统一下沉为 floating snackbar。
+
+验证：flutter analyze --no-pub lib test 无 issue；flutter test --no-pub --exclude-tags live 868 通过 / 2 跳过。

@@ -7,7 +7,6 @@ import 'package:path/path.dart' as path;
 import '../../models/ta.dart';
 import '../../models/ta_gender.dart';
 import '../../models/dialogue_style.dart';
-import '../../services/export_file_utils.dart';
 import '../../services/image_pick_capability.dart';
 import '../../services/image_storage.dart';
 import '../../services/ta_service.dart';
@@ -18,11 +17,11 @@ import 'image_slot.dart';
 import '../../models/prompt_strategy.dart';
 import '../settings/widgets/strategy_override_editor.dart';
 import 'package:dna/services/ta_export_import_service.dart';
+import '../../utils/action_table.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/ui_feedback.dart';
 import '../dialogue_style_page.dart';
 import 'package:dna/island_app/widgets/card_crop_page.dart' show FreeImageCrop;
-import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
 import '../../widgets/app_editor_frame.dart';
@@ -108,6 +107,12 @@ class TaEditorForm extends StatefulWidget {
   @override
   State<TaEditorForm> createState() => _TaEditorFormState();
 }
+
+/// 导入解析结果：角色卡本体 + 原始文本。
+///
+/// 恢复包内图片要按原包内容再解一次（见 [_TaEditorFormState._importWithImages]），
+/// 所以解析产物里带上原文；动作表只负责把 parse 的结果交给 onImported。
+typedef _ImportedCharacter = ({TA ta, String content});
 
 class _TaEditorFormState extends State<TaEditorForm> {
   late final TextEditingController _nameController;
@@ -292,73 +297,39 @@ class _TaEditorFormState extends State<TaEditorForm> {
   Future<void> _showExportDialog() async {
     bool compressImages = true;
 
-    // 询问导出目的地(剪贴板 / 文件),并保留原有的「压缩图片」选项。
-    final ExportTarget? target = await showExportTargetDialog(
-      context: context,
-      title: '导出角色',
-      description: '导出内容包含文字设定与图片。'
-          '注：背景音乐仅保存在本机，不会随角色卡导出。',
-      extraOptions: StatefulBuilder(
-        builder: (BuildContext ctx, StateSetter setSB) => CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const FitText('压缩图片'),
-          subtitle: const FitText('减小导出文件大小（推荐）'),
-          value: compressImages,
-          onChanged: (bool? value) => setSB(() => compressImages = value ?? true),
-        ),
-      ),
-    );
-
-    if (target == null || !mounted) return;
-
-    showSnack(context, '正在导出...');
-
-    final currentTA = _buildCurrentTA();
-    final result = await TaExportImportService.exportCharacter(
-      currentTA,
-      compressImages: compressImages,
-    );
-
-    if (!mounted) return;
-
-    if (!result.success) {
-      showSnack(context, result.message ?? '导出失败');
-      return;
-    }
-
-    if (target == ExportTarget.clipboard) {
-      // 复制到剪贴板(原有行为)
-      final copyResult =
-          await TaExportImportService.copyToClipboard(result.data!);
-      if (!mounted) return;
-      showSnack(
-        context,
-        copyResult.success ? '已复制到剪贴板，可以粘贴分享' : '导出完成，但复制到剪贴板失败',
-        behavior: SnackBarBehavior.floating,
-      );
-      return;
-    }
-
-    // 导出为文件
-    final fileResult = await ExportFileUtils.exportText(
-      content: result.data!,
-      fileName: ExportFileUtils.buildFileName(
-        name: currentTA.name,
-        fallbackName: '角色',
-        ext: _fileExt,
-      ),
-      ext: _fileExt,
-      dialogTitle: '导出角色卡',
-    );
-    if (!mounted) return;
-    if (!fileResult.success) {
-      showSnack(context, fileResult.message ?? '导出到文件失败');
-      return;
-    }
-    showSnack(
+    // 询问目的地（剪贴板 / 文件）→ 生成内容 → 剪贴板 / 文件 → 结果提示，
+    // 顺序与提示文案统一由动作表负责；「压缩图片」选项原样挂回弹窗里。
+    await runExportAction(
       context,
-      fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
-      behavior: SnackBarBehavior.floating,
+      ExportActionSpec(
+        title: '导出角色',
+        description: '导出内容包含文字设定与图片。'
+            '注：背景音乐仅保存在本机，不会随角色卡导出。',
+        fallbackName: '角色',
+        fileExt: _fileExt,
+        // 原文是硬编码文案：复制失败时不读 result.message。
+        copyFailedMessage: '导出完成，但复制到剪贴板失败',
+        // 文件保存对话框与询问弹窗的标题本来就不同。
+        fileDialogTitle: '导出角色卡',
+        // 「正在导出...」在生成内容之前弹（与原实现同一位置）。
+        onBeforeBuild: () => showSnack(context, '正在导出...'),
+        extraOptions: StatefulBuilder(
+          builder: (BuildContext ctx, StateSetter setSB) => CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const FitText('压缩图片'),
+            subtitle: const FitText('减小导出文件大小（推荐）'),
+            value: compressImages,
+            onChanged: (bool? value) =>
+                setSB(() => compressImages = value ?? true),
+          ),
+        ),
+        buildContent: () => TaExportImportService.exportCharacter(
+          _buildCurrentTA(),
+          compressImages: compressImages,
+        ),
+        copyToClipboard: TaExportImportService.copyToClipboard,
+      ),
+      entityName: _buildCurrentTA().name,
     );
   }
 
@@ -366,54 +337,49 @@ class _TaEditorFormState extends State<TaEditorForm> {
   static const String _fileExt = 'dnata';
 
   Future<void> _showImportDialog() async {
-    final ImportSource? source = await showImportSourceDialog(
-      context: context,
-      title: '导入角色',
-      description: '支持本应用导出的角色卡，以及酒馆（SillyTavern）角色卡 JSON。',
+    // 「询问来源 → 读文本 → 解析」交给动作表；图片恢复、表单回填与那两段提示
+    // （「正在导入图片... → 导入成功」）仍在 onImported 里按原顺序跑完，
+    // 所以这里不传 successMessage（弹提示仍由 _importWithImages 自己负责）。
+    await runImportAction<_ImportedCharacter>(
+      context,
+      ImportActionSpec<_ImportedCharacter>(
+        title: '导入角色',
+        description: '支持本应用导出的角色卡，以及酒馆（SillyTavern）角色卡 JSON。',
+        fileDialogTitle: '选择角色卡文件',
+        acceptedExts: const <String>[_fileExt, 'json'],
+        pasteFromClipboard: TaExportImportService.pasteFromClipboard,
+        parse: _parseImportedCharacter,
+        onImported: _applyImportedCharacter,
+        successMessage: null,
+      ),
     );
+  }
 
-    if (source == null || !mounted) return;
-
-    // 取得导入内容:剪贴板或文件
-    final String? content;
-    if (source == ImportSource.clipboard) {
-      final pasteResult = await TaExportImportService.pasteFromClipboard();
-      if (!mounted) return;
-      if (!pasteResult.success) {
-        showSnack(context, pasteResult.message ?? '读取剪贴板失败');
-        return;
-      }
-      content = pasteResult.data;
-    } else {
-      final fileResult = await ExportFileUtils.importText(
-        exts: const <String>[_fileExt, 'json'],
-        dialogTitle: '选择角色卡文件',
-      );
-      if (!mounted) return;
-      if (!fileResult.success) {
-        showSnack(context, fileResult.message ?? '读取文件失败');
-        return;
-      }
-      if (fileResult.data == null) return; // 用户取消
-      content = fileResult.data;
-    }
-
-    if (content == null || content.isEmpty) {
-      if (!mounted) return;
-      showSnack(context, '没有可导入的内容');
-      return;
-    }
-
+  /// 解析导入文本：角色卡本体 + 原文，失败时沿用原提示语。
+  static ExportImportResult<_ImportedCharacter> _parseImportedCharacter(
+    String content,
+  ) {
     // 解析导入数据
-    final importResult = TaExportImportService.importCharacter(content);
+    final ExportImportResult<ImportResult> importResult =
+        TaExportImportService.importCharacter(content);
 
     if (!importResult.success) {
-      if (!mounted) return;
-      showSnack(context, importResult.message ?? '导入失败');
-      return;
+      return ExportImportResult(
+        success: false,
+        message: importResult.message,
+      );
     }
 
-    final importedTA = importResult.data!.ta;
+    return ExportImportResult(
+      success: true,
+      data: (ta: importResult.data!.ta, content: content),
+    );
+  }
+
+  /// 回填导入的角色：ID 冲突处理 → 恢复包内图片 → 填表单（顺序与提示原样）。
+  Future<void> _applyImportedCharacter(_ImportedCharacter imported) async {
+    final importedTA = imported.ta;
+    final String content = imported.content;
 
     // 检查ID冲突：永不覆盖，命中则自动改用新 ID 导入为新角色。
     // 社区模式没有本地库，不存在冲突，直接用它自己的 id。

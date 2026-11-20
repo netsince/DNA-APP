@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../island_app/api/client.dart';
 import '../models/world.dart';
-import '../services/export_file_utils.dart';
 import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
+import '../utils/action_table.dart';
 import '../utils/id_utils.dart';
 import '../widgets/app_editor_frame.dart';
 import '../widgets/fit_text.dart';
-import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'world_editor/world_editor_form.dart';
 
 /// 世界观编辑器**外壳**：顶栏、菜单、保存按钮、导入导出、导航都在这里。
@@ -91,100 +90,48 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   }
 
   /// 导出：询问目的地（剪贴板 / 文件）后导出当前表单内容。
+  ///
+  /// 顺序、提示文案与「取消不报错」都交给动作表（[runExportAction]）。
   Future<void> _copyToClipboard() async {
-    final ExportTarget? target = await showExportTargetDialog(
-      context: context,
-      title: '导出世界观',
-      description: '导出内容为该世界的完整设定与全部词条。',
-    );
-    if (target == null || !mounted) return;
-
-    final World currentWorld = _form.current();
-    final ExportImportResult<String> result =
-        WorldExportImportService.exportWorld(currentWorld);
-    if (!mounted) return;
-    if (!result.success) {
-      _snack(result.message ?? '导出失败');
-      return;
-    }
-
-    if (target == ExportTarget.clipboard) {
-      final ExportImportResult<void> copyResult =
-          await WorldExportImportService.copyToClipboard(result.data!);
-      if (!mounted) return;
-      _snack(copyResult.success
-          ? '已复制到剪贴板，可以粘贴分享'
-          : (copyResult.message ?? '复制到剪贴板失败'));
-      return;
-    }
-
-    final ExportImportResult<String?> fileResult =
-        await ExportFileUtils.exportText(
-      content: result.data!,
-      fileName: ExportFileUtils.buildFileName(
-        name: currentWorld.name,
+    await runExportAction(
+      context,
+      ExportActionSpec(
+        title: '导出世界观',
+        description: '导出内容为该世界的完整设定与全部词条。',
         fallbackName: '世界',
-        ext: _fileExt,
+        fileExt: _fileExt,
+        // 原文的兜底文案就是这句（服务端失败时通常已自带 message）。
+        copyFailedMessage: '复制到剪贴板失败',
+        buildContent: () =>
+            WorldExportImportService.exportWorld(_form.current()),
+        copyToClipboard: WorldExportImportService.copyToClipboard,
       ),
-      ext: _fileExt,
-      dialogTitle: '导出世界观',
+      entityName: _form.current().name,
     );
-    if (!mounted) return;
-    if (!fileResult.success) {
-      _snack(fileResult.message ?? '导出到文件失败');
-      return;
-    }
-    _snack(fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}');
   }
 
   /// 导入：解析后回填表单；有本地库时顺带落盘（社区模式只回填，不建本地世界）。
+  ///
+  /// 「询问来源 → 读文本 → 解析 → 提示」由动作表负责（[runImportAction]），
+  /// 回填与落盘仍留在本页（那是宿主才知道的事）。
   Future<void> _importFromClipboard() async {
-    final ImportSource? source = await showImportSourceDialog(
-      context: context,
-      title: '导入世界观',
-      description: '支持本应用导出的世界观文件与直接的世界 JSON。',
+    final World? imported = await runImportAction<World>(
+      context,
+      ImportActionSpec<World>(
+        title: '导入世界观',
+        description: '支持本应用导出的世界观文件与直接的世界 JSON。',
+        fileDialogTitle: '选择世界观文件',
+        acceptedExts: const <String>[_fileExt, 'json'],
+        pasteFromClipboard: WorldExportImportService.pasteFromClipboard,
+        parse: WorldExportImportService.importWorld,
+        // 成功提示留在末尾弹（见下）：原文的「ID 冲突」提示先于「导入成功」，
+        // 交给动作表会在回填/落盘之前先弹成功，顺序就反了。
+        successMessage: null,
+      ),
     );
-    if (source == null || !mounted) return;
+    if (imported == null || !mounted) return;
 
-    final String? content;
-    if (source == ImportSource.clipboard) {
-      final ExportImportResult<String> pasteResult =
-          await WorldExportImportService.pasteFromClipboard();
-      if (!mounted) return;
-      if (!pasteResult.success) {
-        _snack(pasteResult.message ?? '读取剪贴板失败');
-        return;
-      }
-      content = pasteResult.data;
-    } else {
-      final ExportImportResult<String?> fileResult =
-          await ExportFileUtils.importText(
-        exts: const <String>[_fileExt, 'json'],
-        dialogTitle: '选择世界观文件',
-      );
-      if (!mounted) return;
-      if (!fileResult.success) {
-        _snack(fileResult.message ?? '读取文件失败');
-        return;
-      }
-      if (fileResult.data == null) return;
-      content = fileResult.data;
-    }
-
-    if (content == null || content.isEmpty) {
-      _snack('没有可导入的内容');
-      return;
-    }
-
-    final ExportImportResult<World> importResult =
-        WorldExportImportService.importWorld(content);
-    if (!mounted) return;
-    if (!importResult.success) {
-      _snack(importResult.message ?? '导入失败');
-      return;
-    }
-
-    World worldToImport = importResult.data!;
+    World worldToImport = imported;
     final AppController? controller = widget.controller;
     if (controller != null) {
       if (controller.getWorldById(worldToImport.id) != null) {
@@ -226,24 +173,9 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
       Navigator.of(context).pop(result);
       return;
     }
-    final bool? discard = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const FitText('放弃修改？'),
-        content: const FitText('还有未保存的修改，返回会丢失。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const FitText('继续编辑'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const FitText('放弃'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || discard != true) return;
+    // 文案与按钮走动作表（逐字同原手写 AlertDialog）；取消 / 点空白都算「继续编辑」。
+    final bool discard = await confirmDiscardEdits(context);
+    if (!mounted || !discard) return;
     Navigator.of(context).pop(result);
   }
 

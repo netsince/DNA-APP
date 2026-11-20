@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:dna/theme/tokens.dart';
 
 import '../models/user_identity.dart';
-import '../services/export_file_utils.dart';
 import '../services/identity_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
+import '../utils/action_table.dart';
 import '../widgets/adaptive_text_field.dart';
-import 'package:dna/widgets/export_import/transport_source_dialog.dart';
 import 'package:dna/widgets/fit_text.dart';
 import '../widgets/app_editor_frame.dart';
 
@@ -88,143 +87,46 @@ class _IdentityEditorPageState extends State<IdentityEditorPage> {
     Navigator.of(context).pop();
   }
 
-  /// 将当前编辑中的身份导出到剪贴板或文件，便于分享或跨设备传递。
-  Future<void> _copyToClipboard() async {
-    // 询问导出目的地(剪贴板 / 文件)
-    final ExportTarget? target = await showExportTargetDialog(
-      context: context,
-      title: '导出身份',
-      description: '导出内容为该身份的完整人设设定。',
-    );
-    if (target == null || !mounted) return;
-
-    final UserIdentity identity = _buildCurrentIdentity();
-    final ExportImportResult<String> result =
-        IdentityExportImportService.exportIdentity(identity);
-    if (!mounted) return;
-    if (!result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(result.message ?? '导出失败')),
-      );
-      return;
-    }
-
-    if (target == ExportTarget.clipboard) {
-      final ExportImportResult<void> copyResult =
-          await IdentityExportImportService.copyToClipboard(result.data!);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: FitText(
-            copyResult.success
-                ? '已复制到剪贴板，可以粘贴分享'
-                : (copyResult.message ?? '复制失败'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    // 导出为文件
-    final ExportImportResult<String?> fileResult =
-        await ExportFileUtils.exportText(
-      content: result.data!,
-      fileName: ExportFileUtils.buildFileName(
-        name: identity.name,
-        fallbackName: '身份',
-        ext: _fileExt,
-      ),
-      ext: _fileExt,
-      dialogTitle: '导出身份',
-    );
-    if (!mounted) return;
-    if (!fileResult.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(fileResult.message ?? '导出到文件失败')),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: FitText(
-          fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   /// 身份导出扩展名。
   static const String _fileExt = 'dnapersona';
 
+  /// 导出当前编辑中的身份（剪贴板 / 文件），流程与提示统一由动作表负责。
+  Future<void> _copyToClipboard() async {
+    await runExportAction(
+      context,
+      ExportActionSpec(
+        title: '导出身份',
+        description: '导出内容为该身份的完整人设设定。',
+        fallbackName: '身份',
+        fileExt: _fileExt,
+        buildContent: () => IdentityExportImportService.exportIdentity(
+          _buildCurrentIdentity(),
+        ),
+        copyToClipboard: IdentityExportImportService.copyToClipboard,
+      ),
+      entityName: _nameController.text.trim(),
+    );
+  }
+
   /// 从剪贴板或文件导入身份，回填到当前表单（需用户检查后保存）。
   Future<void> _importFromClipboard() async {
-    final ImportSource? source = await showImportSourceDialog(
-      context: context,
-      title: '导入身份',
-      description: '支持本应用导出的身份文件与直接的身份 JSON。',
+    final UserIdentity? imported = await runImportAction<UserIdentity>(
+      context,
+      ImportActionSpec<UserIdentity>(
+        title: '导入身份',
+        description: '支持本应用导出的身份文件与直接的身份 JSON。',
+        fileDialogTitle: '选择身份文件',
+        acceptedExts: const <String>[_fileExt, 'json'],
+        pasteFromClipboard: IdentityExportImportService.pasteFromClipboard,
+        parse: IdentityExportImportService.importIdentity,
+        successMessage: '已从剪贴板导入身份，请检查后保存',
+      ),
     );
-    if (source == null || !mounted) return;
-
-    final String? content;
-    if (source == ImportSource.clipboard) {
-      final ExportImportResult<String> pasteResult =
-          await IdentityExportImportService.pasteFromClipboard();
-      if (!mounted) return;
-      if (!pasteResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: FitText(pasteResult.message ?? '读取剪贴板失败')),
-        );
-        return;
-      }
-      content = pasteResult.data;
-    } else {
-      final ExportImportResult<String?> fileResult =
-          await ExportFileUtils.importText(
-        exts: const <String>[_fileExt, 'json'],
-        dialogTitle: '选择身份文件',
-      );
-      if (!mounted) return;
-      if (!fileResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: FitText(fileResult.message ?? '读取文件失败')),
-        );
-        return;
-      }
-      if (fileResult.data == null) return; // 用户取消
-      content = fileResult.data;
-    }
-
-    if (content == null || content.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: FitText('没有可导入的内容')),
-      );
-      return;
-    }
-
-    final ExportImportResult<UserIdentity> importResult =
-        IdentityExportImportService.importIdentity(content);
-    if (!mounted) return;
-    if (!importResult.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(importResult.message ?? '导入失败')),
-      );
-      return;
-    }
-    final UserIdentity imported = importResult.data!;
+    if (imported == null || !mounted) return;
     setState(() {
       _nameController.text = imported.name;
       _personaController.text = imported.persona;
     });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: FitText('已从剪贴板导入身份，请检查后保存'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override

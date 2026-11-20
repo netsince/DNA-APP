@@ -5,6 +5,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/utils/action_table.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/models/ta.dart';
@@ -234,43 +235,43 @@ class _MyCardsPageState extends State<MyCardsPage> {
         ],
       ),
       isThreeLine: false,
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) {
-          switch (v) {
-            case 'edit':
-              _edit(card);
-              break;
-            case 'resubmit':
-              _resubmit(card);
-              break;
-            case 'hidden':
-              _toggleHidden(card);
-              break;
-            case 'pin':
-              _togglePin(card);
-              break;
-            case 'detail':
-              _openDetail(card);
-              break;
-          }
-        },
-        itemBuilder: (context) => <PopupMenuEntry<String>>[
-          const PopupMenuItem<String>(value: 'detail', child: Text('查看详情')),
-          const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
-          if (rejected)
-            const PopupMenuItem<String>(
-              value: 'resubmit',
-              child: Text('重新提审'),
-            ),
+      // 行内动作写成表：可见条件（被拒才能重审、已通过才能置顶）与文案
+      // 都在数据里，渲染交给共享的 rowActionMenu（审计「动作表」）。
+      trailing: rowActionMenu(
+        actions: <RowAction>[
+          RowAction(
+            id: 'detail',
+            label: '查看详情',
+            icon: Icons.open_in_new,
+            onSelected: () => _openDetail(card),
+          ),
+          RowAction(
+            id: 'edit',
+            label: '编辑',
+            icon: Icons.edit_outlined,
+            onSelected: () => _edit(card),
+          ),
+          RowAction(
+            id: 'resubmit',
+            label: '重新提审',
+            icon: Icons.upload_outlined,
+            visible: rejected,
+            onSelected: () => _resubmit(card),
+          ),
           // 只有「已通过」的卡能置顶（服务端同样校验）。
-          if (status == 'approved')
-            PopupMenuItem<String>(
-              value: 'pin',
-              child: Text(pinned ? '取消置顶' : '置顶到主页'),
-            ),
-          PopupMenuItem<String>(
-            value: 'hidden',
-            child: Text(hidden ? '取消隐藏' : '隐藏'),
+          RowAction(
+            id: 'pin',
+            label: pinned ? '取消置顶' : '置顶到主页',
+            icon: Icons.push_pin_outlined,
+            visible: status == 'approved',
+            onSelected: () => _togglePin(card),
+          ),
+          RowAction(
+            id: 'hidden',
+            label: hidden ? '取消隐藏' : '隐藏',
+            icon: hidden ? Icons.visibility : Icons.visibility_off_outlined,
+            danger: !hidden,
+            onSelected: () => _toggleHidden(card),
           ),
         ],
       ),
