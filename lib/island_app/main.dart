@@ -14,6 +14,11 @@ import 'package:dna/island_app/widgets/sticker_text.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 图片缓存上限与主应用保持一致（社区图片同样是大图：封面/立绘/表情）。
+  // 默认 1000 条 / 100MB 对滚动场景偏大，收窄条目数即可，字节上限不动。
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 240
+    ..maximumSizeBytes = 96 << 20;
   // 启动前预热 SharedPreferences 缓存：本地存储的异步加载不阻塞 UI，且
   // 后续所有 getInstance() 都能直接复用缓存，避免启动时额外的 IO 等待。
   await SharedPrefs.init();

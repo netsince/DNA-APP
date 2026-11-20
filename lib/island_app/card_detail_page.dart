@@ -1,6 +1,8 @@
 import 'dart:convert';
+import '../widgets/memo_image.dart';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -1518,15 +1520,21 @@ class _AuthorAvatar extends StatelessWidget {
     if (a.isEmpty) {
       child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
     } else if (a.startsWith('data:')) {
-      final comma = a.indexOf(',');
-      final bytes = base64Decode(comma >= 0 ? a.substring(comma + 1) : a);
-      child = Image.memory(
-        bytes,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) =>
-            Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
-      );
+      final int target =
+          (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+              .clamp(32, 256)
+              .round();
+      final ImageProvider? provider =
+          MemoImage.dataUrl(a, cacheWidth: target);
+      child = provider == null
+          ? Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant)
+          : Image(
+              image: provider,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) =>
+                  Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
+            );
     } else {
       child = Image.network(
         ServerConfig.resolveUrl(a),

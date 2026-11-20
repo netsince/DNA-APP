@@ -1,7 +1,9 @@
 import 'dart:convert';
+import '../widgets/memo_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
@@ -877,24 +879,27 @@ class _TicketImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (image.startsWith('data:')) {
-      try {
-        return Image.memory(
-          base64Decode(image.split(',').last),
-          width: 180,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const SizedBox(
-            width: 180,
-            height: 120,
-            child: Icon(Icons.broken_image),
-          ),
-        );
-      } catch (_) {
+      final int target =
+          (180 * MediaQuery.devicePixelRatioOf(context)).clamp(180, 720).round();
+      final ImageProvider? provider =
+          MemoImage.dataUrl(image, cacheWidth: target);
+      if (provider == null) {
         return const SizedBox(
           width: 180,
           height: 120,
           child: Icon(Icons.broken_image),
         );
       }
+      return Image(
+        image: provider,
+        width: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const SizedBox(
+          width: 180,
+          height: 120,
+          child: Icon(Icons.broken_image),
+        ),
+      );
     }
     // 服务器相对路径（目前后端返回的是 data URL，这里作兜底）。
     return const SizedBox(

@@ -238,7 +238,13 @@ class ImageGenFailedCard extends StatelessWidget {
                         child: SizedBox(
                           width: 56,
                           child: Image(
-                            image: AuthNetworkImage(_refs[i]),
+                            image: ResizeImage(
+            AuthNetworkImage(_refs[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1200)
+                .round(),
+          ),
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => ColoredBox(
                               color: scheme.surfaceContainerHighest,

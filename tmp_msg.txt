@@ -1,0 +1,29 @@
+perf(内存): 社区懒挂载 + 图片按显示尺寸解码，实测首屏内存降两成
+
+实测环境：Windows 10 / 1920×1080 / Impeller / profile 构建；数字取工作集(WS)、
+私有提交(Priv)、GPU 专用内存(GPU)。
+
+一、结构性：社区页面改成懒挂载 + LRU
+- root_shell：IndexedStack 里 10 个页面以前一进社区就全建出来（每个 initState 各自
+  发请求、各自解码一屏图）；现在没进过的页面只放占位，已挂载的按 LRU 限制在 3 个以内，
+  推荐组内「刷一刷 / 探索」同样懒挂载。
+- 实测（推荐首屏）：WS 186→149MB，Priv 378→296MB，GPU 206→160MB（-20~22%）。
+
+二、图片解码按显示尺寸来（这是内存的真正大头）
+- 图片查看器：ExtendedImage 按屏幕宽限宽解码（clamp 320~2400），并开
+  clearMemoryCacheWhenDispose；关闭时再主动 clearLiveImages + clear。
+- 头像：data URL 以前在 build 里 base64Decode + Image.memory，每次重建都是「新图片」，
+  缓存里堆满互不相等的副本 —— 新增 MemoImage（有上限的 provider 复用 + 按 radius 限宽），
+  avatar / 详情页 / 我的页 / 工单截图 / 评论缩略图全部改走它。
+- 贴纸：按显示尺寸限宽（以前原图整张塞进 32px 格子）。
+- 生图：AuthNetworkImage 外接 ResizeImage（原图 1024~2048 不再整张解）。
+- 茶馆贴图 / 文章正文图：补 cacheWidth。
+- 渐显动画（fade_in_image）：动画结束后拆掉 Opacity/Transform/ImageFiltered 三层壳，
+  不再每张图常驻一个离屏模糊层。
+- 独立社区入口也设置图片缓存上限（240 条 / 96MB），与主应用一致。
+
+三、验证
+- flutter analyze --no-pub lib test：无 issue；
+- flutter test --no-pub --exclude-tags live：930 通过 / 2 跳过；
+- 复测同一套动作（首屏 / 逐页 / 看图 6 张 / 静置），首屏三项均下降约两成，
+  看图路径持平（全屏大图本身就要那么多纹理，属于必要开销）。

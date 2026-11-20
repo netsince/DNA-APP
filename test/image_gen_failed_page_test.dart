@@ -50,7 +50,9 @@ void main() {
     // 岛内的图片走自定义 ImageProvider（带认证头），所以看 AuthNetworkImage.url。
     final List<String> urls = <String>[];
     for (final Image img in tester.widgetList<Image>(find.byType(Image))) {
-      final ImageProvider provider = img.image;
+      // 现在外面多包了一层 ResizeImage（按屏宽限宽解码），先把壳剥掉再看真身。
+      ImageProvider provider = img.image;
+      if (provider is ResizeImage) provider = provider.imageProvider;
       if (provider is AuthNetworkImage) urls.add(provider.url);
     }
     expect(urls, contains('https://example.invalid/v1/image-gen/reference/1060/0'));
