@@ -29,7 +29,7 @@ void main() {
         _ => null,
       };
 
-  Map<String, String> map(
+  Map<String, dynamic> map(
     ConversationMessage m, {
     String perspective = 'ta-a',
     bool group = true,
@@ -81,18 +81,18 @@ void main() {
 
     test('单聊(group=false)保持原样:user 行不加标注', () {
       final out = map(user('嗨'), group: false);
-      expect(out, <String, String>{'role': 'user', 'content': '嗨'});
+      expect(out, <String, dynamic>{'role': 'user', 'content': '嗨'});
     });
   });
 
   group('mergeAdjacentSameRole 相邻合并', () {
     test('连续 user 合并为一条(\\n 连接),assistant 交替处不合并', () {
-      final payload = <Map<String, String>>[
-        <String, String>{'role': 'system', 'content': 'sys'},
-        <String, String>{'role': 'user', 'content': '[小红] a'},
-        <String, String>{'role': 'user', 'content': '[用户] b'},
-        <String, String>{'role': 'assistant', 'content': 'c'},
-        <String, String>{'role': 'user', 'content': '[用户] d'},
+      final payload = <Map<String, dynamic>>[
+        <String, dynamic>{'role': 'system', 'content': 'sys'},
+        <String, dynamic>{'role': 'user', 'content': '[小红] a'},
+        <String, dynamic>{'role': 'user', 'content': '[用户] b'},
+        <String, dynamic>{'role': 'assistant', 'content': 'c'},
+        <String, dynamic>{'role': 'user', 'content': '[用户] d'},
       ];
       ChatMessageBuilder.mergeAdjacentSameRole(payload);
       expect(payload, hasLength(4));
@@ -102,10 +102,10 @@ void main() {
     });
 
     test('顺序严格保持(自后向前并入前一条)', () {
-      final payload = <Map<String, String>>[
-        <String, String>{'role': 'user', 'content': '1'},
-        <String, String>{'role': 'user', 'content': '2'},
-        <String, String>{'role': 'user', 'content': '3'},
+      final payload = <Map<String, dynamic>>[
+        <String, dynamic>{'role': 'user', 'content': '1'},
+        <String, dynamic>{'role': 'user', 'content': '2'},
+        <String, dynamic>{'role': 'user', 'content': '3'},
       ];
       ChatMessageBuilder.mergeAdjacentSameRole(payload);
       expect(payload.single['content'], '1\n2\n3');
@@ -131,9 +131,9 @@ void main() {
       // system / 历史([用户]+assistant 合并? 不相邻不并)/ [小红] / [用户]追问→与谁相邻?
       // 序列: sys, [用户]开场(user), A(assistant), [小红](user), [用户]追问(user), 本轮新输入(user)
       // 合并后: sys, [用户]开场, A, [小红]\n[用户]追问\n本轮新输入 ← 错!extra 在 merge 之后追加才对。
-      expect(payload[0], <String, String>{'role': 'system', 'content': 'SYS'});
+      expect(payload[0], <String, dynamic>{'role': 'system', 'content': 'SYS'});
       expect(payload[1]['content'], '[用户] 开场');
-      expect(payload[2], <String, String>{'role': 'assistant', 'content': 'A 的话'});
+      expect(payload[2], <String, dynamic>{'role': 'assistant', 'content': 'A 的话'});
       expect(payload[3]['content'], contains('[小红]'));
       expect(payload.last['content'], '本轮新输入');
       expect(payload.where((m) => m['role'] == 'assistant'), hasLength(1));

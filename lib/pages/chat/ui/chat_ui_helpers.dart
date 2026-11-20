@@ -649,13 +649,21 @@ mixin ChatUiHelpers on ChatStateMixin {
     setState(() {});
     // 回溯成功后，把被丢弃区间中最早的「我的视角」消息重新填入输入框，
     // 方便从被打断的地方继续。
+    //
+    // 判据里带上附件：只发了文件没写字的那条消息，也必须能被填回来 ——
+    // 否则用户回溯之后手里那份文件就白传了。
     final List<ConversationMessage> earliestUsers = dropped
-        .where((ConversationMessage m) => m.role == 'user' && m.text.trim().isNotEmpty)
+        .where((ConversationMessage m) =>
+            m.role == 'user' &&
+            (m.text.trim().isNotEmpty || m.attachments.isNotEmpty))
         .toList();
     if (earliestUsers.isNotEmpty) {
-      final String text = earliestUsers.first.text;
+      final ConversationMessage restored = earliestUsers.first;
+      final String text = restored.text;
       _inputController.text = text;
       _inputController.selection = TextSelection.collapsed(offset: text.length);
+      // 附件一并倒回输入区（最多 3 个，与发送时同一套限制）。
+      _attachmentDraft.replaceAll(restored.attachments);
     }
     // 回溯成功后滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {

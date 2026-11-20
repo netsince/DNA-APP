@@ -60,6 +60,7 @@ class AppSettings {
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
     this.showParenButton = true,
+    this.showUploadButton = true,
     this.showMessageAvatar = true,
     this.showMessageRetry = true,
     this.showMessageCopy = true,
@@ -136,6 +137,7 @@ class AppSettings {
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
       showParenButton: true,
+      showUploadButton: true,
       showMessageAvatar: true,
       showMessageRetry: true,
       showMessageCopy: true,
@@ -337,6 +339,11 @@ class AppSettings {
   /// 聊天输入框旁是否显示「添加括号」按钮（点击在末尾追加（）并把光标置于中间）。
   final bool showParenButton;
 
+  /// 聊天输入栏是否显示「上传文件」按钮。
+  ///
+  /// 默认开启；关掉后只是隐藏入口，已发送消息里的附件照常显示。
+  final bool showUploadButton;
+
   /// 对方气泡左上角是否显示角色头像（配合 TTS 朗读按钮，群聊中用于区分发言者）。
   final bool showMessageAvatar;
 
@@ -492,6 +499,7 @@ class AppSettings {
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
       'showParenButton': showParenButton,
+      'showUploadButton': showUploadButton,
       'showMessageAvatar': showMessageAvatar,
       'showMessageRetry': showMessageRetry,
       'showMessageCopy': showMessageCopy,
@@ -588,6 +596,7 @@ class AppSettings {
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
       showParenButton: (json['showParenButton'] as bool?) ?? true,
+      showUploadButton: (json['showUploadButton'] as bool?) ?? true,
       showMessageAvatar: (json['showMessageAvatar'] as bool?) ?? true,
       showMessageRetry: (json['showMessageRetry'] as bool?) ?? true,
       showMessageCopy: (json['showMessageCopy'] as bool?) ?? true,
@@ -699,6 +708,7 @@ class AppSettings {
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
     bool? showParenButton,
+    bool? showUploadButton,
     bool? showMessageAvatar,
     bool? showMessageRetry,
     bool? showMessageCopy,
@@ -779,6 +789,7 @@ class AppSettings {
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
       showParenButton: showParenButton ?? this.showParenButton,
+      showUploadButton: showUploadButton ?? this.showUploadButton,
       showMessageAvatar: showMessageAvatar ?? this.showMessageAvatar,
       showMessageRetry: showMessageRetry ?? this.showMessageRetry,
       showMessageCopy: showMessageCopy ?? this.showMessageCopy,

@@ -1,7 +1,7 @@
 part of '../chat_surface.dart';
 
 mixin ChatActionsInspiration on ChatStateMixin {
-  List<Map<String, String>> _buildInspirationPayload(String topic);
+  List<Map<String, dynamic>> _buildInspirationPayload(String topic);
 
   Future<void> _startInspiration() async {
     if (_inspirationInProgress) {
@@ -60,7 +60,7 @@ mixin ChatActionsInspiration on ChatStateMixin {
   }
 
   Future<List<String>> _generateInspirations(
-    List<Map<String, String>> payload, {
+    List<Map<String, dynamic>> payload, {
     required int count,
     required String model,
     required String apiKey,

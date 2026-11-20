@@ -1,11 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../models/attachment_draft.dart';
+import '../../../../models/message_attachment.dart';
 import '../../../../models/quick_reply.dart';
+import '../../../../services/attachment_intake.dart';
+import '../../../../utils/error_display.dart';
+import '../../../../utils/platform_capabilities.dart';
+import '../../../../utils/ui_feedback.dart';
 import '../../../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -18,6 +25,8 @@ class ChatInputBar extends StatefulWidget {
     required this.sending,
     required this.inspirationInProgress,
     required this.onSend,
+    required this.attachments,
+    required this.visionEnabled,
     required this.onStartInspiration,
     this.quickReplies = const <QuickReply>[],
     this.onQuickReply,
@@ -36,6 +45,12 @@ class ChatInputBar extends StatefulWidget {
   /// 「停止生成」回调。非空且 [sending] 为 true 时,发送按钮变为可点的停止按钮;
   /// 为 null 时保持旧行为(生成中仅显示转圈、不可点)。
   final VoidCallback? onStopGeneration;
+  /// 待发送附件草稿（与 ChatSurface 共享，回溯回填也写它）。
+  final AttachmentDraft attachments;
+
+  /// 当前模型是否支持图片输入（决定抽屉里要不要给「相册 / 照相」）。
+  final bool visionEnabled;
+
   final Future<void> Function() onStartInspiration;
 
   /// 快速回复按钮列表（显示在输入栏上方）。
@@ -86,12 +101,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _prevText = widget.inputController.text;
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
+    widget.attachments.addListener(_onAttachmentsChanged);
   }
 
   @override
   void dispose() {
     widget.inputController.removeListener(_onInputChanged);
+    widget.attachments.removeListener(_onAttachmentsChanged);
     super.dispose();
+  }
+
+  void _onAttachmentsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onInputChanged() {
@@ -360,6 +381,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
           children: <Widget>[
             _buildQuickReplies(),
             SizedBox(height: capsule ? 4 : 6),
+            if (widget.attachments.isNotEmpty) ...<Widget>[
+              _buildAttachmentStrip(cs),
+              SizedBox(height: capsule ? 6 : 8),
+            ],
             if (capsule) _buildCapsuleBar(cs) else _buildClassicBar(cs),
           ],
         ),
@@ -423,6 +448,193 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
+  /// 上传文件按钮：满了就禁用（tooltip 说明原因，不做无声失败）。
+  Widget _buildUploadButton(ColorScheme cs) {
+    final bool full = widget.attachments.remainingSlots == 0;
+    return IconButton(
+      tooltip: full ? '最多只能带 3 个附件' : '上传文件',
+      color: cs.onSurfaceVariant,
+      onPressed: full ? null : _openUploadSheet,
+      icon: const Icon(Icons.attach_file_rounded),
+    );
+  }
+
+  /// 从底部滑出的上传抽屉：文件 / 相册 / 照相。
+  ///
+  /// 相册与照相只在「当前模型支持视觉」时出现 —— 模型吃不下的东西不给入口，
+  /// 比让用户传完再看到失败要体面。照相在 PC（含 Web）上不出现。
+  Future<void> _openUploadSheet() async {
+    final bool canImage = widget.visionEnabled;
+    final bool canCamera = canImage &&
+        !PlatformCapabilities.isDesktop &&
+        !kIsWeb;
+    final _UploadChoice? choice = await showModalBottomSheet<_UploadChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        final ColorScheme cs = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_outlined),
+                title: const FitText('文件'),
+                subtitle: const FitText('文本文档、代码、表格等'),
+                onTap: () => Navigator.of(sheetContext).pop(_UploadChoice.file),
+              ),
+              if (canImage)
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const FitText('相册'),
+                  subtitle: const FitText('选一张图给模型看'),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_UploadChoice.gallery),
+                ),
+              if (canCamera)
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const FitText('照相'),
+                  subtitle: const FitText('拍一张马上用'),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_UploadChoice.camera),
+                ),
+              if (!canImage)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.info_outline, size: 16, color: cs.outline),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FitText(
+                          '当前模型未开启图片支持，只能发文件。可在「模型设置」里打开。',
+                          style: TextStyle(fontSize: AppFontSize.caption, color: cs.outline),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case _UploadChoice.file:
+        await _runIntake(() => AttachmentIntake.instance.pickFiles(
+              maxCount: widget.attachments.remainingSlots,
+            ));
+      case _UploadChoice.gallery:
+        await _runIntake(() => AttachmentIntake.instance.pickGallery(
+              maxCount: widget.attachments.remainingSlots,
+            ));
+      case _UploadChoice.camera:
+        await _runIntakeCamera();
+    }
+  }
+
+  Future<void> _runIntake(
+    Future<List<AttachmentIntakeResult>> Function() task,
+  ) async {
+    try {
+      final List<AttachmentIntakeResult> results = await task();
+      _applyIntake(results);
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, '选择文件失败：${describeError(e)}');
+    }
+  }
+
+  Future<void> _runIntakeCamera() async {
+    try {
+      final AttachmentIntakeResult? one =
+          await AttachmentIntake.instance.pickCamera();
+      if (one == null) return;
+      _applyIntake(<AttachmentIntakeResult>[one]);
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, '拍照失败：${describeError(e)}');
+    }
+  }
+
+  void _applyIntake(List<AttachmentIntakeResult> results) {
+    if (!mounted) return;
+    final List<String> errors = <String>[];
+    int added = 0;
+    for (final AttachmentIntakeResult r in results) {
+      if (r.ok) {
+        if (widget.attachments.add(r.attachment!)) {
+          added++;
+        }
+      } else if (r.error != null) {
+        errors.add(r.error!);
+      }
+    }
+    if (errors.isNotEmpty) {
+      showSnack(context, errors.first);
+    } else if (added == 0 && results.isNotEmpty) {
+      showSnack(context, '这些附件已经在列表里了');
+    }
+  }
+
+  /// 输入区上方的附件条：每个附件一个胶囊，右侧 X 可移除。
+  Widget _buildAttachmentStrip(ColorScheme cs) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        itemCount: widget.attachments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (BuildContext context, int index) {
+          final MessageAttachment a = widget.attachments.items[index];
+          return Container(
+            constraints: const BoxConstraints(maxWidth: 220),
+            padding: const EdgeInsets.only(left: 10, right: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: AppRadius.pillAll,
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  a.isImage
+                      ? Icons.image_outlined
+                      : (a.isText ? Icons.description_outlined : Icons.attach_file),
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: FitText(
+                    a.name,
+                    style: TextStyle(
+                      fontSize: AppFontSize.caption,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '移除附件',
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 16,
+                  color: cs.onSurfaceVariant,
+                  onPressed: () => widget.attachments.removeAt(index),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
   /// 输入框右侧的动作区：括号 / 语音 / 灵感 / 发送（或停止）。
   ///
   /// [capsule] 只影响间距与发送键的形态：胶囊里发送键是实心圆钮，
@@ -432,6 +644,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        // 上传文件（设置里可关；发送中隐藏，避免和发送按钮抢位）
+        if (widget.controller.settings.showUploadButton && !widget.sending) ...<Widget>[
+          _buildUploadButton(cs),
+          gap,
+        ],
         // 添加括号按钮
         if (widget.controller.settings.showParenButton) ...<Widget>[
           _buildParenButton(cs),
@@ -560,6 +777,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
     widget.onSend();
   }
 }
+
+/// 上传抽屉的三个选项。
+enum _UploadChoice { file, gallery, camera }
 
 /// 回车键（可选带 Shift）意图：用于在输入框里区分「发送」与「换行」。
 class _EnterIntent extends Intent {

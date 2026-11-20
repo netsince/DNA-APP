@@ -39,6 +39,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../models/attachment_draft.dart';
+import '../../models/message_attachment.dart';
+import '../../services/attachment_image_loader.dart';
+import '../../services/model_vision.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/error_display.dart';
 import '../../utils/fork_utils.dart';
@@ -581,9 +585,12 @@ class _ChatSurfaceState extends State<ChatSurface>
   }
 
   Future<void> _exportCurrentConversation() async {
+    final bool hasAttachments = _conversation.messages
+        .any((ConversationMessage m) => m.attachments.isNotEmpty);
     final ExportOptions? options = await showExportOptionsDialog(
       context: context,
       accentColor: _accent,
+      hasAttachments: hasAttachments,
     );
     if (options == null || !mounted) {
       return;
@@ -594,6 +601,7 @@ class _ChatSurfaceState extends State<ChatSurface>
           <String>[_conversation.id],
           includeCharacterCards: options.includeCharacterCards,
           format: options.format,
+          includeAttachments: options.includeAttachments,
         );
     if (!mounted) {
       return;
@@ -1002,6 +1010,10 @@ class _ChatSurfaceState extends State<ChatSurface>
                               inputController: _inputController,
                               inputFocusNode: _inputFocusNode,
                               sending: _sending,
+                              attachments: _attachmentDraft,
+                              visionEnabled: resolveVisionSupport(
+                                widget.controller.activeModel,
+                              ),
                               inspirationInProgress: _inspirationInProgress,
                               onSend: _send,
                               onStopGeneration: requestStopGeneration,

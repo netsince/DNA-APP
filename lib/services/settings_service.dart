@@ -46,6 +46,7 @@ class SettingsService {
   static const String _bgmVolumeKey = 'bgm_volume';
   static const String _bgmSizeLimitUnlockedKey = 'bgm_size_limit_unlocked';
   static const String _showParenButtonKey = 'show_paren_button';
+  static const String _showUploadButtonKey = 'show_upload_button';
   static const String _showMessageAvatarKey = 'show_message_avatar';
   static const String _showMessageRetryKey = 'show_message_retry';
   static const String _showMessageCopyKey = 'show_message_copy';
@@ -192,6 +193,7 @@ class SettingsService {
       bgmVolume: _readInt(prefs, _bgmVolumeKey, 50),
       bgmSizeLimitUnlocked: prefs.getBool(_bgmSizeLimitUnlockedKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
+      showUploadButton: prefs.getBool(_showUploadButtonKey) ?? true,
       showMessageAvatar: prefs.getBool(_showMessageAvatarKey) ?? true,
       showMessageRetry: prefs.getBool(_showMessageRetryKey) ?? true,
       showMessageCopy: prefs.getBool(_showMessageCopyKey) ?? true,
@@ -313,6 +315,7 @@ class SettingsService {
     await prefs.setInt(_bgmVolumeKey, settings.bgmVolume);
     await prefs.setBool(_bgmSizeLimitUnlockedKey, settings.bgmSizeLimitUnlocked);
     await prefs.setBool(_showParenButtonKey, settings.showParenButton);
+    await prefs.setBool(_showUploadButtonKey, settings.showUploadButton);
     await prefs.setBool(_showMessageAvatarKey, settings.showMessageAvatar);
     await prefs.setBool(_showMessageRetryKey, settings.showMessageRetry);
     await prefs.setBool(_showMessageCopyKey, settings.showMessageCopy);
