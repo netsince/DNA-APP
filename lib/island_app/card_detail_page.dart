@@ -23,6 +23,7 @@ import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/utils/error_display.dart';
 import '../theme/tokens.dart';
+import '../widgets/detail_section.dart';
 
 /// 角色卡详情数据模型（对应后端 `GET /api/v1/cards/<id>` 的 data）。
 class CardDetail {
@@ -1041,6 +1042,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
   /// 内容区块（简介/人格设定/开场白/对话示例/原始链接），窄屏与宽屏共用。
   ///
   /// [includeTags] 为 true 时包含标签区（窄屏），false 时标签由资料栏展示（宽屏）。
+  /// 内容区块：**描述在这里，画法交给共享的 [DetailSections]**。
+  ///
+  /// 每个区块只声明「有没有内容 / 标题 / 图标 / 自定义 widget」，
+  /// 空值自动不占位（以前是一串 if + 手抄包裹）。
   List<Widget> _contentSectionChildren(
     CardDetail d, {
     required bool includeTags,
@@ -1051,34 +1056,60 @@ class _CardDetailPageState extends State<CardDetailPage> {
           tags: d.tags,
           statusBadge: _owner ? _ReviewStatusBadges(detail: d) : null,
         ),
-      if (d.intro.isNotEmpty)
-        _ContentSection(icon: Icons.notes_outlined, title: '简介', body: d.intro),
-      if (d.persona.isNotEmpty)
-        _ContentSection(
+      ...DetailSections.buildAll(<DetailSectionSpec>[
+        DetailSectionSpec(
+          id: 'intro',
+          icon: Icons.notes_outlined,
+          title: '简介',
+          body: d.intro,
+        ),
+        DetailSectionSpec(
+          id: 'persona',
           icon: Icons.badge_outlined,
           title: '人格设定',
           body: d.persona,
         ),
-      if (d.opening.isNotEmpty)
-        _ContentSection(
+        DetailSectionSpec(
+          id: 'opening',
           icon: Icons.chat_bubble_outline,
           title: '开场白',
           // 开场白不做强斜体、不加装饰，保持 MDUI 简洁排版。
           body: d.opening,
         ),
-      if (d.dialogue.isNotEmpty)
-        _DialogueSection(name: d.name, dialogue: d.dialogue),
-      if (d.authorNote != null && d.authorNote!.isNotEmpty)
-        _AuthorNoteSection(note: d.authorNote!, interval: d.authorNoteInterval),
-      if (d.originalLink.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: OutlinedButton.icon(
-            onPressed: () => _openLink(d.originalLink),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: const Text('原始链接'),
-          ),
+        // 下面三个不是纯文本：对话示例 / 作者注释 / 外链按钮，
+        // 用 custom 挂进去，空值时同样自动不占位。
+        DetailSectionSpec(
+          id: 'dialogue',
+          title: '对话示例',
+          custom: d.dialogue.isEmpty
+              ? null
+              : _DialogueSection(name: d.name, dialogue: d.dialogue),
         ),
+        DetailSectionSpec(
+          id: 'authorNote',
+          title: '作者注释',
+          custom: (d.authorNote == null || d.authorNote!.isEmpty)
+              ? null
+              : _AuthorNoteSection(
+                  note: d.authorNote!,
+                  interval: d.authorNoteInterval,
+                ),
+        ),
+        DetailSectionSpec(
+          id: 'originalLink',
+          title: '原始链接',
+          custom: d.originalLink.isEmpty
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openLink(d.originalLink),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('原始链接'),
+                  ),
+                ),
+        ),
+      ]),
     ];
   }
 }
@@ -1751,70 +1782,6 @@ class _ReviewStatusBadges extends StatelessWidget {
   }
 }
 
-/// 内容区块：描边圆角卡片 + 小标题 + 正文。
-class _ContentSection extends StatelessWidget {
-  const _ContentSection({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Row(
-              children: <Widget>[
-                Icon(icon, size: 16, color: scheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: scheme.onSurfaceVariant,
-                    letterSpacing: 0.02,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.all(AppSpacing.md),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Text(
-              body,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: AppLineHeight.reading,
-                wordSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// 作者注释（Author's Note）：作者设置的希望模型始终记住/强调的内容。
 ///

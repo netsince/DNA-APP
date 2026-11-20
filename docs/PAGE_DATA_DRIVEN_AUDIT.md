@@ -22,8 +22,8 @@
 | 编辑器第一批（会话×2 / 群聊×2 / 快速回复 / 正则 / 词条弹窗） | ✅ | `535cfbc` | 前六个净减 419 行；词条弹窗为保观感 +61 行 |
 | 动作表 | ✅ | `lib/utils/action_table.dart`（285 行）+ 3 条测试，`81565db` | 导出/导入 3 处、放弃确认 5 处、行内菜单 2 处；10 个文件在用 |
 | 列表项模板（五态骨架） | ✅ | `lib/widgets/paged_list_body.dart`（108 行） | 四页全部换完：我的卡、我的收藏（网格）、通知、我的世界卡；顺带修掉通知页的**双版心缩进**（宽屏被缩两次，1200 宽时内容只剩约 320px） |
-| 详情区块（`DetailSectionSpec`） | ⬜ | — | 卡片详情 / 角色展示 / 世界详情 |
-| 动作表剩余同类 | ⬜ | — | 需先补「项样式 / 分隔线 / 勾选项」；涉及 `world_page`、`home_widgets`、`group_home_page`、`chat_app_bar`、`world_detail`、`comment_section`、`card_detail` |
+| 详情区块（`DetailSectionSpec`） | 🚧 2/3 | `lib/widgets/detail_section.dart`（163 行） | 卡片详情 ✅（6 个区块，其中 3 个 `custom`）、角色展示 ✅（4 个区块）；**世界详情保持原样**——它的头卡是「状态横幅 + 名称 + 统计 + 简介 + 标签 Wrap + 作者行」的不规则组合，两种 style 都套不上，套了就是改观感 |
+| 动作表剩余同类 | ⬜ | — | 已核清具体缺口：`card_detail` 的项内图标是 20px + 12 间距（共享层是 18 + 8）、顶栏按钮显式 `Icons.more_vert`；`world_detail` / `comment_section` 用 `ListTile(dense)` 项样式；`world_page` / `home_widgets` / `group_home_page` 是「归档两套列表 + 分隔线」；`chat_app_bar` 用 `CheckedPopupMenuItem`。补 `icon/iconSize/iconGap` + `listTile` 项样式 + `divider` + `checked` 四项后即可覆盖 |
 | 表单 + submit 描述符 | ⬜ | — | 代理配置 / 服务器地址 / 工单新建 / 积分兑换 |
 | 异常显性化（配套，非本审计项） | ✅ | `utils/error_display.dart` + `DESIGN_SPEC.md` §7.3 | 49 处「失败，请重试」改成「前缀：真实原因」 |
 
