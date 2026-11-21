@@ -499,31 +499,20 @@ class AppController extends ChangeNotifier {
   Future<void> completeOobe() async {
     _settings = _settings.copyWith(completedOobe: true);
     await _settingsService.save(_settings);
-    // 预置角色卡：只在第一次完成引导时释放一次。
-    //
-    // 标记（[AppSettings.presetReleased]）**不随 restartOobe 复位** —— 否则用户
-    // 重走一遍引导就会再释放一次。释放本身失败不置标记，下次完成引导时重试。
-    await _releasePresetsIfNeeded();
-    notifyListeners();
-  }
-
-  /// 首次完成引导时释放 `assets/presets/` 里的预置卡（幂等）。
-  Future<void> _releasePresetsIfNeeded() async {
-    if (_settings.presetReleased) return;
+    // 释放内置角色卡。**不设任何"已释放"标记**：
+    // 释放本身是幂等的（同 id 跳过、不覆盖用户改动），而 OOBE 正常只走一次，
+    // 加标记只会带来「换卡后不再释放」这种自找的麻烦。失败也不阻断引导。
     try {
       final PresetReleaseResult result =
           await PresetReleaseService.release(controller: this);
-      final bool allOk = result.ok;
       debugPrint(
         '[preset] 释放 ${result.releasedCount}/${result.entries.length} 张卡，'
-        '建会话 ${result.conversationsCreated} 个${allOk ? '' : '（有失败）'}',
+        '建会话 ${result.conversationsCreated} 个',
       );
-      if (!allOk) return;
-      _settings = _settings.copyWith(presetReleased: true);
-      await _settingsService.save(_settings);
     } catch (e) {
       debugPrint('[preset] 释放异常（不阻断引导）: $e');
     }
+    notifyListeners();
   }
 
   Future<void> restartOobe() async {

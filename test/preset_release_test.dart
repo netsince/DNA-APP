@@ -175,13 +175,19 @@ void main() {
     }
   });
 
-  test('presetReleased 不随 restartOobe 复位', () async {
+  test('完成引导会释放卡片；连跑两次不会重复', () async {
     final AppController c = await _boot();
     await c.completeOobe();
     expect(c.settings.completedOobe, isTrue);
-    expect(c.settings.presetReleased, isTrue, reason: '第一次完成引导应释放预置卡');
-    await c.restartOobe();
-    expect(c.settings.completedOobe, isFalse);
-    expect(c.settings.presetReleased, isTrue, reason: '重走引导不许再释放一次');
+    // 真资源包 + 假 Hive：卡片与会话都应落库。
+    expect(c.tas.where((TA t) => t.name == '林夏').length, 1);
+    expect(c.tas.where((TA t) => t.name == '夏明朗').length, 1);
+    expect(c.conversations.where((Conversation x) => x.taId.isNotEmpty).length,
+        greaterThanOrEqualTo(1));
+
+    final int before = c.tas.length;
+    await c.completeOobe();
+    await c.completeOobe();
+    expect(c.tas.length, before, reason: '同 id 跳过，不会重复建卡');
   });
 }

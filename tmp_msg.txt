@@ -1,0 +1,14 @@
+refactor(引导): 预置卡改成 OOBE 完成时无条件释放，删掉所有「已释放」标记
+
+之前的布尔标记（以及我刚加又撤掉的版本号）是过度设计：OOBE 正常只走一次，
+而释放本身幂等（同 id 跳过、不覆盖用户改动）。加标记唯一的作用是——
+换了预置卡之后永远不再释放。
+
+- AppSettings / settings_service / patch：删掉 presetReleased、presetReleaseVersion 及相关键。
+- AppController.completeOobe()：无条件调 PresetReleaseService.release()，异常只记日志、
+  不阻断引导。
+- 服务去掉清单版本号；ok 只用于日志。
+- 测试：「标记不复位」那条换成「完成引导确实释放了林夏与夏明朗；连跑三次不重复建卡」，
+  且走真资源包，能验证打包与解析。
+
+验证：analyze 无 issue；950 测试通过 / 2 跳过。

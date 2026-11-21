@@ -24,8 +24,7 @@ class SettingsService {
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
 
-  /// 预置卡释放标记：一旦 true 永不复位（[AppController.restartOobe] 不碰它）。
-  static const String _presetReleasedKey = 'preset_released';
+  /// 已释放的预置清单版本（0 = 从未释放）。[AppController.restartOobe] 不碰它。
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
   static const String _summaryTurnIntervalKey = 'summary_turn_interval';
   static const String _summaryWordThresholdKey = 'summary_word_threshold';
@@ -171,7 +170,6 @@ class SettingsService {
       apiKey: legacyApiKey,
       selectedModel: legacyModel,
       completedOobe: prefs.getBool(_oobeKey) ?? false,
-      presetReleased: prefs.getBool(_presetReleasedKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
       summaryTurnInterval: _readInt(prefs, _summaryTurnIntervalKey, 200),
       summaryWordThreshold: _readInt(prefs, _summaryWordThresholdKey, 6000),
@@ -287,7 +285,6 @@ class SettingsService {
     await prefs.setString(_apiKeyKey, settings.apiKey);
     await prefs.setString(_modelKey, settings.selectedModel);
     await prefs.setBool(_oobeKey, settings.completedOobe);
-    await prefs.setBool(_presetReleasedKey, settings.presetReleased);
     await prefs.setBool(_autoSummaryPromptKey, settings.autoSummaryPrompt);
     await prefs.setInt(_summaryTurnIntervalKey, settings.summaryTurnInterval);
     await prefs.setInt(_summaryWordThresholdKey, settings.summaryWordThreshold);
