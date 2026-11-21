@@ -24,9 +24,32 @@ class SplashPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.splashBackground,
-      // 用动画 id 当 key：设置里换动画时会重建子树，不会复用上一段动画的
-      // State（复用的后果是控制器还停在「已播完」，新动画一帧都不播）。
-      body: Center(
+      body: SplashStage(animation: animation, onComplete: onComplete),
+    );
+  }
+}
+
+/// 只有「深色底 + 居中播放」的舞台，不含 Scaffold。
+///
+/// 启动页与设置里的「预览开场动画」共用它 —— 预览弹窗里塞一整个 Scaffold
+/// 既多余又会带上它自己的安全区与背景色。
+class SplashStage extends StatelessWidget {
+  const SplashStage({
+    super.key,
+    required this.animation,
+    required this.onComplete,
+  });
+
+  final SplashAnimationSpec animation;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.splashBackground,
+      // 用动画 id 当 key：换动画时会重建子树，不会复用上一段动画的 State
+      //（复用的后果是控制器还停在「已播完」，新动画一帧都不播）。
+      child: Center(
         child: KeyedSubtree(
           key: ValueKey<String>(animation.id),
           child: animation.build(context, onComplete, animation.durationMs),

@@ -7,6 +7,8 @@ import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
 import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../splash/splash_animations.dart';
+import '../splash/splash_preview_dialog.dart';
 import 'free_image_settings_page.dart';
 import 'update_dialog.dart';
 import 'update_settings_page.dart';
@@ -123,6 +125,29 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               ),
             ),
             const SizedBox(height: 16),
+            // 开场动画预览：动画只在冷启动出现一次，改完设置没法立刻看效果，
+            // 这里给一个当场可重播的预览。
+            Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: AppAlpha.a40),
+                ),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.theaters_outlined),
+                title: const FitText('预览开场动画'),
+                subtitle: FitText(
+                  '当前：${splashAnimationById(widget.controller.settings.splashAnimation).label}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _previewSplash,
+              ),
+            ),
+            const SizedBox(height: 16),
             Card(
               margin: EdgeInsets.zero,
               elevation: 0,
@@ -144,6 +169,13 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _previewSplash() async {
+    await showSplashPreviewDialog(
+      context,
+      animationId: widget.controller.settings.splashAnimation,
     );
   }
 
