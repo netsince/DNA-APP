@@ -2,11 +2,11 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/message_attachment.dart';
 import 'attachment_storage.dart';
+import 'image_compressor.dart';
 
 /// 文本类塞进 prompt 的预览长度（比存储层的全文上限小得多：
 /// 全文进上下文，预览只用于气泡展示与「发了什么」的回看）。
@@ -17,6 +17,9 @@ const int kAttachmentPreviewChars = 4000;
 const int kAttachmentMaxBytes = kMaxAttachmentBytes;
 const int kAttachmentMaxImageBytes = kMaxImageBytes;
 const int kAttachmentMaxTextChars = kMaxTextChars;
+
+/// 图片附件的长边上限：够模型看清细节，又不至于把请求体撑爆。
+const int kAttachmentImageLongSide = 1568;
 
 /// 附件接入的结果。
 class AttachmentIntakeResult {
@@ -172,20 +175,15 @@ class AttachmentIntake {
   }
 
   Future<Uint8List?> _compressImage(Uint8List bytes) async {
-    try {
-      final Uint8List out = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 1568,
-        minHeight: 1568,
-        quality: 82,
-        format: CompressFormat.jpeg,
-      );
-      // 压缩反而变大（小图/已高度压缩）时保留原图。
-      return out.length < bytes.length ? out : bytes;
-    } catch (e) {
-      debugPrint('[attachment] 图片压缩失败，按原图处理: $e');
-      return null;
-    }
+    // 平台差异由 ImageCompressor 一个入口处理（它不抛异常，解不出来返回 null）。
+    final CompressedImage? compressed = await ImageCompressor.compress(
+      bytes,
+      maxSide: kAttachmentImageLongSide,
+      quality: 82,
+    );
+    if (compressed == null) return null;
+    // 压缩反而变大（小图/已高度压缩）时保留原图。
+    return compressed.bytes.length < bytes.length ? compressed.bytes : bytes;
   }
 
   static bool _looksTextual(String name, String mime) {
