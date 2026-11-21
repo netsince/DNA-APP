@@ -26,7 +26,7 @@ SectionPageData identitySection(AppController controller) {
   return SectionPageData(
     section: AppSection.identity,
     // 卡片列表:宽屏并排多列,内容列相应放宽。
-    contentMaxWidth: AppSize.cardGridMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => AppBar(
       title: const FitText('身份'),
       actions: <Widget>[

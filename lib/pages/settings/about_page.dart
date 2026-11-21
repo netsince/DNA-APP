@@ -114,7 +114,9 @@ class _AboutPageState extends State<AboutPage> {
       appBar: AppBar(title: const FitText('关于与开源')),
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w = constraints.maxWidth > AppSize.pageMaxWidth
+              ? AppSize.pageMaxWidth
+              : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),

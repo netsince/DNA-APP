@@ -13,6 +13,7 @@ import '../../../models/app_settings.dart';
 import '../../../state/app_controller.dart';
 import '../../../theme/tokens.dart';
 import '../../../utils/platform_capabilities.dart';
+import '../../../widgets/app_content_frame.dart';
 import '../../../widgets/fit_text.dart';
 import '../../../widgets/setting_collapsible.dart';
 import '../../../widgets/setting_section.dart';
@@ -108,7 +109,10 @@ class SettingsFieldsPage extends StatelessWidget {
               ),
             );
           }
-          return ListView(padding: AppInsets.page, children: sections);
+          return AppContentFrame(
+            maxWidth: AppSize.pageMaxWidth,
+            child: ListView(padding: AppInsets.page, children: sections),
+          );
         },
       ),
     );

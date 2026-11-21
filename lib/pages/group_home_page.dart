@@ -38,7 +38,7 @@ SectionPageData groupHomeSection(AppController controller) {
     section: AppSection.groupChats,
     showArchived: showArchived,
     // 卡片列表:宽屏并排多列,内容列相应放宽。
-    contentMaxWidth: AppSize.cardGridMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(

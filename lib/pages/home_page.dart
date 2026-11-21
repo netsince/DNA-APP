@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../theme/tokens.dart';
 import '../state/app_controller.dart';
 import '../utils/platform_capabilities.dart';
 import '../utils/ui_feedback.dart';
@@ -50,6 +51,7 @@ SectionPageData homeSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.home,
+    contentMaxWidth: AppSize.pageMaxWidth,
     showArchived: showArchived,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,

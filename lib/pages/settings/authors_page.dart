@@ -108,7 +108,9 @@ class AuthorsPage extends StatelessWidget {
       appBar: AppBar(title: const FitText('参与人员名单')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w = constraints.maxWidth > AppSize.pageMaxWidth
+              ? AppSize.pageMaxWidth
+              : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),

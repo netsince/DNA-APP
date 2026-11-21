@@ -5,6 +5,7 @@ import 'package:dna/theme/tokens.dart';
 import '../../services/tts/tts_audio_cache.dart';
 import '../../utils/platform_capabilities.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 
@@ -89,83 +90,86 @@ class _TtsCachePageState extends State<TtsCachePage> {
 
     return Scaffold(
       appBar: AppBar(title: const FitText('语音音频缓存')),
-      body: ListView(
-        padding: AppInsets.page,
-        children: <Widget>[
-          SettingSection(
-            icon: Icons.pie_chart_outline,
-            title: '缓存占用',
-            description: '听过的台词存下来，再听不用合成。',
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Container(
-                      padding: AppInsets.card,
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest
-                            .withValues(alpha: AppAlpha.mutedStrong / 2),
-                        borderRadius: AppRadius.smAll,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          FitText('占用空间',
-                              style: AppTextStyles.caption(theme)
-                                  .copyWith(color: cs.outline)),
-                          AppSpacing.hXs,
-                          FitText(
-                            _loading ? '计算中…' : _formatBytes(_bytes),
-                            style: AppTextStyles.sectionTitle(theme)
-                                .copyWith(color: cs.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  AppSpacing.wMd,
-                  Expanded(
-                    child: Container(
-                      padding: AppInsets.card,
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest
-                            .withValues(alpha: AppAlpha.mutedStrong / 2),
-                        borderRadius: AppRadius.smAll,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          FitText('已存句数',
-                              style: AppTextStyles.caption(theme)
-                                  .copyWith(color: cs.outline)),
-                          AppSpacing.hXs,
-                          FitText(
-                            _loading ? '…' : '$_count 句',
-                            style: AppTextStyles.sectionTitle(theme)
-                                .copyWith(color: cs.primary),
-                          ),
-                        ],
+      body: AppContentFrame(
+        maxWidth: AppSize.pageMaxWidth,
+        child: ListView(
+          padding: AppInsets.page,
+          children: <Widget>[
+            SettingSection(
+              icon: Icons.pie_chart_outline,
+              title: '缓存占用',
+              description: '听过的台词存下来，再听不用合成。',
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Container(
+                        padding: AppInsets.card,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest
+                              .withValues(alpha: AppAlpha.mutedStrong / 2),
+                          borderRadius: AppRadius.smAll,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            FitText('占用空间',
+                                style: AppTextStyles.caption(theme)
+                                    .copyWith(color: cs.outline)),
+                            AppSpacing.hXs,
+                            FitText(
+                              _loading ? '计算中…' : _formatBytes(_bytes),
+                              style: AppTextStyles.sectionTitle(theme)
+                                  .copyWith(color: cs.primary),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              AppSpacing.hLg,
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _loading || _count == 0 ? null : _clear,
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  label: const FitText('清空所有音频缓存'),
+                    AppSpacing.wMd,
+                    Expanded(
+                      child: Container(
+                        padding: AppInsets.card,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest
+                              .withValues(alpha: AppAlpha.mutedStrong / 2),
+                          borderRadius: AppRadius.smAll,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            FitText('已存句数',
+                                style: AppTextStyles.caption(theme)
+                                    .copyWith(color: cs.outline)),
+                            AppSpacing.hXs,
+                            FitText(
+                              _loading ? '…' : '$_count 句',
+                              style: AppTextStyles.sectionTitle(theme)
+                                  .copyWith(color: cs.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              SettingHint(
-                '清理缓存不会影响语音模型文件本身。',
-                icon: Icons.info_outline,
-              ),
-            ],
-          ),
-        ],
+                AppSpacing.hLg,
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _loading || _count == 0 ? null : _clear,
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                    label: const FitText('清空所有音频缓存'),
+                  ),
+                ),
+                SettingHint(
+                  '清理缓存不会影响语音模型文件本身。',
+                  icon: Icons.info_outline,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -249,104 +250,107 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const FitText('备份与还原')),
-      body: ListView(
-        padding: AppInsets.page,
-        children: <Widget>[
-          // ===== 1. 自动备份 =====
-          SettingSection(
-            icon: Icons.backup_outlined,
-            title: '自动备份',
-            description: '每天自动存一份，保留最近 5 天。',
-            children: <Widget>[
-              SettingSwitch(
-                title: '开启每日自动备份',
-                subtitle: kIsWeb ? '当前平台不支持' : '后台静默执行，不打扰你。',
-                value: _autoBackup,
-                enabled: !kIsWeb,
-                onChanged: (bool v) {
-                  setState(() => _autoBackup = v);
-                  _saveAutoBackup(v);
-                },
-              ),
-            ],
-          ),
+      body: AppContentFrame(
+        maxWidth: AppSize.pageMaxWidth,
+        child: ListView(
+          padding: AppInsets.page,
+          children: <Widget>[
+            // ===== 1. 自动备份 =====
+            SettingSection(
+              icon: Icons.backup_outlined,
+              title: '自动备份',
+              description: '每天自动存一份，保留最近 5 天。',
+              children: <Widget>[
+                SettingSwitch(
+                  title: '开启每日自动备份',
+                  subtitle: kIsWeb ? '当前平台不支持' : '后台静默执行，不打扰你。',
+                  value: _autoBackup,
+                  enabled: !kIsWeb,
+                  onChanged: (bool v) {
+                    setState(() => _autoBackup = v);
+                    _saveAutoBackup(v);
+                  },
+                ),
+              ],
+            ),
 
-          // ===== 2. 全量备份 =====
-          SettingSection(
-            icon: Icons.archive_outlined,
-            title: '全量备份',
-            description: '打包成一个文件，换设备时用它迁移。',
-            children: <Widget>[
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
-                children: <Widget>[
-                  FilledButton.tonalIcon(
-                    onPressed: _exporting || _importing ? null : _exportAll,
-                    icon: _exporting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download_outlined),
-                    label: FitText(_exporting ? '导出中…' : '导出全部数据'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _exporting || _importing ? null : _importAll,
-                    icon: _importing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.upload_file_outlined),
-                    label: FitText(_importing ? '导入中…' : '从备份恢复'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            // ===== 2. 全量备份 =====
+            SettingSection(
+              icon: Icons.archive_outlined,
+              title: '全量备份',
+              description: '打包成一个文件，换设备时用它迁移。',
+              children: <Widget>[
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: <Widget>[
+                    FilledButton.tonalIcon(
+                      onPressed: _exporting || _importing ? null : _exportAll,
+                      icon: _exporting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_outlined),
+                      label: FitText(_exporting ? '导出中…' : '导出全部数据'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _exporting || _importing ? null : _importAll,
+                      icon: _importing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.upload_file_outlined),
+                      label: FitText(_importing ? '导入中…' : '从备份恢复'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
 
-          // ===== 3. 单场对话 =====
-          SettingSection(
-            icon: Icons.forum_outlined,
-            title: '单场对话',
-            description: '只导出某一场对话，方便单独分享。',
-            children: <Widget>[
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
-                children: <Widget>[
-                  FilledButton.tonalIcon(
-                    onPressed:
-                        _exportingConv || _importingConv ? null : _exportConv,
-                    icon: _exportingConv
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download_outlined),
-                    label: FitText(_exportingConv ? '导出中…' : '导出指定对话'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _exportingConv || _importingConv ? null : _importConv,
-                    icon: _importingConv
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.upload_file_outlined),
-                    label: FitText(_importingConv ? '导入中…' : '导入对话'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+            // ===== 3. 单场对话 =====
+            SettingSection(
+              icon: Icons.forum_outlined,
+              title: '单场对话',
+              description: '只导出某一场对话，方便单独分享。',
+              children: <Widget>[
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: <Widget>[
+                    FilledButton.tonalIcon(
+                      onPressed:
+                          _exportingConv || _importingConv ? null : _exportConv,
+                      icon: _exportingConv
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_outlined),
+                      label: FitText(_exportingConv ? '导出中…' : '导出指定对话'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          _exportingConv || _importingConv ? null : _importConv,
+                      icon: _importingConv
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.upload_file_outlined),
+                      label: FitText(_importingConv ? '导入中…' : '导入对话'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

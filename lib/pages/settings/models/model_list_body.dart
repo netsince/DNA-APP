@@ -6,6 +6,7 @@ import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
 import '../../../widgets/state_views.dart';
 import 'package:dna/widgets/app_container.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import 'model_edit_page.dart';
@@ -87,156 +88,159 @@ class ModelListBody extends StatelessWidget {
           onChanged: (String? val) {
             if (val != null) controller.setActiveModel(val);
           },
-          child: ListView.separated(
-          padding: AppInsets.page,
-          itemCount: models.length,
-          separatorBuilder: (_, _) => AppSpacing.hMd,
-          itemBuilder: (BuildContext context, int index) {
-            final LlmModelConfig m = models[index];
-            final bool isActive = m.id == activeId;
-            final bool isDefault = m.isDefault;
+          child: AppContentFrame(
+            maxWidth: AppSize.pageMaxWidth,
+            child: ListView.separated(
+            padding: AppInsets.page,
+            itemCount: models.length,
+            separatorBuilder: (_, _) => AppSpacing.hMd,
+            itemBuilder: (BuildContext context, int index) {
+              final LlmModelConfig m = models[index];
+              final bool isActive = m.id == activeId;
+              final bool isDefault = m.isDefault;
 
-            final LlmProviderConfig provider =
-                controller.settings.providers.firstWhere(
-              (LlmProviderConfig p) => p.id == m.providerId,
-              orElse: () => LlmProviderConfig.defaultConfig(),
-            );
+              final LlmProviderConfig provider =
+                  controller.settings.providers.firstWhere(
+                (LlmProviderConfig p) => p.id == m.providerId,
+                orElse: () => LlmProviderConfig.defaultConfig(),
+              );
 
-            // 容器变换:整卡是源容器,点卡片任意处起飞;
-            // Radio/编辑/删除仍在卡片内,各自点击不触发飞行。
-            return AppContainer<bool>(
-              closedBuilder: (BuildContext context, VoidCallback open) =>
-                  Card(
-                elevation: AppElevation.flat,
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.mdAll,
-                  side: BorderSide(
-                    color: isActive
-                        ? cs.primary
-                        : cs.outlineVariant.withValues(alpha: AppAlpha.half),
-                    width: isActive ? 1.5 : 1.0,
+              // 容器变换:整卡是源容器,点卡片任意处起飞;
+              // Radio/编辑/删除仍在卡片内,各自点击不触发飞行。
+              return AppContainer<bool>(
+                closedBuilder: (BuildContext context, VoidCallback open) =>
+                    Card(
+                  elevation: AppElevation.flat,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.mdAll,
+                    side: BorderSide(
+                      color: isActive
+                          ? cs.primary
+                          : cs.outlineVariant.withValues(alpha: AppAlpha.half),
+                      width: isActive ? 1.5 : 1.0,
+                    ),
                   ),
-                ),
-                color: isActive
-                    ? cs.primaryContainer.withValues(alpha: AppAlpha.a20)
-                    : null,
-                margin: EdgeInsets.zero,
-                child: InkWell(
-                  onTap: open,
-                  child: Padding(
-                padding: AppInsets.card,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        // 组值/回调由外层 RadioGroup 统一管（旧的
-                        // Radio(groupValue:) 已是弃用 API，审计 4.4）。
-                        Radio<String>(value: m.id),
-                        AppSpacing.wXs,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Flexible(
-                                    child: Text(
-                                      m.alias,
-                                      style: ts.titleSmall?.copyWith(
-                                        fontWeight: AppWeight.medium,
-                                        color: isActive ? cs.primary : null,
+                  color: isActive
+                      ? cs.primaryContainer.withValues(alpha: AppAlpha.a20)
+                      : null,
+                  margin: EdgeInsets.zero,
+                  child: InkWell(
+                    onTap: open,
+                    child: Padding(
+                  padding: AppInsets.card,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          // 组值/回调由外层 RadioGroup 统一管（旧的
+                          // Radio(groupValue:) 已是弃用 API，审计 4.4）。
+                          Radio<String>(value: m.id),
+                          AppSpacing.wXs,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    Flexible(
+                                      child: Text(
+                                        m.alias,
+                                        style: ts.titleSmall?.copyWith(
+                                          fontWeight: AppWeight.medium,
+                                          color: isActive ? cs.primary : null,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                    if (isDefault) ...<Widget>[
+                                      AppSpacing.wXs,
+                                      _tag('默认项', cs.secondaryContainer,
+                                          cs.onSecondaryContainer),
+                                    ],
+                                    if (isActive) ...<Widget>[
+                                      AppSpacing.wXs,
+                                      _tag('当前生效', cs.primary, cs.onPrimary),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '服务商: ${provider.alias} • '
+                                  '${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
+                                  style: TextStyle(
+                                    fontSize: AppFontSize.caption,
+                                    color: cs.onSurfaceVariant,
                                   ),
-                                  if (isDefault) ...<Widget>[
-                                    AppSpacing.wXs,
-                                    _tag('默认项', cs.secondaryContainer,
-                                        cs.onSecondaryContainer),
-                                  ],
-                                  if (isActive) ...<Widget>[
-                                    AppSpacing.wXs,
-                                    _tag('当前生效', cs.primary, cs.onPrimary),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined,
+                                size: AppSize.iconCard),
+                            tooltip: '编辑模型预设',
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => ModelEditPage(
+                                    controller: controller,
+                                    existingConfig: m,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          if (!isDefault)
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  size: AppSize.iconCard, color: cs.error),
+                              tooltip: '删除模型预设',
+                              onPressed: () => _confirmDelete(context, m),
+                            ),
+                        ],
+                      ),
+                      if (m.customSamplingEnabled) ...<Widget>[
+                        AppSpacing.hSm,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: cs.tertiaryContainer.withValues(alpha: AppAlpha.a40),
+                            borderRadius: AppRadius.xsAll,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(Icons.tune,
+                                  size: 14, color: cs.onTertiaryContainer),
+                              AppSpacing.wXs,
                               Text(
-                                '服务商: ${provider.alias} • '
-                                '${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
+                                '专属采样参数已启用 '
+                                '(温度: ${(m.temperature ?? 0.7).toStringAsFixed(2)})',
                                 style: TextStyle(
-                                  fontSize: AppFontSize.caption,
-                                  color: cs.onSurfaceVariant,
+                                  fontSize: AppFontSize.tiny,
+                                  color: cs.onTertiaryContainer,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined,
-                              size: AppSize.iconCard),
-                          tooltip: '编辑模型预设',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => ModelEditPage(
-                                  controller: controller,
-                                  existingConfig: m,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        if (!isDefault)
-                          IconButton(
-                            icon: Icon(Icons.delete_outline,
-                                size: AppSize.iconCard, color: cs.error),
-                            tooltip: '删除模型预设',
-                            onPressed: () => _confirmDelete(context, m),
-                          ),
                       ],
-                    ),
-                    if (m.customSamplingEnabled) ...<Widget>[
-                      AppSpacing.hSm,
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cs.tertiaryContainer.withValues(alpha: AppAlpha.a40),
-                          borderRadius: AppRadius.xsAll,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(Icons.tune,
-                                size: 14, color: cs.onTertiaryContainer),
-                            AppSpacing.wXs,
-                            Text(
-                              '专属采样参数已启用 '
-                              '(温度: ${(m.temperature ?? 0.7).toStringAsFixed(2)})',
-                              style: TextStyle(
-                                fontSize: AppFontSize.tiny,
-                                color: cs.onTertiaryContainer,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              ),
-              ),
-              openBuilder: (BuildContext context, VoidCallback close) =>
-                  ModelEditPage(
-                controller: controller,
-                existingConfig: m,
-              ),
-            );
-          },
+                ),
+                ),
+                openBuilder: (BuildContext context, VoidCallback close) =>
+                    ModelEditPage(
+                  controller: controller,
+                  existingConfig: m,
+                ),
+              );
+            },
+            ),
           ),
         );
       },

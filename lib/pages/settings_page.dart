@@ -23,7 +23,7 @@ SectionPageData settingsSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.settings,
-    contentMaxWidth: AppSize.settingsMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => AppBar(
       title: const FitText('设置'),
       actions: <Widget>[

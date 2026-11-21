@@ -372,10 +372,11 @@ void main() {
   testWidgets('桌面宽窗口:内容列居中收窄,标题栏/内容/悬浮按钮对齐同一列', (WidgetTester tester) async {
     final AppController c = await boot();
     // 1600×900 横屏:内容区 = 1600 - 侧边栏 260 - 分隔线 1 = 1339,
-    // 超过内容列 760 ⇒ 两侧各留 (1339-760)/2 = 289.5。
+    // 超过统一内容列 1040 ⇒ 两侧各留 (1339-1040)/2 = 149.5。
+    // 全站栏目共用同一个 [AppSize.pageMaxWidth]，切标签时左右边缘不会跳。
     const double windowWidth = 1600;
     const double contentArea = windowWidth - 260 - 1;
-    const double inset = (contentArea - AppSize.listMaxWidth) / 2;
+    const double inset = (contentArea - AppSize.pageMaxWidth) / 2;
 
     tester.view.physicalSize = const Size(windowWidth, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -385,12 +386,12 @@ void main() {
 
     // 标题栏被收到内容列宽度,且左缘落在内容列起点。
     final Rect bar = tester.getRect(find.byType(AppBar));
-    expect(bar.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(bar.width, closeTo(AppSize.pageMaxWidth, 1.0));
     expect(bar.left, closeTo(260 + 1 + inset, 1.0));
 
     // 内容区与标题栏同宽同位置 ⇒ 两者对齐同一条内容列。
     final Rect body = tester.getRect(find.byType(ConversationListBody));
-    expect(body.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(body.width, closeTo(AppSize.pageMaxWidth, 1.0));
     expect(body.left, closeTo(bar.left, 1.0));
 
     // 悬浮按钮贴内容列右缘(不是窗口最右边)。
@@ -401,7 +402,7 @@ void main() {
     // 身份是卡片网格栏目:宽屏下内容列更宽(够并排多列卡片),
     // 悬浮按钮跟着对齐这条更宽的内容列。
     final Rect identityBar = tester.getRect(find.byType(AppBar));
-    expect(identityBar.width, closeTo(AppSize.cardGridMaxWidth, 1.0));
+    expect(identityBar.width, closeTo(AppSize.pageMaxWidth, 1.0));
     final Rect fab = tester.getRect(find.byType(FloatingActionButton));
     expect(fab.right, closeTo(identityBar.right - 16, 1.0));
   });

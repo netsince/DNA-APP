@@ -1,0 +1,21 @@
+refactor(布局): 全站栏目与设置子页统一到 pageMaxWidth(1040)
+
+一、首页几栏宽度「乱跳」
+原因：各栏各用一个值 —— 首页/世界走默认 listMaxWidth(760)，群聊/我家/身份用
+cardGridMaxWidth(1040)，设置页 900。切标签时内容列左右边缘会跳。
+现在统一：新增 AppSize.pageMaxWidth = 1040（全站栏目内容列上限），
+cardGridMaxWidth 与 settingsMaxWidth 别名到它，首页/世界显式声明同一值。
+栏目背景仍通栏，只收窄内容列；社区那栏保持 double.infinity（岛自带完整布局）。
+
+二、设置子页通栏 → 统一收窄
+设置主页有 900 的限宽，但子页面是直接 push 的、没包这一层，桌面端全是通栏。
+本次给 22 个设置子页的内容列套 AppContentFrame(maxWidth: pageMaxWidth)：
+只包正文（AppBar / FAB / TabBar 保持通栏），表单页连 Form 一起包。
+已经是 LayoutBuilder+Center+ConstrainedBox 自己算宽的 4 个页面（关于/成员/开源许可/应用图标）
+只把宽度来源换成 pageMaxWidth，结构不动。
+
+三、验证
+- analyze 无 issue；944 测试通过 / 2 跳过。
+- app_section_test 里「宽窗口内容列居中」那条改为断言 pageMaxWidth，并沿用同一值
+  断言首页内容区、身份栏标题栏与悬浮按钮都对齐同一条内容列（就是防止再跳）。
+- 截图更新：storage_overview_wide.png（1501×859，内容列 1040 居中）。

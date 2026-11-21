@@ -6,6 +6,7 @@ import '../../models/quick_reply.dart';
 import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
 import 'package:dna/widgets/app_empty_state.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/form_draft.dart';
 import 'package:dna/widgets/form_fields.dart';
@@ -102,115 +103,118 @@ class _QuickRepliesPageState extends State<QuickRepliesPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: AppInsets.page,
-        children: <Widget>[
-          // ===== 用法说明(不再用手写卡片样板) =====
-          SettingSection(
-            icon: Icons.bolt_outlined,
-            title: '什么是一键快速回复',
-            description: '点一下按钮，就把整句话发出去。',
-            children: <Widget>[
-              SettingHint(
-                '{{char}} 当前角色名 · {{user}} 你的昵称 · '
-                '{{random 甲|乙}} 随机二选一 · {{newline}} 换行',
-                icon: Icons.help_outline,
-              ),
-            ],
-          ),
+      body: AppContentFrame(
+        maxWidth: AppSize.pageMaxWidth,
+        child: ListView(
+          padding: AppInsets.page,
+          children: <Widget>[
+            // ===== 用法说明(不再用手写卡片样板) =====
+            SettingSection(
+              icon: Icons.bolt_outlined,
+              title: '什么是一键快速回复',
+              description: '点一下按钮，就把整句话发出去。',
+              children: <Widget>[
+                SettingHint(
+                  '{{char}} 当前角色名 · {{user}} 你的昵称 · '
+                  '{{random 甲|乙}} 随机二选一 · {{newline}} 换行',
+                  icon: Icons.help_outline,
+                ),
+              ],
+            ),
 
-          // ===== 短语列表（条目集合，非设置项堆叠）=====
-          if (_items.isEmpty)
-            AppEmptyState(
-              icon: Icons.flash_on_outlined,
-              title: '还没有快速回复',
-              description: '添加常用短句，聊天时点一下就发送。',
-              actionLabel: '新增快速回复',
-              actionIcon: Icons.add,
-              onAction: _add,
-            )
-          else
-            Column(
-              children: _items.map((QuickReply qr) {
-                return Card(
-                  elevation: AppElevation.flat,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                  shape: AppBorder.secondaryShape(cs),
-                  child: ListTile(
-                    contentPadding: AppInsets.group,
-                    leading: Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer
-                            .withValues(alpha: AppAlpha.half),
-                        borderRadius: AppRadius.xsAll,
-                      ),
-                      child: Icon(
-                        Icons.bolt,
-                        color: cs.onPrimaryContainer,
-                        size: AppSize.iconInline,
-                      ),
-                    ),
-                    title: Row(
-                      children: <Widget>[
-                        FitText(
-                          qr.label,
-                          style: const TextStyle(
-                            fontWeight: AppWeight.medium,
-                          ),
+            // ===== 短语列表（条目集合，非设置项堆叠）=====
+            if (_items.isEmpty)
+              AppEmptyState(
+                icon: Icons.flash_on_outlined,
+                title: '还没有快速回复',
+                description: '添加常用短句，聊天时点一下就发送。',
+                actionLabel: '新增快速回复',
+                actionIcon: Icons.add,
+                onAction: _add,
+              )
+            else
+              Column(
+                children: _items.map((QuickReply qr) {
+                  return Card(
+                    elevation: AppElevation.flat,
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    shape: AppBorder.secondaryShape(cs),
+                    child: ListTile(
+                      contentPadding: AppInsets.group,
+                      leading: Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer
+                              .withValues(alpha: AppAlpha.half),
+                          borderRadius: AppRadius.xsAll,
                         ),
-                        if ((qr.group ?? '').isNotEmpty) ...<Widget>[
-                          AppSpacing.wSm,
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm,
-                              vertical: AppSpacing.xxs,
+                        child: Icon(
+                          Icons.bolt,
+                          color: cs.onPrimaryContainer,
+                          size: AppSize.iconInline,
+                        ),
+                      ),
+                      title: Row(
+                        children: <Widget>[
+                          FitText(
+                            qr.label,
+                            style: const TextStyle(
+                              fontWeight: AppWeight.medium,
                             ),
-                            decoration: BoxDecoration(
-                              color: cs.secondaryContainer,
-                              borderRadius: AppRadius.xsAll,
-                            ),
-                            child: FitText(
-                              qr.group!,
-                              style: TextStyle(
-                                fontSize: AppFontSize.tiny,
-                                color: cs.onSecondaryContainer,
+                          ),
+                          if ((qr.group ?? '').isNotEmpty) ...<Widget>[
+                            AppSpacing.wSm,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.sm,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.secondaryContainer,
+                                borderRadius: AppRadius.xsAll,
+                              ),
+                              child: FitText(
+                                qr.group!,
+                                style: TextStyle(
+                                  fontSize: AppFontSize.tiny,
+                                  color: cs.onSecondaryContainer,
+                                ),
                               ),
                             ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
+                        child: FitText(
+                          qr.message,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption(theme)
+                              .copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            tooltip: '编辑',
+                            onPressed: () => _edit(qr),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            tooltip: '删除',
+                            onPressed: () => _delete(qr),
                           ),
                         ],
-                      ],
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xs),
-                      child: FitText(
-                        qr.message,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.caption(theme)
-                            .copyWith(color: cs.onSurfaceVariant),
                       ),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          tooltip: '编辑',
-                          onPressed: () => _edit(qr),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          tooltip: '删除',
-                          onPressed: () => _delete(qr),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
       ),
       floatingActionButton: _items.isNotEmpty
           ? FloatingActionButton.extended(
