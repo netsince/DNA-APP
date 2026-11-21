@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'glass_logo_animation.dart';
 import 'logo_draw_animation.dart';
 import 'logo_painter.dart';
 
@@ -58,6 +59,13 @@ const List<SplashAnimationSpec> kSplashAnimations = <SplashAnimationSpec>[
     build: _buildLogoDraw,
   ),
   SplashAnimationSpec(
+    id: 'glassLogo',
+    label: '液态玻璃',
+    description: '玻璃里映着 logo，落一滴水再摊平。',
+    durationMs: 1800,
+    build: _buildGlassLogo,
+  ),
+  SplashAnimationSpec(
     id: 'zoom',
     label: '缩放淡入',
     description: '从略小处弹到位，轻快不拖沓。',
@@ -111,6 +119,13 @@ double splashZoomOpacity(double t) =>
 /// 淡入在进度 [t] 时的不透明度（只做透明度，没有任何缩放）。
 double splashFadeOpacity(double t) =>
     Curves.easeInOut.transform(t.clamp(0.0, 1.0));
+
+Widget _buildGlassLogo(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) =>
+    GlassLogoAnimation(durationMs: durationMs, onComplete: onComplete);
 
 Widget _buildZoom(
   BuildContext context,
