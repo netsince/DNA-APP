@@ -126,6 +126,7 @@ flutter:
     - shaders/glass_logo.frag
 
   assets:
+    - assets/splash/
     - assets/app_icon.png
     - assets/app_icon_alt.png
     - assets/icons/

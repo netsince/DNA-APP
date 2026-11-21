@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// 跑法：flutter test --update-goldens test/glass_logo_golden_test.dart
 void main() {
+  setUp(() => GlassLogoAnimation.debugSkipFirstFrameGate = true);
+  tearDown(() => GlassLogoAnimation.debugSkipFirstFrameGate = false);
+
   for (final double at in <double>[0.45, 0.95, 1.55]) {
     testWidgets('液态玻璃 t=$at', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(400, 400);
@@ -21,6 +24,10 @@ void main() {
           ),
         ),
       );
+      // 资源解码是真实异步 I/O，widget 测试里要用 runAsync 放行。
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      });
       // 时钟按「每帧最多 50ms」累加，所以必须小步推进；一次 pump 大跨度只能走 50ms。
       await tester.pump(); // 首帧 → 起钟
       await tester.pump(const Duration(milliseconds: 16)); // 记基准
