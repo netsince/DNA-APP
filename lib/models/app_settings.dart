@@ -37,7 +37,7 @@ class AppSettings {
     required this.requireNameToDelete,
     required this.allowDeleteMessage,
     required this.autoBackup,
-    required this.showSplashAnimation,
+    this.splashAnimation = 'logoDraw',
     this.autoOpenLastChat = false,
     this.unboundedModelList = false,
     this.fontSizeStep = 0,
@@ -115,7 +115,7 @@ class AppSettings {
       requireNameToDelete: true,
       allowDeleteMessage: false,
       autoBackup: true,
-      showSplashAnimation: true,
+      splashAnimation: 'logoDraw',
       autoOpenLastChat: false,
       unboundedModelList: false,
       fontSizeStep: 0,
@@ -247,7 +247,13 @@ class AppSettings {
   final bool autoBackup;
 
   /// 是否播放启动开屏动画。
-  final bool showSplashAnimation;
+  /// 开场动画 id（见 `pages/splash/splash_animations.dart` 的 kSplashAnimations）。
+  ///
+  /// 存 id 而不是布尔：换一种动画不需要改数据结构和迁移。未知 id 会回退到默认。
+  final String splashAnimation;
+
+  /// 兼容旧调用点：是否要播开场动画（`none` = 关）。
+  bool get showSplashAnimation => splashAnimation != 'none';
 
   /// 打开应用时是否**自动回到上一次打开的那场会话**（续玩型）。
   ///
@@ -482,7 +488,7 @@ class AppSettings {
       'requireNameToDelete': requireNameToDelete,
       'allowDeleteMessage': allowDeleteMessage,
       'autoBackup': autoBackup,
-      'showSplashAnimation': showSplashAnimation,
+      'splashAnimation': splashAnimation,
       'autoOpenLastChat': autoOpenLastChat,
       'unboundedModelList': unboundedModelList,
       'fontSizeStep': fontSizeStep,
@@ -573,7 +579,9 @@ class AppSettings {
       requireNameToDelete: (json['requireNameToDelete'] as bool?) ?? true,
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       autoBackup: (json['autoBackup'] as bool?) ?? true,
-      showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      splashAnimation:
+          (json['splashAnimation'] as String?) ??
+          ((json['showSplashAnimation'] as bool?) == false ? 'none' : 'logoDraw'),
       autoOpenLastChat: (json['autoOpenLastChat'] as bool?) ?? false,
       unboundedModelList: (json['unboundedModelList'] as bool?) ?? false,
       fontSizeStep: (json['fontSizeStep'] as int?) ?? 0,
@@ -691,7 +699,7 @@ class AppSettings {
     bool? requireNameToDelete,
     bool? allowDeleteMessage,
     bool? autoBackup,
-    bool? showSplashAnimation,
+    String? splashAnimation,
     bool? autoOpenLastChat,
     bool? unboundedModelList,
     int? fontSizeStep,
@@ -770,7 +778,7 @@ class AppSettings {
       requireNameToDelete: requireNameToDelete ?? this.requireNameToDelete,
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       autoBackup: autoBackup ?? this.autoBackup,
-      showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+      splashAnimation: splashAnimation ?? this.splashAnimation,
       autoOpenLastChat: autoOpenLastChat ?? this.autoOpenLastChat,
       unboundedModelList: unboundedModelList ?? this.unboundedModelList,
       fontSizeStep: fontSizeStep ?? this.fontSizeStep,

@@ -10,6 +10,8 @@ library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import '../splash/splash_animations.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 import 'package:dna/theme/font_scale.dart';
@@ -330,11 +332,22 @@ final FieldsEntry appearanceEntry = FieldsEntry(
       icon: Icons.rocket_launch_outlined,
       title: '启动与导航',
       items: <SettingItemSpec>[
-        SettingToggle(
-          id: 'appearance.showSplashAnimation',
+        // 开场动画：选项**由 kSplashAnimations 生成**，新增一段动画不用改这里。
+        SettingChoice<String>(
+          id: 'appearance.splashAnimation',
           title: '开场动画',
-          subtitle: '关闭后启动直接进主界面。',
-          key: 'showSplashAnimation',
+          subtitle: '启动时播哪一段。',
+          key: 'splashAnimation',
+          defaultValue: kDefaultSplashAnimationId,
+          layout: ChoiceLayout.radioList,
+          options: <ChoiceOption<String>>[
+            for (final SplashAnimationSpec spec in kSplashAnimations)
+              ChoiceOption<String>(
+                value: spec.id,
+                label: spec.label,
+                subtitle: spec.description,
+              ),
+          ],
         ),
         SettingToggle(
           id: 'appearance.autoOpenLastChat',

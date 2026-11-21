@@ -1,0 +1,32 @@
+feat(开场动画): 抽象成数据驱动的多套动画，设置里可切换
+
+一、数据驱动
+- 新增 lib/pages/splash/splash_animations.dart：SplashAnimationSpec（id / 名称 / 说明 /
+  时长 / build）+ kSplashAnimations 一张表，当前四套：
+  · logoDraw 描边绽放（原行为，3200ms）
+  · zoom 缩放淡入（1200ms）
+  · fade 淡入（900ms）
+  · none 关闭动画（0ms）
+- 设置页的选项**由这张表生成**（SettingChoice<splashAnimation>，单选行）；
+  新增一种动画只改表，不碰设置声明与启动逻辑。
+- splash_page.dart 变成薄壳：只负责底色与居中，按 spec 渲染；
+  默认动画抽到 splash/logo_draw_animation.dart，避免循环依赖。
+
+二、设置与迁移
+- AppSettings：bool showSplashAnimation → String splashAnimation（存 id）；
+  保留派生 getter showSplashAnimation（id != 'none'）。
+- settings_service：新键 splash_animation；老键 show_splash_animation 只读做迁移
+  （老版本关过的人继续不播）。
+- app_settings_patch：新键按 text 写；旧布尔键保留一个兼容 case（true→默认，false→none），
+  但不进 settingsKeyKinds（它已不是独立字段）。
+- 启动：按 id 取 spec，enabled 才挂 SplashPage；未知 id 回退默认。
+
+三、稳妥性细节
+- SplashPage 用动画 id 当 KeyedSubtree key，切换动画会重建子树；
+  _SimpleLogoEntrance 补 didUpdateWidget，时长变了重建控制器 —— 否则复用旧 State
+  会导致新动画一帧都不播（这条是测试先抓出来的）。
+
+四、验证
+- analyze 无 issue；967 测试通过 / 2 跳过（新增 splash_animation_test 13 条：
+  注册表契约、设置读写、旧存档迁移、每段动画的回调）。
+- 四套动画的观感截图：test/goldens/splash_{logoDraw,zoom,fade,none}.png。

@@ -13,6 +13,7 @@ import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
 import 'island_app/community_preload.dart';
 import 'pages/oobe_page.dart';
+import 'pages/splash/splash_animations.dart';
 import 'pages/splash_page.dart';
 import 'services/resume_service.dart';
 import 'utils/ui_feedback.dart';
@@ -385,7 +386,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     _requireAuth =
         PlatformCapabilities.biometricAuthSupported &&
         widget.controller.settings.requireAuthForApp;
-    _showSplash = widget.controller.settings.showSplashAnimation;
+    // 开场动画：id → spec；'none' 表示不播（直接进主界面）。
+    _showSplash = splashAnimationById(
+      widget.controller.settings.splashAnimation,
+    ).enabled;
     widget.controller.addListener(_onControllerChanged);
     // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
     // 放在首帧之后发起，不阻塞启动。
@@ -659,6 +663,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       child: _showSplash
           ? SplashPage(
               key: const ValueKey<bool>(true),
+              animation: splashAnimationById(
+                widget.controller.settings.splashAnimation,
+              ),
               onComplete: _onSplashComplete,
             )
           : IndexedStack(

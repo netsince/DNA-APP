@@ -58,7 +58,7 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'requireNameToDelete': SettingsValueKind.boolean,
       'allowDeleteMessage': SettingsValueKind.boolean,
       'autoBackup': SettingsValueKind.boolean,
-      'showSplashAnimation': SettingsValueKind.boolean,
+      'splashAnimation': SettingsValueKind.text,
       'autoOpenLastChat': SettingsValueKind.boolean,
       'unboundedModelList': SettingsValueKind.boolean,
       'fontSizeStep': SettingsValueKind.integer,
@@ -165,8 +165,14 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(allowDeleteMessage: _asBool(value));
     case 'autoBackup':
       return s.copyWith(autoBackup: _asBool(value));
+    case 'splashAnimation':
+      return s.copyWith(splashAnimation: _asText(value));
+    // 旧布尔键：不在 settingsKeyKinds 里（它已经不是一个独立字段），
+    // 只为把旧存档/备份里的值翻译成动画 id，然后自然被新键覆盖。
     case 'showSplashAnimation':
-      return s.copyWith(showSplashAnimation: _asBool(value));
+      return s.copyWith(
+        splashAnimation: _asBool(value) ? 'logoDraw' : 'none',
+      );
     case 'autoOpenLastChat':
       return s.copyWith(autoOpenLastChat: _asBool(value));
     case 'unboundedModelList':
