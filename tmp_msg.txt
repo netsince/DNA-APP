@@ -1,0 +1,6 @@
+chore(引导): 起始会话换成林夏，夏明朗只落卡
+
+index.json 里把 startConversation 从夏明朗挪到林夏：
+释放后首页那一条会话是林夏，夏明朗在「我家」里，想聊自己建。
+
+验证：preset_release_test 5 条通过。
