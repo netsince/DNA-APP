@@ -3,11 +3,11 @@
   "presets": [
     {
       "file": "夏明朗.dnata",
-      "startConversation": true
+      "startConversation": false
     },
     {
       "file": "林夏.dnata",
-      "startConversation": false
+      "startConversation": true
     }
   ]
 }
