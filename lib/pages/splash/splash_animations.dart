@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'glass_logo_animation.dart';
 import 'logo_draw_animation.dart';
+import 'splash_clock.dart';
 import 'logo_painter.dart';
 
 /// 一段开场动画的描述（数据驱动）。
@@ -61,8 +62,8 @@ const List<SplashAnimationSpec> kSplashAnimations = <SplashAnimationSpec>[
   SplashAnimationSpec(
     id: 'glassLogo',
     label: '液态玻璃',
-    description: '玻璃里映着 logo，落一滴水再摊平。',
-    durationMs: 1800,
+    description: '玻璃里映着 logo，长开、定版、停住。',
+    durationMs: 2600,
     build: _buildGlassLogo,
   ),
   SplashAnimationSpec(
@@ -207,49 +208,44 @@ class _SimpleLogoEntrance extends StatefulWidget {
 
 class _SimpleLogoEntranceState extends State<_SimpleLogoEntrance>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: Duration(milliseconds: widget.durationMs),
-  );
+  late SplashClock _clock = _makeClock();
+
+  SplashClock _makeClock() => SplashClock(
+        vsync: this,
+        duration: Duration(milliseconds: widget.durationMs),
+      );
 
   @override
   void initState() {
     super.initState();
-    _controller.forward().whenComplete(() {
-      if (mounted) widget.onComplete();
-    });
+    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
   }
 
   @override
   void didUpdateWidget(_SimpleLogoEntrance oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.durationMs == widget.durationMs) return;
-    // 换了动画（时长不同）：旧控制器已经停在结束态，必须重建，否则新动画不播。
-    _controller.dispose();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: widget.durationMs),
-    );
-    _controller.forward().whenComplete(() {
-      if (mounted) widget.onComplete();
-    });
+    // 换了动画（时长不同）：旧时钟已经停在结束态，必须重建，否则新动画不播。
+    _clock.dispose();
+    _clock = _makeClock();
+    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _clock.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _clock,
       builder: (BuildContext context, Widget? _) =>
           // 传**线性**进度：具体用哪条曲线由每段动画自己决定。
           // 以前在这里先 ease 一遍，builder 里再 ease 一次，等于二次缓动 ——
           // 动画前段几乎不动，观感直接退化成「淡入」。
-          widget.builder(_controller.value),
+          widget.builder(_clock.value),
     );
   }
 }

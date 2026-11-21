@@ -45,7 +45,9 @@ uniform sampler2D uLogo;
 out vec4 fragColor;
 
 const float PI = 3.14159265359;
-const int BANDS = 12;
+// 采样档数：色散的条数。6 档与 12 档肉眼几乎无差，但每像素的纹理采样次数减半
+// —— 这是实际观测到的卡顿主因之一。
+const int BANDS = 6;
 
 float sq(float x) { return x * x; }
 float bell(float x, float width) { return exp(-sq(x / max(width, 0.001))); }
@@ -215,7 +217,6 @@ vec4 iconLens(vec2 p) {
   float sharedWarp = (contourNoise(arc / (uUnit * 0.02)) - 0.5) * 2.0 * reliefScale;
   float rimSd = sd + sharedWarp;
   float innerSd = sd + sharedWarp * 0.7 + (contourNoise(arc / (uUnit * 0.02) + 41.0) - 0.5) * 2.0 * reliefScale * 0.4;
-  float inner2Sd = sd + sharedWarp * 0.45 + (contourNoise(arc / (uUnit * 0.02) + 83.0) - 0.5) * 2.0 * reliefScale * 0.6;
   float thickness = 0.75 + 0.5 * contourNoise(arc / (uUnit * 0.013) + 13.0);
   float around = arc / (uUnit * 0.5);
   float rimBob = uUnit * 0.0025 * developed *
@@ -228,14 +229,12 @@ vec4 iconLens(vec2 p) {
   float centerFade = 1.0 - ease(0.62, 0.92, t);
   float inner = centerFade * bell(innerSd + uUnit * 0.012, uUnit * 0.0025 / thickness + aa * 0.2) *
       (0.55 + 0.9 * contourNoise(arc / grainScale + 41.0));
-  float inner2 = centerFade * bell(inner2Sd + uUnit * 0.022, uUnit * 0.0018 / thickness + aa * 0.1) *
-      (0.5 + contourNoise(arc / grainScale + 83.0));
   float key = pow(illumination, 5.0);
   float rimVisibility = 1.0 - 0.55 * ease(0.75, 1.22, t);
   float lowerRight = pow(0.5 + 0.5 * dot(outward, normalize(vec2(0.8, -0.6))), 5.0);
   lowerRight *= ease(-0.25, -0.05, p.x / uUnit) * (1.0 - ease(-0.22, -0.02, p.y / uUnit));
   vec3 insetLight = vec3(0.60, 0.78, 0.91) * rim * (key * 0.8 + lowerRight * 0.7) * uHighlights * rimVisibility * shown;
-  vec3 lineLight = vec3(0.72, 0.84, 0.96) * (inner * 0.5 + inner2 * 0.35) * uHighlights * shown;
+  vec3 lineLight = vec3(0.72, 0.84, 0.96) * inner * 0.5 * uHighlights * shown;
   // 边缘色散：沿法线两侧取两条谱线，做出「红黄在外 / 青蓝在内」的细彩边。
   vec2 spectralDir = outward * uUnit * 0.004 * (0.4 + 0.6 * uDispersion);
   float rimSide = bell(rimSd + uUnit * 0.0015, uUnit * 0.0022 + aa * 0.4);
@@ -266,6 +265,8 @@ vec4 iconLens(vec2 p) {
 
 // 第二滴：一滴水落上来，把画面掰弯，再摊平成涟漪。
 vec4 dropLens(vec2 p) {
+  // 第二滴默认关闭（结尾停在定版 ICON）：整段循环直接跳过，省一轮多档采样。
+  if (uDropOpacity <= 0.001) return vec4(0.0);
   float t = uTime;
   float r = length(p);
   float radius = uDrop.x;
@@ -292,8 +293,8 @@ vec4 dropLens(vec2 p) {
   vec3 weights = vec3(0.0);
   float alpha = 0.0;
   float opacity = uDropOpacity;
-  for (int i = 0; i < BANDS; i++) {
-    float s = float(i) / float(BANDS - 1);
+  for (int i = 0; i < 3; i++) {
+    float s = float(i) / 2.0;
     vec2 source = p + bend * (1.0 + spread * (s - 0.5));
     vec4 ink = imageAt(source, uLogoBox * uArtScale);
     vec3 w = spectrum(s);

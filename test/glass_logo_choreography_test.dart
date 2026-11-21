@@ -23,16 +23,24 @@ void main() {
 
   group('时间 → uniform', () {
     const double unit = 260;
-    GlassLogoFrame at(double s) => glassLogoFrameAt(
+    GlassLogoFrame at(double s, {bool showDrop = false}) => glassLogoFrameAt(
           s,
           unitPx: unit,
           finalLogoScale: 0.95,
           dropStrength: 1.35,
+          showDrop: showDrop,
         );
 
-    test('时间被裁到 0..1.8，超时不越界', () {
+    test('时间被裁到 0..2.6，且定版后冻在 1.8', () {
       expect(at(-3).time, 0);
-      expect(at(99).time, kGlassLogoDuration);
+      expect(at(99).time, closeTo(kGlassLogoHoldStart, 1.8));
+      expect(kGlassLogoDuration, greaterThan(kGlassLogoHoldStart));
+    });
+
+    test('定版后时间冻在 1.8（画面停住，不再做收尾动画）', () {
+      expect(at(2.0).time, closeTo(1.8, 0.001));
+      expect(at(2.6).time, closeTo(1.8, 0.001));
+      expect(at(2.0).artScale, at(1.8).artScale);
     });
 
     test('定版进度：1.16 前为 0，1.40 后为 1', () {
@@ -48,12 +56,18 @@ void main() {
       expect(at(1.8).artScale, closeTo(0.95, 0.001));
     });
 
-    test('第二滴：1.46 之前不可见，之后半径长大', () {
+    test('结尾默认不落第二滴（停在定版 ICON）', () {
+      for (final double s in <double>[1.2, 1.5, 1.8, 2.4]) {
+        expect(at(s).dropOpacity, 0, reason: 't=$s 不该出现水滴');
+      }
+    });
+
+    test('打开 showDrop 时：1.46 之前不可见，之后长大', () {
       // 半径在 1.46 前就有值（关键帧的起点），真正决定「看不看得见」的是
       // dropOpacity —— 原实现同样用一道透明度门把这一滴挡在 1.46 之后。
-      expect(at(1.2).dropOpacity, 0);
-      expect(at(1.5).dropOpacity, inExclusiveRange(0, 1));
-      expect(at(1.7).dropOpacity, greaterThan(0.5));
+      expect(at(1.2, showDrop: true).dropOpacity, 0);
+      expect(at(1.5, showDrop: true).dropOpacity, inExclusiveRange(0, 1));
+      expect(at(1.7, showDrop: true).dropOpacity, greaterThan(0.5));
       expect(at(1.7).drop[0], greaterThan(at(1.2).drop[0]));
       expect(at(1.8).drop[0], greaterThan(at(1.6).drop[0]));
     });

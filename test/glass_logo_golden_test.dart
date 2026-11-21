@@ -21,8 +21,12 @@ void main() {
           ),
         ),
       );
-      await tester.pump(); // 让纹理/程序就绪
-      await tester.pump(Duration(milliseconds: (at * 1000).round()));
+      // 时钟按「每帧最多 50ms」累加，所以必须小步推进；一次 pump 大跨度只能走 50ms。
+      await tester.pump(); // 首帧 → 起钟
+      await tester.pump(const Duration(milliseconds: 16)); // 记基准
+      for (int i = 0; i < (at / 0.05).round(); i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
       await expectLater(
         find.byType(GlassLogoAnimation),
         matchesGoldenFile(

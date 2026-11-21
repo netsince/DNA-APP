@@ -130,9 +130,12 @@ void main() {
             home: SplashPage(animation: spec, onComplete: () => done++),
           ),
         );
-        await tester.pump(); // 让控制器起跑
-        await tester.pump(Duration(milliseconds: spec.durationMs)); // 跑完
-        await tester.pump(); // 处理 whenComplete 的微任务
+        await tester.pump(); // 让时钟挂上首帧回调
+        await tester.pump(const Duration(milliseconds: 16)); // 起钟（第一帧只记基准）
+        // 时钟按「累加限幅的帧间隔」推进，所以要多喂几帧才走完。
+        for (int i = 0; i < spec.durationMs ~/ 40 + 2; i++) {
+          await tester.pump(const Duration(milliseconds: 40));
+        }
         await tester.pump(const Duration(milliseconds: 50));
         expect(done, 1, reason: '${spec.id} 没有回调 onComplete');
       }

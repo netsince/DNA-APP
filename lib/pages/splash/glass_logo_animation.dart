@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'glass_logo_choreography.dart';
+import 'splash_clock.dart';
 import 'logo_painter.dart';
 
 /// 液态玻璃 logo 开场动画（移植自 reactdrops 的 liquid-glass-logo，MIT）。
@@ -33,7 +34,7 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
     with SingleTickerProviderStateMixin {
   static ui.FragmentProgram? _program;
 
-  late final AnimationController _controller = AnimationController(
+  late final SplashClock _clock = SplashClock(
     vsync: this,
     duration: Duration(milliseconds: widget.durationMs),
   );
@@ -45,11 +46,20 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
   @override
   void initState() {
     super.initState();
-    _loadProgram();
-    _rasterizeLogo();
-    _controller.forward().whenComplete(() {
-      if (mounted) widget.onComplete();
-    });
+    _boot();
+  }
+
+  /// 等「着色器 + logo 纹理」都就绪才开播。
+  ///
+  /// 以前是对着空白先起播：前两三百毫秒在编译着色器 / 栅格 logo，用户看到的是
+  /// 一段"什么都没有"，然后动画突然跳进来 —— 这就是「一瞬间压根看不见」的来源。
+  Future<void> _boot() async {
+    await Future.wait<void>(<Future<void>>[_loadProgram(), _rasterizeLogo()]);
+    if (!mounted) return;
+    // 就绪后再起钟，而且等首帧真正上屏才走时间：第一次绘制要建着色器管线，
+    // 那一帧可能几百毫秒 —— 之前正是它把动画开头吃掉了。
+    setState(() {});
+    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
   }
 
   Future<void> _loadProgram() async {
@@ -62,7 +72,7 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
     } catch (e) {
       // 着色器加载失败（极端平台/降级构建）：直接播完，不要卡在空白上。
       debugPrint('[glass-logo] 着色器加载失败，跳过动画: $e');
-      _controller.value = 1;
+      _clock.finishNow();
     }
   }
 
@@ -97,7 +107,7 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _clock.dispose();
     _logo?.dispose();
     super.dispose();
   }
@@ -112,7 +122,7 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
       child: CustomPaint(
         painter: _GlassLogoPainter(
           program: program,
-          animation: _controller,
+          animation: _clock,
           tuning: widget.tuning,
           logo: _logo,
           durationSeconds: widget.durationMs / 1000,
@@ -132,7 +142,7 @@ class _GlassLogoPainter extends CustomPainter {
   }) : super(repaint: animation);
 
   final ui.FragmentProgram program;
-  final Animation<double> animation;
+  final SplashClock animation;
   final GlassLogoTuning tuning;
   final ui.Image? logo;
   final double durationSeconds;
@@ -151,6 +161,7 @@ class _GlassLogoPainter extends CustomPainter {
       unitPx: tuning.unitPx,
       finalLogoScale: tuning.finalLogoScale,
       dropStrength: tuning.dropStrength,
+      showDrop: tuning.showDrop,
     );
     final double w = size.width;
     final double h = size.height;

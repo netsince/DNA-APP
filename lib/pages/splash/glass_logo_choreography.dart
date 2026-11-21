@@ -8,8 +8,15 @@ import 'dart:ui' show Color;
 /// 这样拆的好处：动画节奏可以被单测覆盖（«某个时刻应该刚好定版» 这类断言），
 /// 而着色器那边只负责「按这组数值画一帧」。
 
-/// logo 模式的总时长（原组件 1.8s 定版；3.3s 是带文字排版的 wordmark 模式）。
-const double kGlassLogoDuration = 1.8;
+/// 总时长：前 [kGlassLogoHoldStart] 秒把玻璃长开并定版，之后**停在定版 ICON 上**，
+/// 到点再进主界面。
+///
+/// 原组件是 1.8s（logo 模式），但那 1.8 秒里还塞了「第二滴落下来把 logo 吸走」的
+/// 收尾，实测太快看不清、结尾也不好看。这里把收尾改成静止停留。
+const double kGlassLogoDuration = 2.6;
+
+/// 定版时刻：从这一刻起画面不再变化。
+const double kGlassLogoHoldStart = 1.45;
 
 /// 关键帧表：`[秒, 值]`，按时间升序；用 Catmull-Rom 穿过（不是缓动函数）。
 typedef KeyTrack = List<List<double>>;
@@ -147,9 +154,11 @@ GlassLogoFrame glassLogoFrameAt(
   required double unitPx,
   required double finalLogoScale,
   required double dropStrength,
+  bool showDrop = false,
 }) {
   final double seq = seconds.clamp(0.0, kGlassLogoDuration).toDouble();
-  final double t = seq;
+  // 定版之后时间冻在 1.8：着色器那边就是「停在最后一帧」，不再做收尾动画。
+  final double t = seq.clamp(0.0, 1.8).toDouble();
   final double settle = ((seq - 1.16) / (1.4 - 1.16)).clamp(0.0, 1.0).toDouble();
   final double settleWaves = 1 - smooth(2.85, 3.02, t);
   // 第二滴的尺度：原实现在纯 logo 模式取玻璃基准的 0.3 倍，视觉上太小（只剩
@@ -194,7 +203,7 @@ GlassLogoFrame glassLogoFrameAt(
       0,
     ],
     settleWaves: settleWaves,
-    dropOpacity: smooth(1.46, 1.56, t) * 0.8,
+    dropOpacity: showDrop ? smooth(1.46, 1.56, t) * 0.8 : 0,
     unitPx: unitPx,
   );
 }
@@ -236,6 +245,7 @@ class GlassLogoTuning {
     this.innerWallFocus = 0,
     this.decay = 2.5,
     this.tileEnabled = true,
+    this.showDrop = false,
   });
 
   final Color logoColor;
@@ -263,6 +273,9 @@ class GlassLogoTuning {
   final double innerWallFocus;
   final double decay;
   final bool tileEnabled;
+
+  /// 结尾是否要「落一滴水」（默认关：落完那一下不优雅，停在定版 ICON 更好）。
+  final bool showDrop;
 
   /// 玻璃基准像素（原实现的 uUnit = logoSize * scale，这里 scale 恒为 1）。
   double get unitPx => logoSize;

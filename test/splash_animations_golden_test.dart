@@ -44,9 +44,13 @@ void main() {
         ),
       );
       if (spec.enabled) {
+        // 时钟每帧最多推进 50ms，取 25% 时刻需要小步 pump。
         await tester.pump();
-        // 取 25%：缩放动画在这个时刻还明显偏小，淡入则已接近看清，区别一眼可见。
-        await tester.pump(Duration(milliseconds: (spec.durationMs * 0.25).round()));
+        await tester.pump(const Duration(milliseconds: 16));
+        final int steps = (spec.durationMs * 0.25 / 50).round();
+        for (int i = 0; i < steps; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
       }
       await expectLater(
         find.byType(SplashPage),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'logo_painter.dart';
+import 'splash_clock.dart';
 
-/// 默认动画：描边 → 填充 → 缩小再放大淡出（原来那一套，行为完全不变）。
+/// 默认动画：描边 → 填充 → 缩小再放大淡出（原来那一套，观感不变）。
+///
+/// 时钟换成 [SplashClock]：冷启动掉帧时只会走慢，不会把开头几帧跳过去。
 class LogoDrawAnimation extends StatefulWidget {
   const LogoDrawAnimation({
     super.key,
@@ -19,79 +22,48 @@ class LogoDrawAnimation extends StatefulWidget {
 
 class _LogoDrawAnimationState extends State<LogoDrawAnimation>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _drawAnimation;
-  late Animation<double> _fillAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
+  late final SplashClock _clock = SplashClock(
+    vsync: this,
+    duration: Duration(milliseconds: widget.durationMs),
+  );
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: widget.durationMs),
-    );
-
-    _drawAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0, 0.47, curve: Curves.easeOut),
-      ),
-    );
-
-    _fillAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.375, 0.53, curve: Curves.easeIn),
-      ),
-    );
-
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1, end: 0.8), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 60), weight: 70),
-    ]).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.69, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _opacityAnimation = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.69, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _controller.forward().whenComplete(() {
-      if (mounted) widget.onComplete();
-    });
+    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _clock.dispose();
     super.dispose();
   }
+
+  double _interval(double t, double begin, double end, Curve curve) =>
+      curve.transform(((t - begin) / (end - begin)).clamp(0.0, 1.0));
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _clock,
       builder: (BuildContext context, Widget? child) {
+        final double t = _clock.value;
+        final double draw = _interval(t, 0, 0.47, Curves.easeOut);
+        final double fill = _interval(t, 0.375, 0.53, Curves.easeIn);
+        final double exit = _interval(t, 0.69, 1.0, Curves.easeOut);
+        // 1 → 0.8（占前 30%）→ 60（剩下 70%）：和原来的 TweenSequence 一致。
+        final double scale = exit <= 0.3
+            ? 1 + (0.8 - 1) * (exit / 0.3)
+            : 0.8 + (60 - 0.8) * ((exit - 0.3) / 0.7);
         return Opacity(
-          opacity: _opacityAnimation.value,
+          opacity: 1 - exit,
           child: Transform.scale(
-            scale: _scaleAnimation.value,
+            scale: scale,
             child: SizedBox(
               width: 120,
               height: 120,
               child: CustomPaint(
-                painter: LogoPainter(
-                  drawProgress: _drawAnimation.value,
-                  fillProgress: _fillAnimation.value,
-                ),
+                painter: LogoPainter(drawProgress: draw, fillProgress: fill),
               ),
             ),
           ),
