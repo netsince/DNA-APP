@@ -579,8 +579,8 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
-    _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
+  Future<void> saveSplashAnimation({required String splashAnimation}) async {
+    _settings = _settings.copyWith(splashAnimation: splashAnimation);
     await _settingsService.save(_settings);
     notifyListeners();
   }

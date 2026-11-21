@@ -35,7 +35,9 @@ class SettingsService {
   static const String _requireAuthForAppKey = 'require_auth_for_app';
   static const String _requireNameToDeleteKey = 'require_name_to_delete';
   static const String _allowDeleteMessageKey = 'allow_delete_message';
-  static const String _showSplashAnimationKey = 'show_splash_animation';
+  static const String _splashAnimationKey = 'splash_animation';
+  /// 老版本用的布尔键：只读来做迁移，不再写。
+  static const String _legacyShowSplashKey = 'show_splash_animation';
   static const String _autoOpenLastChatKey = 'auto_open_last_chat';
   static const String _unboundedModelListKey = 'unbounded_model_list';
   static const String _fontSizeStepKey = 'font_size_step';
@@ -180,7 +182,9 @@ class SettingsService {
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
       requireNameToDelete: prefs.getBool(_requireNameToDeleteKey) ?? true,
       allowDeleteMessage: prefs.getBool(_allowDeleteMessageKey) ?? false,
-      showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
+      splashAnimation: prefs.getString(_splashAnimationKey) ??
+          // 迁移：老版本只有一个布尔开关，关掉过的人继续不播。
+          ((prefs.getBool(_legacyShowSplashKey) ?? true) ? 'logoDraw' : 'none'),
       autoOpenLastChat: prefs.getBool(_autoOpenLastChatKey) ?? false,
       unboundedModelList: prefs.getBool(_unboundedModelListKey) ?? false,
       fontSizeStep: _readInt(prefs, _fontSizeStepKey, 0),
@@ -295,7 +299,7 @@ class SettingsService {
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
     await prefs.setBool(_requireNameToDeleteKey, settings.requireNameToDelete);
     await prefs.setBool(_allowDeleteMessageKey, settings.allowDeleteMessage);
-    await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
+    await prefs.setString(_splashAnimationKey, settings.splashAnimation);
     await prefs.setBool(_autoOpenLastChatKey, settings.autoOpenLastChat);
     await prefs.setBool(_unboundedModelListKey, settings.unboundedModelList);
     await prefs.setInt(_fontSizeStepKey, settings.fontSizeStep);
