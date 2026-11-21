@@ -138,6 +138,46 @@ void main() {
       }
     });
 
+    test('缩放淡入和淡入必须真的不一样（否则就是同一套动画）', () {
+      // 早期版本：缩放只有 14% 幅度、还被二次缓动吃掉，肉眼和淡入没区别。
+      // 这里锁死「前半段明显小于 1」，防止以后又被改回去。
+      expect(splashZoomScale(0.0), lessThan(0.6));
+      expect(splashZoomScale(0.2), lessThan(0.8));
+      expect(splashZoomScale(0.5), greaterThan(0.9));
+      expect(splashZoomScale(0.5), lessThan(0.97));
+      expect(splashZoomScale(1.0), closeTo(1.0, 0.001));
+
+      // 淡入只动透明度：没有缩放这回事，两者不可能被看成同一段动画。
+      expect(splashFadeOpacity(0.0), 0);
+      expect(splashFadeOpacity(1.0), 1);
+      expect(splashFadeOpacity(0.5), greaterThan(0.2));
+
+      // 缩放淡入的透明度提前跑完：保证「看得见它在放大」。
+      expect(splashZoomOpacity(0.15), 1.0, reason: '显出来的时间要早，才看得见放大');
+      expect(splashZoomOpacity(0.05), lessThan(0.8));
+    });
+
+    testWidgets('缩放淡入的控件树里真的有一个缩放层，淡入没有',
+        (WidgetTester tester) async {
+      Future<int> transformCount(String id) async {
+        final SplashAnimationSpec spec = splashAnimationById(id);
+        await tester.pumpWidget(
+          MaterialApp(home: SplashPage(animation: spec, onComplete: () {})),
+        );
+        await tester.pump();
+        final int count =
+            tester.widgetList<Transform>(find.byType(Transform)).length;
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        return count;
+      }
+
+      final int zoomTransforms = await transformCount('zoom');
+      final int fadeTransforms = await transformCount('fade');
+      expect(zoomTransforms, greaterThan(fadeTransforms),
+          reason: '缩放淡入应该多一层 Transform.scale');
+    });
+
     testWidgets('关闭项：不挂动画也能自己结束', (WidgetTester tester) async {
       int done = 0;
       final SplashAnimationSpec off = splashAnimationById(kSplashAnimationOffId);

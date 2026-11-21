@@ -45,7 +45,8 @@ void main() {
       );
       if (spec.enabled) {
         await tester.pump();
-        await tester.pump(Duration(milliseconds: (spec.durationMs * 0.4).round()));
+        // 取 25%：缩放动画在这个时刻还明显偏小，淡入则已接近看清，区别一眼可见。
+        await tester.pump(Duration(milliseconds: (spec.durationMs * 0.25).round()));
       }
       await expectLater(
         find.byType(SplashPage),

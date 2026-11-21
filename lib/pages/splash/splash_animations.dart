@@ -29,7 +29,12 @@ class SplashAnimationSpec {
   final int durationMs;
 
   /// 真正渲染 + 播完回调。
-  final Widget Function(BuildContext context, VoidCallback onComplete) build;
+  /// 渲染这段动画。时长由表里的 durationMs 传进来，避免同一个数字写两处。
+  final Widget Function(
+    BuildContext context,
+    VoidCallback onComplete,
+    int durationMs,
+  ) build;
 
   bool get enabled => durationMs > 0;
 }
@@ -83,34 +88,71 @@ SplashAnimationSpec splashAnimationById(String id) {
   return kSplashAnimations.first;
 }
 
-Widget _buildLogoDraw(BuildContext context, VoidCallback onComplete) =>
-    LogoDrawAnimation(onComplete: onComplete);
+Widget _buildLogoDraw(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) =>
+    LogoDrawAnimation(durationMs: durationMs, onComplete: onComplete);
 
-Widget _buildZoom(BuildContext context, VoidCallback onComplete) =>
+/// 缩放淡入在进度 [t]（0..1）时的缩放比。
+///
+/// 抽成纯函数是为了能被测试直接验算 —— 之前它和「淡入」几乎没差别，
+/// 就是因为幅度只有 14% 且被二次缓动吃掉，肉眼看不出在放大。
+double splashZoomScale(double t) =>
+    0.45 + 0.55 * Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
+
+/// 缩放淡入在进度 [t] 时的不透明度：前 15% 就把自己显出来，
+/// 剩下的时间留给「变大」这件事被看见（否则透明度和缩放同时结束，
+/// 观感又会退化成一次淡入）。
+double splashZoomOpacity(double t) =>
+    Curves.easeOut.transform((t / 0.15).clamp(0.0, 1.0));
+
+/// 淡入在进度 [t] 时的不透明度（只做透明度，没有任何缩放）。
+double splashFadeOpacity(double t) =>
+    Curves.easeInOut.transform(t.clamp(0.0, 1.0));
+
+Widget _buildZoom(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) =>
     _SimpleLogoEntrance(
-      durationMs: 1200,
+      durationMs: durationMs,
       onComplete: onComplete,
-      builder: (double t) => Opacity(
-        opacity: t.clamp(0.0, 1.0).toDouble(),
-        child: Transform.scale(
-          // 0.86 → 1，带一点回弹，比线性缩放更有生气。
-          scale: 0.86 + 0.14 * Curves.easeOutBack.transform(t),
-          child: const _FilledLogo(),
-        ),
-      ),
+      builder: (double t) {
+        // 透明度先跑完（前 45%），保证「看得见它在放大」；剩下的时间只做缩放，
+        // 末尾用 easeOutBack 轻微过冲。缩放幅度取 0.55→1（原来 0.86→1 只有 14%
+        // 的变化，在 120px 的 logo 上等于没动，看起来和「淡入」一模一样）。
+        return Opacity(
+          opacity: splashZoomOpacity(t),
+          child: Transform.scale(
+            scale: splashZoomScale(t),
+            child: const _FilledLogo(),
+          ),
+        );
+      },
     );
 
-Widget _buildFade(BuildContext context, VoidCallback onComplete) =>
+Widget _buildFade(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) =>
     _SimpleLogoEntrance(
-      durationMs: 900,
+      durationMs: durationMs,
       onComplete: onComplete,
       builder: (double t) => Opacity(
-        opacity: t.clamp(0.0, 1.0).toDouble(),
+        opacity: splashFadeOpacity(t),
         child: const _FilledLogo(),
       ),
     );
 
-Widget _buildNone(BuildContext context, VoidCallback onComplete) {
+Widget _buildNone(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) {
   // 兜底：正常路径下 main 不会挂这个页面；万一被挂上也立刻结束。
   WidgetsBinding.instance.addPostFrameCallback((_) => onComplete());
   return const SizedBox.shrink();
@@ -189,7 +231,10 @@ class _SimpleLogoEntranceState extends State<_SimpleLogoEntrance>
     return AnimatedBuilder(
       animation: _controller,
       builder: (BuildContext context, Widget? _) =>
-          widget.builder(Curves.easeOut.transform(_controller.value)),
+          // 传**线性**进度：具体用哪条曲线由每段动画自己决定。
+          // 以前在这里先 ease 一遍，builder 里再 ease 一次，等于二次缓动 ——
+          // 动画前段几乎不动，观感直接退化成「淡入」。
+          widget.builder(_controller.value),
     );
   }
 }

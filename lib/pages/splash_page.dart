@@ -29,7 +29,7 @@ class SplashPage extends StatelessWidget {
       body: Center(
         child: KeyedSubtree(
           key: ValueKey<String>(animation.id),
-          child: animation.build(context, onComplete),
+          child: animation.build(context, onComplete, animation.durationMs),
         ),
       ),
     );

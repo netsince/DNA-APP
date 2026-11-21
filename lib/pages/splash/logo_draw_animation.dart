@@ -4,8 +4,13 @@ import 'logo_painter.dart';
 
 /// 默认动画：描边 → 填充 → 缩小再放大淡出（原来那一套，行为完全不变）。
 class LogoDrawAnimation extends StatefulWidget {
-  const LogoDrawAnimation({super.key, required this.onComplete});
+  const LogoDrawAnimation({
+    super.key,
+    required this.durationMs,
+    required this.onComplete,
+  });
 
+  final int durationMs;
   final VoidCallback onComplete;
 
   @override
@@ -25,7 +30,7 @@ class _LogoDrawAnimationState extends State<LogoDrawAnimation>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: Duration(milliseconds: widget.durationMs),
     );
 
     _drawAnimation = Tween<double>(begin: 0, end: 1).animate(
