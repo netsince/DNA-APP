@@ -31,6 +31,10 @@ class ConversationListBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AppStateTransition(child: _buildBody(context));
+  }
+
+  Widget _buildBody(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
       builder: (BuildContext context, Widget? _) {

@@ -115,8 +115,25 @@ class FitText extends Text {
     final Color effective = surfaceColor != null
         ? compositeOver(background, surfaceColor)
         : background;
-    final double withLightInk = _contrastRatio(AppColors.inkOnLight, effective);
-    final double withDarkInk = _contrastRatio(AppColors.inkOnDark, effective);
+    final Color picked = _betterInk(effective);
+    // 阈值取 7:1（WCAG AAA）而不是 4.5：
+    // 近黑气泡 @50% 叠浅色页面会合成中灰，深墨在中灰上正好 4.6 —— 刚过 AA，
+    // 于是还会选深墨，观感就是"黑气泡上仍然是黑字"。只有对比足够高才信任
+    // 合成色，否则按气泡本身判断。
+    if (_contrastRatio(picked, effective) >= 7.0) {
+      return picked;
+    }
+    // 半透明气泡叠在页面底色上可能刚好落在"两头都不够"的中灰区间
+    // （例：莫奈取色给出近黑的气泡 @50% 叠在浅色页面上），此时按合成色
+    // 选墨只会得到勉强合格、观感却像"黑底黑字"的结果。
+    // 这时退化为按**气泡本身的颜色**判断：黑气泡就给浅色字。
+    return _betterInk(background);
+  }
+
+  /// 在两种墨色里挑对比度更高的那个。
+  static Color _betterInk(Color background) {
+    final double withLightInk = _contrastRatio(AppColors.inkOnLight, background);
+    final double withDarkInk = _contrastRatio(AppColors.inkOnDark, background);
     return withLightInk >= withDarkInk
         ? AppColors.inkOnLight
         : AppColors.inkOnDark;

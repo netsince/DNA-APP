@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 import 'package:dna/widgets/state_views.dart';
@@ -76,8 +77,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
           }
         }
       }
-      final List<String> orphans =
-          await AttachmentGc.findOrphans(liveRefs: liveRefs);
+      final List<String> orphans = await AttachmentGc.findOrphans(
+        liveRefs: liveRefs,
+      );
       final int bytes = await AttachmentGc.orphanBytes(orphans);
       if (!mounted) return;
       setState(() {
@@ -126,8 +128,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
           }
         }
       }
-      final AttachmentGcResult result =
-          await AttachmentGc.collect(liveRefs: liveRefs);
+      final AttachmentGcResult result = await AttachmentGc.collect(
+        liveRefs: liveRefs,
+      );
       if (!mounted) return;
       setState(() => _cleaning = false);
       showSnack(
@@ -212,15 +215,18 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   }
 
   Widget _buildReport(BuildContext context, StorageUsageReport report) {
-    return ListView(
-      padding: AppInsets.page,
-      children: <Widget>[
-        if (report.recordsError != null)
-          _WarningBanner(text: report.recordsError!),
-        _buildOverview(context, report),
-        AppSpacing.hLg,
-        _buildCategories(context, report),
-      ],
+    return AppContentFrame(
+      maxWidth: AppSize.settingsMaxWidth,
+      child: ListView(
+        padding: AppInsets.page,
+        children: <Widget>[
+          if (report.recordsError != null)
+            _WarningBanner(text: report.recordsError!),
+          _buildOverview(context, report),
+          AppSpacing.hLg,
+          _buildCategories(context, report),
+        ],
+      ),
     );
   }
 
@@ -294,7 +300,6 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
       ],
     );
   }
-
 }
 
 /// 顶部那条占用条：整条 = 本应用占用，按分类切段。
@@ -441,9 +446,7 @@ class _CategoryRow extends StatelessWidget {
               ),
               FitText(
                 formatStorageBytes(usage.bytes),
-                style: AppTextStyles.caption(
-                  theme,
-                ).copyWith(color: cs.outline),
+                style: AppTextStyles.caption(theme).copyWith(color: cs.outline),
               ),
             ],
           ),
@@ -512,43 +515,46 @@ class _StorageCategoryDetailPageState
               icon: Icons.folder_off_outlined,
               title: '这一类还是空的',
             )
-          : ListView(
-              padding: AppInsets.page,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: <Widget>[
-                    FitText(
-                      formatStorageBytes(usage.bytes),
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: AppWeight.medium,
+          : AppContentFrame(
+              maxWidth: AppSize.settingsMaxWidth,
+              child: ListView(
+                padding: AppInsets.page,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: <Widget>[
+                      FitText(
+                        formatStorageBytes(usage.bytes),
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: AppWeight.medium,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
+                      const SizedBox(width: AppSpacing.sm),
+                      FitText(
+                        '${usage.itemCount} 项 · 占全部 '
+                        '${_percent(usage.bytes, widget.appTotalBytes)}',
+                        style: AppTextStyles.caption(
+                          theme,
+                        ).copyWith(color: cs.outline),
+                      ),
+                    ],
+                  ),
+                  if (usage.truncated) ...<Widget>[
+                    AppSpacing.hXs,
                     FitText(
-                      '${usage.itemCount} 项 · 占全部 '
-                      '${_percent(usage.bytes, widget.appTotalBytes)}',
+                      '只列出最大的 ${usage.items.length} 项，其余 '
+                      '${usage.itemCount - usage.items.length} 项没显示。',
                       style: AppTextStyles.caption(
                         theme,
-                      ).copyWith(color: cs.outline),
+                      ).copyWith(color: cs.onSurfaceVariant),
                     ),
                   ],
-                ),
-                if (usage.truncated) ...<Widget>[
-                  AppSpacing.hXs,
-                  FitText(
-                    '只列出最大的 ${usage.items.length} 项，其余 '
-                    '${usage.itemCount - usage.items.length} 项没显示。',
-                    style: AppTextStyles.caption(
-                      theme,
-                    ).copyWith(color: cs.onSurfaceVariant),
-                  ),
+                  AppSpacing.hMd,
+                  for (final StorageUsageItem item in items)
+                    _DetailRow(item: item, categoryBytes: usage.bytes),
                 ],
-                AppSpacing.hMd,
-                for (final StorageUsageItem item in items)
-                  _DetailRow(item: item, categoryBytes: usage.bytes),
-              ],
+              ),
             ),
     );
   }
@@ -645,12 +651,7 @@ Color storageCategoryColor(ColorScheme cs, StorageCategory category) {
   final HSLColor base = HSLColor.fromColor(cs.primary);
   final int total = StorageCategory.values.length;
   final double hue = (base.hue + category.index * 360 / total) % 360;
-  return HSLColor.fromAHSL(
-    1,
-    hue,
-    0.42,
-    0.55,
-  ).toColor();
+  return HSLColor.fromAHSL(1, hue, 0.42, 0.55).toColor();
 }
 
 /// 占比文字。整数位够用时不留小数，太小的小数写成「<0.1%」。

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../models/ta.dart';
+import 'package:dna/theme/tokens.dart';
 import 'package:dna/utils/action_table.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -42,6 +43,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.ta,
     this.titleOverride,
     this.transparentBackground = false,
+    this.showAppBarScrim = false,
     this.immersiveHidden = false,
     this.onToggleImmersive,
   });
@@ -74,6 +76,12 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? titleOverride;
   final bool transparentBackground;
 
+  /// 是否在顶栏内画那条「上实下虚」的底色渐变。
+  ///
+  /// 由**当前是否真的半屏**决定（不是"开了半屏聊天"这个开关）：
+  /// 动态半屏滚成全屏之后，栏下面是消息列表而不是立绘，渐变就该消失。
+  final bool showAppBarScrim;
+
   /// 当前是否处于沉浸态（隐藏顶栏与输入岛）。只影响菜单项文案，
   /// 状态本身由聊天页持有。
   final bool immersiveHidden;
@@ -83,7 +91,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
+    final Widget bar = AppBar(
       backgroundColor: transparentBackground ? Colors.transparent : null,
       surfaceTintColor: transparentBackground ? Colors.transparent : null,
       elevation: transparentBackground ? 0 : null,
@@ -227,6 +235,47 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
             ],
+    );
+
+    if (!transparentBackground) {
+      return bar;
+    }
+    // 半屏 / 图片背景时顶栏是透明的：标题直接压在立绘上会看不清。
+    // 这里在栏内加一条「上实下虚」的蒙层（用页面底色，不是黑色遮罩）：
+    // 高度**严格等于顶栏**，出了栏就完全透明，所以不会遮挡下面的立绘。
+    final Color surface = Theme.of(context).colorScheme.surface;
+    // 渐变本身铺满整条栏，但**只在前半段保持较实**，后半段缓降到 0：
+    // 直接 0.92→0 的线性收尾会在栏底留一道看得见的分界，很生硬。
+    // 显隐走 AnimatedOpacity，半屏 ↔ 全屏切换时是淡出而不是闪没。
+    return Stack(
+      fit: StackFit.passthrough,
+      children: <Widget>[
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: showAppBarScrim ? 1.0 : 0.0,
+              duration: AppMotion.medium,
+              curve: Curves.easeInOutCubicEmphasized,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      surface.withValues(alpha: 0.90),
+                      surface.withValues(alpha: 0.72),
+                      surface.withValues(alpha: 0.30),
+                      surface.withValues(alpha: 0.0),
+                    ],
+                    stops: const <double>[0.0, 0.45, 0.78, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        bar,
+      ],
     );
   }
 

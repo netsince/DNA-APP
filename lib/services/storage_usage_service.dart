@@ -299,15 +299,32 @@ class HiveStorageRecordsSource implements StorageRecordsSource {
   }
 
   /// 读出某个 box 里所有字符串值（逐条读，不一次性把整个 box 拉进内存）。
+  ///
+  /// 两个坑，都踩过：
+  /// 1. **不能直接 openBox**：应用启动时已经把 tas/conversations/worlds 开成
+  ///    `Box<String>`，再 open 同名 box 会抛
+  ///    `HiveError: The box "tas" is already open and of type Box<String>`；
+  /// 2. **类型必须一模一样**：Hive 判断是否可以复用是 `box.valueType == E`（精确相等，
+  ///    不是子类型），所以 `Hive.box<dynamic>(name)` 对 `Box<String>` 同样会抛。
+  ///    这里统一按 `Box<String>` 取 —— 本应用所有数据 box 写的就是字符串 JSON。
   Future<List<String>> _readStrings(String boxName) async {
-    if (!await Hive.boxExists(boxName)) return const <String>[];
-    final Box<dynamic> box = await Hive.openBox<dynamic>(boxName);
+    final Box<String>? box = await _openStringsBox(boxName);
+    if (box == null) return const <String>[];
     final List<String> out = <String>[];
     for (final Object? key in box.keys) {
       final Object? value = box.get(key);
       if (value is String) out.add(value);
     }
     return out;
+  }
+
+  /// 拿到字符串 box：已开着就复用，没开且文件存在才打开，不存在返回 null。
+  Future<Box<String>?> _openStringsBox(String boxName) async {
+    if (Hive.isBoxOpen(boxName)) {
+      return Hive.box<String>(boxName);
+    }
+    if (!await Hive.boxExists(boxName)) return null;
+    return Hive.openBox<String>(boxName);
   }
 }
 

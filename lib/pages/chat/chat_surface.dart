@@ -800,16 +800,29 @@ class _ChatSurfaceState extends State<ChatSurface>
         child: Stack(
           children: <Widget>[
             SafeArea(
-              top: isExtendBehind && !_immersiveUiHidden,
+              // 恒定的安全区：沉浸进出时不再让内容整体跳一格。
+              top: isExtendBehind,
               bottom: false,
               child: Column(
                 children: <Widget>[
-                  if (!_immersiveUiHidden)
-                    _buildSpeakerBar(
-                      colorScheme.primaryContainer,
-                      colorScheme.surfaceContainerHighest,
-                      textTheme,
+                  // 发言控制条：沉浸时高度动画收起，不再瞬间消失。
+                  AnimatedSize(
+                    duration: AppMotion.medium,
+                    curve: Curves.easeInOutCubicEmphasized,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedOpacity(
+                      opacity: _immersiveUiHidden ? 0.0 : 1.0,
+                      duration: AppMotion.fast,
+                      curve: Curves.easeOutCubic,
+                      child: _immersiveUiHidden
+                          ? const SizedBox(width: double.infinity)
+                          : _buildSpeakerBar(
+                              colorScheme.primaryContainer,
+                              colorScheme.surfaceContainerHighest,
+                              textTheme,
+                            ),
                     ),
+                  ),
                   Expanded(
                     // 用自定义识别器而不是 GestureDetector:必须"横向明显
                     // 占优"才接管手势,否则上下滚动会被误判成左右切换。
@@ -1030,29 +1043,45 @@ class _ChatSurfaceState extends State<ChatSurface>
                       crossFadeState: _immersiveUiHidden
                           ? CrossFadeState.showSecond
                           : CrossFadeState.showFirst,
-                      duration: const Duration(milliseconds: 200),
+                      duration: AppMotion.medium,
+                      firstCurve: Curves.easeOutCubic,
+                      secondCurve: Curves.easeInCubic,
+                      sizeCurve: Curves.easeInOutCubicEmphasized,
                     ),
                   ),
                 ],
               ),
             ),
-            // 沉浸态的唯一常驻控件：可见的退出入口，替换原来的隐形热区。
-            if (_immersiveUiHidden)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: IconButton.filledTonal(
-                      onPressed: _toggleImmersive,
-                      tooltip: '退出沉浸',
-                      icon: const Icon(Icons.fullscreen_exit),
+            // 沉浸态的唯一常驻控件：可见的退出入口（原来是从无到有地蹦出来，
+            // 这里改成缩放+淡入，进出沉浸时不再"闪一下"）。
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IgnorePointer(
+                ignoring: !_immersiveUiHidden,
+                child: AnimatedScale(
+                  scale: _immersiveUiHidden ? 1.0 : 0.8,
+                  duration: AppMotion.fast,
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: _immersiveUiHidden ? 1.0 : 0.0,
+                    duration: AppMotion.fast,
+                    curve: Curves.easeOutCubic,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        child: IconButton.filledTonal(
+                          onPressed: _toggleImmersive,
+                          tooltip: '退出沉浸',
+                          icon: const Icon(Icons.fullscreen_exit),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
+            ),
           ],
         ),
       );
@@ -1132,18 +1161,26 @@ class _ChatSurfaceState extends State<ChatSurface>
               ? content
               : Scaffold(
             backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: isExtendBehind,
+      extendBodyBehindAppBar: isExtendBehind || _immersiveUiHidden,
       appBar: PreferredSize(
-        preferredSize: _immersiveUiHidden
-            ? Size.zero
-            : const Size.fromHeight(kToolbarHeight),
-        child: AnimatedOpacity(
-          opacity: _immersiveUiHidden ? 0.0 : 1.0,
-          duration: const Duration(milliseconds: 200),
-          child: _immersiveUiHidden
-              ? const SizedBox.shrink()
-              : ChatAppBar(
+        // 高度恒定：沉浸进出时不再让布局瞬间塌陷（原来 hidden 时把
+        // preferredSize 换成 Size.zero，整页会往上跳一格）。隐藏交给
+        // 滑动 + 淡出，内容靠 extendBodyBehindAppBar 顶到栏下面。
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: IgnorePointer(
+          ignoring: _immersiveUiHidden,
+          child: AnimatedSlide(
+            offset: _immersiveUiHidden ? const Offset(0, -1) : Offset.zero,
+            duration: AppMotion.medium,
+            curve: Curves.easeInOutCubicEmphasized,
+            child: AnimatedOpacity(
+              opacity: _immersiveUiHidden ? 0.0 : 1.0,
+              duration: AppMotion.fast,
+              curve: Curves.easeOutCubic,
+              child: ChatAppBar(
                   transparentBackground: isExtendBehind,
+                  // 只按"当前是否真的半屏"给渐变：动态半屏滚成全屏后自动淡出。
+                  showAppBarScrim: isHalfScreenActive,
                   searching: _searching,
                   searchController: _searchController,
                   searchMatchIndex: _searchMatchIndex,
@@ -1180,6 +1217,8 @@ class _ChatSurfaceState extends State<ChatSurface>
                   immersiveHidden: _immersiveUiHidden,
                   onToggleImmersive: _toggleImmersive,
                 ),
+            ),
+          ),
         ),
       ),
       // 点空白只负责收键盘；沉浸态的退出走屏幕上那颗可见按钮

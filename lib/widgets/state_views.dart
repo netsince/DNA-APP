@@ -138,6 +138,27 @@ class AppLoadingState extends StatelessWidget {
   }
 }
 
+/// 三态与内容之间的交叉淡入。
+///
+/// 之前「加载中 → 内容」「空 → 有内容」都是硬切：转圈消失的同一帧内容才出现，
+/// 观感上像闪了一下。所有状态机出口统一包这一层，新旧两屏交叉淡入，
+/// 内容不再是"跳"出来的。
+class AppStateTransition extends StatelessWidget {
+  const AppStateTransition({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: AppMotion.fast,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: child,
+    );
+  }
+}
+
 /// 空态与错误态共用的布局：图标 + 标题 + 说明 + 按钮。
 ///
 /// 抽出来是为了让两种态**只在图标、按钮层级上不同**，
