@@ -302,7 +302,7 @@ Future<void> runExportAction(
   }
   showSnack(
     context,
-    fileResult.data == null ? '已取消导出' : '已导出到：\${fileResult.data}',
+    fileResult.data == null ? '已取消导出' : '已导出到：${fileResult.data}',
     behavior: SnackBarBehavior.floating,
   );
 }

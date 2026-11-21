@@ -117,7 +117,7 @@ class ChatMessageSlice {
       if (preview == null || preview.isEmpty) continue;
       tokens += tokenCounter.countTokens(
         model: tokenModel,
-        messageId: '\${message.id}#\${a.hashCode}',
+        messageId: '${message.id}#${a.hashCode}',
         text: preview,
       );
     }
