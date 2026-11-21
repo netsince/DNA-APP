@@ -525,6 +525,13 @@ abstract final class AppSize {
   /// 聊天内容区最大宽度(气泡/系统消息)。
   static const double contentMaxWidth = 520;
 
+  /// **全站栏目的内容列上限（统一值）**。
+  ///
+  /// 以前每栏各用一个值（首页 760 / 设置 900 / 群聊·我家·身份 1040），
+  /// 切标签时内容列的左右边缘会跟着跳，看起来像布局在抖。
+  /// 现在统一按最宽的那一档来：栏目背景依旧通栏，只有内容列居中收窄。
+  static const double pageMaxWidth = 1040;
+
   /// 列表/正文内容列最大宽度。
   ///
   /// 桌面宽窗口下列表若通栏铺开,单行会横跨整个屏幕(头像贴最左、
@@ -538,12 +545,14 @@ abstract final class AppSize {
 
   /// 卡片网格栏目的内容列最大宽度(群聊 / 身份)。
   ///
-  /// 这两栏是卡片列表,宽屏下并排多列(见 `AppResponsiveWrap`),
-  /// 所以内容列比行式列表宽:够放 2~3 列卡片。
-  static const double cardGridMaxWidth = 1040;
+  /// 现在与 [pageMaxWidth] 同值：全站统一宽度后，这个名字只用来表达
+  /// 「这几栏是卡片网格」的语义，不再代表一个不同的宽度。
+  static const double cardGridMaxWidth = pageMaxWidth;
 
   /// 设置页内容最大宽度。
-  static const double settingsMaxWidth = 900;
+  ///
+  /// 与 [pageMaxWidth] 同值：设置页不再单独窄一档，切进设置时内容列不跳。
+  static const double settingsMaxWidth = pageMaxWidth;
 
   /// 编辑器(表单页)内容列最大宽度。
   ///

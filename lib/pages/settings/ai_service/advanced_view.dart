@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import '../../../widgets/state_views.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import '../../../models/llm_model_config.dart';
@@ -45,62 +46,65 @@ class AiServiceAdvancedView extends StatelessWidget {
           );
         }
 
-        return ListView.separated(
-          padding: AppInsets.page,
-          itemCount: models.length,
-          separatorBuilder: (_, _) => AppSpacing.hSm,
-          itemBuilder: (BuildContext context, int index) {
-            final LlmModelConfig m = models[index];
-            final bool isActive = m.id == activeId;
-            final LlmProviderConfig provider =
-                contract.controller.settings.providers.firstWhere(
-              (LlmProviderConfig p) => p.id == m.providerId,
-              orElse: () => LlmProviderConfig.defaultConfig(),
-            );
+        return AppContentFrame(
+          maxWidth: AppSize.pageMaxWidth,
+          child: ListView.separated(
+            padding: AppInsets.page,
+            itemCount: models.length,
+            separatorBuilder: (_, _) => AppSpacing.hSm,
+            itemBuilder: (BuildContext context, int index) {
+              final LlmModelConfig m = models[index];
+              final bool isActive = m.id == activeId;
+              final LlmProviderConfig provider =
+                  contract.controller.settings.providers.firstWhere(
+                (LlmProviderConfig p) => p.id == m.providerId,
+                orElse: () => LlmProviderConfig.defaultConfig(),
+              );
 
-            return Card(
-              elevation: AppElevation.flat,
-              color: isActive
-                  ? cs.primaryContainer.withValues(alpha: AppAlpha.a35)
-                  : null,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.mdAll,
-                side: BorderSide(
-                  color: isActive
-                      ? cs.primary
-                      : cs.outlineVariant.withValues(alpha: AppAlpha.half),
-                  width: isActive ? 1.5 : 1.0,
-                ),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                leading: Icon(
-                  isActive
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: isActive ? cs.primary : cs.outline,
-                ),
-                title: FitText(
-                  m.alias,
-                  style: ts.titleSmall?.copyWith(
-                    fontWeight:
-                        isActive ? AppWeight.medium : AppWeight.regular,
-                    color: isActive ? cs.primary : null,
+              return Card(
+                elevation: AppElevation.flat,
+                color: isActive
+                    ? cs.primaryContainer.withValues(alpha: AppAlpha.a35)
+                    : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.mdAll,
+                  side: BorderSide(
+                    color: isActive
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: AppAlpha.half),
+                    width: isActive ? 1.5 : 1.0,
                   ),
                 ),
-                subtitle: FitText(
-                  '${provider.alias} • '
-                  '${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
-                  style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  leading: Icon(
+                    isActive
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: isActive ? cs.primary : cs.outline,
+                  ),
+                  title: FitText(
+                    m.alias,
+                    style: ts.titleSmall?.copyWith(
+                      fontWeight:
+                          isActive ? AppWeight.medium : AppWeight.regular,
+                      color: isActive ? cs.primary : null,
+                    ),
+                  ),
+                  subtitle: FitText(
+                    '${provider.alias} • '
+                    '${m.modelName.isEmpty ? "未指定模型" : m.modelName}',
+                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  trailing: isActive
+                      ? Icon(Icons.check_circle, color: cs.primary, size: 20)
+                      : null,
+                  onTap: () => contract.controller.setActiveModel(m.id),
                 ),
-                trailing: isActive
-                    ? Icon(Icons.check_circle, color: cs.primary, size: 20)
-                    : null,
-                onTap: () => contract.controller.setActiveModel(m.id),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );

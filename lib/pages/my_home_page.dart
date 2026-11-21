@@ -36,7 +36,7 @@ SectionPageData myHomeSection(AppController controller) {
     section: AppSection.myHome,
     showArchived: showArchived,
     // 瀑布流卡片墙:和群聊/身份一样用卡片网格的宽度,桌面才排得开列。
-    contentMaxWidth: AppSize.cardGridMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(

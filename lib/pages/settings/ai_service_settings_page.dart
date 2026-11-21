@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import '../../services/llm_provider.dart';
@@ -287,11 +288,14 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
           // 精简模式:连接参数 + 模型选择(输入框需要滚动)。
           // 完整模式:平铺的模型快速切换列表(自身就是 ListView)。
           return isSimple
-              ? ListView(
-                  padding: AppInsets.page,
-                  children: <Widget>[
-                    AiServiceSimpleView(contract: _contract),
-                  ],
+              ? AppContentFrame(
+                  maxWidth: AppSize.pageMaxWidth,
+                  child: ListView(
+                    padding: AppInsets.page,
+                    children: <Widget>[
+                      AiServiceSimpleView(contract: _contract),
+                    ],
+                  ),
                 )
               : AiServiceAdvancedView(contract: _contract);
         },

@@ -28,6 +28,7 @@ SectionPageData worldSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.world,
+    contentMaxWidth: AppSize.pageMaxWidth,
     showArchived: showArchived,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,

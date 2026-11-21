@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_content_frame.dart';
 import '../../widgets/fit_text.dart';
 import '../../widgets/state_views.dart';
 import 'settings_catalog.dart';
@@ -175,25 +176,28 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
           // 完全一样、需要逐条扫读，套卡片只会把「一屏能看几条」换成
           // 「一屏几个框」。行直接贴在 surface 上，行之间一根 Divider，
           // 缩进与行文字对齐（ListTile 默认内边距 16）。
-          : ListView.separated(
-              padding: AppInsets.page,
-              itemCount: results.length,
-              separatorBuilder: (_, _) =>
-                  Divider(height: 1, indent: AppSpacing.lg),
-              itemBuilder: (BuildContext context, int i) {
-                final SettingsSearchHit hit = results[i];
-                return ListTile(
-                  contentPadding: AppInsets.tile,
-                  leading: Icon(
-                    hit.isField ? Icons.tune : hit.icon,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: FitText(hit.title),
-                  subtitle: FitText('${hit.group} · ${hit.subtitle}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _open(hit),
-                );
-              },
+          : AppContentFrame(
+            maxWidth: AppSize.pageMaxWidth,
+            child: ListView.separated(
+                padding: AppInsets.page,
+                itemCount: results.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, indent: AppSpacing.lg),
+                itemBuilder: (BuildContext context, int i) {
+                  final SettingsSearchHit hit = results[i];
+                  return ListTile(
+                    contentPadding: AppInsets.tile,
+                    leading: Icon(
+                      hit.isField ? Icons.tune : hit.icon,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: FitText(hit.title),
+                    subtitle: FitText('${hit.group} · ${hit.subtitle}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _open(hit),
+                  );
+                },
+              ),
             ),
     );
   }

@@ -6,6 +6,7 @@ import '../../state/app_controller.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/message_processor.dart';
 import 'package:dna/widgets/app_empty_state.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/form_draft.dart';
 import 'package:dna/widgets/form_fields.dart';
@@ -97,107 +98,110 @@ class _RegexRulesPageState extends State<RegexRulesPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: AppInsets.page,
-        children: <Widget>[
-          // ===== 用途说明(不再用手写卡片样板) =====
-          SettingSection(
-            icon: Icons.auto_fix_high_outlined,
-            title: '清洗规则能做什么',
-            description: '让 AI 的回复显示得更干净。',
-            children: <Widget>[
-              SettingHint(
-                '1. 去掉每句话末尾多余的口癖',
-                icon: Icons.filter_alt_outlined,
-              ),
-              SettingHint('2. 去掉 *星号* 包起来的动作描写'),
-              SettingHint('3. 替换常写错的字，或屏蔽不想看到的词'),
-            ],
-          ),
-
-          AppSpacing.hLg,
-
-          // ===== 规则列表（条目集合，非设置项堆叠）=====
-          if (_rules.isEmpty)
-            AppEmptyState(
-              icon: Icons.find_replace,
-              title: '还没有清洗规则',
-              description: '创建第一条规则，让回复变干净。',
-              actionLabel: '新增规则',
-              actionIcon: Icons.add,
-              onAction: _add,
-            )
-          else
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _rules.length,
-              // 新 API：onReorderItem 的 newIndex 已经按「移除后下标」调整过，
-              // 所以这里不能再做 oldIndex < newIndex 的 -1 修正（会双重调整）。
-              onReorderItem: (int oldIndex, int newIndex) {
-                setState(() {
-                  final RegexRule item = _rules.removeAt(oldIndex);
-                  _rules.insert(newIndex, item);
-                });
-                _persist();
-              },
-              itemBuilder: (BuildContext context, int index) {
-                final RegexRule rule = _rules[index];
-                return Card(
-                  key: ValueKey<String>(rule.id),
-                  elevation: AppElevation.flat,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  shape: AppBorder.secondaryShape(cs),
-                  child: ListTile(
-                    contentPadding: AppInsets.group,
-                    leading: CircleAvatar(
-                      radius: AppSpacing.lg,
-                      backgroundColor: cs.primaryContainer,
-                      child: FitText(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontSize: AppFontSize.caption,
-                          fontWeight: AppWeight.medium,
-                          color: cs.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                    title: FitText(
-                      '匹配：${rule.pattern}',
-                      style: const TextStyle(
-                        fontWeight: AppWeight.medium,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                    subtitle: FitText(
-                      rule.replacement.isEmpty
-                          ? '替换为：删除匹配内容'
-                          : '替换为：${rule.replacement}',
-                      style: AppTextStyles.caption(theme).copyWith(
-                        color: cs.outline,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          tooltip: '编辑',
-                          onPressed: () => _edit(rule),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          tooltip: '删除',
-                          onPressed: () => _delete(rule),
-                        ),
-                        const Icon(Icons.drag_handle, size: AppSize.iconCard),
-                      ],
-                    ),
-                  ),
-                );
-              },
+      body: AppContentFrame(
+        maxWidth: AppSize.pageMaxWidth,
+        child: ListView(
+          padding: AppInsets.page,
+          children: <Widget>[
+            // ===== 用途说明(不再用手写卡片样板) =====
+            SettingSection(
+              icon: Icons.auto_fix_high_outlined,
+              title: '清洗规则能做什么',
+              description: '让 AI 的回复显示得更干净。',
+              children: <Widget>[
+                SettingHint(
+                  '1. 去掉每句话末尾多余的口癖',
+                  icon: Icons.filter_alt_outlined,
+                ),
+                SettingHint('2. 去掉 *星号* 包起来的动作描写'),
+                SettingHint('3. 替换常写错的字，或屏蔽不想看到的词'),
+              ],
             ),
-        ],
+
+            AppSpacing.hLg,
+
+            // ===== 规则列表（条目集合，非设置项堆叠）=====
+            if (_rules.isEmpty)
+              AppEmptyState(
+                icon: Icons.find_replace,
+                title: '还没有清洗规则',
+                description: '创建第一条规则，让回复变干净。',
+                actionLabel: '新增规则',
+                actionIcon: Icons.add,
+                onAction: _add,
+              )
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _rules.length,
+                // 新 API：onReorderItem 的 newIndex 已经按「移除后下标」调整过，
+                // 所以这里不能再做 oldIndex < newIndex 的 -1 修正（会双重调整）。
+                onReorderItem: (int oldIndex, int newIndex) {
+                  setState(() {
+                    final RegexRule item = _rules.removeAt(oldIndex);
+                    _rules.insert(newIndex, item);
+                  });
+                  _persist();
+                },
+                itemBuilder: (BuildContext context, int index) {
+                  final RegexRule rule = _rules[index];
+                  return Card(
+                    key: ValueKey<String>(rule.id),
+                    elevation: AppElevation.flat,
+                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    shape: AppBorder.secondaryShape(cs),
+                    child: ListTile(
+                      contentPadding: AppInsets.group,
+                      leading: CircleAvatar(
+                        radius: AppSpacing.lg,
+                        backgroundColor: cs.primaryContainer,
+                        child: FitText(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: AppFontSize.caption,
+                            fontWeight: AppWeight.medium,
+                            color: cs.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      title: FitText(
+                        '匹配：${rule.pattern}',
+                        style: const TextStyle(
+                          fontWeight: AppWeight.medium,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      subtitle: FitText(
+                        rule.replacement.isEmpty
+                            ? '替换为：删除匹配内容'
+                            : '替换为：${rule.replacement}',
+                        style: AppTextStyles.caption(theme).copyWith(
+                          color: cs.outline,
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            tooltip: '编辑',
+                            onPressed: () => _edit(rule),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            tooltip: '删除',
+                            onPressed: () => _delete(rule),
+                          ),
+                          const Icon(Icons.drag_handle, size: AppSize.iconCard),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
       ),
       floatingActionButton: _rules.isNotEmpty
           ? FloatingActionButton.extended(

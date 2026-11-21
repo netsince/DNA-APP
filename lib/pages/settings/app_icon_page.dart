@@ -48,8 +48,8 @@ class _AppIconPageState extends State<AppIconPage> {
       appBar: AppBar(title: const FitText('换图标')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final double w = constraints.maxWidth > AppSize.settingsMaxWidth
-              ? AppSize.settingsMaxWidth
+          final double w = constraints.maxWidth > AppSize.pageMaxWidth
+              ? AppSize.pageMaxWidth
               : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
