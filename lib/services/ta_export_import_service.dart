@@ -1,12 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import '../models/ta.dart';
 import '../models/dialogue_style.dart';
 import '../utils/id_utils.dart';
+import 'image_compressor.dart';
 import 'image_storage.dart';
 import 'ta_export_import_models.dart';
 export 'ta_export_import_models.dart';
@@ -44,6 +43,9 @@ class TaExportImportService {
         Uint8List imageBytes;
         int width;
         int height;
+        // 压缩后字节一定是 JPEG；MIME 若仍按原始文件扩展名推断，导出包里就会
+        // 出现「声明 image/png、内容是 JPEG」的错配（导入时按 MIME 定扩展名）。
+        String? mimeOverride;
 
         // GIF 动态立绘：导出时必须保留逐帧动画，因此跳过压缩/重编码，
         // 直接用原始字节做 base64（否则压缩成 JPEG 会退化为静态帧）。
@@ -62,37 +64,23 @@ class TaExportImportService {
           width = decoded?.width ?? 0;
           height = decoded?.height ?? 0;
         } else if (compressImages) {
-          if (kIsWeb) {
-            // Web 无 flutter_image_compress：用纯 Dart image 库缩放
-            final img.Image? decoded = img.decodeImage(rawBytes);
-            if (decoded != null) {
-              final img.Image resized = img.copyResize(
-                decoded,
-                width: maxImageDimension,
-                height: maxImageDimension,
-                interpolation: img.Interpolation.linear,
-              );
-              imageBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 85));
-              width = resized.width;
-              height = resized.height;
-            } else {
-              imageBytes = rawBytes;
-              width = 0;
-              height = 0;
-            }
+          // 平台差异（有没有原生压缩器）由 ImageCompressor 一个入口处理：
+          // 这里既不该按 kIsWeb 分支，也不该自己调插件。
+          final CompressedImage? compressed = await ImageCompressor.compress(
+            rawBytes,
+            maxSide: maxImageDimension,
+            quality: 85,
+          );
+          if (compressed == null) {
+            // 解不出来（或不该压）：原样导出，尺寸未知。
+            imageBytes = rawBytes;
+            width = 0;
+            height = 0;
           } else {
-            // IO 平台：原生压缩
-            imageBytes = await FlutterImageCompress.compressWithList(
-              rawBytes,
-              minWidth: maxImageDimension,
-              minHeight: maxImageDimension,
-              quality: 85,
-            );
-
-            // 获取压缩后的尺寸
-            final decoded = img.decodeImage(imageBytes);
-            width = decoded?.width ?? 0;
-            height = decoded?.height ?? 0;
+            imageBytes = compressed.bytes;
+            width = compressed.size.width;
+            height = compressed.size.height;
+            mimeOverride = 'image/jpeg';
           }
         } else {
           imageBytes = rawBytes;
@@ -102,7 +90,7 @@ class TaExportImportService {
         }
 
         final base64String = base64Encode(imageBytes);
-        final mimeType = _getMimeType(ref);
+        final mimeType = mimeOverride ?? _getMimeType(ref);
         exportedImages[slot] = ExportedImageInfo(
           data: 'data:$mimeType;base64,$base64String',
           width: width,
