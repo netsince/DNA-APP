@@ -1,0 +1,27 @@
+feat(引导): 预置角色卡（assets/presets/ 一批普通 .dnata，OOBE 完成时释放）
+
+## 结构
+- assets/presets/index.json：清单。Flutter 运行时列不出 assets 目录，只能按名字读；
+  清单同时决定释放顺序（数组顺序，不依赖文件名排序）。
+- assets/presets/alan.dnata：一张普通角色卡（`.dnata` 把图片以 base64 内嵌，天然自包含）。
+  以后加卡只需要丢文件 + 改一行清单，不用碰代码。
+- pubspec 挂上 assets/presets/。
+
+## 释放
+- services/preset_release_service.dart：按清单逐张 importCharacter → restoreTaImages
+  （把内嵌图落到 ImageStorage）→ upsertTa；给第一张标了 startConversation 的卡建一个
+  空会话 —— 打开它就是角色先说开场白（chat_surface 现有机制，不调 API、不烧 token）。
+- 幂等：同 id 已存在就跳过，绝不覆盖用户改过的卡；单张失败只记录不中断。
+
+## 只做一次
+- AppSettings.presetReleased（新键，登记进「内部状态」桶）：一旦置位永不复位。
+- completeOobe() 里释放：完成引导那一刻，成功才置位；失败不置位、下次完成引导重试。
+- restartOobe() 只清 completedOobe，不碰 presetReleased —— 重走引导不会重复释放。
+
+## 顺带
+- test/oobe_render_test.dart 的 FakeHive 补上 upsertTa/upsertConversation（测试替身不完整，
+  原来会打到真实 Hive 上抛「You need to initialize Hive」）。
+- UPDATE.md 加一条用户可见说明；同时带上作者已改好的三条精简与「页面宽度乱跳」那条。
+
+验证：analyze 无 issue；949 测试通过 / 2 跳过（新增 preset_release_test 5 条：释放、幂等、
+清单缺失、真卡能被导入器解析、presetReleased 不随 restartOobe 复位）。

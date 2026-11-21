@@ -131,6 +131,8 @@ flutter:
     - assets/tts/tts_speaker.json
     # 模型能力快照（模型 id → 是否支持图片/音频/视频/PDF + 上下文窗口）
     - assets/data/
+    # 预置角色卡（普通 .dnata，OOBE 完成时按 index.json 顺序释放）
+    - assets/presets/
     # 本项目许可证全文（关于页「许可证」标签页读取展示）
     - LICENSE-nSPPL
     - LICENSE-CC

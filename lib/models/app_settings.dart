@@ -25,6 +25,7 @@ class AppSettings {
     required this.apiKey,
     required this.selectedModel,
     required this.completedOobe,
+    this.presetReleased = false,
     required this.autoSummaryPrompt,
     required this.summaryTurnInterval,
     this.summaryWordThreshold = 6000,
@@ -103,6 +104,7 @@ class AppSettings {
       apiKey: '',
       selectedModel: '',
       completedOobe: false,
+      presetReleased: false,
       autoSummaryPrompt: true,
       summaryTurnInterval: 200,
       summaryWordThreshold: 6000,
@@ -205,6 +207,12 @@ class AppSettings {
   final String apiKey;
   final String selectedModel;
   final bool completedOobe;
+
+  /// 预置角色卡是否已经释放过。
+  ///
+  /// **一旦置位永不复位**：[restartOobe] 只清 completedOobe，不清这个 —— 否则
+  /// 用户重走一遍引导就会再释放一次，那不是「一次性」。
+  final bool presetReleased;
   final bool autoSummaryPrompt;
   final int summaryTurnInterval;
 
@@ -464,6 +472,7 @@ class AppSettings {
       'apiKey': apiKey,
       'selectedModel': selectedModel,
       'completedOobe': completedOobe,
+      'presetReleased': presetReleased,
       'autoSummaryPrompt': autoSummaryPrompt,
       'summaryTurnInterval': summaryTurnInterval,
       'summaryWordThreshold': summaryWordThreshold,
@@ -554,6 +563,7 @@ class AppSettings {
       apiKey: (json['apiKey'] as String?) ?? '',
       selectedModel: (json['selectedModel'] as String?) ?? '',
       completedOobe: (json['completedOobe'] as bool?) ?? false,
+      presetReleased: (json['presetReleased'] as bool?) ?? false,
       autoSummaryPrompt: (json['autoSummaryPrompt'] as bool?) ?? true,
       summaryTurnInterval: (json['summaryTurnInterval'] as int?) ?? 200,
       summaryWordThreshold: (json['summaryWordThreshold'] as int?) ?? 6000,
@@ -673,6 +683,7 @@ class AppSettings {
     String? apiKey,
     String? selectedModel,
     bool? completedOobe,
+    bool? presetReleased,
     bool? autoSummaryPrompt,
     int? summaryTurnInterval,
     int? summaryWordThreshold,
@@ -752,6 +763,7 @@ class AppSettings {
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,
       completedOobe: completedOobe ?? this.completedOobe,
+      presetReleased: presetReleased ?? this.presetReleased,
       autoSummaryPrompt: autoSummaryPrompt ?? this.autoSummaryPrompt,
       summaryTurnInterval: summaryTurnInterval ?? this.summaryTurnInterval,
       summaryWordThreshold: summaryWordThreshold ?? this.summaryWordThreshold,
