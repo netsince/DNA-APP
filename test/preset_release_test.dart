@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dna/models/conversation.dart';
 import 'package:dna/models/ta.dart';
@@ -155,16 +154,24 @@ void main() {
     expect(result.conversationsCreated, 0);
   });
 
-  test('工程里的真卡能通过导入器（防止手写 .dnata 写坏）', () async {
-    for (final String file in <String>['assets/presets/alan.dnata']) {
-      final File f = File(file);
-      expect(f.existsSync(), isTrue, reason: '$file 不在）；');
+  test('工程里 index.json 列出的每张卡都真的打进包并能被导入器解析', () async {
+    // 走 rootBundle：既验证「文件真的被打进 assets」，也验证「能被导入器吃下」。
+    final String indexRaw = await rootBundle.loadString(kPresetIndexAsset);
+    final Map<String, dynamic> index =
+        jsonDecode(indexRaw) as Map<String, dynamic>;
+    final List<dynamic> presets = index['presets'] as List<dynamic>;
+    expect(presets, isNotEmpty, reason: '清单是空的，新玩家什么也看不到');
+
+    for (final Object? item in presets) {
+      final String file = (item as Map<String, dynamic>)['file'] as String;
+      final String raw = await rootBundle.loadString('$kPresetDir$file');
       final ExportImportResult<ImportResult> parsed =
-          TaExportImportService.importCharacter(f.readAsStringSync());
-      expect(parsed.success, isTrue, reason: parsed.message);
+          TaExportImportService.importCharacter(raw);
+      expect(parsed.success, isTrue, reason: '$file 解析失败：${parsed.message}');
       final TA ta = parsed.data!.ta;
-      expect(ta.name.isNotEmpty, isTrue);
-      expect(ta.opening.isNotEmpty, isTrue, reason: '没有开场白就没有「内置聊天」');
+      expect(ta.name.isNotEmpty, isTrue, reason: '$file 没有名字');
+      expect(ta.opening.isNotEmpty, isTrue,
+          reason: '$file 没有开场白，就没有「内置聊天」');
     }
   });
 

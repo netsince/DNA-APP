@@ -2,8 +2,12 @@
   "version": 1,
   "presets": [
     {
-      "file": "alan.dnata",
+      "file": "夏明朗.dnata",
       "startConversation": true
+    },
+    {
+      "file": "林夏.dnata",
+      "startConversation": false
     }
   ]
 }

@@ -1,0 +1,9 @@
+feat(引导): 预置卡换成《夏明朗》《林夏》两张真卡
+
+- assets/presets/ 里替换为 夏明朗.dnata（110KB）与 林夏.dnata（111KB），删掉示例卡。
+  两张都是标准 v2 .dnata，图片 base64 内嵌，自包含。
+- index.json：夏明朗排第一并标 startConversation（首页第一条会话），林夏只落库不建会话。
+- 测试改成按 index.json 逐张校验、且走 rootBundle：既验证「文件真的打进包」，
+  也验证「能被导入器吃下、有名字有开场白」，以后换卡不会漏检打包问题。
+
+验证：analyze 无 issue；950 测试通过 / 2 跳过。
