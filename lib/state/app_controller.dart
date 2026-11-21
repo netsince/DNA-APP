@@ -21,6 +21,7 @@ import '../utils/message_processor.dart';
 import '../utils/platform_capabilities.dart';
 import '../services/attachment_storage.dart';
 import '../services/model_capabilities.dart';
+import '../services/preset_release_service.dart';
 import '../services/removed_stt_cleanup.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
@@ -498,7 +499,31 @@ class AppController extends ChangeNotifier {
   Future<void> completeOobe() async {
     _settings = _settings.copyWith(completedOobe: true);
     await _settingsService.save(_settings);
+    // 预置角色卡：只在第一次完成引导时释放一次。
+    //
+    // 标记（[AppSettings.presetReleased]）**不随 restartOobe 复位** —— 否则用户
+    // 重走一遍引导就会再释放一次。释放本身失败不置标记，下次完成引导时重试。
+    await _releasePresetsIfNeeded();
     notifyListeners();
+  }
+
+  /// 首次完成引导时释放 `assets/presets/` 里的预置卡（幂等）。
+  Future<void> _releasePresetsIfNeeded() async {
+    if (_settings.presetReleased) return;
+    try {
+      final PresetReleaseResult result =
+          await PresetReleaseService.release(controller: this);
+      final bool allOk = result.ok;
+      debugPrint(
+        '[preset] 释放 ${result.releasedCount}/${result.entries.length} 张卡，'
+        '建会话 ${result.conversationsCreated} 个${allOk ? '' : '（有失败）'}',
+      );
+      if (!allOk) return;
+      _settings = _settings.copyWith(presetReleased: true);
+      await _settingsService.save(_settings);
+    } catch (e) {
+      debugPrint('[preset] 释放异常（不阻断引导）: $e');
+    }
   }
 
   Future<void> restartOobe() async {

@@ -37,6 +37,14 @@ class _FakeHive extends HiveService {
   Future<List<World>> getWorlds() async => <World>[];
   @override
   Future<List<Conversation>> getConversations() async => <Conversation>[];
+
+  // 完成引导时会把预置角色卡落库，测试替身必须接住这两次写入
+  // （真实实现要开 Hive box，测试里没有 Hive 环境）。
+  @override
+  Future<void> upsertTa(TA ta) async {}
+
+  @override
+  Future<void> upsertConversation(Conversation conversation) async {}
 }
 
 /// FitText extends Text，find.text 会重复命中；只匹配内层真实 Text。
