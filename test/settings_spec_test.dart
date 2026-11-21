@@ -367,8 +367,6 @@ SettingsValueKind _kindOfValue(Object value) {
 /// 模型是否下载好、当前激活的模型 id），或者是编辑器维护的复合对象。
 const Set<String> settingsInternalKeys = <String>{
   'completedOobe',
-  // 预置角色卡是否已释放：程序自己的记账，用户没有可选项。
-  'presetReleased',
   'chatQuickSidebarCollapsed',
   'activeModelId',
   'promptStrategy',

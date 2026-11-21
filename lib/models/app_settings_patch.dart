@@ -46,7 +46,6 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'apiKey': SettingsValueKind.text,
       'selectedModel': SettingsValueKind.text,
       'completedOobe': SettingsValueKind.boolean,
-      'presetReleased': SettingsValueKind.boolean,
       'autoSummaryPrompt': SettingsValueKind.boolean,
       'summaryTurnInterval': SettingsValueKind.integer,
       'summaryWordThreshold': SettingsValueKind.integer,
@@ -142,8 +141,6 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(selectedModel: _asText(value));
     case 'completedOobe':
       return s.copyWith(completedOobe: _asBool(value));
-    case 'presetReleased':
-      return s.copyWith(presetReleased: _asBool(value));
     case 'autoSummaryPrompt':
       return s.copyWith(autoSummaryPrompt: _asBool(value));
     case 'summaryTurnInterval':

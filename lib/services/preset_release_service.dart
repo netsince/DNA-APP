@@ -49,6 +49,7 @@ class PresetReleaseResult {
   int get releasedCount =>
       entries.where((PresetReleaseEntry e) => e.released).length;
 
+  /// 是否每张卡都释放成功（只用于日志，不作为「下次还释放不释放」的依据）。
   bool get ok => entries.every((PresetReleaseEntry e) => e.error == null);
 }
 
