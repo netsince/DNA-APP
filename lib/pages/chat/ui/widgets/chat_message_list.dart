@@ -337,12 +337,15 @@ class ChatMessageList extends StatelessWidget {
                     speakerName,
                     contrastBackground: bubbleColor,
                     style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: FitText.isLightBackground(
-                                bubbleColor, colorScheme.surface)
-                            ? 1.0
-                            : 0.75,
-                      ),
+                      // 发言者名也跟着气泡反色：原来写死 onSurfaceVariant，
+                      // 深色气泡上就是"黑底黑字"。
+                      color: FitText.inkFor(bubbleColor, colorScheme.surface)
+                          .withValues(
+                            alpha: FitText.isLightBackground(
+                                    bubbleColor, colorScheme.surface)
+                                ? 0.85
+                                : 0.8,
+                          ),
                       fontWeight: AppWeight.medium,
                     ),
                   ),

@@ -113,6 +113,11 @@ class LoadMoreListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 五种状态(首载/错误/空/列表/触底)之间交叉淡入，不再硬切。
+    return AppStateTransition(child: _buildState(context));
+  }
+
+  Widget _buildState(BuildContext context) {
     if (loading && itemCount == 0) {
       return const LoadingState();
     }

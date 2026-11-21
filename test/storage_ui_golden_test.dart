@@ -114,6 +114,27 @@ void main() {
     );
   });
 
+  testWidgets('存储空间：桌面宽窗口（内容列收窄）', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1501, 859);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'SourceHanSans',
+        colorSchemeSeed: const Color(0xFF6750A4),
+      ),
+      home: StorageSettingsPage(service: _FakeUsage()),
+    ));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/storage_overview_wide.png'),
+    );
+  });
+
   testWidgets('存储空间：某个分类的明细页', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(420, 700);
     tester.view.devicePixelRatio = 1.0;

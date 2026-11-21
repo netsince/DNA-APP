@@ -230,17 +230,21 @@ class _DnaAppState extends State<DnaApp> {
       ),
 
       // 卡片:扁平 + 细描边(全局统一,替代各页面 235 处手写样式)。
+      // 卡片改用 M3 的表面色阶表达层级（卡片 surfaceContainerLow、页面 surface），
+      // 不再靠 1px 描边分区 —— 描边是 Web 卡片的语言。
       cardTheme: CardThemeData(
         elevation: AppElevation.flat,
         margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-        shape: AppBorder.cardShape(cs),
+        color: cs.surfaceContainerLow,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
         clipBehavior: Clip.antiAlias,
       ),
 
-      // 应用栏:无阴影、左对齐标题。
+      // 应用栏:无阴影、左对齐标题;内容滚到栏下方时抬一档色阶(scrolled-under),
+      // 让"内容在栏下面滚"这件事看得出来。
       appBarTheme: AppBarTheme(
         elevation: AppElevation.flat,
-        scrolledUnderElevation: AppElevation.flat,
+        scrolledUnderElevation: 3,
         centerTitle: false,
         backgroundColor: cs.surface,
         foregroundColor: cs.onSurface,

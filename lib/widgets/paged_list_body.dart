@@ -76,6 +76,10 @@ class PagedGridBody<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AppStateTransition(child: _buildState(context));
+  }
+
+  Widget _buildState(BuildContext context) {
     if (controller.isLoading && controller.items.isEmpty) {
       return const LoadingState();
     }

@@ -83,7 +83,7 @@ class SectionPageData {
     this.contentMaxWidth = AppSize.listMaxWidth,
     this.hideBottomNav = false,
     this.hideAppBar = false,
-    this.mountWhenPassing = true,
+    this.mountWhenPassing = false,
   });
 
   final AppSection section;
@@ -415,7 +415,9 @@ class AppSectionShellState extends State<AppSectionShell>
   ) {
     final SectionPageData d = _data(s)!;
     if (d.mountWhenPassing || s == f.from || s == f.to) {
-      return d.body(context);
+      // RepaintBoundary：滑动时每一帧都要重新 paint 这一层，不隔离的话
+      // 整棵子树（长列表、图片、阴影）跟着重绘 —— 这是切栏目掉帧的主因。
+      return RepaintBoundary(child: d.body(context));
     }
     return const SectionPassingPlaceholder();
   }
@@ -436,7 +438,15 @@ class AppSectionShellState extends State<AppSectionShell>
     if (_flight == null) {
       return bar;
     }
-    return AnimatedSwitcher(duration: AppMotion.fast, child: bar);
+    // 标题与内容用同一个时长：原来标题 200ms 就落位、内容还要滑 300~600ms，
+    // 观感是"标题先到、内容后到"。这里取本次飞行的实际时长，两者同进同出。
+    final int distance = (_flight!.toIndex - _flight!.fromIndex).abs();
+    return AnimatedSwitcher(
+      duration: sectionTravelDuration(distance),
+      switchInCurve: AppMotion.standard,
+      switchOutCurve: AppMotion.exit,
+      child: bar,
+    );
   }
 
   /// 悬浮按钮:只换不滑;飞行中随进度淡入。
@@ -516,22 +526,27 @@ class AppSectionShellState extends State<AppSectionShell>
         ? widget.drawerWidth + 1
         : 0;
     final double inset = _contentInset(context, navWidth);
-    final Widget content = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        // 标题栏:背景与页面同色,按内容列内缩 ⇒ 标题与右侧动作
-        // 都对齐到内容列边缘(视觉上仍是通栏的栏,只是内容对齐了)。
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: inset),
-          child: _appBarSlot(),
-        ),
-        Expanded(
-          child: Padding(
+    // ScrollNotificationObserver：AppBar 靠它感知「内容滚到自己下面」才能抬色阶
+    // （appBarTheme.scrolledUnderElevation）。壳里标题栏和内容区是兄弟节点，
+    // 不套这一层，AppBar 永远收不到滚动通知，滚动分层就形同虚设。
+    final Widget content = ScrollNotificationObserver(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // 标题栏:背景与页面同色,按内容列内缩 ⇒ 标题与右侧动作
+          // 都对齐到内容列边缘(视觉上仍是通栏的栏,只是内容对齐了)。
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: inset),
-            child: _film(context),
+            child: _appBarSlot(),
           ),
-        ),
-      ],
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              child: _film(context),
+            ),
+          ),
+        ],
+      ),
     );
 
     // 系统返回 → 回主页（「社区」例外，见 _withBack）。
