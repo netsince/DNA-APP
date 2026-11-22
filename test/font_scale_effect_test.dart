@@ -157,7 +157,7 @@ void main() {
  (Widget w) =>
  w is Text &&
  w.data != null &&
- w.data!.startsWith('聊天只占下半屏'),
+ w.data!.startsWith('只占下半屏'),
  );
  expect(line, findsWidgets, reason: '没找到取样行');
  return tester.getSize(line.first).height;

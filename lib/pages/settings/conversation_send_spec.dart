@@ -148,7 +148,6 @@ final FieldsEntry conversationSendEntry = FieldsEntry(
       id: 'conversationSend.keyboard',
       icon: Icons.keyboard_outlined,
       title: '键盘与输入辅助',
-      description: '回车键做什么，输入栏有哪些快捷按钮。',
       items: <SettingItemSpec>[
         SettingChoice<bool>(
           id: 'conversationSend.enterToSend',
@@ -177,7 +176,7 @@ final FieldsEntry conversationSendEntry = FieldsEntry(
       id: 'conversationSend.strategy',
       icon: Icons.auto_awesome_outlined,
       title: '请求与灵感策略',
-      description: '重说怎么发，灵感建议要不要参考剧情。',
+      description: '灵感建议是否参考剧情。',
       items: <SettingItemSpec>[
         SettingToggle(
           id: 'conversationSend.inspirationIncludeSummary',
@@ -222,7 +221,6 @@ final FieldsEntry conversationSendEntry = FieldsEntry(
       id: 'conversationSend.format',
       icon: Icons.format_paint_outlined,
       title: '排版格式',
-      description: '回复长什么样，不影响 AI 怎么写。',
       items: <SettingItemSpec>[
         SettingAction(
           id: 'conversationSend.formatActionItalic',

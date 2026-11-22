@@ -251,7 +251,6 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.showUploadButton',
           title: '显示上传文件按钮',
-          subtitle: '在输入栏旁显示「上传文件」入口。',
           key: 'showUploadButton',
           defaultValue: true,
         ),
@@ -282,7 +281,7 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.halfScreenChat',
           title: '半屏聊天',
-          subtitle: '聊天只占下半屏，上半屏留给你欣赏立绘。',
+          subtitle: '只占下半屏，上面留给立绘。',
           key: 'halfScreenChat',
         ),
         SettingToggle(
@@ -291,7 +290,6 @@ final FieldsEntry appearanceEntry = FieldsEntry(
           // 留一个没有效果的开关比没有开关更糟。
           id: 'appearance.dynamicHalfScreen',
           title: '顶栏显示展开按钮',
-          subtitle: '关掉后顶栏不出现展开按钮。',
           key: 'dynamicHalfScreen',
           visibleWhen: (SettingsRuntime r) => r.settings.halfScreenChat,
         ),
@@ -306,7 +304,7 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.showMessageAvatar',
           title: '角色头像',
-          subtitle: '在气泡左上角显示头像，群聊里更好认人。',
+          subtitle: '显示在气泡左上角。',
           key: 'showMessageAvatar',
         ),
         SettingToggle(
@@ -322,7 +320,6 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.showMessageContinue',
           title: '继续说',
-          subtitle: '让 AI 接着没写完的内容继续。',
           key: 'showMessageContinue',
         ),
       ],
@@ -336,7 +333,6 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingChoice<String>(
           id: 'appearance.splashAnimation',
           title: '开场动画',
-          subtitle: '启动时播哪一段。',
           key: 'splashAnimation',
           defaultValue: kDefaultSplashAnimationId,
           layout: ChoiceLayout.radioList,
@@ -352,19 +348,18 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.autoOpenLastChat',
           title: '自动继续上次聊天',
-          subtitle: '开应用直接回到上次那场聊天。',
           key: 'autoOpenLastChat',
         ),
         SettingToggle(
           id: 'appearance.showBottomNav',
           title: '底部导航栏',
-          subtitle: '底部常驻四个主页面，方便单手切换。',
+          subtitle: '常驻四个主页面。',
           key: 'showBottomNav',
         ),
         SettingToggle(
           id: 'appearance.enableCommunity',
           title: '社区',
-          subtitle: '关闭后底栏与侧栏不再显示社区。',
+          subtitle: '关闭后底栏不再显示社区。',
           key: 'enableCommunity',
         ),
         SettingToggle(
@@ -382,13 +377,12 @@ final FieldsEntry appearanceEntry = FieldsEntry(
         SettingToggle(
           id: 'appearance.chatSwipeSwitch',
           title: '左右滑动切换',
-          subtitle: '聊天时左右滑动切换角色。',
           key: 'chatSwipeSwitch',
         ),
         SettingToggle(
           id: 'appearance.showTokenDashboard',
           title: '记忆容量仪表盘',
-          subtitle: '在输入栏上方显示当前上下文占用进度。',
+          subtitle: '输入栏上方显示上下文占用。',
           key: 'showTokenDashboard',
         ),
       ],
