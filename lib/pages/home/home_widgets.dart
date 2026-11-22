@@ -11,6 +11,7 @@ import '../../theme/tokens.dart';
 import '../../utils/action_table.dart';
 import '../../utils/error_display.dart';
 import '../../widgets/app_container.dart';
+import '../../widgets/app_surface.dart';
 import '../chat_page.dart';
 import '../conversation_edit_page.dart';
 import '../delete_confirm_page.dart';
@@ -150,7 +151,10 @@ class _ConversationItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: AppContainer<bool>(
-        closedBuilder: (BuildContext context, VoidCallback open) => ListTile(
+        closedBuilder: (BuildContext context, VoidCallback open) => AppSurface(
+          padding: EdgeInsets.zero,
+          radius: AppRadius.sm,
+          child: ListTile(
         leading: leading,
         title: FitText(title),
         subtitle: FitText(subtitle),
@@ -292,6 +296,7 @@ class _ConversationItem extends StatelessWidget {
             const SizedBox(width: 8),
             const Icon(Icons.chevron_right),
           ],
+        ),
         ),
       ),
       openBuilder: (BuildContext context, VoidCallback close) => ChatPage(

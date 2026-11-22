@@ -7,6 +7,7 @@ import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/models/ta_gender.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_surface.dart';
 
 /// 单张角色卡组件：封面 + 名称 + 作者 + 简介 + 观看/复制数。
 ///
@@ -75,10 +76,13 @@ class CardTile extends StatelessWidget {
       color: scheme.onSurfaceVariant,
     );
 
-    return InkWell(
-      onTap: onTap ?? () => _openDetail(context),
-      borderRadius: BorderRadius.circular(kRadiusMd),
-      child: Column(
+    return AppSurface(
+      radius: kRadiusMd,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: InkWell(
+        onTap: onTap ?? () => _openDetail(context),
+        borderRadius: BorderRadius.circular(kRadiusMd),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           ClipRRect(
@@ -183,6 +187,7 @@ class CardTile extends StatelessWidget {
             ],
           ),
         ],
+        ),
       ),
     );
   }

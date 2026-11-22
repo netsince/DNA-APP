@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
+import 'app_surface.dart';
 import 'fit_text.dart';
 
 /// 设置分组 section（设计规范 5.3；按审计 3.3 / 4.2 修订为无容器）。
@@ -101,35 +102,37 @@ class SettingSection extends StatelessWidget {
       ],
     );
 
-    // 组间距现在是唯一的分节信号（卡片没了），用 xl 而不是 lg。
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: collapsible
+    // 分组 = 一块有底色的区域；组与组之间靠间距分隔（不再靠描边卡片）。
+    return AppSurface(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
+      child: collapsible
             ? _CollapsibleSectionBody(
                 header: header,
                 description: description,
                 initiallyExpanded: initiallyExpanded,
                 children: children,
               )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  header,
-                  if (description != null) ...<Widget>[
-                    AppSpacing.hXs,
-                    FitText(
-                      description!,
-                      style:
-                          ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                  AppSpacing.hSm,
-                  ...children,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                header,
+                if (description != null) ...<Widget>[
+                  AppSpacing.hXs,
+                  FitText(
+                    description!,
+                    style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
                 ],
-              ),
-      ),
+                AppSpacing.hSm,
+                ...children,
+              ],
+            ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/app_section.dart';
+import '../widgets/app_surface.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'settings/settings_catalog.dart';
 import 'settings/settings_usage_store.dart';
@@ -201,19 +202,24 @@ class _GroupTile extends StatelessWidget {
             ],
           ),
         ),
-        // 行直接贴在 surface 上；组内最多一根 Divider，缩进与行文字对齐。
-        for (int i = 0; i < group.entries.length; i++) ...<Widget>[
-          if (i > 0)
-            Divider(
-              height: 1,
-              indent: _rowTextIndent,
-              color: cs.outlineVariant,
-            ),
-          _EntryTile(
-            entry: group.entries[i],
-            onTap: () => onOpen(group.entries[i]),
-          ),
-        ],
+        // 入口行放进一张有底色的卡：标题在卡外、行在卡内，
+        // 一眼能看出「这几行属于上面那个分组」（此前全部贴页面底色，难以辨认）。
+        AppSurfaceList(
+          children: <Widget>[
+            for (int i = 0; i < group.entries.length; i++) ...<Widget>[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  indent: _rowTextIndent,
+                  color: cs.outlineVariant,
+                ),
+              _EntryTile(
+                entry: group.entries[i],
+                onTap: () => onOpen(group.entries[i]),
+              ),
+            ],
+          ],
+        ),
         // 组间距现在是唯一的分组信号，所以比原来的卡片间距大一档。
         AppSpacing.hXl,
       ],
