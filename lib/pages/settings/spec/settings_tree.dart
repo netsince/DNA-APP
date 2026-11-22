@@ -114,6 +114,7 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
   conversationSendEntry,
   conversationSummaryEntry,
   ttsEntry,
+  bgmEntry,
   appearanceEntry,
   CustomEntry(
     id: 'dataBackup',

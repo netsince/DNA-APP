@@ -83,8 +83,9 @@ void main() {
     });
 
     // 离线语音输入入口随 STT 移除后为 13 个，加上「存储空间」为 14 个。
-    test('入口总数为 14', () {
-      expect(settingsTree.length, 14);
+    test('入口总数为 15', () {
+      // 13（STT 移除后）+ 存储空间 = 14；「背景音乐」从语音合成页拆出来后 +1 = 15。
+      expect(settingsTree.length, 15);
     });
 
     test('入口 id 唯一（搜索与测试靠它定位）', () {

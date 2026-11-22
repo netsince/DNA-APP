@@ -1,18 +1,18 @@
-/// 设置 → 语音合成与背景音乐（配置驱动版）。
+/// 设置 → 语音合成（配置驱动版）。背景音乐已独立成 bgmEntry。
 ///
 /// 声明即页面：五张卡片的文案、范围、写入时机全在这里，页面不再持有业务状态。
 /// 行为对齐点与取舍理由（逐条对照旧 tts_settings_page.dart）：
-/// * 五个分组、图标、标题、说明原样保留；「一拨即存」的开关直接走 key；
+/// * 四个分组、图标、标题、说明原样保留；「一拨即存」的开关直接走 key；
 /// * 背景音乐音量旧页面是 CollapsibleNumberSetting(step 5, unit %)，对应
 ///   SettingInt(editor: collapsibleStepper)；旧页面把说明放在 helper 上，
 ///   渲染器把 hint 当 helper，所以那段文案写进 hint 而不是 subtitle；
 /// * 音色种子整行是一条 SettingAction（理由见 _GlobalSeedSetting 的注释）；
-/// * 模型下载/取消/删除、缓存统计与清理是异步动作，各包一条 SettingAction。
+/// * 模型下载/取消/删除是异步动作，包一条 SettingAction。
+/// * 语音音频缓存不在这里管：存储空间页的「缓存」分类已经覆盖（同一份 tts_cache 目录）。
 library;
 
 import 'package:flutter/material.dart';
 
-import '../../services/tts/tts_audio_cache.dart';
 import '../../services/tts/tts_service.dart';
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
@@ -22,7 +22,6 @@ import '../../widgets/seed_input_field.dart';
 import 'package:dna/widgets/beta_tag.dart';
 import '../../widgets/setting_section.dart';
 import 'spec/settings_spec.dart';
-import 'tts_cache_page.dart';
 
 /// 种子未指定时实际生效的值。
 ///
@@ -37,8 +36,6 @@ const int _maxSeed = 0x7FFFFFFF;
 // 动作项的 title/subtitle 在声明里只服务搜索与断言，真正渲染的是 builder；
 // 两边共用同一份常量，免得同一条文案写两遍后各改各的。
 const String _seedTitle = '音色种子';
-const String _cacheDetailTitle = '缓存详情';
-const String _cacheDetailSubtitle = '查看占用空间与缓存条目';
 
 /// 探测端侧模型是否就绪，并校正「模型没了但开关还开着」的脏状态。
 ///
@@ -71,8 +68,8 @@ final FieldsEntry ttsEntry = FieldsEntry(
   id: 'tts',
   groupId: SettingsGroupId.voice,
   icon: Icons.volume_up_outlined,
-  title: '语音合成与背景音乐',
-  subtitle: '让角色开口说话，或自带背景音乐',
+  title: '语音合成',
+  subtitle: '让角色开口说话',
   gate: SettingsGate.tts,
   resolveRuntime: _resolveTtsRuntime,
   sections: <SettingSectionSpec>[
@@ -135,35 +132,18 @@ final FieldsEntry ttsEntry = FieldsEntry(
         ),
       ],
     ),
-    SettingSectionSpec(
-      id: 'tts.audioCache',
-      icon: Icons.cleaning_services_outlined,
-      title: '语音音频缓存',
-      description: '听过的台词会存下来，再听不再合成。',
-      items: <SettingItemSpec>[
-        SettingAction(
-          id: 'tts.cachePanel',
-          title: '缓存占用',
-          subtitle: '已缓存条数与占用空间',
-          builder: (BuildContext context, AppController controller) =>
-              _AudioCachePanel(),
-        ),
-        SettingAction(
-          id: 'tts.cacheDetail',
-          title: _cacheDetailTitle,
-          subtitle: _cacheDetailSubtitle,
-          builder: (BuildContext context, AppController controller) =>
-              SettingTile(
-                icon: Icons.pie_chart_outline,
-                title: _cacheDetailTitle,
-                subtitle: _cacheDetailSubtitle,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const TtsCachePage()),
-                ),
-              ),
-        ),
-      ],
-    ),
+  ],
+);
+
+/// 「背景音乐」单列一页：它和语音合成没有关系（一个管角色说话，一个管聊天时的配乐），
+/// 挤在同一页只会让两边都找不到。
+final FieldsEntry bgmEntry = FieldsEntry(
+  id: 'bgm',
+  groupId: SettingsGroupId.voice,
+  icon: Icons.music_note_outlined,
+  title: '背景音乐',
+  subtitle: '角色专属配乐与音量',
+  sections: <SettingSectionSpec>[
     SettingSectionSpec(
       id: 'tts.bgm',
       icon: Icons.music_note_outlined,
@@ -553,113 +533,6 @@ class _ModelDownloadPanelState extends State<_ModelDownloadPanel> {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// 音频缓存的占用摘要与「一键清空」。
-class _AudioCachePanel extends StatefulWidget {
-  const _AudioCachePanel();
-
-  @override
-  State<_AudioCachePanel> createState() => _AudioCachePanelState();
-}
-
-class _AudioCachePanelState extends State<_AudioCachePanel> {
-  int _cacheBytes = 0;
-  int _cacheCount = 0;
-  bool _cacheLoading = true;
-
-  static String _formatBytes(int b) {
-    if (b >= 1024 * 1024) return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
-    if (b >= 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
-    return '$b B';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _refresh();
-  }
-
-  Future<void> _refresh() async {
-    try {
-      final int b = await TtsAudioCache.instance.totalBytes();
-      final int c = await TtsAudioCache.instance.count();
-      if (!mounted) return;
-      setState(() {
-        _cacheBytes = b;
-        _cacheCount = c;
-        _cacheLoading = false;
-      });
-    } catch (_) {
-      // 读不到缓存大小就按空缓存显示：这里不该让设置页报错。
-      if (!mounted) return;
-      setState(() => _cacheLoading = false);
-    }
-  }
-
-  Future<void> _clear() async {
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const FitText('清理音频缓存'),
-        content: const FitText(
-          '将删除所有已合成保存的音频缓存，后续播放相同句子需重新合成。确定继续？',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const FitText('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const FitText('确认清理'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await TtsAudioCache.instance.clear();
-    if (!mounted) return;
-    showSnack(context, '音频缓存已清空。');
-    await _refresh();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: AppAlpha.half),
-        borderRadius: AppRadius.smAll,
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: FitText(
-              _cacheLoading
-                  ? '正在计算缓存…'
-                  : '已缓存 $_cacheCount 条音频 (${_formatBytes(_cacheBytes)})',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: AppWeight.medium,
-              ),
-            ),
-          ),
-          AppSpacing.wSm,
-          FilledButton.tonalIcon(
-            onPressed: _cacheLoading || _cacheCount == 0 ? null : _clear,
-            icon: const Icon(Icons.delete_sweep_outlined, size: 16),
-            label: const FitText('一键清空'),
-          ),
-        ],
-      ),
     );
   }
 }
