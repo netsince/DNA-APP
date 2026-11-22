@@ -47,7 +47,9 @@ out vec4 fragColor;
 const float PI = 3.14159265359;
 // 采样档数：色散的条数。6 档与 12 档肉眼几乎无差，但每像素的纹理采样次数减半
 // —— 这是实际观测到的卡顿主因之一。
-const int BANDS = 6;
+// 光谱采样档数。3 档 = 蓝/绿/红三个波长样本，编译量约为 6 档的一半
+//（实测 6 档时这条 shader 的加载要 4.5 秒，是冷启动的主要等待）。
+const int BANDS = 3;
 
 float sq(float x) { return x * x; }
 float bell(float x, float width) { return exp(-sq(x / max(width, 0.001))); }
@@ -113,7 +115,9 @@ vec4 refractedLogo(vec2 p, vec2 normalXY, float lensScale, float glass, float ch
   vec3 neutralRay = refract(vec3(0.0, 0.0, -1.0), normal, 1.0 / glassIor(0.5, spread));
   vec2 neutralOffset = neutralRay.xy / max(-neutralRay.z, 0.25) * uUnit * uDepth * 0.80 * lensScale;
   for (int i = 0; i < BANDS; i++) {
-    float s = float(i) / float(BANDS - 1);
+    // 3 档时在档内做一点偏移，让采样点落在 0.08/0.5/0.92 附近而不是 0/0.5/1，
+    // 边缘的过渡更连续一些。
+    float s = mix(0.08, 0.92, float(i) / float(BANDS - 1));
     float ior = glassIor(s, spread);
     vec3 ray = refract(vec3(0.0, 0.0, -1.0), normal, 1.0 / ior);
     vec2 offset = ray.xy / max(-ray.z, 0.25) * uUnit * uDepth * 0.80 * lensScale;
