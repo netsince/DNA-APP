@@ -1,6 +1,5 @@
 import 'package:dna/models/app_settings.dart';
 import 'package:dna/models/app_settings_patch.dart';
-import 'package:dna/pages/splash/glass_logo_animation.dart';
 import 'package:dna/pages/splash/splash_animations.dart';
 import 'package:dna/pages/splash_page.dart';
 import 'package:dna/services/settings_service.dart';
@@ -10,9 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 开场动画的数据驱动契约：选项来自同一张表、设置存 id、旧存档能迁移。
 void main() {
-  setUp(() => GlassLogoAnimation.debugSkipFirstFrameGate = true);
-  tearDown(() => GlassLogoAnimation.debugSkipFirstFrameGate = false);
-
   group('动画注册表', () {
     test('id 唯一，且默认动画排在第一个', () {
       final Set<String> ids = <String>{
@@ -135,15 +131,9 @@ void main() {
           ),
         );
         await tester.pump(); // 让时钟挂上首帧回调
-        // 液态玻璃要先加载着色器/解码纹理，那是真实异步 I/O，得用 runAsync 放行。
-        if (spec.id == 'glassLogo') {
-          await tester.runAsync(() async {
-            await Future<void>.delayed(const Duration(milliseconds: 400));
-          });
-        }
         await tester.pump(const Duration(milliseconds: 16)); // 起钟（第一帧只记基准）
         // 时钟按「累加限幅的帧间隔」推进，所以要多喂几帧才走完。
-        for (int i = 0; i < spec.durationMs ~/ 40 + 12; i++) {
+        for (int i = 0; i < spec.durationMs ~/ 40 + 2; i++) {
           await tester.pump(const Duration(milliseconds: 40));
         }
         await tester.pump(const Duration(milliseconds: 50));

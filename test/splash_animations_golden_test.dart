@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:dna/pages/splash/glass_logo_animation.dart';
 import 'package:dna/pages/splash/splash_animations.dart';
 import 'package:dna/pages/splash_page.dart';
 import 'package:flutter/material.dart';
@@ -28,9 +27,6 @@ Future<void> _loadFonts() async {
 }
 
 void main() {
-  setUp(() => GlassLogoAnimation.debugSkipFirstFrameGate = true);
-  tearDown(() => GlassLogoAnimation.debugSkipFirstFrameGate = false);
-
   setUpAll(() async {
     await _loadFonts();
   });
@@ -50,11 +46,6 @@ void main() {
       if (spec.enabled) {
         // 时钟每帧最多推进 50ms，取 25% 时刻需要小步 pump。
         await tester.pump();
-        if (spec.id == 'glassLogo') {
-          await tester.runAsync(() async {
-            await Future<void>.delayed(const Duration(milliseconds: 400));
-          });
-        }
         await tester.pump(const Duration(milliseconds: 16));
         final int steps = (spec.durationMs * 0.25 / 50).round();
         for (int i = 0; i < steps; i++) {

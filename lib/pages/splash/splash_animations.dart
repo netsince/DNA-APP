@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import 'glass_logo_animation.dart';
 import 'logo_draw_animation.dart';
 import 'splash_clock.dart';
-import 'splash_entrance.dart';
-
-export 'splash_entrance.dart'
-    show splashZoomScale, splashZoomOpacity, splashFadeOpacity;
 import 'logo_painter.dart';
 
 /// 一段开场动画的描述（数据驱动）。
@@ -66,8 +62,8 @@ const List<SplashAnimationSpec> kSplashAnimations = <SplashAnimationSpec>[
   SplashAnimationSpec(
     id: 'glassLogo',
     label: '液态玻璃',
-    description: '先用缩放亮个相，玻璃就绪后再折射、定版、停住。',
-    durationMs: 3800,
+    description: '玻璃里映着 logo，长开、定版、停住。',
+    durationMs: 2600,
     build: _buildGlassLogo,
   ),
   SplashAnimationSpec(
@@ -108,6 +104,30 @@ Widget _buildLogoDraw(
 ) =>
     LogoDrawAnimation(durationMs: durationMs, onComplete: onComplete);
 
+/// 缩放淡入在进度 [t]（0..1）时的缩放比。
+///
+/// 抽成纯函数是为了能被测试直接验算 —— 之前它和「淡入」几乎没差别，
+/// 就是因为幅度只有 14% 且被二次缓动吃掉，肉眼看不出在放大。
+double splashZoomScale(double t) =>
+    0.45 + 0.55 * Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
+
+/// 缩放淡入在进度 [t] 时的不透明度：前 15% 就把自己显出来，
+/// 剩下的时间留给「变大」这件事被看见（否则透明度和缩放同时结束，
+/// 观感又会退化成一次淡入）。
+double splashZoomOpacity(double t) =>
+    Curves.easeOut.transform((t / 0.15).clamp(0.0, 1.0));
+
+/// 淡入在进度 [t] 时的不透明度（只做透明度，没有任何缩放）。
+double splashFadeOpacity(double t) =>
+    Curves.easeInOut.transform(t.clamp(0.0, 1.0));
+
+Widget _buildGlassLogo(
+  BuildContext context,
+  VoidCallback onComplete,
+  int durationMs,
+) =>
+    GlassLogoAnimation(durationMs: durationMs, onComplete: onComplete);
+
 Widget _buildZoom(
   BuildContext context,
   VoidCallback onComplete,
@@ -143,13 +163,6 @@ Widget _buildFade(
         child: const _FilledLogo(),
       ),
     );
-
-Widget _buildGlassLogo(
-  BuildContext context,
-  VoidCallback onComplete,
-  int durationMs,
-) =>
-    GlassLogoAnimation(durationMs: durationMs, onComplete: onComplete);
 
 Widget _buildNone(
   BuildContext context,
