@@ -221,10 +221,7 @@ class _SettingItemViewState extends State<_SettingItemView> {
   ///
   /// 旧页面里这些说明只在展开后出现；渲染器若无条件补一行 SettingHint，
   /// 同一句话会同时出现在收起态下方和展开态里。
-  bool _hintIsInline(SettingItemSpec item) =>
-      item is SettingNumber &&
-      (item.editor == NumberEditor.collapsibleStepper ||
-          item.editor == NumberEditor.textField);
+  bool _hintIsInline(SettingItemSpec item) => item is SettingNumber;
 
   /// 副标题：`subtitleOf` 优先（状态指示型副标题两态切换），否则用常量文案。
   String? _subtitle(SettingItemSpec item) =>
@@ -365,22 +362,26 @@ class _SettingItemViewState extends State<_SettingItemView> {
               : null,
         );
       case NumberEditor.slider:
-        return _slider(
+        return CollapsibleSliderSetting(
           title: item.title,
-          subtitle: _subtitle(item),
+          display: _intLabel(item, current),
+          helper: item.hint ?? _subtitle(item),
+          initiallyExpanded: _focused,
           value: current.toDouble(),
           min: item.min.toDouble(),
           max: item.max.toDouble(),
           divisions: item.step <= 0
               ? null
               : ((item.max - item.min) / item.step).round().clamp(1, 200),
-          display: _intLabel(item, current),
-          enabled: enabled,
-          immediate: item.saveMode == SettingsSaveMode.immediate,
-          snapValue: (double v) => v.round(),
-          onDraft: (double v) => setState(() => _draft = v.round()),
-          onCommit: (double v) =>
-              _commit(() => setState(() => _draft = null), v.round()),
+          onChanged: (double v) {
+            if (!enabled) return;
+            setState(() => _draft = v.round());
+            if (item.saveMode == SettingsSaveMode.immediate) _write(v.round());
+          },
+          onChangeEnd: enabled
+              ? (double v) =>
+                    _commit(() => setState(() => _draft = null), v.round())
+              : null,
         );
       case NumberEditor.textField:
         return CollapsibleTextSetting(
@@ -404,7 +405,6 @@ class _SettingItemViewState extends State<_SettingItemView> {
     final Object? raw = _rawValue();
     final double current =
         _draft?.toDouble() ?? (raw is num ? raw.toDouble() : item.defaultValue);
-    final String display = _doubleLabel(item, current);
     if (item.editor == NumberEditor.collapsibleStepper) {
       return CollapsibleDoubleSetting(
         title: item.title,
@@ -427,21 +427,25 @@ class _SettingItemViewState extends State<_SettingItemView> {
             : null,
       );
     }
-    return _slider(
+    return CollapsibleDoubleSetting(
       title: item.title,
-      subtitle: _subtitle(item),
       value: current,
       min: item.min,
       max: item.max,
-      divisions: item.step <= 0
-          ? null
-          : ((item.max - item.min) / item.step).round().clamp(1, 200),
-      display: display,
-      enabled: enabled,
-      immediate: item.saveMode == SettingsSaveMode.immediate,
-      snapValue: (double v) => v,
-      onDraft: (double v) => setState(() => _draft = v),
-      onCommit: (double v) => _commit(() => setState(() => _draft = null), v),
+      step: item.step,
+      unit: item.unit,
+      helper: item.hint ?? _subtitle(item),
+      zeroLabel: item.zeroLabel,
+      decimals: item.decimals,
+      initiallyExpanded: _focused,
+      onChanged: (double v) {
+        if (!enabled) return;
+        setState(() => _draft = v);
+        if (item.saveMode == SettingsSaveMode.immediate) _write(v);
+      },
+      onChangeEnd: enabled
+          ? (double v) => _commit(() => setState(() => _draft = null), v)
+          : null,
     );
   }
 
@@ -452,11 +456,6 @@ class _SettingItemViewState extends State<_SettingItemView> {
   /// 于是字段类型变成 `String Function(num)`；而声明里实际存的是
   /// `(int) => String`，协变检查当场抛 TypeError，整页构建失败。
   String _intLabel(SettingInt item, int value) {
-    if (item.labelOf != null) return item.labelOf!(value);
-    return _plainLabel(item.zeroLabel, item.unit, value);
-  }
-
-  String _doubleLabel(SettingDouble item, double value) {
     if (item.labelOf != null) return item.labelOf!(value);
     return _plainLabel(item.zeroLabel, item.unit, value);
   }
@@ -473,65 +472,6 @@ class _SettingItemViewState extends State<_SettingItemView> {
     if (mounted) clearDraft();
   }
 
-  Widget _slider({
-    required String title,
-    required String? subtitle,
-    required double value,
-    required double min,
-    required double max,
-    required int? divisions,
-    required String display,
-    required bool enabled,
-    required bool immediate,
-    required Object Function(double) snapValue,
-    required ValueChanged<double> onDraft,
-    required ValueChanged<double> onCommit,
-  }) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(child: FitText(title, style: AppTextStyles.body(theme))),
-              FitText(
-                display,
-                style: AppTextStyles.body(
-                  theme,
-                ).copyWith(color: cs.primary, fontWeight: AppWeight.medium),
-              ),
-            ],
-          ),
-          if (subtitle != null)
-            FitText(
-              subtitle,
-              style: AppTextStyles.caption(theme).copyWith(color: cs.outline),
-            ),
-          Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            label: display,
-            onChanged: enabled
-                ? (double v) {
-                    onDraft(v);
-                    // immediate：拖动过程中就落盘（旧页面的行为）；
-                    // onRelease：只更新草稿，松手时由 onChangeEnd 落盘。
-                    if (immediate) _write(snapValue(v));
-                  }
-                : null,
-            onChangeEnd: enabled ? onCommit : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---- 只读展示 ----
   Widget _info(SettingInfo item, bool enabled) {
     return ListTile(
       enabled: enabled,

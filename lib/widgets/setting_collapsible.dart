@@ -431,6 +431,140 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
   }
 }
 
+/// 可折叠的滑杆设置项（整数/小数通用）。
+///
+/// 与 [CollapsibleDoubleSetting] 的区别：收起态显示的文案由调用方给（[display]），
+/// 这样整数项也能带单位、0 值别名等格式化，而不必在控件里判断类型。
+///
+/// 用途：字号、气泡透明度、背景遮罩强度这类原本「常驻滑杆」的项 —— 滑杆占一整行，
+/// 一页放几个就把列表撑散了；改成收起态只留「名称 + 当前值」，点开才出现滑杆。
+class CollapsibleSliderSetting extends StatefulWidget {
+  const CollapsibleSliderSetting({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.display,
+    required this.onChanged,
+    this.onChangeEnd,
+    this.divisions,
+    this.helper,
+    this.initiallyExpanded = false,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+
+  /// 收起态与滑杆气泡上显示的当前值文案（由调用方格式化好）。
+  final String display;
+
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double>? onChangeEnd;
+  final int? divisions;
+  final String? helper;
+  final bool initiallyExpanded;
+
+  @override
+  State<CollapsibleSliderSetting> createState() =>
+      _CollapsibleSliderSettingState();
+}
+
+class _CollapsibleSliderSettingState extends State<CollapsibleSliderSetting> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  String get _displayValue => widget.display;
+
+  int? get _divisions {
+    if (widget.divisions != null) return widget.divisions;
+    final double span = widget.max - widget.min;
+    if (span <= 0) return null;
+    return span.round().clamp(1, 200);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _CollapsedHeader(
+          expanded: _expanded,
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
+                ),
+                AppSpacing.wMd,
+                FitText(
+                  _displayValue,
+                  style: AppTextStyles.body(theme).copyWith(
+                    color: cs.primary,
+                    fontWeight: AppWeight.medium,
+                  ),
+                ),
+                AppSpacing.wXs,
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: AppSize.iconInline,
+                  color: cs.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Slider(
+                        value: widget.value.clamp(widget.min, widget.max),
+                        min: widget.min,
+                        max: widget.max,
+                        divisions: _divisions,
+                        label: _displayValue,
+                        onChanged: (double v) => widget.onChanged(
+                          v.clamp(widget.min, widget.max),
+                        ),
+                        onChangeEnd: widget.onChangeEnd == null
+                            ? null
+                            : (double v) => widget.onChangeEnd!(
+                                  v.clamp(widget.min, widget.max),
+                                ),
+                      ),
+                      if (widget.helper != null) ...<Widget>[
+                        AppSpacing.hSm,
+                        FitText(
+                          widget.helper!,
+                          style: AppTextStyles.caption(theme)
+                              .copyWith(color: cs.outline),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
 /// 可折叠的文本输入设置项(用于范围过大、不适合滑块的场景)。
 ///
 /// 与 [CollapsibleNumberSetting] 同样是「收起态只读、展开才可编辑」,
