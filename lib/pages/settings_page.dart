@@ -5,6 +5,7 @@ import '../theme/tokens.dart';
 import '../widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'settings/settings_catalog.dart';
+import 'settings/settings_usage_store.dart';
 import 'settings/settings_search_page.dart';
 
 /// 设置主页。
@@ -80,8 +81,11 @@ class SettingsBody extends StatelessWidget {
                 for (final SettingsGroup group in settingsCatalog(controller))
                   _GroupTile(
                     group: group,
-                    onOpen: (SettingsEntry entry) =>
-                        _push(context, entry.page()),
+                    onOpen: (SettingsEntry entry) {
+                      // 记一次打开：搜索页的「常用 / 最近使用」靠它。
+                      SettingsUsageStore.instance.record(entry.spec.id);
+                      _push(context, entry.page());
+                    },
                   ),              ],
             ),
           ),

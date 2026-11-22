@@ -17,6 +17,8 @@ import '../../widgets/app_content_frame.dart';
 import '../../widgets/fit_text.dart';
 import '../../widgets/state_views.dart';
 import 'settings_catalog.dart';
+import 'settings_search_sections.dart';
+import 'settings_usage_store.dart';
 import 'spec/settings_fields_page.dart';
 import 'spec/settings_spec.dart';
 import 'spec/settings_tree.dart';
@@ -126,6 +128,26 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
     widget.controller,
   );
 
+  /// 「常用 / 最近使用」的两个 id 列表（来自使用记录）。
+  List<String> _mostUsed = <String>[];
+  List<String> _recent = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsage();
+  }
+
+  Future<void> _loadUsage() async {
+    final SettingsUsageStore store = SettingsUsageStore.instance;
+    await store.ensureLoaded();
+    if (!mounted) return;
+    setState(() {
+      _mostUsed = store.mostUsed();
+      _recent = store.recentlyUsed();
+    });
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -133,6 +155,8 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
   }
 
   void _open(SettingsSearchHit hit) {
+    // 记一次打开：常用/最近使用靠它。
+    SettingsUsageStore.instance.record(hit.entry.id);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => buildSettingsEntryPage(
@@ -146,12 +170,15 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final String query = _query.trim().toLowerCase();
-    final List<SettingsSearchHit> results = query.isEmpty
-        ? _all
-        : _all
-              .where((SettingsSearchHit h) => h.haystack.contains(query))
-              .toList();
+    final List<SettingsSearchSection> sections = buildSearchSections(
+      hits: _all,
+      query: _query,
+      mostUsedIds: _mostUsed,
+      recentIds: _recent,
+    );
+    final bool searching = _query.trim().isNotEmpty;
+    final bool nothingMatched = searching &&
+        sections.every((SettingsSearchSection s) => s.hits.isEmpty);
 
     return Scaffold(
       appBar: AppBar(
@@ -166,39 +193,87 @@ class _SettingsSearchPageState extends State<SettingsSearchPage> {
           onChanged: (String v) => setState(() => _query = v),
         ),
       ),
-      body: results.isEmpty
+      body: nothingMatched
           ? AppEmptyState(
               icon: Icons.search_off_outlined,
               title: '没有找到「$_query」相关的设置',
               description: '换个说法试试，比如搜「主题」「音色」「备份」。',
             )
-          // 结果是一张**列表**，不是一组卡片（审计 3.3）：每条结果的形状
-          // 完全一样、需要逐条扫读，套卡片只会把「一屏能看几条」换成
-          // 「一屏几个框」。行直接贴在 surface 上，行之间一根 Divider，
-          // 缩进与行文字对齐（ListTile 默认内边距 16）。
+          // 分区呈现：没搜索词时是「常用 / 最近使用」；有搜索词时按设置分组归并。
+          // 行仍是直接贴在 surface 上、行间一根 Divider —— 每条结果形状一致，
+          // 需要逐条扫读，套卡片只会减少一屏能看到几条。
           : AppContentFrame(
-            maxWidth: AppSize.pageMaxWidth,
-            child: ListView.separated(
+              maxWidth: AppSize.pageMaxWidth,
+              child: ListView(
                 padding: AppInsets.page,
-                itemCount: results.length,
-                separatorBuilder: (_, _) =>
-                    Divider(height: 1, indent: AppSpacing.lg),
-                itemBuilder: (BuildContext context, int i) {
-                  final SettingsSearchHit hit = results[i];
-                  return ListTile(
-                    contentPadding: AppInsets.tile,
-                    leading: Icon(
-                      hit.isField ? Icons.tune : hit.icon,
-                      color: Theme.of(context).colorScheme.primary,
+                children: <Widget>[
+                  for (final SettingsSearchSection section in sections) ...[
+                    _SectionHeader(
+                      title: section.title,
+                      hint: section.hint,
                     ),
-                    title: FitText(hit.title),
-                    subtitle: FitText('${hit.group} · ${hit.subtitle}'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _open(hit),
-                  );
-                },
+                    for (final SettingsSearchHit hit in section.hits) ...[
+                      ListTile(
+                        contentPadding: AppInsets.tile,
+                        leading: Icon(
+                          hit.isField ? Icons.tune : hit.icon,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: FitText(hit.title),
+                        subtitle: FitText('${hit.group} · ${hit.subtitle}'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _open(hit),
+                      ),
+                      Divider(height: 1, indent: AppSpacing.lg),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                ],
               ),
             ),
+    );
+  }
+}
+
+/// 分区标题（+ 可选提示）。
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.hint});
+
+  final String title;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          FitText(
+            title,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: AppWeight.medium,
+            ),
+          ),
+          if (hint != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: FitText(
+                hint!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
