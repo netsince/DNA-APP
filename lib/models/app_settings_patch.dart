@@ -55,6 +55,7 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'promptStrategy': SettingsValueKind.object,
       'requireAuthForArchive': SettingsValueKind.boolean,
       'requireAuthForApp': SettingsValueKind.boolean,
+      'developerOptionsUnlocked': SettingsValueKind.boolean,
       'requireNameToDelete': SettingsValueKind.boolean,
       'allowDeleteMessage': SettingsValueKind.boolean,
       'autoBackup': SettingsValueKind.boolean,
@@ -159,6 +160,8 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(requireAuthForArchive: _asBool(value));
     case 'requireAuthForApp':
       return s.copyWith(requireAuthForApp: _asBool(value));
+    case 'developerOptionsUnlocked':
+      return s.copyWith(developerOptionsUnlocked: _asBool(value));
     case 'requireNameToDelete':
       return s.copyWith(requireNameToDelete: _asBool(value));
     case 'allowDeleteMessage':

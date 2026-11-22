@@ -163,7 +163,7 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
     icon: Icons.info_outline,
     title: '版本与开源',
     subtitle: '版本信息、项目成员与开源许可',
-    builder: (AppController c) => const AboutPage(),
+    builder: (AppController c) => AboutPage(controller: c),
   ),
   CustomEntry(
     id: 'developer',
@@ -171,6 +171,9 @@ final List<SettingsEntrySpec> settingsTree = <SettingsEntrySpec>[
     icon: Icons.terminal_outlined,
     title: '开发者选项',
     subtitle: '命令控制台与调试工具',
+    // 默认藏起来：在「关于 → 版本号」连点 10 次才出现，再连点 10 次收起。
+    // 里面有命令控制台和「清空全部数据」，不该让普通用户顺手点进去。
+    visibleWhen: (SettingsRuntime r) => r.settings.developerOptionsUnlocked,
     builder: (AppController c) => AdvancedSettingsPage(controller: c),
   ),
 ];

@@ -34,6 +34,7 @@ class AppSettings {
     required this.promptStrategy,
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
+    required this.developerOptionsUnlocked,
     required this.requireNameToDelete,
     required this.allowDeleteMessage,
     required this.autoBackup,
@@ -112,6 +113,7 @@ class AppSettings {
       promptStrategy: PromptStrategy.defaults(),
       requireAuthForArchive: false,
       requireAuthForApp: false,
+    developerOptionsUnlocked: false,
       requireNameToDelete: true,
       allowDeleteMessage: false,
       autoBackup: true,
@@ -233,6 +235,12 @@ class AppSettings {
   final PromptStrategy promptStrategy;
   final bool requireAuthForArchive;
   final bool requireAuthForApp;
+
+  /// 是否已解锁「开发者选项」（在关于页连点版本号 10 次）。
+  ///
+  /// 默认关闭：开发者选项里有命令控制台与「清空全部数据」这类操作，
+  /// 不该让普通用户顺手点进去。解锁状态跟着设置一起存/备份。
+  final bool developerOptionsUnlocked;
 
   /// 删除前是否强制输入完整名称。
   /// 开启时：输入对应名称（角色名 / 世界名 / 对话角色名 / 群成员名）→ 5 秒滚动确认（可反悔）。
@@ -485,6 +493,7 @@ class AppSettings {
       'promptStrategy': promptStrategy.toJson(),
       'requireAuthForArchive': requireAuthForArchive,
       'requireAuthForApp': requireAuthForApp,
+      'developerOptionsUnlocked': developerOptionsUnlocked,
       'requireNameToDelete': requireNameToDelete,
       'allowDeleteMessage': allowDeleteMessage,
       'autoBackup': autoBackup,
@@ -576,6 +585,8 @@ class AppSettings {
       promptStrategy: promptStrategy,
       requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
+      developerOptionsUnlocked:
+          (json['developerOptionsUnlocked'] as bool?) ?? false,
       requireNameToDelete: (json['requireNameToDelete'] as bool?) ?? true,
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       autoBackup: (json['autoBackup'] as bool?) ?? true,
@@ -696,6 +707,7 @@ class AppSettings {
     PromptStrategy? promptStrategy,
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
+    bool? developerOptionsUnlocked,
     bool? requireNameToDelete,
     bool? allowDeleteMessage,
     bool? autoBackup,
@@ -775,6 +787,8 @@ class AppSettings {
       promptStrategy: promptStrategy ?? this.promptStrategy,
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
+      developerOptionsUnlocked:
+          developerOptionsUnlocked ?? this.developerOptionsUnlocked,
       requireNameToDelete: requireNameToDelete ?? this.requireNameToDelete,
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       autoBackup: autoBackup ?? this.autoBackup,

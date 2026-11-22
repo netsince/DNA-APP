@@ -33,6 +33,7 @@ class SettingsService {
   static const String _promptStrategyKey = 'prompt_strategy';
   static const String _requireAuthForArchiveKey = 'require_auth_for_archive';
   static const String _requireAuthForAppKey = 'require_auth_for_app';
+  static const String _developerOptionsUnlockedKey = 'developer_options_unlocked';
   static const String _requireNameToDeleteKey = 'require_name_to_delete';
   static const String _allowDeleteMessageKey = 'allow_delete_message';
   static const String _splashAnimationKey = 'splash_animation';
@@ -180,6 +181,8 @@ class SettingsService {
       promptStrategy: promptStrategy,
       requireAuthForArchive: prefs.getBool(_requireAuthForArchiveKey) ?? false,
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
+      developerOptionsUnlocked:
+          prefs.getBool(_developerOptionsUnlockedKey) ?? false,
       requireNameToDelete: prefs.getBool(_requireNameToDeleteKey) ?? true,
       allowDeleteMessage: prefs.getBool(_allowDeleteMessageKey) ?? false,
       splashAnimation: prefs.getString(_splashAnimationKey) ??
@@ -297,6 +300,10 @@ class SettingsService {
     await prefs.setString(_promptStrategyKey, jsonEncode(settings.promptStrategy.toJson()));
     await prefs.setBool(_requireAuthForArchiveKey, settings.requireAuthForArchive);
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
+    await prefs.setBool(
+      _developerOptionsUnlockedKey,
+      settings.developerOptionsUnlocked,
+    );
     await prefs.setBool(_requireNameToDeleteKey, settings.requireNameToDelete);
     await prefs.setBool(_allowDeleteMessageKey, settings.allowDeleteMessage);
     await prefs.setString(_splashAnimationKey, settings.splashAnimation);

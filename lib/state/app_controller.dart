@@ -579,6 +579,15 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存「开发者选项是否已解锁」（关于页连点版本号 10 次切换）。
+  Future<void> saveDeveloperOptionsUnlocked({
+    required bool unlocked,
+  }) async {
+    _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   Future<void> saveSplashAnimation({required String splashAnimation}) async {
     _settings = _settings.copyWith(splashAnimation: splashAnimation);
     await _settingsService.save(_settings);
