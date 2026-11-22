@@ -8,7 +8,7 @@ import 'package:flutter/scheduler.dart';
 
 import 'glass_logo_choreography.dart';
 import 'splash_clock.dart';
-import 'logo_painter.dart';
+import 'splash_entrance.dart';
 
 /// 液态玻璃用的 logo 纹理资源（白色墨、透明底、512²）。
 const String kGlassLogoAsset = 'assets/splash/dna_logo.png';
@@ -44,39 +44,60 @@ class GlassLogoAnimation extends StatefulWidget {
 }
 
 class _GlassLogoAnimationState extends State<GlassLogoAnimation>
-    with SingleTickerProviderStateMixin {
+    // 两个时钟（亮相 + 玻璃），所以要用多 ticker 的 mixin。
+    with TickerProviderStateMixin {
   static ui.FragmentProgram? _program;
+
+  /// 先用它亮相：这段时间里着色器和纹理还在准备。
+  static const int _entranceMs = 1200;
+
+  late final SplashClock _entrance = SplashClock(
+    vsync: this,
+    duration: const Duration(milliseconds: _entranceMs),
+  );
 
   late final SplashClock _clock = SplashClock(
     vsync: this,
-    duration: Duration(milliseconds: widget.durationMs),
+    duration: Duration(milliseconds: widget.durationMs - _entranceMs),
   );
 
-  /// logo 纹理：只栅格一次（换绑定/尺寸才重画）。
   ui.Image? _logo;
   bool _imageLoading = false;
+  bool _bootReady = false;
+  bool _entranceDone = false;
+  bool _glassStarted = false;
 
   @override
   void initState() {
     super.initState();
+    // 两件事并行：
+    // · 立刻播「缩放淡入」亮相（纯 Painter，不需要纹理/着色器）；
+    // · 后台准备玻璃（等首帧上屏 → 加载着色器 + 解码 logo 纹理）。
+    // 玻璃就绪且亮相播完，再切到玻璃动画。
+    _entrance.startAfterFirstFrame(onComplete: _onEntranceDone);
     _boot();
   }
 
-  /// 等「着色器 + logo 纹理」都就绪才开播。
-  ///
-  /// 以前是对着空白先起播：前两三百毫秒在编译着色器 / 栅格 logo，用户看到的是
-  /// 一段"什么都没有"，然后动画突然跳进来 —— 这就是「一瞬间压根看不见」的来源。
+  void _onEntranceDone() {
+    _entranceDone = true;
+    _maybeStartGlass();
+  }
+
+  void _maybeStartGlass() {
+    if (_glassStarted || !_entranceDone || !_bootReady) return;
+    _glassStarted = true;
+    if (mounted) setState(() {});
+    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
+  }
+
   Future<void> _boot() async {
-    // 等首帧真正上屏再做这两件事：实测它们各自会把首帧卡住约 6 秒
-    //（Impeller-GLES 上首次建着色器管线 / 解码并上传纹理），而窗口是首帧上屏后
-    // 才 Show 的。endOfFrame 不够，它在「本帧画完」就返回，仍在首帧上屏之前。
+    // 等首帧真正上屏再做重活：实测着色器加载 / 纹理上传各自会把首帧卡约 6 秒，
+    // 而窗口是首帧上屏后才 Show 的。这期间画面由「缩放淡入」撑着。
     await _firstFramePresented();
     await Future.wait<void>(<Future<void>>[_loadProgram(), _rasterizeLogo()]);
     if (!mounted) return;
-    // 就绪后再起钟，而且等首帧真正上屏才走时间：第一次绘制要建着色器管线，
-    // 那一帧可能几百毫秒 —— 之前正是它把动画开头吃掉了。
-    setState(() {});
-    _clock.startAfterFirstFrame(onComplete: widget.onComplete);
+    _bootReady = true;
+    _maybeStartGlass();
   }
 
   /// 等到「首帧被真正合成上屏」。
@@ -104,6 +125,7 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
     await done.future;
     WidgetsBinding.instance.removeTimingsCallback(callback);
   }
+
   static bool _firstFrameSeen = false;
 
   Future<void> _loadProgram() async {
@@ -112,19 +134,13 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
       final ui.FragmentProgram program =
           await ui.FragmentProgram.fromAsset('shaders/glass_logo.frag');
       _program = program;
-      if (mounted) setState(() {});
     } catch (e) {
-      // 着色器加载失败（极端平台/降级构建）：直接播完，不要卡在空白上。
-      debugPrint('[glass-logo] 着色器加载失败，跳过动画: $e');
-      _clock.finishNow();
+      // 着色器加载失败（极端平台/降级构建）：直接当作就绪，让动画能收尾。
+      debugPrint('[glass-logo] 着色器加载失败，跳过玻璃阶段: $e');
+      _program = null;
     }
   }
 
-  /// logo 纹理：随包发布的 PNG（由 tool/generate_logo_png.dart 生成）。
-  ///
-  /// 以前是运行时用 Picture 现画一张 512² 图，再转成 ui.Image —— 那条路在
-  /// Impeller-GLES 上会把首帧卡住约 6 秒（实测窗口 2.6s → 9.4s），而它只是一张
-  /// 静态图。改成资源解码后就是一次普通图片加载。
   Future<void> _rasterizeLogo() async {
     if (_imageLoading) return;
     _imageLoading = true;
@@ -139,16 +155,15 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
         frame.image.dispose();
         return;
       }
-      setState(() {
-        _logo?.dispose();
-        _logo = frame.image;
-      });
+      _logo = frame.image;
     } catch (e) {
       debugPrint('[glass-logo] logo 资源加载失败: $e');
     }
   }
+
   @override
   void dispose() {
+    _entrance.dispose();
     _clock.dispose();
     _logo?.dispose();
     super.dispose();
@@ -157,13 +172,21 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
   @override
   Widget build(BuildContext context) {
     final ui.FragmentProgram? program = _program;
-    if (program == null || _logo == null) {
-      // 还没就绪：先画一枚静态 logo（Painter 很快），别让用户盯着黑屏等。
+    final ui.Image? logo = _logo;
+    final bool ready = _glassStarted && program != null && logo != null;
+    if (!ready) {
+      // 亮相阶段（或玻璃还没准备好）：缩放淡入 + 定格在结束态。
       return SizedBox(
-        width: widget.tuning.logoSize * 0.72,
-        height: widget.tuning.logoSize * 0.72,
-        child: CustomPaint(
-          painter: LogoPainter(drawProgress: 1, fillProgress: 1),
+        width: widget.tuning.logoSize * 1.25,
+        height: widget.tuning.logoSize * 1.25,
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _entrance,
+            builder: (BuildContext context, Widget? _) => SplashZoomLogo(
+              progress: _entrance.value,
+              size: widget.tuning.logoSize * 0.72,
+            ),
+          ),
         ),
       );
     }
@@ -175,14 +198,13 @@ class _GlassLogoAnimationState extends State<GlassLogoAnimation>
           program: program,
           animation: _clock,
           tuning: widget.tuning,
-          logo: _logo,
-          durationSeconds: widget.durationMs / 1000,
+          logo: logo,
+          durationSeconds: (widget.durationMs - _entranceMs) / 1000,
         ),
       ),
     );
   }
 }
-
 class _GlassLogoPainter extends CustomPainter {
   _GlassLogoPainter({
     required this.program,

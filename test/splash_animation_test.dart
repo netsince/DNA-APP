@@ -143,7 +143,7 @@ void main() {
         }
         await tester.pump(const Duration(milliseconds: 16)); // 起钟（第一帧只记基准）
         // 时钟按「累加限幅的帧间隔」推进，所以要多喂几帧才走完。
-        for (int i = 0; i < spec.durationMs ~/ 40 + 2; i++) {
+        for (int i = 0; i < spec.durationMs ~/ 40 + 12; i++) {
           await tester.pump(const Duration(milliseconds: 40));
         }
         await tester.pump(const Duration(milliseconds: 50));

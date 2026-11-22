@@ -7,6 +7,15 @@
 
 namespace {
 
+// Must match AppColors.splashBackground on the Flutter side (#1A1A1A).
+constexpr COLORREF kSplashBackgroundColor = RGB(0x1A, 0x1A, 0x1A);
+
+HBRUSH GetSplashBackgroundBrush() {
+  static HBRUSH brush = CreateSolidBrush(kSplashBackgroundColor);
+  return brush;
+}
+
+
 /// Window attribute that enables dark mode window decorations.
 ///
 /// Redefined in case the developer's machine has a Windows SDK older than
@@ -97,7 +106,10 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
     window_class.hInstance = GetModuleHandle(nullptr);
     window_class.hIcon =
         LoadIcon(window_class.hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
-    window_class.hbrBackground = 0;
+    // Splash background (#1A1A1A). The window is shown before the first frame is
+    // presented, so that gap used to expose unpainted pixels (white / garbage).
+    // Painting it with the splash color makes the gap look like the splash itself.
+    window_class.hbrBackground = GetSplashBackgroundBrush();
     window_class.lpszMenuName = nullptr;
     window_class.lpfnWndProc = Win32Window::WndProc;
     RegisterClass(&window_class);
@@ -179,6 +191,13 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_ERASEBKGND: {
+      // Erase with the same dark brush so the child view never exposes white.
+      RECT rect;
+      GetClientRect(hwnd, &rect);
+      FillRect(reinterpret_cast<HDC>(wparam), &rect, GetSplashBackgroundBrush());
+      return 1;
+    }
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();
