@@ -37,6 +37,9 @@ class BootstrapApp extends StatefulWidget {
 }
 
 class _BootstrapAppState extends State<BootstrapApp> {
+  /// 开屏 → 主界面的淡入时长（所有开场动画共用）。
+  static const Duration _fadeDuration = Duration(milliseconds: 500);
+
   SplashAnimationSpec? _spec;
   bool _splashDone = false;
   bool _initDone = false;
@@ -94,11 +97,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
   @override
   Widget build(BuildContext context) {
-    if (_ready) {
-      return DnaApp(controller: widget.controller, skipSplash: true);
-    }
     final SplashAnimationSpec? spec = _spec;
-    return MaterialApp(
+    // 开屏与主界面各自带 MaterialApp，所以这里不再套一层。
+    // 用 AnimatedSwitcher 做交接：它会把**离场**的那个留在树里淡出，
+    // 开屏的状态不会因为切换而重建（重建会把动画从头再播一遍）。
+    final Widget splash = MaterialApp(
+      key: const ValueKey<String>('splash'),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -108,6 +112,19 @@ class _BootstrapAppState extends State<BootstrapApp> {
           // 设置还没读出来 / 用户关了动画：先铺底色，别闪一下图标。
           ? const ColoredBox(color: AppColors.splashBackground)
           : SplashPage(animation: spec, onComplete: _onSplashDone),
+    );
+    final Widget app = DnaApp(
+      key: const ValueKey<String>('app'),
+      controller: widget.controller,
+      skipSplash: true,
+    );
+    return AnimatedSwitcher(
+      duration: _fadeDuration,
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeOut,
+      transitionBuilder: (Widget child, Animation<double> animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: _ready ? app : splash,
     );
   }
 }
