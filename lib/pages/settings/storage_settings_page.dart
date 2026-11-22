@@ -237,6 +237,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         .where((StorageCategoryUsage usage) => usage.bytes > 0)
         .length;
     return SettingSection(
+      collapsible: false,
       icon: Icons.pie_chart_outline,
       title: '占用总览',
       children: <Widget>[
@@ -281,6 +282,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
 
   Widget _buildCategories(BuildContext context, StorageUsageReport report) {
     return SettingSection(
+      collapsible: false,
       icon: Icons.folder_outlined,
       title: '分类明细',
       children: <Widget>[

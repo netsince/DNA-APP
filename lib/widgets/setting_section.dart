@@ -42,6 +42,8 @@ class SettingSection extends StatelessWidget {
     this.description,
     required this.children,
     this.trailing,
+    this.collapsible = true,
+    this.initiallyExpanded = true,
   });
 
   /// 分组图标(使用 [AppSize.iconCard] 尺寸)。
@@ -59,55 +61,158 @@ class SettingSection extends StatelessWidget {
   /// 标题右侧的附加控件(可选)。
   final Widget? trailing;
 
+  /// 分组内容是否可折叠（默认可以）。
+  ///
+  /// 渐进式披露的最后一层：一页七八个分组时，收起态只留标题 + 说明，
+  /// 用户按需展开自己关心的那组。传 false 用于「内容本身就是主体」的页面
+  /// （例如存储空间的统计块），那种折叠起来反而多一步点击。
+  final bool collapsible;
+
+  /// 初始是否展开（仅 [collapsible] 为 true 时有意义）。
+  final bool initiallyExpanded;
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme ts = Theme.of(context).textTheme;
+
+    final Widget header = Row(
+      children: <Widget>[
+        if (icon != null) ...<Widget>[
+          // 图标不再用 primary：primary 是交互/选中色，
+          // 静态分组头用 onSurfaceVariant（审计 4.2）。
+          Icon(
+            icon,
+            color: cs.onSurfaceVariant,
+            size: AppSize.iconCard,
+          ),
+          AppSpacing.wSm,
+        ],
+        Expanded(
+          child: FitText(
+            title,
+            style: ts.titleSmall?.copyWith(
+              fontWeight: AppWeight.medium,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
+    );
 
     // 组间距现在是唯一的分节信号（卡片没了），用 xl 而不是 lg。
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                if (icon != null) ...<Widget>[
-                  // 图标不再用 primary：primary 是交互/选中色，
-                  // 静态分组头用 onSurfaceVariant（审计 4.2）。
-                  Icon(
-                    icon,
-                    color: cs.onSurfaceVariant,
-                    size: AppSize.iconCard,
-                  ),
-                  AppSpacing.wSm,
-                ],
-                Expanded(
-                  child: FitText(
-                    title,
-                    style: ts.titleSmall?.copyWith(
-                      fontWeight: AppWeight.medium,
-                      color: cs.onSurfaceVariant,
+        child: collapsible
+            ? _CollapsibleSectionBody(
+                header: header,
+                description: description,
+                initiallyExpanded: initiallyExpanded,
+                children: children,
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  header,
+                  if (description != null) ...<Widget>[
+                    AppSpacing.hXs,
+                    FitText(
+                      description!,
+                      style:
+                          ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
+                  ],
+                  AppSpacing.hSm,
+                  ...children,
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// 可折叠分组的内容体。
+///
+/// 收起/展开只影响内容；标题始终可见（它是这一组的名字）。
+/// 点击标题行切换，右侧 chevron 跟着转 90°，给一个「这里能收」的暗示。
+class _CollapsibleSectionBody extends StatefulWidget {
+  const _CollapsibleSectionBody({
+    required this.header,
+    required this.description,
+    required this.initiallyExpanded,
+    required this.children,
+  });
+
+  final Widget header;
+  final String? description;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  @override
+  State<_CollapsibleSectionBody> createState() =>
+      _CollapsibleSectionBodyState();
+}
+
+class _CollapsibleSectionBodyState extends State<_CollapsibleSectionBody> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  void _toggle() => setState(() => _expanded = !_expanded);
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme ts = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        InkWell(
+          onTap: _toggle,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          child: Semantics(
+            button: true,
+            expanded: _expanded,
+            child: Row(
+              children: <Widget>[
+                Expanded(child: widget.header),
+                AnimatedRotation(
+                  turns: _expanded ? 0 : -0.25,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Icons.expand_more,
+                    size: AppSize.iconCard,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
-                ?trailing,
               ],
             ),
-            if (description != null) ...<Widget>[
-              AppSpacing.hXs,
-              FitText(
-                description!,
-                style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ],
-            AppSpacing.hSm,
-            ...children,
-          ],
+          ),
         ),
-      ),
+        if (widget.description != null) ...<Widget>[
+          AppSpacing.hXs,
+          FitText(
+            widget.description!,
+            style: ts.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+        AnimatedCrossFade(
+          firstChild: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AppSpacing.hSm,
+              ...widget.children,
+            ],
+          ),
+          secondChild: const SizedBox(width: double.infinity),
+          crossFadeState: _expanded
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
+          duration: const Duration(milliseconds: 180),
+          sizeCurve: Curves.easeOut,
+        ),
+      ],
     );
   }
 }

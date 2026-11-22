@@ -374,6 +374,8 @@ const Set<String> settingsInternalKeys = <String>{
   'regexRules',
   'providers',
   'models',
+  // 没有设置页入口：靠「关于」页连点版本号 10 次切换（见 about_page.dart）。
+  'developerOptionsUnlocked',
   // 没有任何界面入口的孤儿字段。保留只为兼容旧存档；要么补界面，要么删字段，
   // 但那是产品决定，不属于本次重构。
   'snackDurationMs',
