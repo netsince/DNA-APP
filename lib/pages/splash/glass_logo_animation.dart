@@ -166,9 +166,9 @@ class _GlassLogoPainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
     final List<double> floats = <double>[
-      // uResolution
-      w * dpr,
-      h * dpr,
+      // uResolution：**逻辑**尺寸（Impeller 的 frag 就是逻辑坐标）
+      w,
+      h,
       // uDpr
       dpr,
       // uUnit

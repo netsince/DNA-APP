@@ -348,7 +348,16 @@ vec4 dropLens(vec2 p) {
 
 void main() {
   vec2 frag = FlutterFragCoord().xy;
-  vec2 p = (frag - uResolution * 0.5) / uDpr;
+  // 两个后端给的坐标系不一样：
+  //  * Impeller：_fragCoord 直接是顶点位置（本地逻辑像素，见 runtime_effect.vert）；
+  //  * Skia：gl_FragCoord 是物理像素。
+  // 以前统一按物理像素算，桌面 DPR=1 时恰好没事，手机上（DPR≈2.75）玻璃会被
+  // 放大 2.75 倍、只剩一角。这里按后端分开。
+#ifdef IMPELLER_GRAPHICS_BACKEND
+  vec2 p = frag - uResolution * 0.5;
+#else
+  vec2 p = frag / uDpr - uResolution * 0.5;
+#endif
   vec4 icon = iconLens(p);
   vec4 drop = dropLens(p);
   vec4 result = drop + icon * (1.0 - drop.a);
