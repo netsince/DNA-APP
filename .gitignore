@@ -1,5 +1,6 @@
 # Miscellaneous
 .cache/
+.cache*/
 # golden 测试失败时的差异图，不入库
 test/failures/
 *.class
