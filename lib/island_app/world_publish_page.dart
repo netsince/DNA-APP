@@ -6,6 +6,7 @@ import '../utils/action_table.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
@@ -125,7 +126,7 @@ class _WorldPublishPageState extends State<WorldPublishPage> {
   }
 
   void _toast(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showSnack(context, text);
   }
 
   @override
@@ -357,9 +358,7 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: FitText(_errorText(e))));
+      showSnack(context, _errorText(e));
       return;
     }
     if (!mounted) return;

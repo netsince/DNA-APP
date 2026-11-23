@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/models/world_card.dart';
@@ -328,7 +329,7 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
   }
 
   void _toast(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showSnack(context, text);
   }
 
   @override

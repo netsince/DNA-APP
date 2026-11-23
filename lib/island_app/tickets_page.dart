@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/utils/error_display.dart';
@@ -372,7 +373,7 @@ class _NewTicketPageState extends State<NewTicketPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override
@@ -625,7 +626,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override

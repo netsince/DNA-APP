@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/save_image.dart';
 import '../theme/tokens.dart';
@@ -304,7 +305,7 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   Future<void> _copyPrompt() async {

@@ -4,6 +4,7 @@ import '../utils/action_table.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_source.dart';
@@ -50,7 +51,7 @@ class _CardPublishBodyState extends State<CardPublishBody> {
 
   void _toast(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showSnack(context, text);
   }
 
   Future<void> _publish(TA ta) async {
@@ -420,17 +421,13 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: FitText(_errorText(e))));
+      showSnack(context, _errorText(e));
       return;
     }
     if (!mounted) return;
     // 成功回执**当场弹**（此刻页面还在，SnackBar 一定可见），再返回；
     // 之前是 pop 完才提示，被上一页的重建吞掉，看起来像没发出去。
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: FitText('已提交，等待审核')));
+    showSnack(context, '已提交，等待审核');
     Navigator.of(context).pop();
   }
 

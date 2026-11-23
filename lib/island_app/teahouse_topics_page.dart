@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
@@ -179,7 +180,7 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {

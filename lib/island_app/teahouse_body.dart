@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
@@ -129,7 +130,7 @@ class _TeahouseBodyState extends State<TeahouseBody>
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   /// 在列表里按 id 更新某条帖子的统计。
@@ -381,7 +382,7 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {

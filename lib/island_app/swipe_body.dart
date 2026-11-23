@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
@@ -115,9 +116,7 @@ class _SwipeBodyState extends State<SwipeBody> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('刷新失败：${describeError(e)}')));
+      showSnack(context, '刷新失败：${describeError(e)}');
     }
   }
 
