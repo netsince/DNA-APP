@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dna/utils/ui_feedback.dart';
 
 import 'package:flutter/material.dart';
 
@@ -63,9 +64,7 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: FitText(text)),
-    );
+    showSnack(context, text);
   }
 
   /// 「世界名称」的字段级错误（由宿主校验，注入表单显示）。

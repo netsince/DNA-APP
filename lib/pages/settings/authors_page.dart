@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/widgets/fit_text.dart';
@@ -96,9 +97,7 @@ class AuthorsPage extends StatelessWidget {
     if (uri == null) return;
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText('无法打开链接：$target')),
-      );
+      showSnack(context, '无法打开链接：$target');
     }
   }
 

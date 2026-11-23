@@ -17,6 +17,7 @@ import '../conversation_edit_page.dart';
 import '../delete_confirm_page.dart';
 import '../delete_preview_builders.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/utils/ui_feedback.dart';
 
 class ConversationListBody extends StatelessWidget {
   const ConversationListBody({
@@ -205,11 +206,7 @@ class _ConversationItem extends StatelessWidget {
                       await controller.duplicateConversation(conversation.id);
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: FitText('复制会话失败：${describeError(e)}'),
-                          ),
-                        );
+                        showSnack(context, '复制会话失败：${describeError(e)}');
                       }
                     }
                   },

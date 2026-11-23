@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -61,13 +62,7 @@ class _AboutPageState extends State<AboutPage> {
     final bool unlocked = !widget.controller.settings.developerOptionsUnlocked;
     await widget.controller.saveDeveloperOptionsUnlocked(unlocked: unlocked);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: FitText(
-          unlocked ? '开发者选项已开启' : '开发者选项已收起',
-        ),
-      ),
-    );
+    showSnack(context, unlocked ? '开发者选项已开启' : '开发者选项已收起',);
   }
 
   /// 手动检查更新。用户主动触发,失败时明确告知。
@@ -82,12 +77,7 @@ class _AboutPageState extends State<AboutPage> {
       case UpdateAvailable(:final UpdateInfo info):
         await showUpdateDialog(context, info);
       case UpdateUpToDate():
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: FitText('已是最新版本。'),
-            duration: Duration(milliseconds: 1500),
-          ),
-        );
+        showSnack(context, '已是最新版本。', duration: Duration(milliseconds: 1500));
       case UpdateCheckFailed(:final UpdateCheckError error):
         final String why = switch (error) {
           UpdateCheckError.network => '网络连接失败',
@@ -95,12 +85,7 @@ class _AboutPageState extends State<AboutPage> {
           UpdateCheckError.malformed => '返回数据无法识别',
           UpdateCheckError.localVersionUnavailable => '读取本地版本号失败',
         };
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: FitText('获取更新失败：$why，可能不是最新版。'),
-            duration: const Duration(milliseconds: 2500),
-          ),
-        );
+        showSnack(context, '获取更新失败：$why，可能不是最新版。', duration: const Duration(milliseconds: 2500));
     }
   }
 
@@ -123,9 +108,7 @@ class _AboutPageState extends State<AboutPage> {
     if (uri == null) return;
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText('无法打开链接：$url')),
-      );
+      showSnack(context, '无法打开链接：$url');
     }
   }
 

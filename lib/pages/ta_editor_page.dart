@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../models/ta.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import '../utils/action_table.dart';
 import '../state/app_controller.dart';
 import '../widgets/app_editor_frame.dart';
@@ -75,9 +76,7 @@ class _TaEditorPageState extends State<TaEditorPage> {
       // 失败必须让用户看见原因，并且**不关闭**页面。
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(_errorText(e))),
-      );
+      showSnack(context, _errorText(e));
       return;
     }
     await _form.afterSave();
