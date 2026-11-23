@@ -117,29 +117,10 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
         _CollapsedHeader(
           expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
-                ),
-                AppSpacing.wMd,
-                FitText(
-                  _displayValue,
-                  style: AppTextStyles.body(theme).copyWith(
-                    color: cs.primary,
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-                AppSpacing.wXs,
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: AppSize.iconInline,
-                  color: cs.outline,
-                ),
-              ],
-            ),
+          child: CollapsibleTitleRow(
+            title: widget.title,
+            value: _displayValue,
+            expanded: _expanded,
           ),
         ),
 
@@ -335,29 +316,10 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
         _CollapsedHeader(
           expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
-                ),
-                AppSpacing.wMd,
-                FitText(
-                  _displayValue,
-                  style: AppTextStyles.body(theme).copyWith(
-                    color: cs.primary,
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-                AppSpacing.wXs,
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: AppSize.iconInline,
-                  color: cs.outline,
-                ),
-              ],
-            ),
+          child: CollapsibleTitleRow(
+            title: widget.title,
+            value: _displayValue,
+            expanded: _expanded,
           ),
         ),
 
@@ -494,29 +456,10 @@ class _CollapsibleSliderSettingState extends State<CollapsibleSliderSetting> {
         _CollapsedHeader(
           expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
-                ),
-                AppSpacing.wMd,
-                FitText(
-                  _displayValue,
-                  style: AppTextStyles.body(theme).copyWith(
-                    color: cs.primary,
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-                AppSpacing.wXs,
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: AppSize.iconInline,
-                  color: cs.outline,
-                ),
-              ],
-            ),
+          child: CollapsibleTitleRow(
+            title: widget.title,
+            value: _displayValue,
+            expanded: _expanded,
           ),
         ),
         AnimatedSize(
@@ -618,29 +561,10 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
         _CollapsedHeader(
           expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
-                ),
-                AppSpacing.wMd,
-                FitText(
-                  _displayValue,
-                  style: AppTextStyles.body(theme).copyWith(
-                    color: cs.primary,
-                    fontWeight: AppWeight.medium,
-                  ),
-                ),
-                AppSpacing.wXs,
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: AppSize.iconInline,
-                  color: cs.outline,
-                ),
-              ],
-            ),
+          child: CollapsibleTitleRow(
+            title: widget.title,
+            value: _displayValue,
+            expanded: _expanded,
           ),
         ),
         // 同 CollapsibleNumberSetting:不用 AnimatedCrossFade(它会同时
@@ -696,6 +620,53 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
               : const SizedBox(width: double.infinity),
         ),
       ],
+    );
+  }
+}
+
+/// 折叠项的「收起态内容」：名称 + 当前值 + 展开箭头。
+///
+/// 四个 Collapsible*Setting 原本各自把这 22 行抄了一遍（只差 _displayValue 的算法），
+/// 改观感要改四处；现在只剩这一个副本，外壳仍由 [_CollapsedHeader] 负责命中区与语义。
+class CollapsibleTitleRow extends StatelessWidget {
+  const CollapsibleTitleRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.expanded,
+  });
+
+  final String title;
+  final String value;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: FitText(title, style: AppTextStyles.body(theme)),
+          ),
+          AppSpacing.wMd,
+          FitText(
+            value,
+            style: AppTextStyles.body(theme).copyWith(
+              color: cs.primary,
+              fontWeight: AppWeight.medium,
+            ),
+          ),
+          AppSpacing.wXs,
+          Icon(
+            expanded ? Icons.expand_less : Icons.expand_more,
+            size: AppSize.iconInline,
+            color: cs.outline,
+          ),
+        ],
+      ),
     );
   }
 }
