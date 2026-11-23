@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/models/ta_gender.dart';
@@ -707,9 +708,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   Future<void> _openLink(String url) async {

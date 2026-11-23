@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/me_page.dart';
@@ -360,7 +361,7 @@ class _SearchPageState extends State<SearchPage>
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   /// 更新搜索结果里某条帖的 stats（就地替换控制器里的那一项）。

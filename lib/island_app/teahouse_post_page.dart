@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
@@ -264,11 +265,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
               });
             } catch (e) {
               if (ctx.mounted) {
-                ScaffoldMessenger.of(
-                  ctx,
-                ).showSnackBar(
-                  SnackBar(content: Text('选择图片失败：${describeError(e)}')),
-                );
+                showSnack(ctx, '选择图片失败：${describeError(e)}');
               }
             } finally {
               if (ctx.mounted) setSheetState(() => pickingImage = false);
@@ -519,7 +516,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override

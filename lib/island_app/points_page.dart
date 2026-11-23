@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/external_link.dart';
@@ -415,15 +416,9 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
         final result = await _redeemer(codes);
         if (!mounted) return;
         setState(() => _results = result.results);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.successCount > 0
+        showSnack(context, result.successCount > 0
                   ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
-                  : '全部兑换失败，请检查兑换码',
-            ),
-          ),
-        );
+                  : '全部兑换失败，请检查兑换码',);
       },
     );
   }

@@ -9,6 +9,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/image_gen_detail_page.dart';
 import 'package:dna/island_app/image_gen_failed_page.dart';
@@ -150,11 +151,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-      );
+    showSnack(context, msg, duration: const Duration(seconds: 3));
   }
 
   // ---------- 参考图 ----------

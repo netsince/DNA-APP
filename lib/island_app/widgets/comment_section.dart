@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/comment.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
@@ -474,9 +475,7 @@ class _CommentSectionState extends State<CommentSection> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+    showSnack(context, msg, duration: const Duration(seconds: 2));
   }
 
   /// 打开表情包选择器，把选中的 `[sticker:CODE]` 插入到评论输入框光标处。

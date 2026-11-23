@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -120,9 +121,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   void _copyUrl() {
     final url = widget.urls[_currentIndex];
     Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制图片链接'), duration: Duration(seconds: 2)),
-    );
+    showSnack(context, '已复制图片链接', duration: Duration(seconds: 2));
   }
 
   /// 保存当前这张为 PNG（系统「保存到…」对话框，Android 默认落到 Download，

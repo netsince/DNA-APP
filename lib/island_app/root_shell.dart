@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/app_drawer.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/articles_page.dart';
@@ -168,9 +169,7 @@ class _RootShellState extends State<RootShell>
     _scaffoldKey.currentState?.closeDrawer();
     final cfg = SiteConfig.instance;
     if (!cfg.announcementEnabled || cfg.announcementContent.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('暂无公告')));
+      showSnack(context, '暂无公告');
       return;
     }
     showModalBottomSheet<void>(

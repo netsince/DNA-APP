@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/worlds_list_page.dart';
 import 'package:dna/island_app/auth_session.dart';
@@ -484,9 +485,7 @@ class _ProfileViewState extends State<ProfileView> {
   /// 关注 / 取消关注该主页用户（他人主页；未登录或关注自己时提示）。
   Future<void> _toggleFollow() async {
     if (!_loggedIn) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请先登录后再关注')));
+      showSnack(context, '请先登录后再关注');
       return;
     }
     setState(() => _followBusy = true);
@@ -503,9 +502,7 @@ class _ProfileViewState extends State<ProfileView> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('操作失败：${describeError(e)}')));
+        showSnack(context, '操作失败：${describeError(e)}');
       }
     } finally {
       if (mounted) setState(() => _followBusy = false);
@@ -516,9 +513,7 @@ class _ProfileViewState extends State<ProfileView> {
   Future<void> _copyProfileLink() async {
     final url = ServerConfig.resolveUrl('/user/${widget.username}');
     if (url.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('尚未配置服务器地址')));
+      showSnack(context, '尚未配置服务器地址');
       return;
     }
     final writer =
@@ -526,9 +521,7 @@ class _ProfileViewState extends State<ProfileView> {
         (text) => Clipboard.setData(ClipboardData(text: text));
     await writer(url);
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已复制主页链接')));
+      showSnack(context, '已复制主页链接');
     }
   }
 

@@ -83,7 +83,8 @@ void main() {
       (sent!['dialogue_style'] as List).first,
       <String, String>{'user': '你好', 'assistant': '你好呀'},
     );
-    expect(find.text('已提交，等待审核'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('已提交，等待审核'), findsWidgets);
   });
 
   testWidgets('导出 JSON 复制到剪贴板', (WidgetTester tester) async {
@@ -182,7 +183,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '发布'));
     await tester.pumpAndSettle();
     expect(sent, isNull, reason: '未登录不该真的发出去');
-    expect(find.text('请先登录后再发布'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('请先登录后再发布'), findsWidgets);
   });
 
   testWidgets('新建：编辑器按钮写「发布到社区」，点它真的发布',
@@ -253,7 +255,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '发布'));
     await tester.pumpAndSettle();
     expect(sent, isNull, reason: '空名字不该发出去');
-    expect(find.text('请填写角色卡名称'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('请填写角色卡名称'), findsWidgets);
   });
 
   test('名称必填只在社区发布侧，不能污染共享编辑器', () {

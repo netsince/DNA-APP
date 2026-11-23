@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/site_config.dart';
@@ -185,9 +186,7 @@ class _HomeBodyState extends State<HomeBody>
     _refreshFailed = false;
     await _paged.refresh();
     if (!mounted || !_refreshFailed) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
+    showSnack(context, '刷新失败，请稍后再试');
   }
 
   @override

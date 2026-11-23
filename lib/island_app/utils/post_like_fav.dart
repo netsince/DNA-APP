@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/utils/error_display.dart';
 
@@ -48,6 +49,6 @@ mixin PostLikeFavMixin<T extends StatefulWidget> on State<T> {
 
   void _postSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 }
