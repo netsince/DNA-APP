@@ -7,6 +7,7 @@ import '../../models/prompt_strategy.dart';
 import '../../models/strategy_conflicts.dart';
 import '../../pages/chat/chat_system_prompt.dart';
 import '../../state/app_controller.dart';
+import '../../widgets/strategy_rows.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 设置 → 提示词策略 → 高级。
@@ -260,7 +261,8 @@ class _PromptStrategyAdvancedPageState
               title: '视角与人称',
               description: '故事由谁来看、用什么人称讲。',
               children: <Widget>[
-                _enumRow<Pov>(
+                StrategyEnumRow<Pov>(
+                  bottomSpacing: 0,
                   values: Pov.values,
                   selected: _d.pov,
                   labelOf: (Pov v) => v.label,
@@ -274,7 +276,8 @@ class _PromptStrategyAdvancedPageState
               title: '叙事结构',
               description: '故事按什么架子排；「本段目标」写一句就够。',
               children: <Widget>[
-                _enumRow<NarrativeStructure>(
+                StrategyEnumRow<NarrativeStructure>(
+                  bottomSpacing: 0,
                   values: NarrativeStructure.values,
                   selected: _d.narrativeStructure,
                   labelOf: (NarrativeStructure v) => v.label,
@@ -301,7 +304,8 @@ class _PromptStrategyAdvancedPageState
               title: '节奏与张力',
               description: '事件推进的快慢，以及紧张感怎么起伏。',
               children: <Widget>[
-                _enumRow<Pacing>(
+                StrategyEnumRow<Pacing>(
+                  bottomSpacing: 0,
                   values: Pacing.values,
                   selected: _d.pacing,
                   labelOf: (Pacing v) => v.label,
@@ -309,7 +313,8 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(pacing: v)),
                 ),
                 AppSpacing.hSm,
-                _enumRow<TensionCurve>(
+                StrategyEnumRow<TensionCurve>(
+                  bottomSpacing: 0,
                   values: TensionCurve.values,
                   selected: _d.tensionCurve,
                   labelOf: (TensionCurve v) => v.label,
@@ -324,7 +329,8 @@ class _PromptStrategyAdvancedPageState
               title: '信息揭示',
               description: '底细什么时候给、一次给多少。',
               children: <Widget>[
-                _enumRow<Reveal>(
+                StrategyEnumRow<Reveal>(
+                  bottomSpacing: 0,
                   values: Reveal.values,
                   selected: _d.reveal,
                   labelOf: (Reveal v) => v.label,
@@ -352,7 +358,8 @@ class _PromptStrategyAdvancedPageState
               title: '冲突来源',
               description: '「有冲突」不够，得知道冲突从哪来。',
               children: <Widget>[
-                _enumRow<ConflictSource>(
+                StrategyEnumRow<ConflictSource>(
+                  bottomSpacing: 0,
                   values: ConflictSource.values,
                   selected: _d.conflictPrimary,
                   labelOf: (ConflictSource v) => v.label,
@@ -360,7 +367,8 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(conflictPrimary: v)),
                 ),
                 AppSpacing.hSm,
-                _enumRow<ConflictSource>(
+                StrategyEnumRow<ConflictSource>(
+                  bottomSpacing: 0,
                   values: ConflictSource.values,
                   selected: _d.conflictSecondary,
                   labelOf: (ConflictSource v) => '次要：${v.label}',
@@ -375,14 +383,16 @@ class _PromptStrategyAdvancedPageState
               title: '结局收束',
               description: '这一段怎么落地、要不要留钩子。',
               children: <Widget>[
-                _enumRow<EndingStyle>(
+                StrategyEnumRow<EndingStyle>(
+                  bottomSpacing: 0,
                   values: EndingStyle.values,
                   selected: _d.endingStyle,
                   labelOf: (EndingStyle v) => v.label,
                   onChanged: (EndingStyle? v) =>
                       _updateDetails(_d.copyWith(endingStyle: v)),
                 ),
-                _TriSwitchRow(
+                StrategyTriSwitchRow(
+                  bottomSpacing: 0,
                   title: '结尾留钩子',
                   value: _d.closureHook,
                   onChanged: (bool? v) =>
@@ -396,7 +406,8 @@ class _PromptStrategyAdvancedPageState
               title: '环境设定',
               description: '场景的时间、天气，以及要不要写环境。',
               children: <Widget>[
-                _TriSwitchRow(
+                StrategyTriSwitchRow(
+                  bottomSpacing: 0,
                   title: '主动描写环境',
                   value: _d.ambientEnabled,
                   onChanged: (bool? v) =>
@@ -446,7 +457,8 @@ class _PromptStrategyAdvancedPageState
                   onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(npcMax: _parseInt(v))),
                 ),
-                _TriSwitchRow(
+                StrategyTriSwitchRow(
+                  bottomSpacing: 0,
                   title: 'AI 可以代演配角',
                   value: _d.aiPlaysNpc,
                   onChanged: (bool? v) =>
@@ -460,26 +472,26 @@ class _PromptStrategyAdvancedPageState
               title: '文风与句式',
               description: '句子长短、比喻密度、幽默与对白占比。',
               children: <Widget>[
-                _LevelRow(
-                  label: '句长（1 短 → 5 长）',
+                StrategyLevelRow(
+                  title: '句长（1 短 → 5 长）',
                   selected: _d.sentenceLength,
                   onChanged: (int? v) =>
                       _updateDetails(_d.copyWith(sentenceLength: v)),
                 ),
-                _LevelRow(
-                  label: '每段比喻数',
+                StrategyLevelRow(
+                  title: '每段比喻数',
                   selected: _d.metaphorPerParagraph,
                   onChanged: (int? v) =>
                       _updateDetails(_d.copyWith(metaphorPerParagraph: v)),
                 ),
-                _LevelRow(
-                  label: '幽默度',
+                StrategyLevelRow(
+                  title: '幽默度',
                   selected: _d.humorLevel,
                   onChanged: (int? v) =>
                       _updateDetails(_d.copyWith(humorLevel: v)),
                 ),
-                _LevelRow(
-                  label: '对白占比（每档 +20%）',
+                StrategyLevelRow(
+                  title: '对白占比（每档 +20%）',
                   selected: _d.dialogueRatio == null
                       ? null
                       : (_d.dialogueRatio! / 20).round(),
@@ -495,20 +507,22 @@ class _PromptStrategyAdvancedPageState
               title: '角色口吻',
               description: '称呼、口头禅与必须守住的特质。',
               children: <Widget>[
-                _enumRow<EmotionTone>(
+                StrategyEnumRow<EmotionTone>(
+                  bottomSpacing: 0,
                   values: EmotionTone.values,
                   selected: _d.emotionTone,
                   labelOf: (EmotionTone v) => v.label,
                   onChanged: (EmotionTone? v) =>
                       _updateDetails(_d.copyWith(emotionTone: v)),
                 ),
-                _LevelRow(
-                  label: '情绪强度',
+                StrategyLevelRow(
+                  title: '情绪强度',
                   selected: _d.emotionIntensity,
                   onChanged: (int? v) =>
                       _updateDetails(_d.copyWith(emotionIntensity: v)),
                 ),
-                _enumRow<AddressMode>(
+                StrategyEnumRow<AddressMode>(
+                  bottomSpacing: 0,
                   values: AddressMode.values,
                   selected: _d.addressMode,
                   labelOf: (AddressMode v) => v.label,
@@ -600,35 +614,6 @@ class _PromptStrategyAdvancedPageState
             AppSpacing.hLg,        ],
         ),
       ),
-    );
-  }
-
-  Widget _enumRow<T extends Enum>({
-    required List<T> values,
-    required T? selected,
-    required String Function(T) labelOf,
-    required ValueChanged<T?> onChanged,
-  }) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: <Widget>[
-        ChoiceChip(
-          label: const FitText('未设置'),
-          selected: selected == null,
-          onSelected: (bool v) {
-            if (v) onChanged(null);
-          },
-        ),
-        for (final T v in values)
-          ChoiceChip(
-            label: FitText(labelOf(v)),
-            selected: selected == v,
-            onSelected: (bool s) {
-              if (s) onChanged(v);
-            },
-          ),
-      ],
     );
   }
 }
@@ -782,110 +767,6 @@ class _FoldSection extends StatelessWidget {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: children,
-      ),
-    );
-  }
-}
-
-/// 三态开关：未设置 / 开 / 关。
-///
-/// 用「未设置」这一档，是因为这些项的默认语义是「不写进提示词」，
-/// 简单开关没法表达「我不管这件事」。
-class _TriSwitchRow extends StatelessWidget {
-  const _TriSwitchRow({
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String title;
-  final bool? value;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme ts = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        FitText(title, style: ts.bodyMedium),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: <Widget>[
-            ChoiceChip(
-              label: const FitText('未设置'),
-              selected: value == null,
-              onSelected: (bool v) {
-                if (v) onChanged(null);
-              },
-            ),
-            ChoiceChip(
-              label: const FitText('开'),
-              selected: value == true,
-              onSelected: (bool v) {
-                if (v) onChanged(true);
-              },
-            ),
-            ChoiceChip(
-              label: const FitText('关'),
-              selected: value == false,
-              onSelected: (bool v) {
-                if (v) onChanged(false);
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// 1–5 档 + 「未设置」。
-class _LevelRow extends StatelessWidget {
-  const _LevelRow({
-    required this.label,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int? selected;
-  final ValueChanged<int?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme ts = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          FitText(label, style: ts.bodyMedium),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              ChoiceChip(
-                label: const FitText('未设置'),
-                selected: selected == null,
-                onSelected: (bool v) {
-                  if (v) onChanged(null);
-                },
-              ),
-              for (int i = 1; i <= 5; i++)
-                ChoiceChip(
-                  label: FitText('$i'),
-                  selected: selected == i,
-                  onSelected: (bool v) {
-                    if (v) onChanged(i);
-                  },
-                ),
-            ],
-          ),
-        ],
       ),
     );
   }

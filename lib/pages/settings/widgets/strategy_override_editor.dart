@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/prompt_strategy.dart';
-import 'strategy_field_rows.dart';
+import 'package:dna/widgets/strategy_rows.dart';
 
 /// 这些策略项归谁管。
 ///
