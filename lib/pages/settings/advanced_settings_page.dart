@@ -5,7 +5,10 @@ import 'package:dna/theme/tokens.dart';
 import '../../services/update_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
+import '../splash/splash_animations.dart';
+import '../splash/splash_preview_dialog.dart';
 import 'free_image_settings_page.dart';
 import 'update_dialog.dart';
 import 'update_settings_page.dart';
@@ -76,70 +79,103 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const FitText('高级')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.errorContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.error.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
-                    const SizedBox(width: 8),
-                    FitText('危险操作', style: TextStyle(fontWeight: AppWeight.medium, color: cs.error, fontSize: AppFontSize.subtitle)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                FitText('输入命令并执行。命令大小写敏感。请确保您清楚自己在做什么。',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _cmdCtrl,
-                  decoration: const InputDecoration(labelText: '输入命令', isDense: true),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _run,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: cs.error,
-                      foregroundColor: cs.onError,
-                    ),
-                    child: const FitText('执行命令'),
+      body: AppContentFrame(
+        maxWidth: AppSize.pageMaxWidth,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.errorContainer.withValues(alpha: AppAlpha.a30),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.error.withValues(alpha: AppAlpha.a30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
+                      const SizedBox(width: 8),
+                      FitText('危险操作', style: TextStyle(fontWeight: AppWeight.medium, color: cs.error, fontSize: AppFontSize.subtitle)),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            color: cs.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.4),
+                  const SizedBox(height: 12),
+                  FitText('输入命令并执行。命令大小写敏感。请确保您清楚自己在做什么。',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _cmdCtrl,
+                    decoration: const InputDecoration(labelText: '输入命令', isDense: true),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _run,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.error,
+                        foregroundColor: cs.onError,
+                      ),
+                      child: const FitText('执行命令'),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: ListTile(
-              leading: const Icon(Icons.restart_alt),
-              title: const FitText('重新进入 OOBE'),
-              subtitle: const FitText('重新进入首次启动引导流程。'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _restartOobe,
+            const SizedBox(height: 16),
+            // 开场动画预览：动画只在冷启动出现一次，改完设置没法立刻看效果，
+            // 这里给一个当场可重播的预览。
+            Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: AppAlpha.a40),
+                ),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.theaters_outlined),
+                title: const FitText('预览开场动画'),
+                subtitle: FitText(
+                  '当前：${splashAnimationById(widget.controller.settings.splashAnimation).label}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _previewSplash,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: AppAlpha.a40),
+                ),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.restart_alt),
+                title: const FitText('重新进入 OOBE'),
+                subtitle: const FitText('重新进入首次启动引导流程。'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _restartOobe,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _previewSplash() async {
+    await showSplashPreviewDialog(
+      context,
+      animationId: widget.controller.settings.splashAnimation,
     );
   }
 

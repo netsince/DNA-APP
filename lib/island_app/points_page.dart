@@ -9,7 +9,10 @@ import 'package:dna/island_app/utils/points_format.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/submit_form.dart';
 import '../theme/tokens.dart';
 
 /// 积分明细分页加载回调（默认走 [ApiClient.getPoints]）。
@@ -21,6 +24,21 @@ typedef PointsRedeemer =
       ({List<Map<String, dynamic>> results, int successCount, int failCount})
     >
     Function(List<String> codes);
+
+/// 数字列用等宽数字（tabular figures）。
+///
+/// 明细是"时间 / 变化 / 余额 / 来源"四列数据：默认字体的 `1` 比 `8` 窄，
+/// 上下串起来时小数点与个位对不齐，扫一列金额很费劲。
+/// 全项目此前 0 处等宽数字（审计 3.3）。
+const List<FontFeature> _tabularFigures = <FontFeature>[
+  FontFeature.tabularFigures(),
+];
+
+/// 金额 / 余额列的**最小宽**（不再是定死宽）。
+///
+/// 回滚 R7：定死 92dp 时位数一多就顶出去。改成「最小宽 + 自适应」——
+/// 短金额靠右对齐、上下仍然成列；长金额向左撑开，不溢出也不裁切。
+const double _amountColumnMinWidth = 72;
 
 /// 积分页：余额大卡 + 变化明细分页 + 兑换入口。
 ///
@@ -72,50 +90,40 @@ class PointsBody extends StatefulWidget {
 }
 
 class _PointsBodyState extends State<PointsBody> {
-  List<Map<String, dynamic>> _txs = const [];
+  /// 余额不是分页状态（每页都会带回最新值），留在页面里。
   Decimal _balance = Decimal.zero;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
-  String? _error;
+
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final PointsData result = await _loader(page: page);
+          // 每页都会带回最新余额，只有成功时才覆盖。
+          _balance = result.balance;
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.page < result.pages,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '加载失败',
+      );
 
   PointsLoader get _loader => widget.loader ?? ApiClient.instance.getPoints;
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await _loader(page: page);
-      if (!mounted) return;
-      setState(() {
-        if (reset) _txs = <Map<String, dynamic>>[];
-        _txs = <Map<String, dynamic>>[..._txs, ...result.items];
-        _page = page;
-        _balance = result.balance;
-        _noMore = !(result.page < result.pages);
-        _loading = false;
-        _loadingMore = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (_txs.isEmpty) _error = '$e';
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   Future<void> _openGetPoints() async {
@@ -154,7 +162,7 @@ class _PointsBodyState extends State<PointsBody> {
           Text(
             '当前点数',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onPrimaryContainer.withValues(alpha: 0.75),
+              color: scheme.onPrimaryContainer.withValues(alpha: AppAlpha.mutedStrong),
               letterSpacing: 1.5,
             ),
           ),
@@ -164,6 +172,7 @@ class _PointsBodyState extends State<PointsBody> {
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
               color: scheme.onPrimaryContainer,
               fontWeight: AppWeight.medium,
+              fontFeatures: _tabularFigures,
             ),
           ),
           if (SiteConfig.instance.redeemCodeUrl.isNotEmpty) ...<Widget>[
@@ -184,13 +193,13 @@ class _PointsBodyState extends State<PointsBody> {
 
   Widget _buildList(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (_loading && _txs.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const LoadingState();
     }
-    if (_error != null && _txs.isEmpty) {
-      return ErrorState(onRetry: () => _load(reset: true));
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(message: _paged.error!, onRetry: _paged.refresh);
     }
-    if (_txs.isEmpty) {
+    if (_paged.items.isEmpty) {
       return const EmptyState(icon: Icons.receipt_long_outlined, title: '暂无记录');
     }
     return Column(
@@ -207,14 +216,15 @@ class _PointsBodyState extends State<PointsBody> {
         ),
         Expanded(
           child: LoadMoreListView(
-            itemCount: _txs.length,
-            hasMore: !_noMore,
-            onLoadMore: _load,
-            onRefresh: () => _load(reset: true),
+            loading: _paged.isLoading,
+            itemCount: _paged.items.length,
+            hasMore: _paged.hasMore && _paged.items.isNotEmpty,
+            onLoadMore: _paged.loadMore,
+            onRefresh: _paged.refresh,
             padding: const EdgeInsets.symmetric(vertical: 4),
             separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
             itemBuilder: (context, index) {
-              final t = _txs[index];
+              final t = _paged.items[index];
               final delta = parsePoints(t['delta']);
               final balanceAfter = parsePoints(t['balance_after']);
               final reason = (t['reason'] ?? '').toString();
@@ -232,13 +242,23 @@ class _PointsBodyState extends State<PointsBody> {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
-                    Text(
-                      positive
-                          ? '+${formatPoints(delta)}'
-                          : formatPoints(delta),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: positive ? scheme.primary : scheme.error,
-                        fontWeight: FontWeight.w500,
+                    // 金额列：**最小宽 + 自适应**右对齐（回滚 R7）。
+                    // 等宽数字保留，短金额仍能上下成列；长金额向左撑开，
+                    // 不溢出、不裁切。
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: _amountColumnMinWidth,
+                      ),
+                      child: Text(
+                        positive
+                            ? '+${formatPoints(delta)}'
+                            : formatPoints(delta),
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: positive ? scheme.primary : scheme.error,
+                          fontWeight: FontWeight.w500,
+                          fontFeatures: _tabularFigures,
+                        ),
                       ),
                     ),
                   ],
@@ -273,11 +293,19 @@ class _PointsBodyState extends State<PointsBody> {
                           ),
                         ),
                       const Spacer(),
-                      Text(
-                        '余额 ${formatPoints(balanceAfter)}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: scheme.outline),
+                      // 余额列同样「最小宽 + 自适应」，与金额列同一套规则。
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: _amountColumnMinWidth,
+                        ),
+                        child: Text(
+                          '余额 ${formatPoints(balanceAfter)}',
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.outline,
+                            fontFeatures: _tabularFigures,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -306,10 +334,17 @@ class PointsRedeemPage extends StatefulWidget {
 }
 
 class _PointsRedeemPageState extends State<PointsRedeemPage> {
-  final _singleController = TextEditingController();
-  final _multiController = TextEditingController();
+  // 两个输入框的控制器统一由草稿持有。
+  final FormDraft _draft = FormDraft(
+    textFields: const <String>['single', 'multi'],
+  );
+
+  // 兑换中的忙态 + 失败原因（失败原因就地显示，前缀沿用原文案）。
+  final SubmitFormState _submit = SubmitFormState();
+
   bool _isMulti = false;
-  bool _redeeming = false;
+
+  /// 本地校验提示（空码 / 超过 50 个），与提交失败分开显示。
   String? _error;
   List<Map<String, dynamic>> _results = const [];
 
@@ -317,9 +352,23 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       widget.redeemer ?? ApiClient.instance.redeemPoints;
 
   @override
+  void initState() {
+    super.initState();
+    // 提交态变了就重建：输入框 / 切换按钮 / 兑换按钮一起跟着禁用。
+    _submit.addListener(_onSubmitChanged);
+  }
+
+  /// 提交态（忙 / 失败原因）变了就重建。
+  void _onSubmitChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
-    _singleController.dispose();
-    _multiController.dispose();
+    // 只摘监听、不 dispose _submit：兑换请求可能在页面 pop 之后才回来，
+    // 那时 run() 还会 notifyListeners()。
+    _submit.removeListener(_onSubmitChanged);
+    _draft.dispose();
     super.dispose();
   }
 
@@ -330,16 +379,18 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       final text = await Clipboard.getData(Clipboard.kTextPlain);
       final value = text?.text?.trim() ?? '';
       if (value.isEmpty) return;
-      _singleController.text = value;
+      _draft.controller('single').text = value;
     } catch (_) {
       // 剪贴板不可用时静默。
     }
   }
 
   Future<void> _redeem() async {
-    if (_redeeming) return;
+    if (_submit.busy) return;
+    // 每次尝试先清掉上一次的提交失败横幅（对应原来「开始请求即清空 _error」）。
+    _submit.clearError();
     // 单码模式取单码输入；多行模式按行拆分去重。
-    final raw = _isMulti ? _multiController.text : _singleController.text;
+    final raw = _isMulti ? _draft.rawText('multi') : _draft.rawText('single');
     final codes = {
       ...raw
           .split(RegExp(r'[\r\n,，\s]+'))
@@ -355,29 +406,26 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
       return;
     }
     setState(() {
-      _redeeming = true;
       _error = null;
       _results = const [];
     });
-    try {
-      final result = await _redeemer(codes);
-      if (!mounted) return;
-      setState(() => _results = result.results);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.successCount > 0
-                ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
-                : '全部兑换失败，请检查兑换码',
+    await _submit.run(
+      errorPrefix: '兑换失败',
+      action: () async {
+        final result = await _redeemer(codes);
+        if (!mounted) return;
+        setState(() => _results = result.results);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.successCount > 0
+                  ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
+                  : '全部兑换失败，请检查兑换码',
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = '$e');
-    } finally {
-      if (mounted) setState(() => _redeeming = false);
-    }
+        );
+      },
+    );
   }
 
   @override
@@ -391,7 +439,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: scheme.secondaryContainer.withValues(alpha: 0.4),
+              color: scheme.secondaryContainer.withValues(alpha: AppAlpha.a40),
               borderRadius: BorderRadius.circular(kRadiusSm),
             ),
             child: const Text(
@@ -405,8 +453,8 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           const SizedBox(height: 16),
           if (_isMulti) ...<Widget>[
             TextField(
-              controller: _multiController,
-              enabled: !_redeeming,
+              controller: _draft.controller('multi'),
+              enabled: !_submit.busy,
               maxLines: 6,
               keyboardType: TextInputType.multiline,
               style: const TextStyle(fontFamily: 'monospace'),
@@ -418,8 +466,8 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
             ),
           ] else ...<Widget>[
             TextField(
-              controller: _singleController,
-              enabled: !_redeeming,
+              controller: _draft.controller('single'),
+              enabled: !_submit.busy,
               style: const TextStyle(fontFamily: 'monospace'),
               decoration: InputDecoration(
                 labelText: '输入兑换码',
@@ -428,7 +476,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.content_paste_outlined),
                   tooltip: '粘贴',
-                  onPressed: _redeeming ? null : _paste,
+                  onPressed: _submit.busy ? null : _paste,
                 ),
               ),
               onSubmitted: (_) => _redeem(),
@@ -438,7 +486,7 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: _redeeming ? null : _toggleMode,
+              onPressed: _submit.busy ? null : _toggleMode,
               child: Text(_isMulti ? '单码快捷兑换' : '多行批量兑换（批量粘贴）'),
             ),
           ),
@@ -448,10 +496,12 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
               child: Text(_error!, style: TextStyle(color: scheme.error)),
             ),
           ],
+          // 兑换失败的真实原因就地显示（前缀沿用原文案「兑换失败」）。
+          FormErrorBanner(message: _submit.errorText),
           const SizedBox(height: 12),
           AsyncActionButton(
             variant: AsyncButtonVariant.filled,
-            enabled: !_redeeming,
+            enabled: !_submit.busy,
             onPressed: _redeem,
             loadingSize: 20,
             style: FilledButton.styleFrom(
@@ -468,32 +518,36 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            for (final r in _results)
-              Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(
-                    r['ok'] == true
-                        ? Icons.check_circle_outline
-                        : Icons.cancel_outlined,
-                    color: r['ok'] == true ? scheme.primary : scheme.error,
-                  ),
-                  title: Text(
-                    (r['code'] ?? '').toString(),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                  trailing: Text(
-                    (r['message'] ?? '').toString(),
-                    style: TextStyle(
-                      fontSize: AppFontSize.caption,
-                      color: r['ok'] == true
-                          ? scheme.onSurfaceVariant
-                          : scheme.error,
-                    ),
+            // 兑换结果是同构的行：排成 list + Divider，而不是一行一张卡
+            // （审计 3.3）。行内边距交给 ListTile，横向对齐交给页面 padding。
+            for (int i = 0; i < _results.length; i++) ...<Widget>[
+              if (i > 0) const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Icon(
+                  _results[i]['ok'] == true
+                      ? Icons.check_circle_outline
+                      : Icons.cancel_outlined,
+                  color: _results[i]['ok'] == true
+                      ? scheme.primary
+                      : scheme.error,
+                ),
+                title: Text(
+                  (_results[i]['code'] ?? '').toString(),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+                trailing: Text(
+                  (_results[i]['message'] ?? '').toString(),
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: _results[i]['ok'] == true
+                        ? scheme.onSurfaceVariant
+                        : scheme.error,
                   ),
                 ),
               ),
+            ],
           ],
         ],
       ),

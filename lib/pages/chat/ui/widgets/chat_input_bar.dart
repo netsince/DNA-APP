@@ -1,15 +1,19 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../models/attachment_draft.dart';
+import '../../../../models/message_attachment.dart';
 import '../../../../models/quick_reply.dart';
-import '../../../../services/speech_to_text_service.dart';
-import '../../../../state/app_controller.dart';
+import '../../../../services/attachment_intake.dart';
+import '../../../../utils/error_display.dart';
 import '../../../../utils/platform_capabilities.dart';
 import '../../../../utils/ui_feedback.dart';
+import '../../../../state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 class ChatInputBar extends StatefulWidget {
@@ -21,6 +25,8 @@ class ChatInputBar extends StatefulWidget {
     required this.sending,
     required this.inspirationInProgress,
     required this.onSend,
+    required this.attachments,
+    required this.visionEnabled,
     required this.onStartInspiration,
     this.quickReplies = const <QuickReply>[],
     this.onQuickReply,
@@ -39,6 +45,12 @@ class ChatInputBar extends StatefulWidget {
   /// 「停止生成」回调。非空且 [sending] 为 true 时,发送按钮变为可点的停止按钮;
   /// 为 null 时保持旧行为(生成中仅显示转圈、不可点)。
   final VoidCallback? onStopGeneration;
+  /// 待发送附件草稿（与 ChatSurface 共享，回溯回填也写它）。
+  final AttachmentDraft attachments;
+
+  /// 当前模型是否支持图片输入（决定抽屉里要不要给「相册 / 照相」）。
+  final bool visionEnabled;
+
   final Future<void> Function() onStartInspiration;
 
   /// 快速回复按钮列表（显示在输入栏上方）。
@@ -83,71 +95,24 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 防止程序化修改文本时递归触发自动补全。
   bool _isAdjusting = false;
 
-  /// 是否处于「语音输入模式」（隐藏普通输入栏，显示语音条）。
-  bool _voiceMode = false;
-
-  /// 是否正在聆听。
-  bool _voiceListening = false;
-
-  /// 点击停止后进入「待确认」状态：长条裂变为 修改 / 发送 / 取消。
-  bool _voiceReview = false;
-
-  /// 本次聆听是否由「长按」触发：
-  /// 长按松开 = 直接发送；点击 = 再点一次停止并进入待确认。
-  bool _enteredByLongPress = false;
-
-  /// start() 正在进行中（防止重复触发导致并发 start）。
-  bool _starting = false;
-
-  /// 长按松开发生在 start() 完成之前时标记：start 完成后立即停止并发送。
-  bool _pendingSend = false;
-
-  /// 长按被系统中断且 start() 未完成时标记：start 完成后立即取消。
-  bool _pendingCancel = false;
-
-  /// 按下计时器：用于区分长按（>=180ms）与点击。
-  Timer? _longPressTimer;
-
-  /// 当前是否有指针按下未抬起。
-  bool _pressActive = false;
-
-  /// 本次按下是否已触发长按（计时器到点）。
-  bool _longPressFired = false;
-
-  /// 语音模式下的实时识别文本。
-  String _transcript = '';
-
-  /// 进入语音模式前输入框里已有的文字，发送时拼接到识别结果前。
-  String _preRecordText = '';
-
-  StreamSubscription<String>? _partialSub;
-
   @override
   void initState() {
     super.initState();
     _prevText = widget.inputController.text;
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
-    // Web 端不支持离线语音输入：不初始化语音服务，避免触发原生调用。
-    if (PlatformCapabilities.voiceInputSupported) {
-      _partialSub = SpeechToTextService.instance.partial.listen(_onPartial);
-    }
+    widget.attachments.addListener(_onAttachmentsChanged);
   }
 
   @override
   void dispose() {
-    _longPressTimer?.cancel();
     widget.inputController.removeListener(_onInputChanged);
-    _partialSub?.cancel();
+    widget.attachments.removeListener(_onAttachmentsChanged);
     super.dispose();
   }
 
-  /// 当前选中的模型是否已下载就绪。
-  bool get _voiceReady {
-    final String? p = widget.controller.settings.sherpaModelPath;
-    return widget.controller.settings.sherpaModelReady &&
-        p != null &&
-        p.endsWith(widget.controller.settings.selectedVoiceModelId);
+  void _onAttachmentsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onInputChanged() {
@@ -156,16 +121,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
       setState(() {
         _hasInput = hasText;
       });
-    }
-  }
-
-  /// 语音识别实时结果：聆听中同步到语音条的识别文本。
-  void _onPartial(String text) {
-    if (!_voiceListening) {
-      return;
-    }
-    if (mounted) {
-      setState(() => _transcript = text);
     }
   }
 
@@ -339,452 +294,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
-  /// 点击麦克风：进入语音输入模式（隐藏普通输入框，显示语音条）。
-  void _enterVoiceMode() {
-    if (!_voiceReady) {
-      showSnack(context, '请先在「设置 → 语音输入」中下载模型');
-      return;
-    }
-    if (mounted) {
-      setState(() {
-        _voiceMode = true;
-        _voiceListening = false;
-        _voiceReview = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-        _preRecordText = widget.inputController.text;
-      });
-    }
-    // 预热识别器：进入语音模式时即开始构建，按下长按/点击时 start() 几乎无延迟。
-    // 失败忽略：真正按下时 _startListening 会再次初始化并提示错误。
-    final String p = widget.controller.settings.sherpaModelPath!;
-    SpeechToTextService.instance.ensureInitialized(p).catchError((Object _) {});
-  }
 
-  /// 退出语音模式，回到普通文本输入。
-  void _exitVoiceMode() {
-    if (_voiceListening) {
-      SpeechToTextService.instance.cancel();
-    }
-    if (mounted) {
-      setState(() {
-        _voiceMode = false;
-        _voiceListening = false;
-        _voiceReview = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-      });
-    }
-  }
 
-  Future<void> _startListening() async {
-    if (_voiceListening || _starting) {
-      return;
-    }
-    _starting = true;
-    try {
-      final String? p = widget.controller.settings.sherpaModelPath;
-      await SpeechToTextService.instance.ensureInitialized(p!);
-      final bool ok = await SpeechToTextService.instance.start();
-      if (!ok) {
-        if (mounted) {
-          showSnack(context, '无法使用麦克风，请检查系统麦克风权限');
-        }
-        return;
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _voiceListening = true;
-        _transcript = '';
-      });
-      // 松手/中断发生在 start() 完成之前：现在按当时的意图处理。
-      if (_pendingSend) {
-        _pendingSend = false;
-        _stopAndSend();
-      } else if (_pendingCancel) {
-        _pendingCancel = false;
-        _cancelToListenIdle();
-      }
-    } catch (e) {
-      // 任何初始化/启动异常都复位状态，避免卡在「聆听中」。
-      _pendingSend = false;
-      _pendingCancel = false;
-      _enteredByLongPress = false;
-      if (mounted) {
-        showSnack(context, '语音启动失败：$e');
-      }
-    } finally {
-      _starting = false;
-    }
-  }
 
-  /// 长按松开：停止并直接发送；若没识别到内容则回到未聆听语音模式以便重试。
-  /// 任何异常都会复位状态，避免卡在「聆听中」。
-  Future<void> _stopAndSend() async {
-    if (!_voiceListening) {
-      return;
-    }
-    String text;
-    try {
-      text = await SpeechToTextService.instance.stop();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-        setState(() {
-          _voiceListening = false;
-          _enteredByLongPress = false;
-          _transcript = '';
-        });
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    final String t = text.trim();
-    if (t.isEmpty) {
-      // 没识别到内容：不发送，回到未聆听的语音模式。
-      setState(() {
-        _voiceListening = false;
-        _enteredByLongPress = false;
-        _transcript = '';
-      });
-      return;
-    }
-    setState(() {
-      _voiceListening = false;
-      _transcript = text;
-    });
-    _commitAndExit(text);
-  }
 
-  /// 点击停止：进入待确认状态（长条裂变为 修改 / 发送 / 取消）。
-  Future<void> _stopAndReview() async {
-    if (!_voiceListening) {
-      return;
-    }
-    String text;
-    try {
-      text = await SpeechToTextService.instance.stop();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-        setState(() {
-          _voiceListening = false;
-          _enteredByLongPress = false;
-          _transcript = '';
-        });
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _voiceListening = false;
-      _voiceReview = true;
-      _transcript = text;
-    });
-  }
 
-  /// 长按被系统中断：取消聆听，回到未聆听的语音模式。
-  Future<void> _cancelToListenIdle() async {
-    try {
-      await SpeechToTextService.instance.cancel();
-    } catch (e) {
-      if (mounted) {
-        showSnack(context, '停止录音失败：$e');
-      }
-    }
-    if (mounted) {
-      setState(() {
-        _voiceListening = false;
-        _transcript = '';
-      });
-    }
-  }
 
-  /// 待确认 → 修改：回到文本模式，输入框带上识别结果。
-  void _editTranscript() {
-    final String t = _transcript.trim();
-    final String base = _preRecordText;
-    final String msg = base.isEmpty
-        ? t
-        : (base.endsWith(' ') || t.isEmpty ? '$base$t' : '$base $t');
-    widget.inputController.text = msg;
-    widget.inputController.selection =
-        TextSelection.collapsed(offset: msg.length);
-    _exitVoiceMode();
-  }
-
-  /// 待确认 → 发送。
-  void _sendFromReview() {
-    _commitAndExit(_transcript);
-  }
-
-  /// 待确认 → 取消：回到未聆听的语音模式（丢弃本次识别）。
-  void _discardReview() {
-    if (mounted) {
-      setState(() {
-        _voiceReview = false;
-        _transcript = '';
-      });
-    }
-  }
-
-  /// 把识别文字拼上进入前已有文字，写入输入框并发送，退出语音模式。
-  void _commitAndExit(String transcript) {
-    final String t = transcript.trim();
-    if (t.isEmpty) {
-      _exitVoiceMode();
-      return;
-    }
-    final String base = _preRecordText;
-    final String msg = base.isEmpty
-        ? t
-        : (base.endsWith(' ') ? '$base$t' : '$base $t');
-    widget.inputController.text = msg;
-    _exitVoiceMode();
-    widget.onSend();
-  }
-
-  /// 普通文本模式下的麦克风按钮：点击进入语音输入模式。
-  /// Web 端不支持离线语音输入，置灰禁用。
-  Widget _buildMic() {
-    return IconButton(
-      tooltip: PlatformCapabilities.voiceInputSupported
-          ? (_voiceReady ? '语音输入' : '语音输入（需先下载模型）')
-          : '语音输入（当前平台不可用）',
-      onPressed: PlatformCapabilities.voiceInputSupported
-          ? (_voiceReady
-              ? _enterVoiceMode
-              : () =>
-                  showSnack(context, '请先在「设置 → 语音输入」中下载语音模型'))
-          : null,
-      icon: Icon(_voiceReady ? Icons.mic : Icons.mic_none_outlined),
-    );
-  }
-
-  /// 语音输入模式面板：根据 聆听 / 待确认 / 未聆听 三态切换布局。
-  Widget _buildVoicePanel() {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    final bool hasText = _transcript.trim().isNotEmpty;
-
-    // 待确认：长条裂变为 修改 / 取消 / 发送
-    if (_voiceReview) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildBackRow(cs),
-              const SizedBox(height: 8),
-              _buildTranscriptArea(theme, cs, hasText, '识别完成'),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _editTranscript,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const FitText('修改'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _discardReview,
-                      icon: const Icon(Icons.close),
-                      label: const FitText('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: _sendFromReview,
-                      icon: const Icon(Icons.send),
-                      label: const FitText('发送'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 聆听中：返回按钮隐藏，大长条占满底部
-    if (_voiceListening) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildTranscriptArea(theme, cs, hasText, '聆听中…'),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 120,
-                child: _buildBigVoiceButton(cs, listening: true),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 未聆听：返回按钮 + 小区域 + 大长条
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _buildBackRow(cs),
-            const SizedBox(height: 8),
-            _buildTranscriptArea(theme, cs, hasText, '长按或点击下方按钮说话'),
-            const SizedBox(height: 8),
-            _buildBigVoiceButton(cs, listening: false),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 语音模式顶部返回按钮：退出语音模式，回到文本输入。
-  Widget _buildBackRow(ColorScheme cs) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: IconButton(
-        tooltip: '返回',
-        onPressed: _exitVoiceMode,
-        icon: const Icon(Icons.arrow_back),
-      ),
-    );
-  }
-
-  /// 上方小区域：显示实时识别文本或占位提示。
-  Widget _buildTranscriptArea(
-      ThemeData theme, ColorScheme cs, bool hasText, String placeholder) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: cs.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
-        color: _voiceListening
-            ? cs.errorContainer.withValues(alpha: 0.12)
-            : cs.surfaceContainerHighest,
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FitText(
-          hasText ? _transcript : placeholder,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: hasText ? cs.onSurface : cs.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 大长条语音按钮：用 Listener + Timer 自己判定长按/点击，避免手势识别器竞态。
-  /// - 按住 >=180ms = 长按：聆听，松开直接发送；
-  /// - 快速点击：开始聆听，再点一次停止并进入待确认。
-  Widget _buildBigVoiceButton(ColorScheme cs, {required bool listening}) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _onPointerDown,
-      onPointerUp: _onPointerUp,
-      onPointerCancel: _onPointerCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        decoration: BoxDecoration(
-          color: listening ? cs.error : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(
-            listening ? Icons.mic : Icons.mic_none,
-            color: listening ? cs.onError : cs.onSurfaceVariant,
-            size: 28,
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  void _onPointerDown(PointerDownEvent event) {
-    _pressActive = true;
-    _longPressFired = false;
-    _longPressTimer?.cancel();
-    _longPressTimer = Timer(const Duration(milliseconds: 180), () {
-      _longPressFired = true;
-      _enteredByLongPress = true;
-      _startListening(); // 长按到点：开始聆听
-    });
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    if (!_pressActive) {
-      return;
-    }
-    _pressActive = false;
-    _longPressTimer?.cancel();
-    _longPressTimer = null;
-    if (_longPressFired) {
-      // 长按下抬起：直接发送（长按语义）
-      if (_voiceListening) {
-        _stopAndSend();
-      } else {
-        _pendingSend = true; // start 未完成，待其完成后发送
-      }
-    } else {
-      // 快速点击抬起：点击语义
-      _enteredByLongPress = false;
-      if (!_voiceListening) {
-        _startListening();
-      } else if (!_enteredByLongPress) {
-        _stopAndReview();
-      } else {
-        _stopAndSend(); // 兜底
-      }
-    }
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    if (!_pressActive) {
-      return;
-    }
-    _pressActive = false;
-    _longPressTimer?.cancel();
-    _longPressTimer = null;
-    if (_longPressFired) {
-      // 长按被系统中断
-      if (_voiceListening) {
-        _cancelToListenIdle();
-      } else {
-        _pendingCancel = true; // start 未完成，待其完成后取消
-      }
-    } else {
-      _enteredByLongPress = false;
-    }
-  }
 
   /// 快速回复按钮行：横向滚动的精致卡片胶囊，点击立即发送对应内容。
   Widget _buildQuickReplies() {
@@ -805,16 +320,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
             color: cs.surfaceContainerHighest.withValues(
               alpha: widget.halfScreen ? 0.65 : 0.85,
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: AppRadius.lgAll,
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadius.lgAll,
               onTap: widget.onQuickReply == null
                   ? null
                   : () => widget.onQuickReply!(qr),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadius.lgAll,
                   border: Border.all(
                     color: cs.outlineVariant.withValues(
                       alpha: widget.halfScreen ? 0.4 : 0.55,
@@ -827,7 +342,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     Icon(
                       Icons.chat_bubble_outline_rounded,
                       size: 13,
-                      color: cs.primary.withValues(alpha: 0.85),
+                      color: cs.primary.withValues(alpha: AppAlpha.a85),
                     ),
                     const SizedBox(width: 4),
                     FitText(
@@ -850,9 +365,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (_voiceMode) {
-      return _buildVoicePanel();
-    }
     final ColorScheme cs = Theme.of(context).colorScheme;
     // 输入栏样式：'capsule'（默认，胶囊输入岛）/ 'classic'（0.2.0 旧样式）。
     // 两种都在「设置 → 界面与显示 → 聊天输入栏」里可选，功能完全一致。
@@ -869,6 +381,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
           children: <Widget>[
             _buildQuickReplies(),
             SizedBox(height: capsule ? 4 : 6),
+            if (widget.attachments.isNotEmpty) ...<Widget>[
+              _buildAttachmentStrip(cs),
+              SizedBox(height: capsule ? 6 : 8),
+            ],
             if (capsule) _buildCapsuleBar(cs) else _buildClassicBar(cs),
           ],
         ),
@@ -884,21 +400,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         color: cs.surfaceContainerHigh.withValues(
           alpha: widget.halfScreen ? 0.72 : 0.95,
         ),
-        borderRadius: BorderRadius.circular(999),
+        // 圆角与阴影都用令牌（审计 4.4）：以前是手写 999 与一条自造阴影。
+        // 半透明输入岛的层次由 AppShadows.soft 统一表达。
+        borderRadius: AppRadius.pillAll,
         border: Border.all(
           color: cs.outlineVariant.withValues(
             alpha: widget.halfScreen ? 0.35 : 0.5,
           ),
         ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: widget.halfScreen ? 0.03 : 0.05,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -938,6 +448,196 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
+  /// 上传文件按钮：满了就禁用（tooltip 说明原因，不做无声失败）。
+  Widget _buildUploadButton(ColorScheme cs) {
+    final bool full = widget.attachments.remainingSlots == 0;
+    return IconButton(
+      tooltip: full ? '最多只能带 3 个附件' : '上传文件',
+      color: cs.onSurfaceVariant,
+      onPressed: full ? null : _openUploadSheet,
+      icon: const Icon(Icons.attach_file_rounded),
+    );
+  }
+
+  /// 从底部滑出的上传抽屉：文件 / 相册 / 照相。
+  ///
+  /// 相册与照相只在「当前模型支持视觉」时出现 —— 模型吃不下的东西不给入口，
+  /// 比让用户传完再看到失败要体面。照相在 PC（含 Web）上不出现。
+  Future<void> _openUploadSheet() async {
+    final bool canImage = widget.visionEnabled;
+    final bool canCamera = canImage &&
+        !PlatformCapabilities.isDesktop &&
+        !kIsWeb;
+    final _UploadChoice? choice = await showModalBottomSheet<_UploadChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        final ColorScheme cs = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          // 矮屏 / 横屏 / 键盘顶起时，固定高度会溢出：让抽屉自己可滚。
+          child: SingleChildScrollView(
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_outlined),
+                title: const FitText('文件'),
+                subtitle: const FitText('文本文档、代码、表格等'),
+                onTap: () => Navigator.of(sheetContext).pop(_UploadChoice.file),
+              ),
+              if (canImage)
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const FitText('相册'),
+                  subtitle: const FitText('选一张图给模型看'),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_UploadChoice.gallery),
+                ),
+              if (canCamera)
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const FitText('照相'),
+                  subtitle: const FitText('拍一张马上用'),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_UploadChoice.camera),
+                ),
+              if (!canImage)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.info_outline, size: 16, color: cs.outline),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FitText(
+                          '当前模型未开启图片支持，只能发文件（可在模型设置里打开）。',
+                          style: TextStyle(fontSize: AppFontSize.caption, color: cs.outline),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            ),
+          ),
+        );
+      },
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case _UploadChoice.file:
+        await _runIntake(() => AttachmentIntake.instance.pickFiles(
+              maxCount: widget.attachments.remainingSlots,
+            ));
+      case _UploadChoice.gallery:
+        await _runIntake(() => AttachmentIntake.instance.pickGallery(
+              maxCount: widget.attachments.remainingSlots,
+            ));
+      case _UploadChoice.camera:
+        await _runIntakeCamera();
+    }
+  }
+
+  Future<void> _runIntake(
+    Future<List<AttachmentIntakeResult>> Function() task,
+  ) async {
+    try {
+      final List<AttachmentIntakeResult> results = await task();
+      _applyIntake(results);
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, '选择文件失败：${describeError(e)}');
+    }
+  }
+
+  Future<void> _runIntakeCamera() async {
+    try {
+      final AttachmentIntakeResult? one =
+          await AttachmentIntake.instance.pickCamera();
+      if (one == null) return;
+      _applyIntake(<AttachmentIntakeResult>[one]);
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, '拍照失败：${describeError(e)}');
+    }
+  }
+
+  void _applyIntake(List<AttachmentIntakeResult> results) {
+    if (!mounted) return;
+    final List<String> errors = <String>[];
+    int added = 0;
+    for (final AttachmentIntakeResult r in results) {
+      if (r.ok) {
+        if (widget.attachments.add(r.attachment!)) {
+          added++;
+        }
+      } else if (r.error != null) {
+        errors.add(r.error!);
+      }
+    }
+    if (errors.isNotEmpty) {
+      showSnack(context, errors.first);
+    } else if (added == 0 && results.isNotEmpty) {
+      showSnack(context, '这些附件已经在列表里了');
+    }
+  }
+
+  /// 输入区上方的附件条：每个附件一个胶囊，右侧 X 可移除。
+  Widget _buildAttachmentStrip(ColorScheme cs) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        itemCount: widget.attachments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (BuildContext context, int index) {
+          final MessageAttachment a = widget.attachments.items[index];
+          return Container(
+            constraints: const BoxConstraints(maxWidth: 220),
+            padding: const EdgeInsets.only(left: 10, right: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: AppRadius.pillAll,
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  a.isImage
+                      ? Icons.image_outlined
+                      : (a.isText ? Icons.description_outlined : Icons.attach_file),
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: FitText(
+                    a.name,
+                    style: TextStyle(
+                      fontSize: AppFontSize.caption,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '移除附件',
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 16,
+                  color: cs.onSurfaceVariant,
+                  onPressed: () => widget.attachments.removeAt(index),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
   /// 输入框右侧的动作区：括号 / 语音 / 灵感 / 发送（或停止）。
   ///
   /// [capsule] 只影响间距与发送键的形态：胶囊里发送键是实心圆钮，
@@ -947,6 +647,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        // 上传文件（设置里可关；发送中隐藏，避免和发送按钮抢位）
+        if (widget.controller.settings.showUploadButton && !widget.sending) ...<Widget>[
+          _buildUploadButton(cs),
+          gap,
+        ],
         // 添加括号按钮
         if (widget.controller.settings.showParenButton) ...<Widget>[
           _buildParenButton(cs),
@@ -962,10 +667,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
           gap,
         ] else if (!_hasInput) ...<Widget>[
           // 语音输入按钮
-          if (widget.controller.settings.voiceInputEnabled) ...<Widget>[
-            _buildMic(),
-            gap,
-          ],
           // 灵感按钮
           IconButton(
             tooltip: '灵感',
@@ -1033,40 +734,38 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 文字误发出去。这里给停止后的发送加冷却,吞掉该同一手势的误触。
   Widget _buildSendOrStopButton(ColorScheme cs) {
     final bool canStop = widget.sending && widget.onStopGeneration != null;
-    return Material(
-      color: cs.primary,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: canStop
-            ? () {
-                _lastStopAt = DateTime.now();
-                widget.onStopGeneration!();
-              }
-            : (widget.sending ? null : _sendSafe),
-        child: SizedBox(
-          width: 38,
-          height: 38,
-          child: Center(
-            child: widget.sending
-                ? (canStop
-                    ? Icon(Icons.stop_rounded, size: 22, color: cs.onPrimary)
-                    : SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: cs.onPrimary,
-                        ),
-                      ))
-                : Icon(
-                    Icons.arrow_upward_rounded,
-                    size: 20,
-                    color: cs.onPrimary,
-                  ),
-          ),
-        ),
+    // 命中区按 [AppSize.touchTarget]（48dp）给：以前是 38×38 的自绘
+    // Material+InkWell 圆钮，视觉尺寸当成了命中尺寸（审计 4.3）。
+    // IconButton.filled 自带填充底、onPrimary 前景、水波纹、禁用态与焦点；
+    // tooltip 兼作读屏标签（「发送」/「停止生成」）。
+    return IconButton.filled(
+      onPressed: canStop
+          ? () {
+              _lastStopAt = DateTime.now();
+              widget.onStopGeneration!();
+            }
+          : (widget.sending ? null : _sendSafe),
+      tooltip: canStop ? '停止生成' : '发送',
+      style: IconButton.styleFrom(
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        disabledBackgroundColor: cs.surfaceContainerHighest,
+        disabledForegroundColor: cs.onSurfaceVariant,
+        minimumSize: const Size(AppSize.touchTarget, AppSize.touchTarget),
+        shape: const CircleBorder(),
       ),
+      icon: widget.sending
+          ? (canStop
+              ? const Icon(Icons.stop_rounded, size: 22)
+              : SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ))
+          : const Icon(Icons.arrow_upward_rounded, size: 20),
     );
   }
 
@@ -1081,6 +780,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
     widget.onSend();
   }
 }
+
+/// 上传抽屉的三个选项。
+enum _UploadChoice { file, gallery, camera }
 
 /// 回车键（可选带 Shift）意图：用于在输入框里区分「发送」与「换行」。
 class _EnterIntent extends Intent {

@@ -3,7 +3,15 @@ import 'llm_model_config.dart';
 import 'llm_provider_config.dart';
 import 'prompt_strategy.dart';
 import 'quick_reply.dart';
-import 'voice_models.dart';
+
+/// 底部提示（SnackBar）的默认停留时长（毫秒）。
+///
+/// 1 秒读不完一句中文提示，短于 2~4 秒的提示等于没提示（审计 3.5 / 4.3）。
+/// 这里是**默认值的唯一来源**：AppSettings.empty()、fromJson 兜底、
+/// SettingsService 读盘兜底、以及「清空数据」后的重置都引用它。
+/// 注意 utils/ui_feedback.dart 的 kDefaultSnackDuration 必须与它一致
+/// （那边是 UI 侧兜底，不反向依赖模型层）。
+const int kDefaultSnackDurationMs = 4000;
 
 class AppSettings {
   const AppSettings({
@@ -26,10 +34,11 @@ class AppSettings {
     required this.promptStrategy,
     required this.requireAuthForArchive,
     required this.requireAuthForApp,
+    required this.developerOptionsUnlocked,
     required this.requireNameToDelete,
     required this.allowDeleteMessage,
     required this.autoBackup,
-    required this.showSplashAnimation,
+    this.splashAnimation = 'logoDraw',
     this.autoOpenLastChat = false,
     this.unboundedModelList = false,
     this.fontSizeStep = 0,
@@ -46,18 +55,13 @@ class AppSettings {
     this.regexRules = const <RegexRule>[],
     required this.appIcon,
     required this.snackDurationMs,
-    required this.sherpaModelSource,
-    this.sherpaCustomBaseUrl,
-    required this.sherpaModelReady,
-    this.sherpaModelPath,
-    required this.selectedVoiceModelId,
     required this.accentMode,
     this.customAccentColor,
-    required this.voiceInputEnabled,
     required this.ttsEnabled,
     this.ttsGlobalSeed,
     this.ttsQuoteOnly = true,
     this.showParenButton = true,
+    this.showUploadButton = true,
     this.showMessageAvatar = true,
     this.showMessageRetry = true,
     this.showMessageCopy = true,
@@ -109,10 +113,11 @@ class AppSettings {
       promptStrategy: PromptStrategy.defaults(),
       requireAuthForArchive: false,
       requireAuthForApp: false,
+    developerOptionsUnlocked: false,
       requireNameToDelete: true,
       allowDeleteMessage: false,
       autoBackup: true,
-      showSplashAnimation: true,
+      splashAnimation: 'logoDraw',
       autoOpenLastChat: false,
       unboundedModelList: false,
       fontSizeStep: 0,
@@ -127,19 +132,14 @@ class AppSettings {
       enableRegexReplacement: true,
       regexRules: <RegexRule>[],
       appIcon: 'default',
-      snackDurationMs: 1000,
-      sherpaModelSource: 'auto',
-      sherpaCustomBaseUrl: null,
-      sherpaModelReady: false,
-      sherpaModelPath: null,
-      selectedVoiceModelId: kVoiceModelDefaultId,
+      snackDurationMs: kDefaultSnackDurationMs,
       accentMode: 'auto',
       customAccentColor: null,
-      voiceInputEnabled: false,
       ttsEnabled: false,
       ttsGlobalSeed: null,
       ttsQuoteOnly: true,
       showParenButton: true,
+      showUploadButton: true,
       showMessageAvatar: true,
       showMessageRetry: true,
       showMessageCopy: true,
@@ -207,6 +207,12 @@ class AppSettings {
   final String apiKey;
   final String selectedModel;
   final bool completedOobe;
+
+  /// 已经释放过的预置清单版本号（0 = 从未释放）。
+  ///
+  /// 用版本号而不是布尔：清单里的卡换了内容，版本 +1，下次启动/完成引导时
+  /// 会补释放缺的那几张 —— 布尔标记会让「换卡」永远不生效（踩过）。
+  /// 同 id 的卡仍然跳过，不会覆盖用户改过的内容。
   final bool autoSummaryPrompt;
   final int summaryTurnInterval;
 
@@ -230,6 +236,12 @@ class AppSettings {
   final bool requireAuthForArchive;
   final bool requireAuthForApp;
 
+  /// 是否已解锁「开发者选项」（在关于页连点版本号 10 次）。
+  ///
+  /// 默认关闭：开发者选项里有命令控制台与「清空全部数据」这类操作，
+  /// 不该让普通用户顺手点进去。解锁状态跟着设置一起存/备份。
+  final bool developerOptionsUnlocked;
+
   /// 删除前是否强制输入完整名称。
   /// 开启时：输入对应名称（角色名 / 世界名 / 对话角色名 / 群成员名）→ 5 秒滚动确认（可反悔）。
   /// 关闭时：改为长按右下角按钮 5 秒删除（滚动同步进行）。对四类可归档实体统一生效。
@@ -243,7 +255,13 @@ class AppSettings {
   final bool autoBackup;
 
   /// 是否播放启动开屏动画。
-  final bool showSplashAnimation;
+  /// 开场动画 id（见 `pages/splash/splash_animations.dart` 的 kSplashAnimations）。
+  ///
+  /// 存 id 而不是布尔：换一种动画不需要改数据结构和迁移。未知 id 会回退到默认。
+  final String splashAnimation;
+
+  /// 兼容旧调用点：是否要播开场动画（`none` = 关）。
+  bool get showSplashAnimation => splashAnimation != 'none';
 
   /// 打开应用时是否**自动回到上一次打开的那场会话**（续玩型）。
   ///
@@ -312,19 +330,14 @@ class AppSettings {
 
   /// 语音识别模型来源偏好：'auto' | 'modelscope' | 'github' | 'custom'。
   /// 'auto' 才会探测并回退；其余为严格单选，失败直接报错。
-  final String sherpaModelSource;
 
   /// 自定义模型服务器根地址（source 为 'custom' 时生效）。
-  final String? sherpaCustomBaseUrl;
 
   /// 模型是否已下载就绪（本地存在可用模型）。
-  final bool sherpaModelReady;
 
   /// 已下载模型的本地目录路径。
-  final String? sherpaModelPath;
 
   /// 当前选中的语音识别模型 id。
-  final String selectedVoiceModelId;
 
   /// 强调色（莫奈取色）模式：'auto' 跟随系统/角色卡；'custom' 使用自定义色。
   final String accentMode;
@@ -332,8 +345,6 @@ class AppSettings {
   /// 自定义强调色（ARGB 整数），仅当 [accentMode] 为 'custom' 时生效。
   final int? customAccentColor;
 
-  /// 是否启用离线语音输入（STT）。关闭时聊天输入框不显示麦克风按钮。
-  final bool voiceInputEnabled;
 
   /// 是否启用端侧语音合成（TTS）。
   final bool ttsEnabled;
@@ -347,6 +358,11 @@ class AppSettings {
 
   /// 聊天输入框旁是否显示「添加括号」按钮（点击在末尾追加（）并把光标置于中间）。
   final bool showParenButton;
+
+  /// 聊天输入栏是否显示「上传文件」按钮。
+  ///
+  /// 默认开启；关掉后只是隐藏入口，已发送消息里的附件照常显示。
+  final bool showUploadButton;
 
   /// 对方气泡左上角是否显示角色头像（配合 TTS 朗读按钮，群聊中用于区分发言者）。
   final bool showMessageAvatar;
@@ -382,6 +398,11 @@ class AppSettings {
   final bool halfScreenChat;
 
   /// 半屏动态自适应滚动：向上翻看历史消息时自动展开为全屏，向下滑动或滚到底部时自动收敛回半屏。
+  /// 旧名「滚动时自动全半屏」。
+  ///
+  /// 自动跟随滚动切换布局的行为已按审计删除（滚动不该改变界面结构）；
+  /// 这个开关现在只决定**聊天顶栏是否显示「展开为全屏」按钮**。
+  /// key 名称保留是为了不丢老用户的持久化值。
   final bool? _dynamicHalfScreen;
   bool get dynamicHalfScreen => _dynamicHalfScreen ?? false;
 
@@ -472,10 +493,11 @@ class AppSettings {
       'promptStrategy': promptStrategy.toJson(),
       'requireAuthForArchive': requireAuthForArchive,
       'requireAuthForApp': requireAuthForApp,
+      'developerOptionsUnlocked': developerOptionsUnlocked,
       'requireNameToDelete': requireNameToDelete,
       'allowDeleteMessage': allowDeleteMessage,
       'autoBackup': autoBackup,
-      'showSplashAnimation': showSplashAnimation,
+      'splashAnimation': splashAnimation,
       'autoOpenLastChat': autoOpenLastChat,
       'unboundedModelList': unboundedModelList,
       'fontSizeStep': fontSizeStep,
@@ -492,18 +514,13 @@ class AppSettings {
       'regexRules': regexRules.map((RegexRule r) => r.toJson()).toList(),
       'appIcon': appIcon,
       'snackDurationMs': snackDurationMs,
-      'sherpaModelSource': sherpaModelSource,
-      'sherpaCustomBaseUrl': sherpaCustomBaseUrl,
-      'sherpaModelReady': sherpaModelReady,
-      'sherpaModelPath': sherpaModelPath,
-      'selectedVoiceModelId': selectedVoiceModelId,
-      'accentMode': accentMode,
+                'accentMode': accentMode,
       'customAccentColor': customAccentColor,
-      'voiceInputEnabled': voiceInputEnabled,
-      'ttsEnabled': ttsEnabled,
+        'ttsEnabled': ttsEnabled,
       'ttsGlobalSeed': ttsGlobalSeed,
       'ttsQuoteOnly': ttsQuoteOnly,
       'showParenButton': showParenButton,
+      'showUploadButton': showUploadButton,
       'showMessageAvatar': showMessageAvatar,
       'showMessageRetry': showMessageRetry,
       'showMessageCopy': showMessageCopy,
@@ -568,10 +585,14 @@ class AppSettings {
       promptStrategy: promptStrategy,
       requireAuthForArchive: (json['requireAuthForArchive'] as bool?) ?? false,
       requireAuthForApp: (json['requireAuthForApp'] as bool?) ?? false,
+      developerOptionsUnlocked:
+          (json['developerOptionsUnlocked'] as bool?) ?? false,
       requireNameToDelete: (json['requireNameToDelete'] as bool?) ?? true,
       allowDeleteMessage: (json['allowDeleteMessage'] as bool?) ?? false,
       autoBackup: (json['autoBackup'] as bool?) ?? true,
-      showSplashAnimation: (json['showSplashAnimation'] as bool?) ?? true,
+      splashAnimation:
+          (json['splashAnimation'] as String?) ??
+          ((json['showSplashAnimation'] as bool?) == false ? 'none' : 'logoDraw'),
       autoOpenLastChat: (json['autoOpenLastChat'] as bool?) ?? false,
       unboundedModelList: (json['unboundedModelList'] as bool?) ?? false,
       fontSizeStep: (json['fontSizeStep'] as int?) ?? 0,
@@ -592,20 +613,15 @@ class AppSettings {
               .toList() ??
           <RegexRule>[],
       appIcon: (json['appIcon'] as String?) ?? 'default',
-      snackDurationMs: (json['snackDurationMs'] as int?) ?? 1000,
-      sherpaModelSource: (json['sherpaModelSource'] as String?) ?? 'auto',
-      sherpaCustomBaseUrl: json['sherpaCustomBaseUrl'] as String?,
-      sherpaModelReady: (json['sherpaModelReady'] as bool?) ?? false,
-      sherpaModelPath: json['sherpaModelPath'] as String?,
-      selectedVoiceModelId:
-          (json['selectedVoiceModelId'] as String?) ?? kVoiceModelDefaultId,
+      snackDurationMs:
+          (json['snackDurationMs'] as int?) ?? kDefaultSnackDurationMs,
       accentMode: (json['accentMode'] as String?) ?? 'auto',
       customAccentColor: json['customAccentColor'] as int?,
-      voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? false,
       ttsEnabled: (json['ttsEnabled'] as bool?) ?? false,
       ttsGlobalSeed: json['ttsGlobalSeed'] as int?,
       ttsQuoteOnly: (json['ttsQuoteOnly'] as bool?) ?? true,
       showParenButton: (json['showParenButton'] as bool?) ?? true,
+      showUploadButton: (json['showUploadButton'] as bool?) ?? true,
       showMessageAvatar: (json['showMessageAvatar'] as bool?) ?? true,
       showMessageRetry: (json['showMessageRetry'] as bool?) ?? true,
       showMessageCopy: (json['showMessageCopy'] as bool?) ?? true,
@@ -628,6 +644,10 @@ class AppSettings {
       repetitionPenalty: (json['repetitionPenalty'] as num?)?.toDouble() ?? 1.0,
       repetitionPenaltySlope:
           (json['repetitionPenaltySlope'] as num?)?.toDouble() ?? 0.0,
+      // 此前漏读 loreStickyRounds（toJson 写了、fromJson 不读），于是
+      // 「从备份还原」会把「词条命中后持续几轮」重置成默认 3。补上，并由
+      // test/settings_spec_test.dart 的「toJson/fromJson 往返完备」守住。
+      loreStickyRounds: (json['loreStickyRounds'] as int?) ?? 3,
       loreMaxEntries: (json['loreMaxEntries'] as int?) ?? 8,
       loreBudgetTokens: (json['loreBudgetTokens'] as int?) ?? 0,
       quickReplies: (json['quickReplies'] as List?)
@@ -687,10 +707,11 @@ class AppSettings {
     PromptStrategy? promptStrategy,
     bool? requireAuthForArchive,
     bool? requireAuthForApp,
+    bool? developerOptionsUnlocked,
     bool? requireNameToDelete,
     bool? allowDeleteMessage,
     bool? autoBackup,
-    bool? showSplashAnimation,
+    String? splashAnimation,
     bool? autoOpenLastChat,
     bool? unboundedModelList,
     int? fontSizeStep,
@@ -707,18 +728,13 @@ class AppSettings {
     List<RegexRule>? regexRules,
     String? appIcon,
     int? snackDurationMs,
-    String? sherpaModelSource,
-    String? sherpaCustomBaseUrl,
-    bool? sherpaModelReady,
-    String? sherpaModelPath,
-    String? selectedVoiceModelId,
     String? accentMode,
     int? customAccentColor,
-    bool? voiceInputEnabled,
     bool? ttsEnabled,
     int? ttsGlobalSeed,
     bool? ttsQuoteOnly,
     bool? showParenButton,
+    bool? showUploadButton,
     bool? showMessageAvatar,
     bool? showMessageRetry,
     bool? showMessageCopy,
@@ -771,10 +787,12 @@ class AppSettings {
       promptStrategy: promptStrategy ?? this.promptStrategy,
       requireAuthForArchive: requireAuthForArchive ?? this.requireAuthForArchive,
       requireAuthForApp: requireAuthForApp ?? this.requireAuthForApp,
+      developerOptionsUnlocked:
+          developerOptionsUnlocked ?? this.developerOptionsUnlocked,
       requireNameToDelete: requireNameToDelete ?? this.requireNameToDelete,
       allowDeleteMessage: allowDeleteMessage ?? this.allowDeleteMessage,
       autoBackup: autoBackup ?? this.autoBackup,
-      showSplashAnimation: showSplashAnimation ?? this.showSplashAnimation,
+      splashAnimation: splashAnimation ?? this.splashAnimation,
       autoOpenLastChat: autoOpenLastChat ?? this.autoOpenLastChat,
       unboundedModelList: unboundedModelList ?? this.unboundedModelList,
       fontSizeStep: fontSizeStep ?? this.fontSizeStep,
@@ -793,18 +811,13 @@ class AppSettings {
       regexRules: regexRules ?? this.regexRules,
       appIcon: appIcon ?? this.appIcon,
       snackDurationMs: snackDurationMs ?? this.snackDurationMs,
-      sherpaModelSource: sherpaModelSource ?? this.sherpaModelSource,
-      sherpaCustomBaseUrl: sherpaCustomBaseUrl ?? this.sherpaCustomBaseUrl,
-      sherpaModelReady: sherpaModelReady ?? this.sherpaModelReady,
-      sherpaModelPath: sherpaModelPath ?? this.sherpaModelPath,
-      selectedVoiceModelId: selectedVoiceModelId ?? this.selectedVoiceModelId,
       accentMode: accentMode ?? this.accentMode,
       customAccentColor: customAccentColor ?? this.customAccentColor,
-      voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
       ttsGlobalSeed: ttsGlobalSeed ?? this.ttsGlobalSeed,
       ttsQuoteOnly: ttsQuoteOnly ?? this.ttsQuoteOnly,
       showParenButton: showParenButton ?? this.showParenButton,
+      showUploadButton: showUploadButton ?? this.showUploadButton,
       showMessageAvatar: showMessageAvatar ?? this.showMessageAvatar,
       showMessageRetry: showMessageRetry ?? this.showMessageRetry,
       showMessageCopy: showMessageCopy ?? this.showMessageCopy,
@@ -841,4 +854,21 @@ class AppSettings {
       models: models ?? this.models,
     );
   }
+
+  /// 清空自定义强调色。
+  ///
+  /// copyWith 一律用 param ?? this.param 合并，**无法表达「置空」**：
+  /// 传 null 等于「不修改」。而「切回自动取色」需要真的清掉自定义色，所以
+  /// 单开一个语义明确的入口；写通道 app_settings_patch.dart 收到 null 时调这里。
+  ///
+  /// 这里借 fromJson 只为「保留其余 81 个字段、改 1 个」，
+  /// 由 settings_spec_test 的往返测试保证它不会吃掉别的字段。
+  AppSettings clearCustomAccentColor() => AppSettings.fromJson(
+        <String, dynamic>{...toJson(), 'customAccentColor': null},
+      );
+
+  /// 清空 TTS 全局随机种子。理由同 [clearCustomAccentColor]。
+  AppSettings clearTtsGlobalSeed() => AppSettings.fromJson(
+        <String, dynamic>{...toJson(), 'ttsGlobalSeed': null},
+      );
 }

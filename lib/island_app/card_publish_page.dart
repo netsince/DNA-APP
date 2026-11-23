@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../utils/action_table.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -438,24 +440,9 @@ class _CommunityCardEditorPageState extends State<CommunityCardEditorPage> {
       Navigator.of(context).pop(result);
       return;
     }
-    final bool? discard = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const FitText('放弃修改？'),
-        content: const FitText('还有未保存的修改，返回会丢失。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const FitText('继续编辑'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const FitText('放弃'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || discard != true) return;
+    // 「放弃修改？」的文案与按钮由动作表统一（5 个外壳原来各抄一遍）。
+    if (!await confirmDiscardEdits(context)) return;
+    if (!mounted) return;
     Navigator.of(context).pop(result);
   }
 

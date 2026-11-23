@@ -1,9 +1,38 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatStreamHandlers on ChatStateMixin {
+  /// 生成失败的助手消息 id → 给人看的失败原因。
+  ///
+  /// 只服务 UI：让「生成失败」留在消息列表里可见（气泡下方的行内错误条 +
+  /// 行内「重试」），而不是只弹一条转瞬即逝的 snackbar——流中断后气泡停在
+  /// 半截，看起来和"生成完了"没有区别（审计 3.5）。
+  ///
+  /// 刻意不入库：这是"这一次请求失败"的瞬时状态，换会话/重进聊天页后
+  /// 不应复活。消息正文本身（已生成的部分）照常走 [_persistPartialAssistantMessage]。
+  final Map<String, String> _streamErrors = <String, String>{};
+
+  /// 给某条助手消息标上失败态（null = 清除）。
+  void _setStreamError(String assistantId, String? message) {
+    if (!mounted) {
+      return;
+    }
+    final bool had = _streamErrors.containsKey(assistantId);
+    if (message == null) {
+      if (!had) {
+        return;
+      }
+      setState(() => _streamErrors.remove(assistantId));
+      return;
+    }
+    if (had && _streamErrors[assistantId] == message) {
+      return;
+    }
+    setState(() => _streamErrors[assistantId] = message);
+  }
+
   // ignore: unused_element
   Future<bool> _streamAssistantResponse({
-    required List<Map<String, String>> payload,
+    required List<Map<String, dynamic>> payload,
     required String assistantId,
     required ConversationMessage assistantMessage,
   }) async {
@@ -14,6 +43,8 @@ mixin ChatStreamHandlers on ChatStateMixin {
     _generationStopRequested = false;
     bool stoppedByUser = false;
     String? notice;
+    // 新请求一开始，上一次的失败态就作废（重试/继续说都会走到这里）。
+    _setStreamError(assistantId, null);
 
     // C2/C4:请求参数由控制器工厂从激活配置派生。
     final LlmRequest request = widget.controller.buildLlmRequest(messages: payload);
@@ -34,9 +65,18 @@ mixin ChatStreamHandlers on ChatStateMixin {
       }
 
       switch (chunk) {
-        case LlmErrorChunk(:final message):
+        case LlmErrorChunk(message: final String errorText):
+          // 失败要留在消息列表里可见：先把已生成的部分落库（不留空气泡），
+          // 再把失败原因挂到这条消息上（行内错误条 + 行内「重试」）。
+          // snackbar 只当辅助提示，不再承担唯一的信息出口（审计 3.5）。
+          await _persistPartialAssistantMessage(message, assistantId);
+          if (!mounted) {
+            return false;
+          }
           setState(() => _sending = false);
-          showSnack(context, message);
+          _setStreamError(assistantId, errorText);
+          showSnack(context, errorText);
+          _scrollToBottom();
           return false;
         case LlmNoticeChunk(:final message):
           notice = notice == null ? message : '$notice\n$message';
@@ -126,6 +166,7 @@ mixin ChatStreamHandlers on ChatStateMixin {
     );
 
     await widget.controller.upsertConversation(_conversation);
+    _setStreamError(assistantId, null);
 
     if (mounted) {
       setState(() {});

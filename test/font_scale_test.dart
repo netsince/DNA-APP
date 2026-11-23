@@ -151,15 +151,21 @@ void main() {
       );
       await tester.pump();
 
+      // 数值项现在是「摘要行 + 展开才见滑杆」：先滚到「字号」、点开，再取滑杆。
+      final Finder row = find.text('字号').first;
+      await tester.scrollUntilVisible(
+        row,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+
       final Finder sliderFinder = find.byWidgetPredicate(
         (Widget w) => w is Slider && w.max == AppFontScale.maxStep.toDouble(),
       );
-      await tester.dragUntilVisible(
-        sliderFinder,
-        find.byType(ListView),
-        const Offset(0, -300),
-      );
-      await tester.pumpAndSettle();
+      expect(sliderFinder, findsOneWidget, reason: '展开后应出现字号滑杆');
 
       final Slider slider = tester.widget<Slider>(sliderFinder);
       expect(slider.value, 0, reason: '默认跟随系统');

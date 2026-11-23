@@ -1,6 +1,7 @@
-import 'dart:convert';
+import '../widgets/memo_image.dart';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/world_import_sink.dart';
@@ -29,6 +30,9 @@ import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/widgets/world_list_tile.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import '../theme/tokens.dart';
 
@@ -69,32 +73,25 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    Widget child;
+    final Widget fallback =
+        Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
     final a = avatar;
-    if (a.isEmpty) {
-      child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
-    } else if (a.startsWith('data:')) {
-      final comma = a.indexOf(',');
-      final b64 = comma >= 0 ? a.substring(comma + 1) : a;
-      try {
-        final bytes = base64Decode(b64);
-        child = Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
-      } catch (_) {
-        child = Icon(
-          Icons.person,
-          size: radius,
-          color: scheme.onSurfaceVariant,
-        );
-      }
-    } else {
-      child = Image.network(
-        ServerConfig.resolveUrl(a),
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) =>
-            Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
-      );
-    }
+    final int target =
+        (radius * 2 * MediaQuery.devicePixelRatioOf(context)).clamp(32, 256).round();
+    // data URL 与网络图都走同一个带缓存的 provider，并按其显示尺寸解码。
+    final ImageProvider? provider = a.isEmpty
+        ? null
+        : (a.startsWith('data:')
+            ? MemoImage.dataUrl(a, cacheWidth: target)
+            : MemoImage.network(ServerConfig.resolveUrl(a), cacheWidth: target));
+    final Widget child = provider == null
+        ? fallback
+        : Image(
+            image: provider,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => fallback,
+          );
     return CircleAvatar(
       radius: radius,
       backgroundColor: scheme.surfaceContainerHighest,
@@ -302,39 +299,143 @@ class ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  final List<Map<String, dynamic>> _cards = <Map<String, dynamic>>[];
-  final List<Map<String, dynamic>> _comments = <Map<String, dynamic>>[];
   Map<String, dynamic>? _user;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
   int _cardTotal = 0;
   int _followerCount = 0;
   int _followingCount = 0;
 
-  // 评论 tab 分页状态
-  bool _commentsLoading = false;
-  bool _commentsLoadingMore = false;
-  bool _commentsNoMore = false;
-  int _commentsPage = 0;
+  // 四个内容区（角色卡 / 评论区 / 茶馆 / 世界卡）的分页状态 —— 首屏加载中、
+  // 加载更多、没有更多、当前页、失败文案 —— 统一交给 [PagedController]
+  // （全项目共用一份状态机），本页只提供「怎么取一页」。
+  //
+  // 失败与「还没有内容」由控制器分开（审计 3.5）：只有**首屏请求失败且列表
+  // 为空**才置错误文案；列表非空时（翻页失败）不覆盖已加载内容，也不会退化
+  // 成「你没有发过东西」这种错误结论。
 
-  // 茶馆 tab 分页状态
-  final List<Map<String, dynamic>> _teahouse = <Map<String, dynamic>>[];
-  bool _teahouseLoading = false;
-  bool _teahouseLoadingMore = false;
-  bool _teahouseNoMore = false;
-  int _teahousePage = 0;
+  late final PagedController<Map<String, dynamic>> _cardsPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final data =
+              await (widget.profileLoader ?? ApiClient.instance.getUserProfile)(
+                widget.username,
+                page: page,
+              );
+          // 资料 / 统计与角色卡同源：同一次响应里顺手更新头卡数据。
+          final u = data['user'];
+          final cards = data['cards'];
+          if (u is Map) _user = u.map((k, v) => MapEntry(k.toString(), v));
+          _followerCount = (data['follower_count'] as num?)?.toInt() ?? 0;
+          _followingCount = (data['following_count'] as num?)?.toInt() ?? 0;
+          _isFollowing = data['is_following'] == true;
+          if (cards is Map) {
+            _cardTotal = ((cards['total'] as num?) ?? 0).toInt();
+          }
+          final items = (cards is Map && cards['items'] is List)
+              ? (cards['items'] as List)
+                    .whereType<Map>()
+                    .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          // 这个接口没有翻页标志：旧逻辑就是「返回空页 = 到底了」。
+          return PagedResult<Map<String, dynamic>>(
+            items: items,
+            hasMore: items.isNotEmpty,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '角色卡加载失败，请稍后重试',
+      );
 
-  // 世界卡 tab 分页状态
+  late final PagedController<Map<String, dynamic>> _commentsPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final data =
+              await (widget.commentsLoader ??
+                  ApiClient.instance.getUserComments)(
+                widget.username,
+                page: page,
+              );
+          final rawItems = data['items'];
+          final items = rawItems is List
+              ? rawItems
+                    .whereType<Map>()
+                    .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          return PagedResult<Map<String, dynamic>>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '评论加载失败，请稍后重试',
+      );
+
+  late final PagedController<Map<String, dynamic>> _teahousePaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final data =
+              await (widget.teahouseLoader ??
+                  ApiClient.instance.getUserTeahousePosts)(
+                widget.username,
+                page: page,
+              );
+          final rawItems = data['items'];
+          final items = rawItems is List
+              ? rawItems
+                    .whereType<Map>()
+                    .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          return PagedResult<Map<String, dynamic>>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '茶馆帖子加载失败，请稍后重试',
+      );
+
+  // 世界卡 tab 的分页状态。
   //
   // 这一个**不在 initState 里预拉**：主页一进来就并发四个请求（资料/评论/
-  // 茶馆/世界卡）没必要，世界卡 tab 是最后才被看的。切过去时再拉。
-  final List<WorldCardSummary> _worlds = <WorldCardSummary>[];
-  bool _worldsLoading = false;
-  bool _worldsLoadingMore = false;
-  bool _worldsNoMore = false;
-  int _worldsPage = 0;
+  // 茶馆/世界卡）没必要，世界卡 tab 是最后才被看的。切过去时再拉
+  // （见 [_onWorldsTabActive]）。
+  late final PagedController<WorldCardSummary> _worldsPaged =
+      PagedController<WorldCardSummary>(
+        fetch: (int page) async {
+          final data =
+              await (widget.worldsLoader ?? ApiClient.instance.getUserWorlds)(
+                widget.username,
+                page: page,
+              );
+          final rawItems = data['items'];
+          final items = rawItems is List
+              ? rawItems
+                    .whereType<Map>()
+                    .map(
+                      (Map e) =>
+                          WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                    )
+                    .where((WorldCardSummary w) => w.id.isNotEmpty)
+                    .toList()
+              : <WorldCardSummary>[];
+          return PagedResult<WorldCardSummary>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '世界卡加载失败，请稍后重试',
+      );
 
   /// 当前登录用户是否已关注该主页用户（他人主页关注按钮的初始状态）。
   bool _isFollowing = false;
@@ -345,183 +446,18 @@ class _ProfileViewState extends State<ProfileView> {
   @override
   void initState() {
     super.initState();
-    _loadProfile(reset: true);
-    _loadComments(reset: true);
-    _loadTeahouse(reset: true);
+    _cardsPaged.refresh();
+    _commentsPaged.refresh();
+    _teahousePaged.refresh();
   }
 
-  /// 用户评论分页加载（[reset] 为 true 时重拉第一页）。
-  Future<void> _loadComments({bool reset = false}) async {
-    if (_commentsLoadingMore || (!reset && _commentsNoMore)) return;
-    setState(() {
-      if (reset) _commentsLoading = true;
-      _commentsLoadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _commentsPage + 1;
-      final data =
-          await (widget.commentsLoader ?? ApiClient.instance.getUserComments)(
-            widget.username,
-            page: page,
-          );
-      if (!mounted) return;
-      final rawItems = data['items'];
-      final items = rawItems is List
-          ? rawItems
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (reset) _comments.clear();
-        _comments.addAll(items);
-        _commentsPage = page;
-        _commentsNoMore = items.isEmpty || data['has_next'] != true;
-        _commentsLoading = false;
-        _commentsLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _commentsLoading = false;
-          _commentsLoadingMore = false;
-        });
-      }
-    }
-  }
-
-  /// 用户茶馆帖子分页加载（[reset] 为 true 时重拉第一页）。
-  Future<void> _loadTeahouse({bool reset = false}) async {
-    if (_teahouseLoadingMore || (!reset && _teahouseNoMore)) return;
-    setState(() {
-      if (reset) _teahouseLoading = true;
-      _teahouseLoadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _teahousePage + 1;
-      final data =
-          await (widget.teahouseLoader ??
-              ApiClient.instance.getUserTeahousePosts)(
-            widget.username,
-            page: page,
-          );
-      if (!mounted) return;
-      final rawItems = data['items'];
-      final items = rawItems is List
-          ? rawItems
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (reset) _teahouse.clear();
-        _teahouse.addAll(items);
-        _teahousePage = page;
-        _teahouseNoMore = items.isEmpty || data['has_next'] != true;
-        _teahouseLoading = false;
-        _teahouseLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _teahouseLoading = false;
-          _teahouseLoadingMore = false;
-        });
-      }
-    }
-  }
-
-  /// 用户世界卡分页加载（[reset] 为 true 时重拉第一页）。
-  ///
-  /// 切到「世界」tab 时才第一次调用（见 [_onWorldsTabActive]）。
-  Future<void> _loadWorlds({bool reset = false}) async {
-    if (_worldsLoadingMore || (!reset && _worldsNoMore)) return;
-    setState(() {
-      if (reset) _worldsLoading = true;
-      _worldsLoadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _worldsPage + 1;
-      final data =
-          await (widget.worldsLoader ?? ApiClient.instance.getUserWorlds)(
-            widget.username,
-            page: page,
-          );
-      if (!mounted) return;
-      final rawItems = data['items'];
-      final items = rawItems is List
-          ? rawItems
-                .whereType<Map>()
-                .map(
-                  (Map e) =>
-                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
-                )
-                .where((WorldCardSummary w) => w.id.isNotEmpty)
-                .toList()
-          : <WorldCardSummary>[];
-      setState(() {
-        if (reset) _worlds.clear();
-        _worlds.addAll(items);
-        _worldsPage = page;
-        _worldsNoMore = items.isEmpty || data['has_next'] != true;
-        _worldsLoading = false;
-        _worldsLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _worldsLoading = false;
-          _worldsLoadingMore = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadProfile({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final data =
-          await (widget.profileLoader ?? ApiClient.instance.getUserProfile)(
-            widget.username,
-            page: page,
-          );
-      if (!mounted) return;
-      final u = data['user'];
-      final cards = data['cards'];
-      final items = (cards is Map && cards['items'] is List)
-          ? (cards['items'] as List)
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (u is Map) _user = u.map((k, v) => MapEntry(k.toString(), v));
-        if (reset) _cards.clear();
-        _cards.addAll(items);
-        _page = page;
-        _followerCount = (data['follower_count'] as num?)?.toInt() ?? 0;
-        _followingCount = (data['following_count'] as num?)?.toInt() ?? 0;
-        _isFollowing = data['is_following'] == true;
-        if (cards is Map) {
-          _cardTotal = ((cards['total'] as num?) ?? 0).toInt();
-        }
-        if (items.isEmpty) _noMore = true;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _loadingMore = false;
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _cardsPaged.dispose();
+    _commentsPaged.dispose();
+    _teahousePaged.dispose();
+    _worldsPaged.dispose();
+    super.dispose();
   }
 
   void _openFollowList(bool followers) {
@@ -565,11 +501,11 @@ class _ProfileViewState extends State<ProfileView> {
         final next = _followerCount + (following ? 1 : -1);
         _followerCount = next < 0 ? 0 : next;
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('操作失败，请重试')));
+        ).showSnackBar(SnackBar(content: Text('操作失败：${describeError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _followBusy = false);
@@ -596,20 +532,20 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  /// 下拉刷新：重新拉取个人资料与评论第一页。
+  /// 下拉刷新：重新拉取个人资料、评论与茶馆的第一页。
   Future<void> _refresh() async {
-    if (_loading) return;
-    await Future.wait([
-      _loadProfile(reset: true),
-      _loadComments(reset: true),
-      _loadTeahouse(reset: true),
+    if (_cardsPaged.isLoading) return;
+    await Future.wait(<Future<void>>[
+      _cardsPaged.refresh(),
+      _commentsPaged.refresh(),
+      _teahousePaged.refresh(),
     ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final u = _user;
-    if (_loading && u == null) {
+    if (_cardsPaged.isLoading && u == null) {
       return const Center(child: CircularProgressIndicator());
     }
     // 主页式布局：身份头卡随内容上滚消失，TabBar 吸顶，内容占满剩余空间。
@@ -719,7 +655,6 @@ class _ProfileViewState extends State<ProfileView> {
                     enabled: !_followBusy,
                     onPressed: _toggleFollow,
                     style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
                       backgroundColor: _isFollowing
                           ? scheme.surfaceContainerHigh
                           : null,
@@ -755,34 +690,30 @@ class _ProfileViewState extends State<ProfileView> {
                   itemBuilder: (_) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(
                       value: 'edit',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('编辑资料'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.edit_outlined), AppSpacing.wMd, Text('编辑资料')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'tickets',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.support_agent),
-                        title: Text('我的工单'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.support_agent), AppSpacing.wMd, Text('我的工单')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'punishments',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.gavel_outlined),
-                        title: Text('我的处罚'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.gavel_outlined), AppSpacing.wMd, Text('我的处罚')],
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'logout',
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.logout),
-                        title: Text('退出登录'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[Icon(Icons.logout), AppSpacing.wMd, Text('退出登录')],
                       ),
                     ),
                   ],
@@ -860,7 +791,7 @@ class _ProfileViewState extends State<ProfileView> {
   /// 统计行：关注 / 粉丝 / 角色卡，点击可打开对应列表。
   Widget _buildStats(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (_loading) {
+    if (_cardsPaged.isLoading) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List<Widget>.generate(3, (_) {
@@ -1057,16 +988,20 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildCardsTab(BuildContext context) {
-    if (_loading && _cards.isEmpty) {
+    if (_cardsPaged.isLoading && _cardsPaged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_cards.isEmpty) {
+    if (_cardsPaged.error != null && _cardsPaged.items.isEmpty) {
+      return _errorTab(_cardsPaged.error!, () => _cardsPaged.refresh());
+    }
+    if (_cardsPaged.items.isEmpty) {
       return _emptyTab('角色卡', '还没有发布任何角色卡');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-          _loadProfile();
+        if (n.metrics.pixels >=
+            n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+          _cardsPaged.loadMore();
         }
         return false;
       },
@@ -1076,12 +1011,12 @@ class _ProfileViewState extends State<ProfileView> {
           SliverPadding(
             padding: AppInsets.card,
             sliver: ResponsiveCardGrid(
-              cards: _cards,
+              cards: _cardsPaged.items,
               minColumnWidth: 180,
               maxColumns: 5,
             ),
           ),
-          if (_loadingMore)
+          if (_cardsPaged.isLoadingMore)
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
@@ -1110,28 +1045,44 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  /// 加载失败的 tab：与 [_emptyTab] **同构**（都可滚动，外层下拉刷新照旧），
+  /// 唯一区别是给了一条恢复路径 ——「重试」。
+  ///
+  /// 用共享的 [ErrorState] 而不是自拼图标+文字，保证与全站错误态一致。
+  Widget _errorTab(String message, VoidCallback onRetry) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: <Widget>[
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ErrorState(message: message, onRetry: onRetry),
+        ),
+      ],
+    );
+  }
+
   /// 切到茶馆 tab 且当前是空态（含曾加载失败、登录后未重拉等）时自动重拉首页，
   /// 避免启动阶段登录态未就绪导致 401 后一直停留在「还没有发布茶馆帖子」。
   void _onTeahouseTabActive() {
     if (!mounted) return;
-    if (_teahouse.isEmpty && !_teahouseLoading) {
-      _loadTeahouse(reset: true);
+    if (_teahousePaged.items.isEmpty && !_teahousePaged.isLoading) {
+      _teahousePaged.refresh();
     }
   }
 
   /// 切到评论 tab 且当前是空态时自动重拉，同上避免启动 401 后残留空态。
   void _onCommentsTabActive() {
     if (!mounted) return;
-    if (_comments.isEmpty && !_commentsLoading) {
-      _loadComments(reset: true);
+    if (_commentsPaged.items.isEmpty && !_commentsPaged.isLoading) {
+      _commentsPaged.refresh();
     }
   }
 
   /// 切到「世界」tab 且当前是空态时自动重拉。
   void _onWorldsTabActive() {
     if (!mounted) return;
-    if (_worlds.isEmpty && !_worldsLoading) {
-      _loadWorlds(reset: true);
+    if (_worldsPaged.items.isEmpty && !_worldsPaged.isLoading) {
+      _worldsPaged.refresh();
     }
   }
 
@@ -1144,77 +1095,53 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildWorldsContent(BuildContext context) {
-    if (_worldsLoading && _worlds.isEmpty) {
+    if (_worldsPaged.isLoading && _worldsPaged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_worlds.isEmpty && !_worldsLoading) {
+    if (_worldsPaged.error != null && _worldsPaged.items.isEmpty) {
+      return _errorTab(_worldsPaged.error!, () => _worldsPaged.refresh());
+    }
+    if (_worldsPaged.items.isEmpty && !_worldsPaged.isLoading) {
       return _emptyTab('世界', '还没有发布任何世界卡');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-          _loadWorlds();
+        if (n.metrics.pixels >=
+            n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+          _worldsPaged.loadMore();
         }
         return false;
       },
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _worlds.length + (_worldsLoadingMore ? 1 : 0),
+        itemCount: _worldsPaged.items.length +
+            (_worldsPaged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
         itemBuilder: (context, index) {
-          if (index >= _worlds.length) {
+          if (index >= _worldsPaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          return _worldTile(context, _worlds[index]);
+          return _worldTile(context, _worldsPaged.items[index]);
         },
       ),
     );
   }
 
-  /// 世界卡一行：名字 + 元信息（+ 自己主页上的审核状态）。
+  /// 世界卡一行：与「搜索结果」共用同一个紧凑行组件（列表语境，扫读优先）。
+  ///
+  /// 元信息口径（词条 / 体积 / 复制 / 创建时间）+ 审核徽章都收在
+  /// [WorldListTile] 里，本页不再自己拼 ListTile（审计 3.3：世界卡曾有三种形态）。
   Widget _worldTile(BuildContext context, WorldCardSummary w) {
-    final scheme = Theme.of(context).colorScheme;
-    final String meta = <String>[
-      if (w.entryCount > 0) '${w.entryCount} 词条',
-      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
-      if (w.copyCount > 0) '复制 ${w.copyCount}',
-      if (w.createdAt != null)
-        formatRelativeTime(w.createdAt!.toIso8601String()),
-    ].join(' · ');
-    final String status = widget.isSelf ? w.statusLabel : '';
-    return ListTile(
-      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (w.summary.isNotEmpty)
-            Text(
-              w.summary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: AppFontSize.caption,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          if (meta.isNotEmpty)
-            Text(
-              meta,
-              style: TextStyle(
-                fontSize: AppFontSize.caption,
-                color: scheme.outline,
-              ),
-            ),
-          if (status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: WorldStatusChip(summary: w),
-            ),
-        ],
-      ),
+    return WorldListTile(
+      world: w,
+      // 审核状态只对自己的主页有意义。
+      showStatus: widget.isSelf,
+      extraMeta: w.createdAt == null
+          ? null
+          : formatRelativeTime(w.createdAt!.toIso8601String()),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => WorldDetailPage(
@@ -1236,31 +1163,36 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildTeahouseContent(BuildContext context) {
-    if (_teahouseLoading && _teahouse.isEmpty) {
+    if (_teahousePaged.isLoading && _teahousePaged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_teahouse.isEmpty && !_teahouseLoading) {
+    if (_teahousePaged.error != null && _teahousePaged.items.isEmpty) {
+      return _errorTab(_teahousePaged.error!, () => _teahousePaged.refresh());
+    }
+    if (_teahousePaged.items.isEmpty && !_teahousePaged.isLoading) {
       return _emptyTab('茶馆', '还没有发布茶馆帖子');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-          _loadTeahouse();
+        if (n.metrics.pixels >=
+            n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+          _teahousePaged.loadMore();
         }
         return false;
       },
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _teahouse.length + (_teahouseLoadingMore ? 1 : 0),
+        itemCount: _teahousePaged.items.length +
+            (_teahousePaged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
         itemBuilder: (context, index) {
-          if (index >= _teahouse.length) {
+          if (index >= _teahousePaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          final raw = _teahouse[index];
+          final raw = _teahousePaged.items[index];
           final post = TeaPost.fromJson(raw);
           if (post.isDeleted) return const SizedBox.shrink();
           return TeahousePostTile(
@@ -1288,31 +1220,36 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildCommentsContent(BuildContext context) {
-    if (_commentsLoading && _comments.isEmpty) {
+    if (_commentsPaged.isLoading && _commentsPaged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_comments.isEmpty && !_commentsLoading) {
+    if (_commentsPaged.error != null && _commentsPaged.items.isEmpty) {
+      return _errorTab(_commentsPaged.error!, () => _commentsPaged.refresh());
+    }
+    if (_commentsPaged.items.isEmpty && !_commentsPaged.isLoading) {
       return _emptyTab('评论', '还没有发表评论');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-          _loadComments();
+        if (n.metrics.pixels >=
+            n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+          _commentsPaged.loadMore();
         }
         return false;
       },
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _comments.length + (_commentsLoadingMore ? 1 : 0),
+        itemCount: _commentsPaged.items.length +
+            (_commentsPaged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
         itemBuilder: (context, index) {
-          if (index >= _comments.length) {
+          if (index >= _commentsPaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          final c = _comments[index];
+          final c = _commentsPaged.items[index];
           return _CommentTile(comment: c, onTap: () => _openCommentCard(c));
         },
       ),
@@ -1347,7 +1284,7 @@ class _ProfileViewState extends State<ProfileView> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(builder: (_) => const ProfileEditPage()),
     );
-    if (changed == true && mounted) _loadProfile(reset: true);
+    if (changed == true && mounted) _cardsPaged.refresh();
   }
 
   /// 点击评论项：进入对应角色卡详情，并定位到该条评论。
@@ -1407,58 +1344,49 @@ class FollowListPage extends StatefulWidget {
 }
 
 class _FollowListPageState extends State<FollowListPage> {
-  final List<Map<String, dynamic>> _users = <Map<String, dynamic>>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
-  String? _error;
+  /// 关注 / 粉丝列表的分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一交给
+  /// [PagedController]。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final data = widget.followers
+              ? await ApiClient.instance.getFollowers(
+                  widget.username,
+                  page: page,
+                )
+              : await ApiClient.instance.getFollowing(
+                  widget.username,
+                  page: page,
+                );
+          final items = data['items'];
+          final list = (items is List)
+              ? items
+                    .whereType<Map>()
+                    .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          // 这个接口没有翻页标志：旧逻辑就是「返回空页 = 到底了」。
+          return PagedResult<Map<String, dynamic>>(
+            items: list,
+            hasMore: list.isNotEmpty,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '列表加载失败，请稍后重试',
+      );
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final data = widget.followers
-          ? await ApiClient.instance.getFollowers(widget.username, page: page)
-          : await ApiClient.instance.getFollowing(widget.username, page: page);
-      if (!mounted) return;
-      final items = data['items'];
-      final list = (items is List)
-          ? items
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (reset) {
-          _users.clear();
-          _error = null;
-        }
-        _users.addAll(list);
-        _page = page;
-        if (list.isEmpty) _noMore = true;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _loadingMore = false;
-          if (_users.isEmpty) _error = '$e';
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _openUser(String username) {
@@ -1478,34 +1406,38 @@ class _FollowListPageState extends State<FollowListPage> {
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_loading && _users.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null && _users.isEmpty) {
-      return ErrorState(onRetry: () => _load(reset: true));
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(
+        message: _paged.error!,
+        onRetry: () => _paged.refresh(),
+      );
     }
-    if (_users.isEmpty) {
+    if (_paged.items.isEmpty) {
       return const EmptyState(icon: Icons.people_outline, title: '暂无数据');
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-          _load();
+        if (n.metrics.pixels >=
+            n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+          _paged.loadMore();
         }
         return false;
       },
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _users.length + (_loadingMore ? 1 : 0),
+        itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
         itemBuilder: (context, index) {
-          if (index >= _users.length) {
+          if (index >= _paged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          final u = _users[index];
+          final u = _paged.items[index];
           final username = (u['username'] ?? '').toString();
           return ListTile(
             leading: _Avatar(

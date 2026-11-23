@@ -1,4 +1,4 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
 mixin ChatUiHelpers on ChatStateMixin {
   Future<void> _showSummaryDetail(String summaryId);
@@ -55,23 +55,23 @@ mixin ChatUiHelpers on ChatStateMixin {
         items: const <PopupMenuEntry<String>>[
           PopupMenuItem<String>(
             value: 'view_summary',
-            child: ListTile(
-              leading: Icon(Icons.article_outlined),
-              title: FitText('查看摘要'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[Icon(Icons.article_outlined), AppSpacing.wMd, FitText('查看摘要')],
             ),
           ),
           PopupMenuItem<String>(
             value: 'edit_summary',
-            child: ListTile(
-              leading: Icon(Icons.edit_outlined),
-              title: FitText('编辑摘要'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[Icon(Icons.edit_outlined), AppSpacing.wMd, FitText('编辑摘要')],
             ),
           ),
           PopupMenuItem<String>(
             value: 'delete_summary',
-            child: ListTile(
-              leading: Icon(Icons.delete_outline),
-              title: FitText('删除摘要'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[Icon(Icons.delete_outline), AppSpacing.wMd, FitText('删除摘要')],
             ),
           ),
         ],
@@ -97,16 +97,16 @@ mixin ChatUiHelpers on ChatStateMixin {
         items: const <PopupMenuEntry<String>>[
           PopupMenuItem<String>(
             value: 'start_summary',
-            child: ListTile(
-              leading: Icon(Icons.auto_awesome),
-              title: FitText('生成摘要'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[Icon(Icons.auto_awesome), AppSpacing.wMd, FitText('生成摘要')],
             ),
           ),
           PopupMenuItem<String>(
             value: 'dismiss_summary',
-            child: ListTile(
-              leading: Icon(Icons.close),
-              title: FitText('忽略提示'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[Icon(Icons.close), AppSpacing.wMd, FitText('忽略提示')],
             ),
           ),
         ],
@@ -132,83 +132,94 @@ mixin ChatUiHelpers on ChatStateMixin {
     final bool hasThought = _thoughtsByMessageId.containsKey(message.id) &&
         _thoughtsByMessageId[message.id]!.text.trim().isNotEmpty;
     final bool isThoughtVisible = _visibleThoughtMessageIds.contains(message.id);
+    // 菜单分组（审计 4.1）：同一批动作不再散成一长条。
+    //   ① 生成相关（仅助手：继续说 / 重说）
+    //   ② 编辑（仅助手：更改文字 / 回溯 / 分叉）
+    //   ③ 内容（复制 / 分享）
+    //   ④ 破坏性（删除本条，error 色，单独一段）
+    // 分组之间用 PopupMenuDivider 隔开；删除是唯一的破坏性动作，
+    // 既与常规动作分隔，也用 error 色标出来。
+    final List<PopupMenuEntry<String>> items = <PopupMenuEntry<String>>[];
+
+    // 一行菜单项：图标 + 间距 + 文案（不再套 ListTile —— 双重内边距会让行高错乱）。
+    PopupMenuItem<String> item(
+      String value,
+      IconData icon,
+      String label, {
+      bool enabled = true,
+    }) {
+      return PopupMenuItem<String>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, color: enabled ? null : cs.onSurfaceVariant),
+            AppSpacing.wMd,
+            FitText(label),
+          ],
+        ),
+      );
+    }
+
+    void divider() {
+      // 只在「前面已经有内容、且上一个不是分隔线」时插一条，避免空分组
+      // 留下两条贴在一起的横线。
+      if (items.isNotEmpty && items.last is! PopupMenuDivider) {
+        items.add(const PopupMenuDivider());
+      }
+    }
+
+    if (isAssistant) {
+      items.add(item('continue', Icons.play_arrow, '继续说', enabled: canContinue));
+      items.add(
+        item('retry', Icons.refresh, '重说', enabled: canContinue && !retryDisabled),
+      );
+      divider();
+      items.add(item('edit', Icons.edit, '更改文字'));
+      items.add(item('rollback', Icons.undo, '回溯到此处'));
+      if (widget.controller.settings.enableForking) {
+        items.add(item('fork', Icons.call_split, '从此处分叉'));
+      }
+    }
+    if (hasThought) {
+      divider();
+      items.add(
+        item(
+          isThoughtVisible ? 'hide_thought' : 'show_thought',
+          isThoughtVisible ? Icons.psychology : Icons.psychology_outlined,
+          isThoughtVisible ? '隐藏思考' : '查看思考',
+        ),
+      );
+    }
+    divider();
+    items.add(item('copy', Icons.copy, '复制'));
+    items.add(item('share', Icons.share, '分享'));
+    if (widget.controller.settings.allowDeleteMessage) {
+      divider();
+      // 破坏性动作单独一段 + error 色：不和常规动作混淆。
+      items.add(
+        PopupMenuItem<String>(
+          value: 'delete_message',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.delete_outline, color: cs.error),
+              AppSpacing.wMd,
+              FitText(
+                '删除本条',
+                style: TextStyle(color: cs.error),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final String? action = await showMenu<String>(
       context: context,
       position: anchor,
-      items: <PopupMenuEntry<String>>[
-        if (isAssistant)
-          PopupMenuItem<String>(
-            value: 'continue',
-            enabled: canContinue,
-            child: ListTile(
-              leading: Icon(Icons.play_arrow),
-              title: FitText('继续说'),
-            ),
-          ),
-        if (isAssistant)
-          PopupMenuItem<String>(
-            value: 'retry',
-            enabled: canContinue && !retryDisabled,
-            child: const ListTile(
-              leading: Icon(Icons.refresh),
-              title: FitText('重说'),
-            ),
-          ),
-        if (isAssistant)
-          const PopupMenuItem<String>(
-            value: 'edit',
-            child: ListTile(
-              leading: Icon(Icons.edit),
-              title: FitText('更改文字'),
-            ),
-          ),
-        if (isAssistant)
-          const PopupMenuItem<String>(
-            value: 'rollback',
-            child: ListTile(
-              leading: Icon(Icons.undo),
-              title: FitText('回溯到此处'),
-            ),
-          ),
-        if (isAssistant && widget.controller.settings.enableForking)
-          const PopupMenuItem<String>(
-            value: 'fork',
-            child: ListTile(
-              leading: Icon(Icons.call_split),
-              title: FitText('从此处分叉'),
-            ),
-          ),
-        if (hasThought)
-          PopupMenuItem<String>(
-            value: isThoughtVisible ? 'hide_thought' : 'show_thought',
-            child: ListTile(
-              leading: Icon(isThoughtVisible ? Icons.psychology : Icons.psychology_outlined),
-              title: FitText(isThoughtVisible ? '隐藏思考' : '查看思考'),
-            ),
-          ),
-        const PopupMenuItem<String>(
-          value: 'copy',
-          child: ListTile(
-            leading: Icon(Icons.copy),
-            title: FitText('复制'),
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'share',
-          child: ListTile(
-            leading: Icon(Icons.share),
-            title: FitText('分享'),
-          ),
-        ),
-        if (widget.controller.settings.allowDeleteMessage)
-          PopupMenuItem<String>(
-            value: 'delete_message',
-            child: ListTile(
-              leading: Icon(Icons.delete_outline),
-              title: FitText('删除本条'),
-            ),
-          ),
-      ],
+      items: items,
     );
     _scrollAfterMenu();
     if (action == null) {
@@ -250,9 +261,12 @@ mixin ChatUiHelpers on ChatStateMixin {
       // Web 端走 navigator.share，部分浏览器不支持或用户取消，需容错。
       try {
         await Share.share(message.text);
-      } catch (_) {
+      } catch (e) {
         if (mounted) {
-          showSnack(context, '分享失败，当前环境可能不支持系统分享');
+          showSnack(
+            context,
+            '分享失败（当前环境可能不支持系统分享）：${describeError(e)}',
+          );
         }
       }
       return;
@@ -498,33 +512,73 @@ mixin ChatUiHelpers on ChatStateMixin {
   Future<void> _editAssistantAt(int index) async {
     final ConversationMessage target = _conversation.messages[index];
     final TextEditingController controller = TextEditingController(text: target.text);
-    final String? updated = await showDialog<String>(
+    // 长文本编辑不是一个「决定」，而是**在本上下文里改一段文字**：
+    // 按审计 3.2 从 dialog 换成可滚动、会随键盘抬起的 bottom sheet。
+    final String? updated = await showModalBottomSheet<String>(
       context: context,
-      builder: (BuildContext context) {
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
         return Theme(
           data: _accentTheme,
-          child: AlertDialog(
-            title: const FitText('更改文字'),
-            content: TextField(
-            controller: controller,
-            minLines: 3,
-            maxLines: 8,
-            decoration: const InputDecoration(hintText: '输入新的内容'),
+          child: Padding(
+            // 键盘避让：输入法不能盖住正在编辑的正文。
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  0,
+                  AppSpacing.xl,
+                  AppSpacing.xl,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    FitText(
+                      '更改文字',
+                      style: Theme.of(sheetContext).textTheme.titleLarge,
+                    ),
+                    AppSpacing.hLg,
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 8,
+                      decoration: const InputDecoration(hintText: '输入新的内容'),
+                    ),
+                    AppSpacing.hXl,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop(),
+                            child: const FitText('取消'),
+                          ),
+                        ),
+                        AppSpacing.wMd,
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(sheetContext)
+                                .pop(controller.text.trim()),
+                            child: const FitText('保存'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const FitText('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-              child: const FitText('保存'),
-            ),
-          ],
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
     if (updated == null) {
       return;
     }
@@ -556,8 +610,14 @@ mixin ChatUiHelpers on ChatStateMixin {
               onPressed: () => Navigator.of(context).pop(false),
               child: const FitText('取消'),
             ),
+            // 破坏性动作（丢弃之后全部记录）用 error 语义，
+            // 与「删除消息」同一套强调（审计 4.1）。
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               child: const FitText('回溯'),
             ),
           ],
@@ -589,13 +649,21 @@ mixin ChatUiHelpers on ChatStateMixin {
     setState(() {});
     // 回溯成功后，把被丢弃区间中最早的「我的视角」消息重新填入输入框，
     // 方便从被打断的地方继续。
+    //
+    // 判据里带上附件：只发了文件没写字的那条消息，也必须能被填回来 ——
+    // 否则用户回溯之后手里那份文件就白传了。
     final List<ConversationMessage> earliestUsers = dropped
-        .where((ConversationMessage m) => m.role == 'user' && m.text.trim().isNotEmpty)
+        .where((ConversationMessage m) =>
+            m.role == 'user' &&
+            (m.text.trim().isNotEmpty || m.attachments.isNotEmpty))
         .toList();
     if (earliestUsers.isNotEmpty) {
-      final String text = earliestUsers.first.text;
+      final ConversationMessage restored = earliestUsers.first;
+      final String text = restored.text;
       _inputController.text = text;
       _inputController.selection = TextSelection.collapsed(offset: text.length);
+      // 附件一并倒回输入区（最多 3 个，与发送时同一套限制）。
+      _attachmentDraft.replaceAll(restored.attachments);
     }
     // 回溯成功后滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {

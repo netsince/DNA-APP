@@ -30,11 +30,13 @@ class CollapsibleNumberSetting extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.unit,
     this.step,
     this.helper,
     this.zeroLabel,
     this.divisions,
+    this.initiallyExpanded = false,
   });
 
   /// 设置项名称。
@@ -51,6 +53,13 @@ class CollapsibleNumberSetting extends StatefulWidget {
 
   /// 值变化回调(已 clamp 到 [min]..[max])。
   final ValueChanged<int> onChanged;
+
+  /// 拖动/点击**结束**时回调一次，传入最终值。
+  ///
+  /// 为 null 时本控件与旧行为完全一致（只有 [onChanged]）。
+  /// 配置驱动的设置页用它实现「松手才落盘」：拖动过程中 [onChanged] 只更新
+  /// 渲染器的本地草稿值，避免每一帧都写一次 SharedPreferences。
+  final ValueChanged<int>? onChangeEnd;
 
   /// 单位(如「轮」「字」),显示在收起态数值后面。
   final String? unit;
@@ -69,13 +78,16 @@ class CollapsibleNumberSetting extends StatefulWidget {
   /// 滑块刻度数。为 null 时按范围自动推导。
   final int? divisions;
 
+  /// 初始是否展开。默认收起；配置驱动的搜索命中时由渲染器置 true。
+  final bool initiallyExpanded;
+
   @override
   State<CollapsibleNumberSetting> createState() =>
       _CollapsibleNumberSettingState();
 }
 
 class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
-  bool _expanded = false;
+  late bool _expanded = widget.initiallyExpanded;
 
   /// 收起态显示的数值文案。
   String get _displayValue {
@@ -102,9 +114,9 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         // ===== 收起态:名称 + 当前值(整行可点) =====
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -163,6 +175,10 @@ class _CollapsibleNumberSettingState extends State<CollapsibleNumberSetting> {
                           widget.onChanged(
                               v.round().clamp(widget.min, widget.max));
                         }),
+                        onChangeEnd: widget.onChangeEnd == null
+                            ? null
+                            : (double v) => widget.onChangeEnd!(
+                                v.round().clamp(widget.min, widget.max)),
                       ),
                       // 范围边界:用控件的物理位置表达,不需要文字描述范围。
                       Padding(
@@ -228,12 +244,14 @@ class CollapsibleDoubleSetting extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.unit,
     this.step,
     this.helper,
     this.zeroLabel,
     this.divisions,
     this.decimals = 2,
+    this.initiallyExpanded = false,
   });
 
   /// 设置项名称。
@@ -250,6 +268,9 @@ class CollapsibleDoubleSetting extends StatefulWidget {
 
   /// 值变化回调(已 clamp 到 [min]..[max])。
   final ValueChanged<double> onChanged;
+
+  /// 拖动结束回调一次，语义同 [CollapsibleNumberSetting.onChangeEnd]。
+  final ValueChanged<double>? onChangeEnd;
 
   /// 单位(如「轮」「字」),显示在收起态数值后面。
   final String? unit;
@@ -271,13 +292,16 @@ class CollapsibleDoubleSetting extends StatefulWidget {
   /// 收起态与滑块气泡的显示小数位。
   final int decimals;
 
+  /// 初始是否展开，语义同 [CollapsibleNumberSetting.initiallyExpanded]。
+  final bool initiallyExpanded;
+
   @override
   State<CollapsibleDoubleSetting> createState() =>
       _CollapsibleDoubleSettingState();
 }
 
 class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
-  bool _expanded = false;
+  late bool _expanded = widget.initiallyExpanded;
 
   /// 按 [CollapsibleDoubleSetting.decimals] 格式化数值。
   String _format(double v) => v.toStringAsFixed(widget.decimals);
@@ -308,9 +332,9 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         // ===== 收起态:名称 + 当前值(整行可点) =====
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -363,6 +387,10 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
                   onChanged: (double v) => setState(() {
                     widget.onChanged(v.clamp(widget.min, widget.max));
                   }),
+                  onChangeEnd: widget.onChangeEnd == null
+                      ? null
+                      : (double v) => widget.onChangeEnd!(
+                          v.clamp(widget.min, widget.max)),
                 ),
                 // 范围边界:用控件的物理位置表达,不需要文字描述范围。
                 Padding(
@@ -403,6 +431,140 @@ class _CollapsibleDoubleSettingState extends State<CollapsibleDoubleSetting> {
   }
 }
 
+/// 可折叠的滑杆设置项（整数/小数通用）。
+///
+/// 与 [CollapsibleDoubleSetting] 的区别：收起态显示的文案由调用方给（[display]），
+/// 这样整数项也能带单位、0 值别名等格式化，而不必在控件里判断类型。
+///
+/// 用途：字号、气泡透明度、背景遮罩强度这类原本「常驻滑杆」的项 —— 滑杆占一整行，
+/// 一页放几个就把列表撑散了；改成收起态只留「名称 + 当前值」，点开才出现滑杆。
+class CollapsibleSliderSetting extends StatefulWidget {
+  const CollapsibleSliderSetting({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.display,
+    required this.onChanged,
+    this.onChangeEnd,
+    this.divisions,
+    this.helper,
+    this.initiallyExpanded = false,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+
+  /// 收起态与滑杆气泡上显示的当前值文案（由调用方格式化好）。
+  final String display;
+
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double>? onChangeEnd;
+  final int? divisions;
+  final String? helper;
+  final bool initiallyExpanded;
+
+  @override
+  State<CollapsibleSliderSetting> createState() =>
+      _CollapsibleSliderSettingState();
+}
+
+class _CollapsibleSliderSettingState extends State<CollapsibleSliderSetting> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  String get _displayValue => widget.display;
+
+  int? get _divisions {
+    if (widget.divisions != null) return widget.divisions;
+    final double span = widget.max - widget.min;
+    if (span <= 0) return null;
+    return span.round().clamp(1, 200);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _CollapsedHeader(
+          expanded: _expanded,
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: FitText(widget.title, style: AppTextStyles.body(theme)),
+                ),
+                AppSpacing.wMd,
+                FitText(
+                  _displayValue,
+                  style: AppTextStyles.body(theme).copyWith(
+                    color: cs.primary,
+                    fontWeight: AppWeight.medium,
+                  ),
+                ),
+                AppSpacing.wXs,
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: AppSize.iconInline,
+                  color: cs.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Slider(
+                        value: widget.value.clamp(widget.min, widget.max),
+                        min: widget.min,
+                        max: widget.max,
+                        divisions: _divisions,
+                        label: _displayValue,
+                        onChanged: (double v) => widget.onChanged(
+                          v.clamp(widget.min, widget.max),
+                        ),
+                        onChangeEnd: widget.onChangeEnd == null
+                            ? null
+                            : (double v) => widget.onChangeEnd!(
+                                  v.clamp(widget.min, widget.max),
+                                ),
+                      ),
+                      if (widget.helper != null) ...<Widget>[
+                        AppSpacing.hSm,
+                        FitText(
+                          widget.helper!,
+                          style: AppTextStyles.caption(theme)
+                              .copyWith(color: cs.outline),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
 /// 可折叠的文本输入设置项(用于范围过大、不适合滑块的场景)。
 ///
 /// 与 [CollapsibleNumberSetting] 同样是「收起态只读、展开才可编辑」,
@@ -453,9 +615,9 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        InkWell(
+        _CollapsedHeader(
+          expanded: _expanded,
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: AppRadius.xsAll,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Row(
@@ -534,6 +696,42 @@ class _CollapsibleTextSettingState extends State<CollapsibleTextSetting> {
               : const SizedBox(width: double.infinity),
         ),
       ],
+    );
+  }
+}
+
+/// 折叠项的「收起态整行」。
+///
+/// 抽出这一层是为了两件事（见 docs/MATERIAL_DESIGN_AUDIT.md 4.3）：
+/// * **命中区 ≥ 48dp**：原来的 `InkWell + vertical padding 12` 只有约 46dp；
+/// * **展开态语义**：自绘的收起行读屏只会念「按钮」，说不出当前是展开还是折叠。
+class _CollapsedHeader extends StatelessWidget {
+  const _CollapsedHeader({
+    required this.expanded,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.xsAll,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppSize.touchTarget),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }

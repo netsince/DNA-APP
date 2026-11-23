@@ -4,6 +4,7 @@ import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_bottom_nav.dart';
 import 'package:dna/widgets/app_section.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/pages/conversation_create_page.dart';
@@ -371,10 +372,11 @@ void main() {
   testWidgets('桌面宽窗口:内容列居中收窄,标题栏/内容/悬浮按钮对齐同一列', (WidgetTester tester) async {
     final AppController c = await boot();
     // 1600×900 横屏:内容区 = 1600 - 侧边栏 260 - 分隔线 1 = 1339,
-    // 超过内容列 760 ⇒ 两侧各留 (1339-760)/2 = 289.5。
+    // 超过统一内容列 1040 ⇒ 两侧各留 (1339-1040)/2 = 149.5。
+    // 全站栏目共用同一个 [AppSize.pageMaxWidth]，切标签时左右边缘不会跳。
     const double windowWidth = 1600;
     const double contentArea = windowWidth - 260 - 1;
-    const double inset = (contentArea - AppSize.listMaxWidth) / 2;
+    const double inset = (contentArea - AppSize.pageMaxWidth) / 2;
 
     tester.view.physicalSize = const Size(windowWidth, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -384,12 +386,12 @@ void main() {
 
     // 标题栏被收到内容列宽度,且左缘落在内容列起点。
     final Rect bar = tester.getRect(find.byType(AppBar));
-    expect(bar.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(bar.width, closeTo(AppSize.pageMaxWidth, 1.0));
     expect(bar.left, closeTo(260 + 1 + inset, 1.0));
 
     // 内容区与标题栏同宽同位置 ⇒ 两者对齐同一条内容列。
     final Rect body = tester.getRect(find.byType(ConversationListBody));
-    expect(body.width, closeTo(AppSize.listMaxWidth, 1.0));
+    expect(body.width, closeTo(AppSize.pageMaxWidth, 1.0));
     expect(body.left, closeTo(bar.left, 1.0));
 
     // 悬浮按钮贴内容列右缘(不是窗口最右边)。
@@ -400,7 +402,7 @@ void main() {
     // 身份是卡片网格栏目:宽屏下内容列更宽(够并排多列卡片),
     // 悬浮按钮跟着对齐这条更宽的内容列。
     final Rect identityBar = tester.getRect(find.byType(AppBar));
-    expect(identityBar.width, closeTo(AppSize.cardGridMaxWidth, 1.0));
+    expect(identityBar.width, closeTo(AppSize.pageMaxWidth, 1.0));
     final Rect fab = tester.getRect(find.byType(FloatingActionButton));
     expect(fab.right, closeTo(identityBar.right - 16, 1.0));
   });
@@ -488,6 +490,84 @@ void main() {
     expect(findText('消息'), findsOneWidget, reason: '系统返回应回主页');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('中等宽度(601-839):换成 NavigationRail,不再用底栏', (
+    WidgetTester tester,
+  ) async {
+    // 契约:顶级导航按**可用宽度**切换,不按横竖屏。
+    // 800 宽是 M3 的 medium 档 —— 该用 rail,而不是"横屏就把抽屉塞进固定宽度"。
+    final AppController c = await boot();
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    final NavigationRail rail = tester.widget<NavigationRail>(
+      find.byType(NavigationRail),
+    );
+    expect(rail.selectedIndex, 0, reason: '默认停在主页');
+    expect(rail.extended, isFalse);
+
+    // 目的地集合与 route 顺序一致(rail 用同一份元数据)。
+    final List<AppSection> sections = AppBottomNav.sectionsFor(c);
+    expect(rail.destinations.length, sections.length);
+    expect(sections.indexOf(AppSection.world), 3);
+  });
+
+  testWidgets('中等宽度:切栏目时 rail 选中项跟着走,且身份/设置允许"无选中"', (
+    WidgetTester tester,
+  ) async {
+    final AppController c = await boot();
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+
+    AppSectionShellState shell() =>
+        tester.state<AppSectionShellState>(find.byType(AppSectionShell));
+
+    shell().navigateTo(AppSection.world);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      3,
+    );
+
+    // 身份不在 rail 里:NavigationRail 允许 selectedIndex 为 null
+    // (NavigationBar 不允许,所以底栏那档要整条不渲染)。
+    shell().navigateTo(AppSection.identity);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      isNull,
+    );
+  });
+
+  testWidgets('宽度类边界:600 仍是 compact(底栏),601 换成 rail', (
+    WidgetTester tester,
+  ) async {
+    final AppController c = await boot();
+    addTearDown(tester.view.reset);
+
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(600, 900);
+    await tester.pumpWidget(MaterialApp(home: AppSectionShell(controller: c)));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+
+    tester.view.physicalSize = const Size(601, 900);
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+  });
+
 }
 
 /// 按系统返回键。

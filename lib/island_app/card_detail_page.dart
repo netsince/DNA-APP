@@ -1,11 +1,14 @@
 import 'dart:convert';
+import '../widgets/memo_image.dart';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/models/ta.dart';
+import 'package:dna/models/ta_gender.dart';
 import 'package:dna/services/ta_export_import_service.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/server_config.dart';
@@ -18,8 +21,12 @@ import 'package:dna/island_app/widgets/comment_section.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/image_viewer.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/utils/action_table.dart';
 import '../theme/tokens.dart';
+import '../widgets/detail_section.dart';
 
 /// 角色卡详情数据模型（对应后端 `GET /api/v1/cards/<id>` 的 data）。
 class CardDetail {
@@ -447,8 +454,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       final (next, count) = await toggler(widget.cardId);
       if (!mounted) return;
       setState(() => apply(d, next, count));
-    } catch (_) {
-      _showSnack('操作失败，请重试');
+    } catch (e) {
+      _showSnack('操作失败：${describeError(e)}');
     }
   }
 
@@ -469,9 +476,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await writer(pkg);
       if (!mounted) return;
       _showSnack('已复制角色卡内容');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('复制失败，请重试');
+      _showSnack('复制失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copying = false);
     }
@@ -524,9 +531,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await importer(ta);
       if (!mounted) return;
       _showSnack('已导入到本地角色卡：${ta.name}');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('导入失败，请重试');
+      _showSnack('导入失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copying = false);
     }
@@ -548,9 +555,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       await writer(url);
       if (!mounted) return;
       _showSnack('已复制网页链接');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('复制失败，请重试');
+      _showSnack('复制失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _copyingLink = false);
     }
@@ -582,9 +589,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (!mounted) return;
       _detail = _detail!.copyWith(isHidden: nextHidden);
       _showSnack(nextHidden ? '已隐藏角色卡' : '已取消隐藏');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('操作失败，请重试');
+      _showSnack('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _hiding = false);
     }
@@ -601,22 +608,24 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _detail = d.copyWith(favorited: next, favoriteCount: count),
   );
 
-  /// 打开评论区：从底部弹出二级弹层（对齐网页版评论抽屉）。
+  /// 打开评论区：**一条真实路由**，而不是弹层。
   ///
-  /// 评论区以独立弹层呈现，评论列表可滚动、输入框固定在底部，
-  /// 评论再多也能随时发表而不必翻到页面最底。
+  /// 评论是这张卡的**主要内容**，不是补充动作。以前它是 0.9 屏高的 modal
+  /// bottom sheet —— 那等于「伪装成页面的页面」：压在详情页之上、多一层路由、
+  /// 返回要退两段、链接与分享都拿不到（审计 3.2）。
+  ///
+  /// 为什么不内联成详情页里的一个 section：`CommentSection` 的契约是
+  /// 「列表占满剩余高度 + 输入条钉在底部」（内部 `Expanded`），它**必须有界高度**；
+  /// 塞进详情页的滚动流就会变成「页面里再套一个滚动区」，比原来的 sheet 更难用。
+  /// 所以给它一个独立页 —— 输入条照样钉在底部，只是外面多了一层正常的返回。
   void _openComments() {
     final d = _detail;
     if (d == null) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      showDragHandle: true,
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.9,
-        child: CommentSection(
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _CommentsPage(
           cardId: widget.cardId,
+          cardTitle: d.name,
           isLoggedIn: widget.isLoggedIn,
           isOwner: _owner,
           focusCommentId: widget.focusCommentId,
@@ -682,8 +691,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
         final v = _followerCount + (following ? 1 : -1);
         _followerCount = v < 0 ? 0 : v;
       });
-    } catch (_) {
-      _showSnack('操作失败，请重试');
+    } catch (e) {
+      _showSnack('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _followBusy = false);
     }
@@ -784,8 +793,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
       );
       if (!mounted) return;
       _showSnack('举报已提交，管理员会尽快处理');
-    } catch (_) {
-      _showSnack('举报提交失败，请重试');
+    } catch (e) {
+      _showSnack('举报提交失败：${describeError(e)}');
     }
   }
 
@@ -803,7 +812,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
             padding: const EdgeInsets.only(left: 8),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.92),
+                color: scheme.surface.withValues(alpha: AppAlpha.a92),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -835,91 +844,60 @@ class _CardDetailPageState extends State<CardDetailPage> {
           leading: leading,
           title: Text(d.name),
           actions: <Widget>[
-            // 举报入口（更多菜单）。
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+            // 举报入口（更多菜单）：可见条件（仅作者 / 有本地库可写）与忙碌态
+            // （导入中 / 复制中）都写成数据，画法交给共享的 rowActionMenu ——
+            // 项内图标 20、间距 12 就是原来手搓 Row 的那两个数字。
+            rowActionMenu(
               tooltip: '更多',
-              onSelected: (v) {
-                if (v == 'toggle_hidden') _toggleHidden();
-                if (v == 'copy_link') _copyCardLink();
-                if (v == 'import_ta') _importCard();
-                if (v == 'copy_card') _copyCard();
-                if (v == 'teahouse') _quoteToTeahouse();
-                if (v == 'report') _openReport();
-              },
-              itemBuilder: (_) => <PopupMenuEntry<String>>[
-                if (_owner)
-                  PopupMenuItem<String>(
-                    value: 'toggle_hidden',
-                    enabled: !_hiding,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(
-                          _detail!.isHidden
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(_detail!.isHidden ? '取消隐藏' : '隐藏'),
-                      ],
-                    ),
-                  ),
+              icon: const Icon(Icons.more_vert),
+              iconSize: 20,
+              iconGap: 12,
+              actions: <RowAction>[
+                RowAction(
+                  id: 'toggle_hidden',
+                  label: d.isHidden ? '取消隐藏' : '隐藏',
+                  icon: d.isHidden
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  visible: _owner,
+                  enabled: !_hiding,
+                  onSelected: _toggleHidden,
+                ),
                 // 直接导入：只在有本地库可写（社区嵌进主应用）时出现。
-                if (widget.cardImporter != null)
-                  PopupMenuItem<String>(
-                    value: 'import_ta',
-                    enabled: !_copying,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(Icons.download_outlined, size: 20),
-                        const SizedBox(width: 12),
-                        const Text('导入到本地'),
-                      ],
-                    ),
-                  ),
-                // 复制：从主按钮挪进菜单（主位让给「导入到本地」）。
-                PopupMenuItem<String>(
-                  value: 'copy_card',
+                RowAction(
+                  id: 'import_ta',
+                  label: '导入到本地',
+                  icon: Icons.download_outlined,
+                  visible: widget.cardImporter != null,
                   enabled: !_copying,
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.content_copy, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('复制卡片'),
-                    ],
-                  ),
+                  onSelected: _importCard,
                 ),
-                PopupMenuItem<String>(
-                  value: 'copy_link',
+                // 复制：从主按钮挪进菜单（主位让给「导入到本地」）。
+                RowAction(
+                  id: 'copy_card',
+                  label: '复制卡片',
+                  icon: Icons.content_copy,
+                  enabled: !_copying,
+                  onSelected: _copyCard,
+                ),
+                RowAction(
+                  id: 'copy_link',
+                  label: '复制链接',
+                  icon: Icons.link,
                   enabled: !_copyingLink,
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.link, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('复制链接'),
-                    ],
-                  ),
+                  onSelected: _copyCardLink,
                 ),
-                const PopupMenuItem<String>(
-                  value: 'teahouse',
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.local_cafe_outlined, size: 20),
-                      SizedBox(width: 12),
-                      Text('引用到茶馆'),
-                    ],
-                  ),
+                RowAction(
+                  id: 'teahouse',
+                  label: '引用到茶馆',
+                  icon: Icons.local_cafe_outlined,
+                  onSelected: _quoteToTeahouse,
                 ),
-                const PopupMenuItem<String>(
-                  value: 'report',
-                  child: Row(
-                    children: <Widget>[
-                      Icon(Icons.flag_outlined, size: 20),
-                      SizedBox(width: 12),
-                      Text('举报'),
-                    ],
-                  ),
+                RowAction(
+                  id: 'report',
+                  label: '举报',
+                  icon: Icons.flag_outlined,
+                  onSelected: _openReport,
                 ),
               ],
             ),
@@ -984,7 +962,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
               if (d.tags.isNotEmpty || _owner)
                 _TagsSection(
                   tags: d.tags,
-                  statusBadge: _owner ? _StatusBadge(detail: d) : null,
+                  statusBadge: _owner ? _ReviewStatusBadges(detail: d) : null,
                 ),
               _authorSection(),
             ],
@@ -1036,6 +1014,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
   /// 内容区块（简介/人格设定/开场白/对话示例/原始链接），窄屏与宽屏共用。
   ///
   /// [includeTags] 为 true 时包含标签区（窄屏），false 时标签由资料栏展示（宽屏）。
+  /// 内容区块：**描述在这里，画法交给共享的 [DetailSections]**。
+  ///
+  /// 每个区块只声明「有没有内容 / 标题 / 图标 / 自定义 widget」，
+  /// 空值自动不占位（以前是一串 if + 手抄包裹）。
   List<Widget> _contentSectionChildren(
     CardDetail d, {
     required bool includeTags,
@@ -1044,36 +1026,62 @@ class _CardDetailPageState extends State<CardDetailPage> {
       if (includeTags && (d.tags.isNotEmpty || _owner))
         _TagsSection(
           tags: d.tags,
-          statusBadge: _owner ? _StatusBadge(detail: d) : null,
+          statusBadge: _owner ? _ReviewStatusBadges(detail: d) : null,
         ),
-      if (d.intro.isNotEmpty)
-        _ContentSection(icon: Icons.notes_outlined, title: '简介', body: d.intro),
-      if (d.persona.isNotEmpty)
-        _ContentSection(
+      ...DetailSections.buildAll(<DetailSectionSpec>[
+        DetailSectionSpec(
+          id: 'intro',
+          icon: Icons.notes_outlined,
+          title: '简介',
+          body: d.intro,
+        ),
+        DetailSectionSpec(
+          id: 'persona',
           icon: Icons.badge_outlined,
           title: '人格设定',
           body: d.persona,
         ),
-      if (d.opening.isNotEmpty)
-        _ContentSection(
+        DetailSectionSpec(
+          id: 'opening',
           icon: Icons.chat_bubble_outline,
           title: '开场白',
           // 开场白不做强斜体、不加装饰，保持 MDUI 简洁排版。
           body: d.opening,
         ),
-      if (d.dialogue.isNotEmpty)
-        _DialogueSection(name: d.name, dialogue: d.dialogue),
-      if (d.authorNote != null && d.authorNote!.isNotEmpty)
-        _AuthorNoteSection(note: d.authorNote!, interval: d.authorNoteInterval),
-      if (d.originalLink.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: OutlinedButton.icon(
-            onPressed: () => _openLink(d.originalLink),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: const Text('原始链接'),
-          ),
+        // 下面三个不是纯文本：对话示例 / 作者注释 / 外链按钮，
+        // 用 custom 挂进去，空值时同样自动不占位。
+        DetailSectionSpec(
+          id: 'dialogue',
+          title: '对话示例',
+          custom: d.dialogue.isEmpty
+              ? null
+              : _DialogueSection(name: d.name, dialogue: d.dialogue),
         ),
+        DetailSectionSpec(
+          id: 'authorNote',
+          title: '作者注释',
+          custom: (d.authorNote == null || d.authorNote!.isEmpty)
+              ? null
+              : _AuthorNoteSection(
+                  note: d.authorNote!,
+                  interval: d.authorNoteInterval,
+                ),
+        ),
+        DetailSectionSpec(
+          id: 'originalLink',
+          title: '原始链接',
+          custom: d.originalLink.isEmpty
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openLink(d.originalLink),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('原始链接'),
+                  ),
+                ),
+        ),
+      ]),
     ];
   }
 }
@@ -1110,9 +1118,14 @@ class _HeroBanner extends StatelessWidget {
       ),
     );
     if (onTap == null) return image;
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
+    // 可点的头图：补「按钮」语义与标签，读屏才知道这里能点开大图
+    // （审计 4.3：裸 GestureDetector 承担可点区域，无语义无反馈）。
+    return Semantics(
+      button: true,
+      label: '查看大图',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(
         children: <Widget>[
           image,
           Positioned(
@@ -1121,7 +1134,7 @@ class _HeroBanner extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.75),
+                color: scheme.surface.withValues(alpha: AppAlpha.mutedStrong),
                 borderRadius: BorderRadius.circular(AppRadius.xs),
               ),
               child: Row(
@@ -1140,6 +1153,7 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1213,33 +1227,28 @@ class _ProfileCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    // 元信息标签统一走共享的只读 StatusBadge（不可点的信息不做成 chip 外观）。
     final chips = <Widget>[
       if (detail.gender.isNotEmpty)
-        _Chip(
-          label: detail.gender,
-          background: scheme.primaryContainer,
-          foreground: scheme.onPrimaryContainer,
+        StatusBadge(
+          // 服务端存的是 ID（历史中文值）；未知值原样显示，不丢数据。
+          label: TaGender.labelOf(detail.gender),
+          tone: BadgeTone.positive,
         ),
       if (detail.authorName != null && detail.authorName!.isNotEmpty)
-        _Chip(
+        StatusBadge(
           label: detail.authorName!,
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.person_outline,
         ),
       if (detail.createdAt.isNotEmpty)
-        _Chip(
+        StatusBadge(
           label: _shortDate(detail.createdAt),
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.calendar_today_outlined,
         ),
       if (detail.updatedAt.isNotEmpty &&
           _shortDate(detail.updatedAt) != _shortDate(detail.createdAt))
-        _Chip(
+        StatusBadge(
           label: '更新 ${_shortDate(detail.updatedAt)}',
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
           icon: Icons.update_outlined,
         ),
     ];
@@ -1511,15 +1520,21 @@ class _AuthorAvatar extends StatelessWidget {
     if (a.isEmpty) {
       child = Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant);
     } else if (a.startsWith('data:')) {
-      final comma = a.indexOf(',');
-      final bytes = base64Decode(comma >= 0 ? a.substring(comma + 1) : a);
-      child = Image.memory(
-        bytes,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) =>
-            Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
-      );
+      final int target =
+          (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+              .clamp(32, 256)
+              .round();
+      final ImageProvider? provider =
+          MemoImage.dataUrl(a, cacheWidth: target);
+      child = provider == null
+          ? Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant)
+          : Image(
+              image: provider,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) =>
+                  Icon(Icons.person, size: radius, color: scheme.onSurfaceVariant),
+            );
     } else {
       child = Image.network(
         ServerConfig.resolveUrl(a),
@@ -1609,8 +1624,13 @@ class _ActionsBar extends StatelessWidget {
                 size: 18,
               ),
               style: FilledButton.styleFrom(
-                foregroundColor: detail.liked ? scheme.error : null,
-                backgroundColor: detail.liked ? scheme.errorContainer : null,
+                // 「已赞」是**选中态**不是错误：error 在这个 App 里表示
+                // 「处罚生效中」这类真错误，拿它标喜欢语义会打架（审计 4.1）。
+                // 与「已收藏」同一条规则：已选中 = primary。
+                foregroundColor: detail.liked ? scheme.primary : null,
+                backgroundColor: detail.liked
+                    ? scheme.primaryContainer
+                    : null,
               ),
               child: Text('${detail.likeCount}'),
             ),
@@ -1646,6 +1666,8 @@ class _ActionsBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: scheme.surfaceContainerHigh,
                 foregroundColor: scheme.onSurfaceVariant,
+                // 密集控件（一行四颗，行高由这一行决定）：回到原实现的 40dp
+                // 视觉尺寸；48 是命中盒不是视觉尺寸，硬套会让操作条高一圈。
                 visualDensity: VisualDensity.compact,
                 minimumSize: const Size.square(40),
                 padding: EdgeInsets.zero,
@@ -1663,6 +1685,8 @@ class _ActionsBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: scheme.surfaceContainerHigh,
                 foregroundColor: scheme.onSurfaceVariant,
+                // 密集控件（一行四颗，行高由这一行决定）：回到原实现的 40dp
+                // 视觉尺寸；48 是命中盒不是视觉尺寸，硬套会让操作条高一圈。
                 visualDensity: VisualDensity.compact,
                 minimumSize: const Size.square(40),
                 padding: EdgeInsets.zero,
@@ -1698,17 +1722,7 @@ class _TagsSection extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: tags
-                  .map(
-                    (t) => _Chip(
-                      label: '#$t',
-                      background: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHigh,
-                      foreground: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                    ),
-                  )
+                  .map((t) => StatusBadge(label: '#$t'))
                   .toList(),
             ),
         ],
@@ -1719,113 +1733,33 @@ class _TagsSection extends StatelessWidget {
 
 /// 作者可见的审核状态徽章（对齐网页版 `status_badge`）：
 /// 审核中 / 已通过 / 已拒绝 + 已隐藏。普通访客不展示。
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.detail});
+///
+/// 只是把 detail.status 映射成共享 [StatusBadge] 的色调 —— 视觉（主色/错误色/
+/// 第三色）与原来一致，实现不再自绘容器。
+class _ReviewStatusBadges extends StatelessWidget {
+  const _ReviewStatusBadges({required this.detail});
 
   final CardDetail detail;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final chips = <Widget>[];
-
-    late final Color bg;
-    late final Color fg;
-    final label = switch (detail.status) {
-      'approved' => '已通过',
-      'rejected' => '已拒绝',
-      _ => '审核中',
+    final (String label, BadgeTone tone) = switch (detail.status) {
+      'approved' => ('已通过', BadgeTone.positive),
+      'rejected' => ('已拒绝', BadgeTone.danger),
+      _ => ('审核中', BadgeTone.caution),
     };
-    if (detail.status == 'approved') {
-      bg = scheme.primaryContainer;
-      fg = scheme.onPrimaryContainer;
-    } else if (detail.status == 'rejected') {
-      bg = scheme.errorContainer;
-      fg = scheme.onErrorContainer;
-    } else {
-      bg = scheme.tertiaryContainer;
-      fg = scheme.onTertiaryContainer;
-    }
-    chips.add(_Chip(label: label, background: bg, foreground: fg));
-
-    if (detail.isHidden) {
-      chips.add(
-        _Chip(
-          label: '已隐藏',
-          background: scheme.surfaceContainerHighest,
-          foreground: scheme.onSurfaceVariant,
-        ),
-      );
-    }
-
-    return Wrap(spacing: 8, runSpacing: 8, children: chips);
-  }
-}
-
-/// 内容区块：描边圆角卡片 + 小标题 + 正文。
-class _ContentSection extends StatelessWidget {
-  const _ContentSection({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Row(
-              children: <Widget>[
-                Icon(icon, size: 16, color: scheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: scheme.onSurfaceVariant,
-                    letterSpacing: 0.02,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.all(AppSpacing.md),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Text(
-              body,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: AppLineHeight.reading,
-                wordSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: <Widget>[
+        StatusBadge(label: label, tone: tone, semanticLabel: '审核状态：$label'),
+        if (detail.isHidden)
+          const StatusBadge(label: '已隐藏', semanticLabel: '审核状态：已隐藏'),
+      ],
     );
   }
 }
+
 
 /// 作者注释（Author's Note）：作者设置的希望模型始终记住/强调的内容。
 ///
@@ -1892,7 +1826,7 @@ class _AuthorNoteSection extends StatelessWidget {
             margin: const EdgeInsets.all(AppSpacing.md),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: scheme.tertiaryContainer.withValues(alpha: 0.35),
+              color: scheme.tertiaryContainer.withValues(alpha: AppAlpha.a35),
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
@@ -2041,47 +1975,8 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-/// 小胶囊标签（性别/作者/日期/标签）。
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.background,
-    required this.foreground,
-    this.icon,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: foreground),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: foreground),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+// 小标签（性别 / 作者 / 日期 / 标签 / 审核状态）统一走共享 StatusBadge：
+// 只读指示、语义色调、无 ink。原来这里有一份自绘的 _Chip（按 raw color 传参）。
 /// 加载骨架：顶栏返回 + 封面 + 资料/文字条，带 shimmer。
 class _SkeletonBody extends StatelessWidget {
   const _SkeletonBody({this.leading});
@@ -2245,6 +2140,57 @@ class _ErrorBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 角色卡评论区（独立页）。
+///
+/// 列表、排序、楼中楼回复与底部输入条全部由共享的 [CommentSection] 提供；
+/// 本页只负责两件 CommentSection 自己不做的事：给它一个**有界高度**的宿主、
+/// 以及一条正常的返回路径（[AppBar] 的返回键 / 系统返回）。
+///
+/// 这正是它以前借 0.9 屏 bottom sheet 干的事 —— 区别只在于：现在它是一个页，
+/// 而不是一个「看起来像页的弹层」（审计 3.2）。
+class _CommentsPage extends StatelessWidget {
+  const _CommentsPage({
+    required this.cardId,
+    required this.cardTitle,
+    required this.isLoggedIn,
+    required this.isOwner,
+    this.focusCommentId,
+  });
+
+  final String cardId;
+
+  /// 标题用角色卡名：用户在评论页也能一眼看出这是哪张卡的评论区。
+  final String cardTitle;
+
+  final bool? isLoggedIn;
+  final bool? isOwner;
+  final int? focusCommentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final String rawTitle = cardTitle.trim();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          rawTitle.isEmpty ? '评论' : rawTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      // SafeArea 只保底部：输入条贴着系统导航条，不能压在它下面。
+      body: SafeArea(
+        top: false,
+        child: CommentSection(
+          cardId: cardId,
+          isLoggedIn: isLoggedIn,
+          isOwner: isOwner,
+          focusCommentId: focusCommentId,
+        ),
+      ),
     );
   }
 }

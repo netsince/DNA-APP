@@ -26,6 +26,16 @@ class LlmModelConfig {
   final bool? deepseekThinkingEnabled;
   final String? deepseekThinkingEffort;
 
+  /// 是否支持图片输入（视觉）。
+  ///
+  /// 三态：
+  /// * `null` —— 自动：按内置能力快照（models.dev）判断，查不到再按名字猜；
+  /// * `true` / `false` —— 用户显式指定，优先于一切自动判断。
+  ///
+  /// 为什么要让用户指定：本项目支持任意 OpenAI 兼容服务（含自建与中转），
+  /// `/models` 只返回 id、不返回能力，没有可靠的自动信号。
+  final bool? supportsVision;
+
   const LlmModelConfig({
     required this.id,
     required this.alias,
@@ -45,6 +55,7 @@ class LlmModelConfig {
     this.maxTokens,
     this.deepseekThinkingEnabled,
     this.deepseekThinkingEffort,
+    this.supportsVision,
   });
 
   bool get isDefault => id == defaultId;
@@ -87,6 +98,7 @@ class LlmModelConfig {
           'deepseekThinkingEnabled': deepseekThinkingEnabled,
         if (deepseekThinkingEffort != null)
           'deepseekThinkingEffort': deepseekThinkingEffort,
+        if (supportsVision != null) 'supportsVision': supportsVision,
       };
 
   factory LlmModelConfig.fromJson(Map<String, dynamic> json) => LlmModelConfig(
@@ -111,6 +123,7 @@ class LlmModelConfig {
         maxTokens: json['maxTokens'] as int?,
         deepseekThinkingEnabled: json['deepseekThinkingEnabled'] as bool?,
         deepseekThinkingEffort: json['deepseekThinkingEffort'] as String?,
+        supportsVision: json['supportsVision'] as bool?,
       );
 
   LlmModelConfig copyWith({
@@ -132,6 +145,8 @@ class LlmModelConfig {
     int? maxTokens,
     bool? deepseekThinkingEnabled,
     String? deepseekThinkingEffort,
+    bool? supportsVision,
+    bool clearVisionOverride = false,
   }) {
     return LlmModelConfig(
       id: id ?? this.id,
@@ -156,6 +171,8 @@ class LlmModelConfig {
           deepseekThinkingEnabled ?? this.deepseekThinkingEnabled,
       deepseekThinkingEffort:
           deepseekThinkingEffort ?? this.deepseekThinkingEffort,
+      supportsVision:
+          clearVisionOverride ? null : (supportsVision ?? this.supportsVision),
     );
   }
 }

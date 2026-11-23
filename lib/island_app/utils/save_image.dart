@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
+import '../../utils/error_display.dart';
 import 'auth_image.dart';
 
 /// 把社区里的图片**保存成 PNG**，落到用户找得到的地方。
@@ -47,8 +48,8 @@ Future<bool> saveImageAsPng(
       ),
     );
     return true;
-  } catch (_) {
-    messenger.showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('保存失败：${describeError(e)}')));
     return false;
   }
 }

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/state_views.dart';
+
 import '../models/conversation.dart';
 import '../models/ta.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
+import '../utils/action_table.dart';
+import '../utils/error_display.dart';
 import '../widgets/app_container.dart';
 import '../widgets/app_icon_flight.dart';
 import '../widgets/app_responsive_wrap.dart';
@@ -34,7 +38,7 @@ SectionPageData groupHomeSection(AppController controller) {
     section: AppSection.groupChats,
     showArchived: showArchived,
     // 卡片列表:宽屏并排多列,内容列相应放宽。
-    contentMaxWidth: AppSize.cardGridMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(
@@ -98,20 +102,13 @@ class GroupListBody extends StatelessWidget {
         });
 
         if (visible.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                FitText(showArchived ? '还没有归档群聊。' : '还没有群聊，点击右上角 + 新建。'),
-                const SizedBox(height: 12),
-                if (!showArchived)
-                  FilledButton.icon(
-                    onPressed: onCreateGroup,
-                    icon: const Icon(Icons.add),
-                    label: const FitText('新建群聊'),
-                  ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: showArchived ? Icons.archive_outlined : Icons.forum_outlined,
+            title: showArchived ? '还没有归档群聊。' : '还没有群聊。',
+            description: showArchived ? null : '点右上角「＋」或下面的按钮新建一个。',
+            actionLabel: showArchived ? null : '新建群聊',
+            actionIcon: showArchived ? null : Icons.add,
+            onAction: showArchived ? null : onCreateGroup,
           );
         }
 
@@ -174,132 +171,129 @@ class _GroupItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              PopupMenuButton<String>(
+              rowActionMenu(
                 tooltip: '更多操作',
-                onSelected: (String value) async {
-                  if (value == 'edit') {
-                    if (!context.mounted) return;
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (BuildContext context) =>
-                            GroupEditPage(controller: controller, group: group),
-                      ),
-                    );
-                  } else if (value == 'pin') {
-                    await controller.setGroupConversationPinned(
-                      id: group.id,
-                      pinned: !group.pinned,
-                    );
-                  } else if (value == 'duplicate') {
-                    try {
-                      await controller.duplicateConversation(group.id);
-                    } catch (_) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: FitText('复制群聊失败。')),
-                        );
+                child: const Icon(Icons.more_vert),
+                // 归档态 / 未归档态共用这一张动作表：可见项由 visible 区分。
+                // 菜单项沿用本页原来的非紧凑 ListTile（图标 24、零内边距）。
+                itemStyle: RowActionItemStyle.listTileRegular,
+                iconSize: 24,
+                actions: <RowAction>[
+                  RowAction(
+                    id: 'pin',
+                    label: group.pinned ? '取消置顶' : '置顶',
+                    icon: group.pinned
+                        ? Icons.push_pin_outlined
+                        : Icons.push_pin,
+                    visible: !group.archived,
+                    onSelected: () async {
+                      await controller.setGroupConversationPinned(
+                        id: group.id,
+                        pinned: !group.pinned,
+                      );
+                    },
+                  ),
+                  RowAction(
+                    id: 'duplicate',
+                    label: '复制群聊',
+                    icon: Icons.copy_outlined,
+                    visible: !group.archived,
+                    onSelected: () async {
+                      try {
+                        await controller.duplicateConversation(group.id);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: FitText('复制群聊失败：${describeError(e)}'),
+                            ),
+                          );
+                        }
                       }
-                    }
-                  } else if (value == 'archive') {
-                    await controller.setGroupConversationArchived(
-                      id: group.id,
-                      archived: true,
-                    );
-                  } else if (value == 'unarchive') {
-                    await controller.setGroupConversationArchived(
-                      id: group.id,
-                      archived: false,
-                    );
-                  } else if (value == 'delete') {
-                    if (!context.mounted) return;
-                    final List<String> memberNames = group.memberTaIds
-                        .map(controller.getTaById)
-                        .whereType<TA>()
-                        .map((TA t) => t.name)
-                        .where((String n) => n.isNotEmpty)
-                        .toList();
-                    final String hint = memberNames.isNotEmpty
-                        ? '请完整输入任意一名成员名（${memberNames.join(' / ')}）以确认删除'
-                        : '该群聊成员名缺失，请输入任意文字以确认删除';
-                    await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(
-                        builder: (BuildContext context) => DeleteConfirmPage(
-                          controller: controller,
-                          title: '删除群聊',
-                          entityName: group.groupName.trim().isNotEmpty
-                              ? group.groupName.trim()
-                              : '该群聊',
-                          validNames: memberNames,
-                          promptHint: hint,
-                          contentBuilder: (BuildContext ctx) =>
-                              buildConversationPreviewSections(
-                                ctx,
-                                controller,
-                                group,
-                              ),
-                          onDelete: () =>
-                              controller.deleteConversationWithBackup(group.id),
-                          requireName: controller.settings.requireNameToDelete,
+                    },
+                  ),
+                  RowAction(
+                    id: 'edit',
+                    label: '更改信息',
+                    icon: Icons.edit_outlined,
+                    visible: !group.archived,
+                    onSelected: () async {
+                      if (!context.mounted) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (BuildContext context) =>
+                              GroupEditPage(controller: controller, group: group),
                         ),
-                      ),
-                    );
-                  }
-                },
-                itemBuilder: (BuildContext context) {
-                  if (group.archived) {
-                    return <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'unarchive',
-                        child: ListTile(
-                          leading: Icon(Icons.unarchive_outlined),
-                          title: FitText('恢复'),
+                      );
+                    },
+                  ),
+                  RowAction(
+                    id: 'archive',
+                    label: '归档',
+                    icon: Icons.archive_outlined,
+                    visible: !group.archived,
+                    onSelected: () async {
+                      await controller.setGroupConversationArchived(
+                        id: group.id,
+                        archived: true,
+                      );
+                    },
+                  ),
+                  RowAction(
+                    id: 'unarchive',
+                    label: '恢复',
+                    icon: Icons.unarchive_outlined,
+                    visible: group.archived,
+                    // 原来「恢复」与「删除」之间的那条分隔线。
+                    dividerAfter: true,
+                    onSelected: () async {
+                      await controller.setGroupConversationArchived(
+                        id: group.id,
+                        archived: false,
+                      );
+                    },
+                  ),
+                  RowAction(
+                    id: 'delete',
+                    label: '删除',
+                    icon: Icons.delete_outline,
+                    visible: group.archived,
+                    onSelected: () async {
+                      if (!context.mounted) return;
+                      final List<String> memberNames = group.memberTaIds
+                          .map(controller.getTaById)
+                          .whereType<TA>()
+                          .map((TA t) => t.name)
+                          .where((String n) => n.isNotEmpty)
+                          .toList();
+                      final String hint = memberNames.isNotEmpty
+                          ? '请完整输入任意一名成员名（${memberNames.join(' / ')}）以确认删除'
+                          : '该群聊成员名缺失，请输入任意文字以确认删除';
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute<bool>(
+                          builder: (BuildContext context) => DeleteConfirmPage(
+                            controller: controller,
+                            title: '删除群聊',
+                            entityName: group.groupName.trim().isNotEmpty
+                                ? group.groupName.trim()
+                                : '该群聊',
+                            validNames: memberNames,
+                            promptHint: hint,
+                            contentBuilder: (BuildContext ctx) =>
+                                buildConversationPreviewSections(
+                                  ctx,
+                                  controller,
+                                  group,
+                                ),
+                            onDelete: () =>
+                                controller.deleteConversationWithBackup(group.id),
+                            requireName: controller.settings.requireNameToDelete,
+                          ),
                         ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: FitText('删除'),
-                        ),
-                      ),
-                    ];
-                  }
-                  return <PopupMenuEntry<String>>[
-                    PopupMenuItem<String>(
-                      value: 'pin',
-                      child: ListTile(
-                        leading: Icon(
-                          group.pinned
-                              ? Icons.push_pin_outlined
-                              : Icons.push_pin,
-                        ),
-                        title: FitText(group.pinned ? '取消置顶' : '置顶'),
-                      ),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'duplicate',
-                      child: ListTile(
-                        leading: Icon(Icons.copy_outlined),
-                        title: FitText('复制群聊'),
-                      ),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_outlined),
-                        title: FitText('更改信息'),
-                      ),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'archive',
-                      child: ListTile(
-                        leading: Icon(Icons.archive_outlined),
-                        title: FitText('归档'),
-                      ),
-                    ),
-                  ];
-                },
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

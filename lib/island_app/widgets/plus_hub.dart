@@ -120,7 +120,7 @@ class _PlusHubOverlayState extends State<PlusHubOverlay>
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                         child: ColoredBox(
-                          color: cs.scrim.withValues(alpha: 0.55),
+                          color: cs.scrim.withValues(alpha: AppAlpha.a55),
                         ),
                       ),
                     ),

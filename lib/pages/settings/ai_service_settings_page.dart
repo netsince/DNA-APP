@@ -1,17 +1,19 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 import '../../services/llm_provider.dart';
 import '../../state/app_controller.dart';
 import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
+import '../../utils/ui_feedback.dart';
 import 'ai_service/advanced_view.dart';
 import 'ai_service/contract.dart';
 import 'ai_service/simple_view.dart';
 import 'ai_service_more_page.dart';
+import 'sampler_settings_page.dart';
 
 /// 设置 → AI 服务主页。
 ///
@@ -20,9 +22,10 @@ import 'ai_service_more_page.dart';
 /// * **精简模式**主页:服务商选择、Base URL / API Key、连接检测、
 ///   模型列表 —— 只放「把模型接通并用起来」需要的东西;
 /// * **完整模式**主页:**平铺的模型快速切换列表**(不再有卡片和弹窗);
-/// * **右上角 `⋮`** → [AiServiceMorePage]:分栏页,精简模式只有「其他」,
-///   完整模式有「模型 / 服务商 / 其他」。简易模式开关与全局采样参数
-///   都收在「其他」栏里。
+/// * **右上角 `⋮`** = 就地 `PopupMenuButton`(采样参数微调 / 模型与服务商管理 /
+///   切换简易模式)。以前它直接打开另一张带 3 个 Tab 的整页 —— 「更多」按钮
+///   打开一整个页面属于容器选错(审计 3.2)。那张页([AiServiceMorePage])仍保留,
+///   作为「模型与服务商管理」的落点(简易模式开关也在它的「其他」栏里)。
 ///
 /// ## 本文件只做装配
 ///
@@ -216,21 +219,64 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         onResetValues: _initValues,
       );
 
+  /// 顶栏「⋮」菜单的命令。
+  ///
+  /// 以前这里是 `IconButton` → push 一个带 3 个 Tab 的整页：点「更多」先跳页，
+  /// 用户还得再找一遍自己要的那一栏(审计 3.2:菜单该就地给命令)。
+  /// 现在三条命令直达；[AiServiceMorePage] 仍然保留,作为「模型与服务商管理」的落点
+  /// (简易模式开关、全局采样入口都在那张页里)。
+  Future<void> _onMoreAction(String value) async {
+    switch (value) {
+      case 'sampler':
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => SamplerSettingsPage(controller: widget.controller),
+          ),
+        );
+      case 'manage':
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AiServiceMorePage(controller: widget.controller),
+          ),
+        );
+      case 'mode':
+        final bool toSimple = !widget.controller.settings.simpleModelMode;
+        await widget.controller.toggleSimpleModelMode(toSimple);
+        if (!mounted) return;
+        showSnack(context, toSimple ? '已切换到简易模式' : '已切换到完整模式');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const FitText('AI 服务'),
         actions: <Widget>[
-          IconButton(
+          // 菜单命令而不是「打开一整页」；itemBuilder 在展开时才读模式,
+          // 所以「切换简易/完整模式」的文案永远是最新的那一个。
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             tooltip: '更多设置',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    AiServiceMorePage(controller: widget.controller),
-              ),
-            ),
+            onSelected: _onMoreAction,
+            itemBuilder: (BuildContext menuContext) {
+              final bool isSimple =
+                  widget.controller.settings.simpleModelMode;
+              return <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'sampler',
+                  child: FitText('采样参数微调'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'manage',
+                  child: FitText('模型与服务商管理'),
+                ),
+                PopupMenuItem<String>(
+                  value: 'mode',
+                  child: FitText(isSimple ? '切换到完整模式' : '切换到简易模式'),
+                ),
+              ];
+            },
           ),
         ],
       ),
@@ -242,11 +288,14 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
           // 精简模式:连接参数 + 模型选择(输入框需要滚动)。
           // 完整模式:平铺的模型快速切换列表(自身就是 ListView)。
           return isSimple
-              ? ListView(
-                  padding: AppInsets.page,
-                  children: <Widget>[
-                    AiServiceSimpleView(contract: _contract),
-                  ],
+              ? AppContentFrame(
+                  maxWidth: AppSize.pageMaxWidth,
+                  child: ListView(
+                    padding: AppInsets.page,
+                    children: <Widget>[
+                      AiServiceSimpleView(contract: _contract),
+                    ],
+                  ),
                 )
               : AiServiceAdvancedView(contract: _contract);
         },

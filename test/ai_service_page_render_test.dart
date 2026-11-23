@@ -217,7 +217,9 @@ void main() {
               '而不是跳到「模型」栏导致内容与标题对不上');
     });
 
-    testWidgets('在 ⋮ 里改模式后,返回主页立刻生效', (WidgetTester t) async {
+    testWidgets('在 ⋮ 菜单里改模式后,主页立刻生效(就地切换,不再跳页)', (
+      WidgetTester t,
+    ) async {
       final AppController c = await boot();
       await c.toggleSimpleModelMode(false);
       await pumpHome(t, c);
@@ -225,22 +227,22 @@ void main() {
       // 完整模式主页应无输入框。
       expect(find.byType(TextField).evaluate().length, 0);
 
-      // 进入 ⋮ → 其他 → 打开简易模式。
+      // ⋮ 是**就地菜单**(采样参数微调 / 模型与服务商管理 / 切换模式),
+      // 不再是"打开另一张带 3 个 Tab 的整页"(审计 3.2)。
       await t.tap(find.byIcon(Icons.more_vert));
       await t.pumpAndSettle();
-      await t.tap(findText('其他').last);
-      await t.pumpAndSettle();
-      await t.tap(find.byType(Switch).first);
+      // 只断言"菜单里确实有这几条命令"：PopupMenuButton 的 itemBuilder
+      // 在展开期间可能被测量过多次，按数量断言会把实现细节写死。
+      expect(findText('采样参数微调'), findsWidgets);
+      expect(findText('模型与服务商管理'), findsWidgets);
+      // 当前是完整模式 ⇒ 菜单项应是"切换到简易模式"。
+      await t.tap(findText('切换到简易模式').last);
       await t.pumpAndSettle();
 
-      // 返回主页。
-      await t.pageBack();
-      await t.pumpAndSettle();
-
-      // 主页必须已经切成精简模式(出现输入框)。
+      // 切换是就地生效的:没有跳页,主页必须立刻切成精简模式(出现输入框)。
       expect(find.byType(TextField).evaluate().length, greaterThan(0),
           reason: '主页用 AnimatedBuilder 监听 controller,'
-              'toggleSimpleModelMode 会 notifyListeners,返回后应立刻反映新模式');
+              'toggleSimpleModelMode 会 notifyListeners,切换后应立刻反映新模式');
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/state_views.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -66,10 +67,13 @@ class _LicensePageState extends State<LicensePage> {
             ],
           ),
         ),
-        body: TabBarView(
-          children: <Widget>[
-            for (final doc in _kLicenseDocs) _buildDoc(doc),
-          ],
+        body: AppContentFrame(
+          maxWidth: AppSize.pageMaxWidth,
+          child: TabBarView(
+            children: <Widget>[
+              for (final doc in _kLicenseDocs) _buildDoc(doc),
+            ],
+          ),
         ),
       ),
     );

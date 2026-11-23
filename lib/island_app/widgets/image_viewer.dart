@@ -96,6 +96,18 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   @override
   void dispose() {
     _pageController.dispose();
+    // 关闭查看器时把全屏大图从图片缓存里彻底踢掉。
+    //
+    // 实测：全屏看图每张要 8~20MB 纹理（一张 1920 宽的图就是 1920×高度×4 字节），
+    // 而 Impeller 的纹理缓存不会因为「没人看」就还给系统 —— 连着看十几张，
+    // GPU 专用内存能涨几百 MB 且关掉不回落。这里主动清一次：代价是回到列表后
+    // 缩略图要重新解码（480px 很小，几乎无感），换来的是内存曲线不再单调爬升。
+    try {
+      imageCache.clearLiveImages();
+      imageCache.clear();
+    } catch (_) {
+      // 清理失败不影响关闭查看器。
+    }
     super.dispose();
   }
 
@@ -148,10 +160,21 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 final isHero =
                     index == widget.initialIndex && widget.heroTag != null;
 
+                // 按屏幕宽度限宽解码：原图 2000px 宽解成 2000px 会白占十几 MB 纹理，
+                // 屏幕上根本用不到；再看下一张时旧的纹理还赖在 GPU 里不退
+                // （实测每张 +15~30MB GPU，关掉不回落）。
+                final int decodeWidth = (MediaQuery.sizeOf(context).width *
+                        MediaQuery.devicePixelRatioOf(context))
+                    .clamp(320, 2400)
+                    .round();
                 Widget item = ExtendedImage.network(
                   url,
                   fit: BoxFit.contain,
                   mode: ExtendedImageMode.gesture,
+                  cacheWidth: decodeWidth,
+                  // 关掉查看器就把这张图从 extended_image 的内存缓存里踢掉，
+                  // 否则它和 Flutter imageCache 各留一份，谁也不释放。
+                  clearMemoryCacheWhenDispose: true,
                   // 关掉包自带的「拖拽出页」：它由图片自身的 ScaleGestureRecognizer
                   // 驱动（任意方向、36px 就接管），会和画廊的横向翻页识别器抢手势 ——
                   // 斜着滑时退出逻辑赢，画面被上下拽着走、图也切不了（用户反馈）。

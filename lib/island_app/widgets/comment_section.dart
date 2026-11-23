@@ -1,8 +1,10 @@
 import 'dart:convert';
+import '../../widgets/memo_image.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -11,9 +13,13 @@ import 'package:dna/island_app/models/comment.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
+import 'package:dna/utils/action_table.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../../theme/tokens.dart';
 
 /// 评论列表加载（GET /cards/`id`/comments）。
@@ -79,18 +85,38 @@ class CommentSection extends StatefulWidget {
 }
 
 class _CommentSectionState extends State<CommentSection> {
-  List<Comment> _items = const <Comment>[];
-  int _page = 1;
   int _total = 0;
-  bool _hasNext = false;
   String _sort = 'latest';
   bool _onlyAuthor = false;
-  bool _loading = true;
-  bool _loadingMore = false;
   bool _posting = false;
-  String? _error;
   int? _replyToId;
   String? _replyToName;
+
+  /// 评论列表的分页状态（加载中 / 加载更多 / 有没有下一页 / 页码 / 错误）
+  /// 交给共享 [PagedController]；本页只提供「怎么取一页」。
+  late final PagedController<Comment> _paged = PagedController<Comment>(
+    fetch: (int page) async {
+      try {
+        final CommentPage data = await _loader(
+          widget.cardId,
+          page: page,
+          sort: _sort,
+          onlyAuthor: _onlyAuthor,
+        );
+        // 总数只供页头「评论（N）」使用，与分页状态无关：失败时保持旧值。
+        _total = data.total;
+        return PagedResult<Comment>(items: data.items, hasMore: data.hasNext);
+      } catch (_) {
+        // 旧行为：翻页失败给一句提示；首屏失败走错误态，不重复提示。
+        if (page > 1) _showSnack('加载更多失败，请重试');
+        rethrow;
+      }
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    firstLoadError: '评论加载失败',
+  );
 
   final ScrollController _scrollController = ScrollController();
 
@@ -124,7 +150,7 @@ class _CommentSectionState extends State<CommentSection> {
     _liker = widget.commentLiker ?? ApiClient.instance.toggleCommentLike;
     _pinner = widget.commentPinner ?? ApiClient.instance.toggleCommentPin;
     _deleter = widget.commentDeleter ?? ApiClient.instance.deleteComment;
-    _reload();
+    _refresh();
   }
 
   @override
@@ -132,65 +158,18 @@ class _CommentSectionState extends State<CommentSection> {
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
+    _paged.dispose();
     super.dispose();
   }
 
   // ---- 数据 ----
 
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _page = 1;
-    });
-    try {
-      final page = await _loader(
-        widget.cardId,
-        page: 1,
-        sort: _sort,
-        onlyAuthor: _onlyAuthor,
-      );
-      if (!mounted) return;
-      setState(() {
-        _items = page.items;
-        _page = page.page;
-        _total = page.total;
-        _hasNext = page.hasNext;
-        _loading = false;
-      });
-      _maybeFocus();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = '评论加载失败';
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasNext) return;
-    setState(() => _loadingMore = true);
-    try {
-      final page = await _loader(
-        widget.cardId,
-        page: _page + 1,
-        sort: _sort,
-        onlyAuthor: _onlyAuthor,
-      );
-      if (!mounted) return;
-      setState(() {
-        _items = <Comment>[..._items, ...page.items];
-        _page = page.page;
-        _total = page.total;
-        _hasNext = page.hasNext;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      _showSnack('加载更多失败，请重试');
-    } finally {
-      if (mounted) setState(() => _loadingMore = false);
-    }
+  /// 首屏 / 刷新 / 重试：分页交给 [PagedController]，这里只补上「定位到某条
+  /// 评论」这件页面自己的滚动事（不属于分页状态机）。
+  Future<void> _refresh() async {
+    await _paged.refresh();
+    if (!mounted) return;
+    _maybeFocus();
   }
 
   // ---- 定位评论（从用户主页点击进入）----
@@ -199,7 +178,7 @@ class _CommentSectionState extends State<CommentSection> {
   void _maybeFocus() {
     final target = widget.focusCommentId;
     if (target == null || _didFocus) return;
-    final idx = _items.indexWhere((c) => c.id == target);
+    final idx = _paged.items.indexWhere((c) => c.id == target);
     if (idx < 0) return;
     _didFocus = true;
     setState(() => _focusId = target);
@@ -258,10 +237,10 @@ class _CommentSectionState extends State<CommentSection> {
       _replyToName = null;
       _image = null;
       _showSnack('评论成功');
-      await _reload();
-    } catch (_) {
+      await _refresh();
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('评论失败，请重试');
+      _showSnack('评论失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _posting = false);
     }
@@ -301,9 +280,9 @@ class _CommentSectionState extends State<CommentSection> {
       if (picked == null) return;
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('选择图片失败');
+      _showSnack('选择图片失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _pickingImage = false);
     }
@@ -390,12 +369,12 @@ class _CommentSectionState extends State<CommentSection> {
         c.id,
         (x) => x.copyWith(liked: res.liked, likeCount: res.count),
       );
-    } catch (_) {
+    } catch (e) {
       _applyToTree(
         c.id,
         (x) => x.copyWith(liked: prevLiked, likeCount: prevCount),
       );
-      if (mounted) _showSnack('操作失败，请重试');
+      if (mounted) _showSnack('操作失败：${describeError(e)}');
     }
   }
 
@@ -406,9 +385,9 @@ class _CommentSectionState extends State<CommentSection> {
     try {
       final next = await _pinner(widget.cardId, c.id);
       _applyToTree(c.id, (x) => x.copyWith(isPinned: next));
-    } catch (_) {
+    } catch (e) {
       _applyToTree(c.id, (x) => x.copyWith(isPinned: prev));
-      if (mounted) _showSnack('操作失败，请重试');
+      if (mounted) _showSnack('操作失败：${describeError(e)}');
     }
   }
 
@@ -435,19 +414,27 @@ class _CommentSectionState extends State<CommentSection> {
       await _deleter(widget.cardId, c.id);
       if (!mounted) return;
       setState(() {
-        _items = _removeFromTree(_items, c.id);
+        _paged.items
+          ..clear()
+          ..addAll(_removeFromTree(_paged.items, c.id));
         _total = _total > 0 ? _total - 1 : 0;
       });
       _showSnack('已删除评论');
-    } catch (_) {
-      if (mounted) _showSnack('删除失败，请重试');
+    } catch (e) {
+      if (mounted) _showSnack('删除失败：${describeError(e)}');
     }
   }
 
   // ---- 树操作 ----
 
   void _applyToTree(int id, Comment Function(Comment) updater) {
-    setState(() => _items = _replaceInTree(_items, id, updater));
+    final List<Comment> next = _replaceInTree(_paged.items, id, updater);
+    // 控制器持有的列表不能整体换掉，原地替换内容。
+    setState(() {
+      _paged.items
+        ..clear()
+        ..addAll(next);
+    });
   }
 
   List<Comment> _replaceInTree(
@@ -476,13 +463,13 @@ class _CommentSectionState extends State<CommentSection> {
   void _setSort(String s) {
     if (_sort == s) return;
     setState(() => _sort = s);
-    _reload();
+    _refresh();
   }
 
   void _toggleOnlyAuthor(bool v) {
     if (_onlyAuthor == v) return;
     setState(() => _onlyAuthor = v);
-    _reload();
+    _refresh();
   }
 
   void _showSnack(String msg) {
@@ -536,23 +523,26 @@ class _CommentSectionState extends State<CommentSection> {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Text(
-                '评论（$_total）',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  '评论（$_total）',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const Spacer(),
-              ChoiceChip(
-                label: const Text('最新'),
-                selected: _sort == 'latest',
-                onSelected: (_) => _setSort('latest'),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('最热'),
-                selected: _sort == 'hottest',
-                onSelected: (_) => _setSort('hottest'),
+              // 排序：互斥 2 项、常显 → SegmentedButton（与探索/世界/茶馆/
+              // 搜索同一个控件；原来是两个 ChoiceChip，样子和别处都不一样）。
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(value: 'latest', label: Text('最新')),
+                  ButtonSegment<String>(value: 'hottest', label: Text('最热')),
+                ],
+                selected: <String>{_sort},
+                onSelectionChanged: (Set<String> picked) =>
+                    _setSort(picked.first),
+                // 不压密度：保留 M3 默认的 40dp 高度。
+
               ),
             ],
           ),
@@ -570,53 +560,63 @@ class _CommentSectionState extends State<CommentSection> {
   /// 评论列表（可滚动）；输入框不随列表滚动，始终固定在底部。
   Widget _buildList(BuildContext context) {
     final theme = Theme.of(context);
-    if (_loading && _items.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null && _items.isEmpty) {
+    if (_paged.error != null && _paged.items.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text(_error!, style: theme.textTheme.bodyMedium),
+            Text(_paged.error!, style: theme.textTheme.bodyMedium),
             const SizedBox(height: 8),
-            FilledButton.tonal(onPressed: _reload, child: const Text('重试')),
+            FilledButton.tonal(onPressed: _refresh, child: const Text('重试')),
           ],
         ),
       );
     }
-    if (_items.isEmpty) {
+    if (_paged.items.isEmpty) {
       return Center(
         child: Text('还没有评论，来抢沙发~', style: theme.textTheme.bodyMedium),
       );
     }
     return AppRefreshIndicator(
-      onRefresh: _reload,
-      child: ListView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        children: <Widget>[
-          ..._items.map((c) => _buildComment(c, false)),
-          if (_hasNext)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: _loadingMore
-                  ? const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : Center(
-                      child: TextButton(
-                        onPressed: _loadMore,
-                        child: const Text('加载更多评论'),
-                      ),
-                    ),
-            ),
-        ],
+      onRefresh: _refresh,
+      // 触底加载：与茶馆 / 世界 / 通知同一套规则（评论也是内容流，卡片高，
+      // 因此用 feed 阈值 kLoadMoreFeedThreshold=300）。
+      //
+      // 监听只包住 ListView 这一层 —— 输入框在 Column 的下一格，不会被卷进来
+      // （也不会因为滚动列表而触发分页）。
+      child: loadMoreListener(
+        onReachEnd: _paged.loadMore,
+        threshold: kLoadMoreFeedThreshold,
+        child: ListView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          children: <Widget>[
+            ..._paged.items.map((c) => _buildComment(c, false)),
+            // 尾部状态行（原来是「加载更多评论」按钮）：
+            // * 正在加载 → spinner；
+            // * 还有下一页但没在加载 → 同高占位，滚到底即可继续（无限滚动没有按钮）。
+            // 没有更多时什么都不画，保持原来的行为。
+            if (_paged.hasMore)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.lg,
+                ),
+                child: Center(
+                  child: _paged.isLoadingMore
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const SizedBox(height: 20),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -751,7 +751,7 @@ class _CommentSectionState extends State<CommentSection> {
       duration: AppMotion.medium,
       key: focused ? _focusKey(c.id) : null,
       decoration: BoxDecoration(
-        color: focused ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
+        color: focused ? scheme.primaryContainer.withValues(alpha: AppAlpha.a35) : null,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(
@@ -900,21 +900,25 @@ class _CommentSectionState extends State<CommentSection> {
     required VoidCallback onPin,
     required VoidCallback onDelete,
   }) {
-    return PopupMenuButton<String>(
+    // 置顶只在卡作者处出现、删除只在自己发的评论上出现 —— 条件写成数据，
+    // 画法交给共享 rowActionMenu（无项内图标，紧凑单行，按钮图标尺寸原样）。
+    // 调用点已保证 owner / isMine 至少有一个成立，菜单里不会空。
+    return rowActionMenu(
       icon: const Icon(Icons.more_horiz, size: 18),
-      itemBuilder: (_) => <PopupMenuEntry<String>>[
-        if (owner)
-          PopupMenuItem<String>(
-            value: 'pin',
-            child: Text(comment.isPinned ? '取消置顶' : '置顶'),
-          ),
-        if (comment.isMine)
-          const PopupMenuItem<String>(value: 'delete', child: Text('删除')),
+      actions: <RowAction>[
+        RowAction(
+          id: 'pin',
+          label: comment.isPinned ? '取消置顶' : '置顶',
+          visible: owner,
+          onSelected: onPin,
+        ),
+        RowAction(
+          id: 'delete',
+          label: '删除',
+          visible: comment.isMine,
+          onSelected: onDelete,
+        ),
       ],
-      onSelected: (v) {
-        if (v == 'pin') onPin();
-        if (v == 'delete') onDelete();
-      },
     );
   }
 }
@@ -963,15 +967,13 @@ class _CommentImage extends StatelessWidget {
         ),
       );
     }
-    final comma = dataUrl.indexOf(',');
-    final b64 = comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl;
-    Uint8List? bytes;
-    try {
-      bytes = base64Decode(b64);
-    } catch (_) {
-      bytes = null;
-    }
-    if (bytes == null) {
+    // 复用 provider：同一个 data URL 只解码一次，并按 180 逻辑像素限宽，
+    // 不把原图整张解进缩略图（原来每次 build 都重新 base64Decode + 解码）。
+    final int target =
+        (180 * MediaQuery.devicePixelRatioOf(context)).clamp(180, 720).round();
+    final ImageProvider? provider =
+        MemoImage.dataUrl(dataUrl, cacheWidth: target);
+    if (provider == null) {
       return Text(
         '[图片]',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -983,8 +985,8 @@ class _CommentImage extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        child: Image.memory(
-          bytes,
+        child: Image(
+          image: provider,
           width: 180,
           height: 180,
           fit: BoxFit.cover,

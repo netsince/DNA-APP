@@ -65,10 +65,23 @@ class PunishmentsBody extends StatefulWidget {
   State<PunishmentsBody> createState() => _PunishmentsBodyState();
 }
 
+/// 加载失败的**种类**。
+///
+/// 旧实现拿错误文案做判断（`_error == '请先登录后再查看'`）：文案改一个字，
+/// 「未登录不给重试按钮」这条规则就静默失效。种类归种类，文案归文案。
+enum _PunishmentLoadError {
+  /// 未登录：重试没意义，引导去登录，不给重试按钮。
+  needLogin,
+
+  /// 网络/服务端错误：给重试。
+  failed,
+}
+
 class _PunishmentsBodyState extends State<PunishmentsBody> {
   List<Map<String, dynamic>> _items = const [];
   bool _loading = true;
   String? _error;
+  _PunishmentLoadError? _errorKind;
 
   PunishmentsLoader get _loader =>
       widget.loader ?? ApiClient.instance.getPunishments;
@@ -86,6 +99,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     if (!(widget.isLoggedIn ?? AuthSession.instance.isLoggedIn)) {
       setState(() {
         _loading = false;
+        _errorKind = _PunishmentLoadError.needLogin;
         _error = '请先登录后再查看';
       });
       return;
@@ -93,6 +107,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     setState(() {
       _loading = true;
       _error = null;
+      _errorKind = null;
     });
     try {
       final result = await _loader();
@@ -105,6 +120,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _errorKind = _PunishmentLoadError.failed;
         _error = '$e';
       });
     }
@@ -140,7 +156,7 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
     if (_error != null) {
       return ErrorState(
         message: _error!,
-        onRetry: _error == '请先登录后再查看' ? null : _load,
+        onRetry: _errorKind == _PunishmentLoadError.needLogin ? null : _load,
       );
     }
     if (_items.isEmpty) {
@@ -157,7 +173,10 @@ class _PunishmentsBodyState extends State<PunishmentsBody> {
           child: ListView.separated(
             padding: EdgeInsets.fromLTRB(16 + inset, 16, 16 + inset, 16),
             itemCount: _items.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            // 行之间一根 Divider（原来靠卡片间距分隔）。缩进 = 行自身的
+            // 内边距（AppSpacing.md），于是分割线起于行文字左缘。
+            separatorBuilder: (_, _) =>
+                const Divider(height: 1, indent: AppSpacing.md),
             itemBuilder: (context, index) => _PunishmentCard(
               p: _items[index],
               onAppeal: () => _appeal(_items[index]),
@@ -210,75 +229,75 @@ class _PunishmentCard extends StatelessWidget {
     final expires = (p['expires_at'] ?? '').toString();
     final canAppeal = p['can_appeal'] == true;
     final appealed = p['appealed'] == true;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    (p['type_label'] ?? '处罚').toString(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+    // 去掉每行一张 Card：处罚条目是同构的列表行，靠 Divider 与间距分节
+    // 就够；卡片的描边/圆角在这里只是噪音（审计 3.3）。
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  (p['type_label'] ?? '处罚').toString(),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _statusColor(context).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.xs),
-                  ),
-                  child: Text(
-                    _statusLabel(),
-                    style: TextStyle(
-                      fontSize: AppFontSize.caption,
-                      color: _statusColor(context),
-                    ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: _statusColor(context).withValues(alpha: AppAlpha.a12),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                ),
+                child: Text(
+                  _statusLabel(),
+                  style: TextStyle(
+                    fontSize: AppFontSize.caption,
+                    color: _statusColor(context),
                   ),
                 ),
-              ],
-            ),
-            if (reason.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 6),
-              Text(reason, style: Theme.of(context).textTheme.bodyMedium),
+              ),
             ],
+          ),
+          if (reason.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(reason, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            '处罚时间 ${formatDateTime(created)}'
+            '${expires.isNotEmpty ? '\n到期时间 ${formatDateTime(expires)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: AppLineHeight.body,
+            ),
+          ),
+          if (appealed) ...<Widget>[
             const SizedBox(height: 8),
             Text(
-              '处罚时间 ${formatDateTime(created)}'
-              '${expires.isNotEmpty ? '\n到期时间 ${formatDateTime(expires)}' : ''}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: AppLineHeight.body,
+              '已提交申诉，等待处理',
+              style: TextStyle(
+                fontSize: AppFontSize.caption,
+                color: scheme.primary,
               ),
             ),
-            if (appealed) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                '已提交申诉，等待处理',
-                style: TextStyle(
-                  fontSize: AppFontSize.caption,
-                  color: scheme.primary,
-                ),
+          ] else if (canAppeal) ...<Widget>[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: onAppeal,
+                child: const Text('申诉'),
               ),
-            ] else if (canAppeal) ...<Widget>[
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  onPressed: onAppeal,
-                  child: const Text('申诉'),
-                ),
-              ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
@@ -14,6 +16,7 @@ import 'package:dna/models/world.dart';
 import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 
 /// 世界卡的**通用列表页**：给「我的世界卡」「我收藏的世界卡」这类入口复用。
 ///
@@ -71,55 +74,45 @@ class WorldsListPage extends StatefulWidget {
 }
 
 class _WorldsListPageState extends State<WorldsListPage> {
-  final List<WorldCardSummary> _items = <WorldCardSummary>[];
-  bool _loading = true;
-  bool _failed = false;
-  bool _noMore = false;
-  int _page = 1;
+  /// 分页状态（加载中 / 没有更多 / 页码 / 失败）统一由 [PagedController] 管，
+  /// 页面只提供「怎么取一页」。页码从 1 开始（与接口一致）。
+  late final PagedController<WorldCardSummary> _paged =
+      PagedController<WorldCardSummary>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await widget.loader(page);
+          final Object? raw = data['items'];
+          final List<WorldCardSummary> items = raw is List
+              ? raw
+                    .whereType<Map>()
+                    .map(
+                      (Map e) =>
+                          WorldCardSummary.fromJson(e.cast<String, dynamic>()),
+                    )
+                    .where((WorldCardSummary w) => w.id.isNotEmpty)
+                    .toList()
+              : <WorldCardSummary>[];
+          return PagedResult<WorldCardSummary>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 首屏失败才显示错误文案；翻页失败保留已加载内容（控制器保证）。
+        firstLoadError: '加载失败，请重试',
+      );
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (reset) {
-      setState(() {
-        _loading = true;
-        _failed = false;
-        _page = 1;
-        _noMore = false;
-      });
-    }
-    try {
-      final Map<String, dynamic> data = await widget.loader(_page);
-      final Object? raw = data['items'];
-      final List<WorldCardSummary> got = raw is List
-          ? raw
-                .whereType<Map>()
-                .map(
-                  (Map e) =>
-                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
-                )
-                .where((WorldCardSummary w) => w.id.isNotEmpty)
-                .toList()
-          : <WorldCardSummary>[];
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items.clear();
-        _items.addAll(got);
-        _noMore = data['has_next'] != true;
-        _page += 1;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _failed = true;
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _snack(String text) {
@@ -152,7 +145,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       await deleter(item.id);
       if (!mounted) return;
       _snack('已撤回');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('撤回失败：$e');
     }
@@ -165,7 +158,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       final bool hidden = await hider(item.id);
       if (!mounted) return;
       _snack(hidden ? '已下架，其他人看不到了' : '已恢复');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('操作失败：$e');
     }
@@ -179,7 +172,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
       await resubmitter(item.id);
       if (!mounted) return;
       _snack('已重新提审，等待审核');
-      await _load(reset: true);
+      await _paged.refresh();
     } catch (e) {
       _snack('重新提审失败：$e');
     }
@@ -220,7 +213,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
           ),
         );
       }
-      if (mounted) await _load(reset: true);
+      if (mounted) await _paged.refresh();
     } catch (e) {
       _snack('打开编辑器失败：$e');
     }
@@ -237,31 +230,19 @@ class _WorldsListPageState extends State<WorldsListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: _buildBody(context),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    if (_loading && _items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_failed && _items.isEmpty) {
-      return ErrorState(message: '加载失败，请重试', onRetry: () => _load(reset: true));
-    }
-    if (_items.isEmpty) {
-      return EmptyState(
-        icon: Icons.public_off_outlined,
-        title: widget.emptyText,
-      );
-    }
-    return LoadMoreListView(
-      itemCount: _items.length,
-      hasMore: !_noMore,
-      onLoadMore: _load,
-      onRefresh: () => _load(reset: true),
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (BuildContext context, int index) =>
-          _tile(context, _items[index]),
+      // 五态 + 下拉刷新 + 触底加载由 [PagedListBody] 统一负责；本页只给
+      // 「一行怎么画」（行菜单已经是动作表，见 [_tile]）。空态文案仍由
+      // [emptyText] 注入。
+      body: PagedListBody<WorldCardSummary>(
+        controller: _paged,
+        separator: (_, _) => const Divider(height: 1),
+        empty: EmptyState(
+          icon: Icons.public_off_outlined,
+          title: widget.emptyText,
+        ),
+        itemBuilder: (BuildContext context, int index) =>
+            _tile(context, _paged.items[index]),
+      ),
     );
   }
 
@@ -278,6 +259,33 @@ class _WorldsListPageState extends State<WorldsListPage> {
       if (item.copyCount > 0) '复制 ${item.copyCount}',
       if (when.isNotEmpty) when,
     ].join(' · ');
+
+    // 逐行动作表：可见项随审核状态 / 下架状态变（文案与图标与原来逐字一致）。
+    final List<RowAction> actions = <RowAction>[
+      RowAction(id: 'open', label: '查看详情', onSelected: () => _open(item)),
+      RowAction(id: 'edit', label: '编辑', onSelected: () => _edit(item)),
+      // 下架 / 取消下架：只有已通过的世界卡才有（服务端同样校验）。
+      RowAction(
+        id: 'hidden',
+        label: item.isHidden ? '取消下架' : '下架',
+        visible: item.status == 'approved',
+        onSelected: () => _toggleHidden(item),
+      ),
+      // 重新提审：被拒绝或已撤回的条目。
+      RowAction(
+        id: 'resubmit',
+        label: '重新提审',
+        visible: item.status == 'rejected' || item.status == 'deleted',
+        onSelected: () => _resubmit(item),
+      ),
+      // 撤回：已撤回的条目不再给这个动作。
+      RowAction(
+        id: 'withdraw',
+        label: '撤回',
+        visible: item.status != 'deleted',
+        onSelected: () => _withdraw(item),
+      ),
+    ];
 
     return ListTile(
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -299,41 +307,13 @@ class _WorldsListPageState extends State<WorldsListPage> {
           ],
         ],
       ),
-      trailing: widget.manageable
-          ? PopupMenuButton<String>(
-              onSelected: (String value) {
-                switch (value) {
-                  case 'open':
-                    _open(item);
-                  case 'edit':
-                    _edit(item);
-                  case 'hidden':
-                    _toggleHidden(item);
-                  case 'resubmit':
-                    _resubmit(item);
-                  case 'withdraw':
-                    _withdraw(item);
-                }
-              },
-              itemBuilder: (_) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(value: 'open', child: Text('查看详情')),
-                const PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
-                if (item.status == 'approved')
-                  PopupMenuItem<String>(
-                    value: 'hidden',
-                    child: Text(item.isHidden ? '取消下架' : '下架'),
-                  ),
-                if (item.status == 'rejected' || item.status == 'deleted')
-                  const PopupMenuItem<String>(
-                    value: 'resubmit',
-                    child: Text('重新提审'),
-                  ),
-                if (item.status != 'deleted')
-                  const PopupMenuItem<String>(
-                    value: 'withdraw',
-                    child: Text('撤回'),
-                  ),
-              ],
+      // 行内菜单由动作表渲染：可见项随状态变，页面只说「有哪些动作」。
+      trailing: widget.manageable && hasVisibleRowAction(actions)
+          ? rowActionMenu(
+              actions: actions,
+              // 原实现未传 tooltip（= Material 的本地化默认），这里传入同一取值，
+              // 免得换成共享层默认的「更多操作」。
+              tooltip: MaterialLocalizations.of(context).showMenuTooltip,
             )
           : const Icon(Icons.chevron_right, size: 20),
       onTap: () => _open(item),
@@ -355,8 +335,9 @@ class _WorldsListPageState extends State<WorldsListPage> {
 
 /// 审核状态徽章（世界卡版）：列表页与作者主页共用。
 ///
-/// 与「我的角色卡」的 StatusChip 同一个观感，但多两档：世界卡会「已下架」
-/// 和「已撤回」—— 用角色卡那个两档的徽章会把它们都显示成「待审核」。
+/// 世界卡比角色卡多两档（会「已下架」「已撤回」），所以这里只负责把
+/// status 映射成 [StatusBadge] 的色档 + 图标 —— 视觉（色对 / 字号 / 圆角 /
+/// 无 ink）只有 StatusBadge 一份实现，这是第六套自绘标签的收口点（审计 5 节）。
 class WorldStatusChip extends StatelessWidget {
   const WorldStatusChip({super.key, required this.summary});
 
@@ -364,26 +345,16 @@ class WorldStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final (Color bg, Color fg) = switch (summary.status) {
-      'approved' =>
-        summary.isHidden
-            ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
-            : (cs.primaryContainer, cs.onPrimaryContainer),
-      'rejected' => (cs.errorContainer, cs.onErrorContainer),
-      'deleted' => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
-      _ => (cs.tertiaryContainer, cs.onTertiaryContainer),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.xs),
-      ),
-      child: Text(
-        summary.statusLabel,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
-      ),
+    // 状态 → (色调, 图标) 的映射只有一份：[worldStatusStyle]。
+    final ({BadgeTone tone, IconData icon}) style = worldStatusStyle(
+      status: summary.status,
+      hidden: summary.isHidden,
+    );
+    return StatusBadge(
+      label: summary.statusLabel,
+      icon: style.icon,
+      tone: style.tone,
+      semanticLabel: '审核状态：${summary.statusLabel}',
     );
   }
 }

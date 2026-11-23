@@ -6,11 +6,13 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/site_config.dart';
+import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 首页内容（Hero + 随机推荐角色卡）。不含脚手架/侧边栏，由 [RootShell] 承载。
@@ -36,12 +38,61 @@ class _HomeBodyState extends State<HomeBody>
   // 进程内只在启动时强制弹一次公告。
   static bool _announcementShown = false;
 
-  List<Map<String, dynamic>> _cards = const [];
-  final Set<String> _seenIds = <String>{};
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  String? _error;
+  /// 分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一由 [PagedController] 管，
+  /// 页面只提供「怎么取一批卡」。
+  ///
+  /// 推荐接口是**随机**的、没有真正的页码：翻页靠 `exclude` 已经展示过的 id
+  /// 往前推，所以这里用 `page` 区分首屏（1 = 不带 exclude）与翻页。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          try {
+            if (page <= 1) {
+              // 启动时预取的那批只消费一次（之后含下拉刷新都走网络）。
+              final List<Map<String, dynamic>>? seed = _pendingSeed;
+              if (seed != null) {
+                _pendingSeed = null;
+                return PagedResult<Map<String, dynamic>>(
+                  items: seed,
+                  hasMore: seed.isNotEmpty,
+                );
+              }
+            }
+            final List<Map<String, dynamic>> cards = await ApiClient.instance
+                .getFeaturedCards(
+                  excludeIds: page <= 1
+                      ? const <String>[]
+                      : _paged.items
+                            .map(
+                              (Map<String, dynamic> c) =>
+                                  (c['id'] ?? '').toString(),
+                            )
+                            .toList(),
+                );
+            // 内容就绪：整体淡入浮现（骨架屏 → 真实卡片），代替生硬切换。
+            if (mounted) _contentIn.forward(from: 0);
+            // 随机推荐没有「下一页」：返回空批 = 换不出新卡了。
+            return PagedResult<Map<String, dynamic>>(
+              items: cards,
+              hasMore: cards.isNotEmpty,
+            );
+          } catch (_) {
+            // 首屏/刷新失败：错误态交给控制器，下拉刷新的 snackbar 见 [_refresh]。
+            if (page <= 1) _refreshFailed = true;
+            rethrow;
+          }
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '推荐内容加载失败，请稍后重试',
+      );
+
+  /// 启动时预取的那批推荐（见 [CommunityPreload]），被第一页消费后置空。
+  List<Map<String, dynamic>>? _pendingSeed;
+
+  /// 上一次首屏/刷新请求是否失败（控制器不区分「刷新失败」，见 [_refresh]）。
+  bool _refreshFailed = false;
 
   /// 内容（网格/占位）淡入动画：加载完成后从透明平滑浮现，代替生硬切换。
   late final AnimationController _contentIn;
@@ -63,17 +114,8 @@ class _HomeBodyState extends State<HomeBody>
     _maybeShowAnnouncement();
     // 主应用首屏时已经预取过一批推荐（见 CommunityPreload）：命中就直接
     // 铺上，用户点进社区立刻有内容，连骨架屏都不出现。
-    final List<Map<String, dynamic>>? prefetched =
-        CommunityPreload.instance.freshFeaturedCards;
-    if (prefetched != null) {
-      _cards = prefetched;
-      _loading = false;
-      _seenIds.addAll(
-        prefetched.map((Map<String, dynamic> c) => (c['id'] ?? '').toString()),
-      );
-    } else {
-      _loadFeatured();
-    }
+    _pendingSeed = CommunityPreload.instance.freshFeaturedCards;
+    _paged.refresh();
   }
 
   void _onSiteConfigChanged() => _maybeShowAnnouncement();
@@ -81,13 +123,14 @@ class _HomeBodyState extends State<HomeBody>
   /// 外壳在「推荐」Tab 内再次点击该 Tab 时自增计数，触发重新拉取。
   void _onRefreshRequested() {
     if (!mounted) return;
-    _loadFeatured();
+    _paged.refresh();
   }
 
   @override
   void dispose() {
     widget.refreshCounter?.removeListener(_onRefreshRequested);
     SiteConfig.instance.removeListener(_onSiteConfigChanged);
+    _paged.dispose();
     _contentIn.dispose();
     super.dispose();
   }
@@ -110,56 +153,6 @@ class _HomeBodyState extends State<HomeBody>
     });
   }
 
-  /// 拉取首页随机推荐角色卡（首批）。
-  Future<void> _loadFeatured() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final cards = await ApiClient.instance.getFeaturedCards();
-      if (!mounted) return;
-      setState(() {
-        _cards = cards;
-        _loading = false;
-        _seenIds
-          ..clear()
-          ..addAll(cards.map((c) => (c['id'] ?? '').toString()));
-      });
-      // 内容就绪，淡入浮现（骨架屏/占位平滑过渡到真实内容）。
-      _contentIn.forward(from: 0);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  /// 无限滚动：滚动接近底部时追加一批新随机卡（排除已展示的）。
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || _noMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final cards = await ApiClient.instance.getFeaturedCards(
-        excludeIds: _seenIds.toList(),
-      );
-      if (!mounted) return;
-      setState(() {
-        _cards = <Map<String, dynamic>>[..._cards, ...cards];
-        for (final c in cards) {
-          _seenIds.add((c['id'] ?? '').toString());
-        }
-        _loadingMore = false;
-        if (cards.isEmpty) _noMore = true;
-      });
-    } catch (_) {
-      // 加载更多失败：静默，允许下次滚动再试。
-      if (mounted) setState(() => _loadingMore = false);
-    }
-  }
-
   Future<void> _open(String url) async {
     await confirmOpenBrowser(context, url);
   }
@@ -177,34 +170,24 @@ class _HomeBodyState extends State<HomeBody>
   }
 
   void _onScrollNotification(ScrollNotification notification) {
-    // 接近底部时触发追加加载。
+    // 接近底部时触发追加加载（阈值统一用 [kLoadMoreThreshold]）。
     if (notification.metrics.pixels >=
-        notification.metrics.maxScrollExtent - 400) {
-      _loadMore();
+        notification.metrics.maxScrollExtent - kLoadMoreThreshold) {
+      _paged.loadMore();
     }
   }
 
   /// 下拉刷新：静默重新拉取随机推荐（保留现有内容，避免骨架屏闪烁）。
+  ///
+  /// 刷新失败时控制器**不动**已有列表（也就不会进错误态），所以这里补一条
+  /// snackbar —— 下拉刷新的失败必须让用户看见。
   Future<void> _refresh() async {
-    try {
-      final cards = await ApiClient.instance.getFeaturedCards();
-      if (!mounted) return;
-      setState(() {
-        _cards = cards;
-        _error = null;
-        _loading = false;
-        _noMore = false;
-        _seenIds
-          ..clear()
-          ..addAll(cards.map((c) => (c['id'] ?? '').toString()));
-      });
-      _contentIn.forward(from: 0);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
-    }
+    _refreshFailed = false;
+    await _paged.refresh();
+    if (!mounted || !_refreshFailed) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
   }
 
   @override
@@ -266,16 +249,16 @@ class _HomeBodyState extends State<HomeBody>
       ),
     ];
 
-    if (_loading) {
+    if (_paged.isLoading) {
       // 加载微动画：闪烁骨架屏，贴合卡片布局，替代生硬转圈。
       slivers.add(titleSliver);
       slivers.add(_skeletonSliver(context));
-    } else if (_error != null) {
+    } else if (_paged.error != null) {
       slivers.add(titleSliver);
       slivers.add(
-        SliverToBoxAdapter(child: ErrorState(onRetry: _loadFeatured)),
+        SliverToBoxAdapter(child: ErrorState(onRetry: () => _paged.refresh())),
       );
-    } else if (_cards.isEmpty) {
+    } else if (_paged.items.isEmpty) {
       slivers.add(titleSliver);
       slivers.add(
         const SliverToBoxAdapter(
@@ -295,12 +278,15 @@ class _HomeBodyState extends State<HomeBody>
             opacity: _contentIn.value,
             sliver: SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: ResponsiveCardGrid(cards: _cards, onCardTap: _openCard),
+              sliver: ResponsiveCardGrid(
+                cards: _paged.items,
+                onCardTap: _openCard,
+              ),
             ),
           ),
         ),
       );
-      if (_loadingMore) {
+      if (_paged.isLoadingMore) {
         slivers.add(
           const SliverToBoxAdapter(
             child: Padding(
@@ -316,25 +302,26 @@ class _HomeBodyState extends State<HomeBody>
     return slivers;
   }
 
-  /// 加载中的骨架屏网格：与真实卡片同列宽、同间隙，带 shimmer 微光。
+  /// 加载中的骨架屏：列数/格子尺寸都取自 [cardGridMetrics]，
+  /// 与真实网格**同构** —— 否则内容一到位卡片会重排、页面跳一下（审计 3.3）。
   Widget _skeletonSliver(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: Shimmer(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final columns = (width ~/ 200).clamp(2, 6);
-              const spacing = 12.0;
-              final itemWidth = (width - spacing * (columns - 1)) / columns;
+              final CardGridMetrics m = cardGridMetrics(constraints.maxWidth);
               return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
+                spacing: kCardGridSpacing,
+                runSpacing: kCardGridSpacing,
                 children: List<Widget>.generate(
-                  columns * 3,
-                  (_) =>
-                      SizedBox(width: itemWidth, child: const _SkeletonCard()),
+                  m.columns * 3,
+                  (_) => SizedBox(
+                    width: m.cellWidth,
+                    height: m.cellHeight,
+                    child: const _SkeletonCard(),
+                  ),
                 ),
               );
             },

@@ -13,17 +13,15 @@ import 'theme/tokens.dart';
 import 'utils/platform_capabilities.dart';
 import 'island_app/community_preload.dart';
 import 'pages/oobe_page.dart';
+import 'bootstrap_app.dart';
+import 'pages/splash/splash_animations.dart';
 import 'pages/splash_page.dart';
 import 'services/resume_service.dart';
 import 'utils/ui_feedback.dart';
 import 'widgets/app_section.dart';
-import 'services/app_icon_service.dart';
-import 'services/auto_backup_service.dart';
 import 'services/openai_service.dart';
 import 'services/settings_service.dart';
 import 'services/ta_service.dart';
-import 'services/web_font_loader.dart';
-import 'services/web_utils.dart';
 import 'services/startup_update_check.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -32,27 +30,22 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // 图片缓存上限：Flutter 默认 1000 张 / 100MB，对聊天场景偏大。
+      // 立绘、头像、表情都是大图，实际一个会话滚一屏也就几十张，
+      // 条目数根本用不满；收窄到 240 张 / 96MB，减少长时间使用后的
+      // 内存与显存占用，字节上限基本不动以免误伤大图缓存。
+      PaintingBinding.instance.imageCache
+        ..maximumSize = 240
+        ..maximumSizeBytes = 96 << 20;
+
       final controller = AppController(
         settingsService: SettingsService(),
         openAiService: OpenAiService(),
         taService: TaService(),
       );
-      await controller.initialize();
-
-      // 每日自动备份：首次进入应用时在后台静默执行（失败不影响启动）。
-      // Web 无文件系统，跳过。
-      if (!kIsWeb) {
-        unawaited(AutoBackupService.maybeBackup(controller));
-      } else {
-        // Web：应用已保存的浏览器标签页图标，并异步加载中文字体。
-        unawaited(
-          setBrowserFavicon(
-            AppIconService.optionForKey(controller.settings.appIcon).assetPath,
-          ),
-        );
-        unawaited(WebFontLoader.load());
-      }
-
+      // 注意：这里**不再** await controller.initialize()。
+      // 数据初始化挪到 BootstrapApp 里与开场动画并行 —— 否则窗口要等初始化跑完
+      // 才出现（实测 8.5–9 秒空窗），动画还没播就已经过去大半。
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
       };
@@ -70,7 +63,7 @@ Future<void> main() async {
         );
       };
 
-      runApp(DnaApp(controller: controller));
+      runApp(BootstrapApp(controller: controller));
     },
     (Object error, StackTrace stackTrace) {
       debugPrint('Uncaught zone error: $error\n$stackTrace');
@@ -79,9 +72,16 @@ Future<void> main() async {
 }
 
 class DnaApp extends StatefulWidget {
-  const DnaApp({super.key, required this.controller});
+  const DnaApp({
+    super.key,
+    required this.controller,
+    this.skipSplash = false,
+  });
 
   final AppController controller;
+
+  /// 开场动画已在 [BootstrapApp] 里播过：直接进主界面。
+  final bool skipSplash;
 
   static const Color _fallbackSeed = AppColors.seed;
 
@@ -178,7 +178,10 @@ class _DnaAppState extends State<DnaApp> {
         step: widget.controller.settings.fontSizeStep,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: AppRoot(controller: widget.controller),
+      home: AppRoot(
+        controller: widget.controller,
+        skipSplash: widget.skipSplash,
+      ),
     );
   }
 
@@ -222,17 +225,21 @@ class _DnaAppState extends State<DnaApp> {
       ),
 
       // 卡片:扁平 + 细描边(全局统一,替代各页面 235 处手写样式)。
+      // 卡片改用 M3 的表面色阶表达层级（卡片 surfaceContainerLow、页面 surface），
+      // 不再靠 1px 描边分区 —— 描边是 Web 卡片的语言。
       cardTheme: CardThemeData(
         elevation: AppElevation.flat,
         margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-        shape: AppBorder.cardShape(cs),
+        color: cs.surfaceContainerLow,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
         clipBehavior: Clip.antiAlias,
       ),
 
-      // 应用栏:无阴影、左对齐标题。
+      // 应用栏:无阴影、左对齐标题;内容滚到栏下方时抬一档色阶(scrolled-under),
+      // 让"内容在栏下面滚"这件事看得出来。
       appBarTheme: AppBarTheme(
         elevation: AppElevation.flat,
-        scrolledUnderElevation: AppElevation.flat,
+        scrolledUnderElevation: 3,
         centerTitle: false,
         backgroundColor: cs.surface,
         foregroundColor: cs.onSurface,
@@ -333,9 +340,16 @@ class _DnaAppState extends State<DnaApp> {
 }
 
 class AppRoot extends StatefulWidget {
-  const AppRoot({super.key, required this.controller});
+  const AppRoot({
+    super.key,
+    required this.controller,
+    this.skipSplash = false,
+  });
 
   final AppController controller;
+
+  /// 开场动画已由启动外壳播过。
+  final bool skipSplash;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -347,6 +361,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _requireAuth = false;
   bool _authPassed = false;
   bool _hasBeenPaused = false;
+
   DateTime? _pausedTime;
 
   /// 本次冷启动是否已经尝试过「自动继续上次聊天」。
@@ -372,7 +387,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     _requireAuth =
         PlatformCapabilities.biometricAuthSupported &&
         widget.controller.settings.requireAuthForApp;
-    _showSplash = widget.controller.settings.showSplashAnimation;
+    // 开场动画：BootstrapApp 已经播过就直接进主界面；否则按设置播。
+    // 'none' 表示不播。
+    _showSplash = !widget.skipSplash &&
+        splashAnimationById(widget.controller.settings.splashAnimation).enabled;
     widget.controller.addListener(_onControllerChanged);
     // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
     // 放在首帧之后发起，不阻塞启动。
@@ -646,6 +664,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       child: _showSplash
           ? SplashPage(
               key: const ValueKey<bool>(true),
+              animation: splashAnimationById(
+                widget.controller.settings.splashAnimation,
+              ),
               onComplete: _onSplashComplete,
             )
           : IndexedStack(

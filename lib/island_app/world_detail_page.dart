@@ -10,14 +10,17 @@ import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/utils/time_format.dart';
+import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_tag_suggestions.dart';
 import 'package:dna/models/world.dart';
 import 'package:dna/island_app/world_publish_page.dart';
 import 'package:dna/services/world_export_import_service.dart';
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 
 /// 世界卡详情：元信息 + 词条索引（分组 / 搜索 / 折叠）+ 1 条示例 + 「导入到我的世界」。
 ///
@@ -114,10 +117,10 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         _favoriteCount = parsed.favoriteCount;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '详情加载失败，稍后重试';
+        _error = '详情加载失败：${describeError(e)}';
         _loading = false;
       });
     }
@@ -200,8 +203,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
         final Object? count = result['count'];
         if (count is num) _favoriteCount = count.toInt();
       });
-    } catch (_) {
-      if (mounted) _toast('操作失败，请重试');
+    } catch (e) {
+      if (mounted) _toast('操作失败：${describeError(e)}');
     } finally {
       if (mounted) setState(() => _favoriting = false);
     }
@@ -220,8 +223,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
           (String text) => Clipboard.setData(ClipboardData(text: text));
       await writer(url);
       if (mounted) _toast('已复制网页链接');
-    } catch (_) {
-      if (mounted) _toast('复制失败，请重试');
+    } catch (e) {
+      if (mounted) _toast('复制失败：${describeError(e)}');
     }
   }
 
@@ -272,9 +275,9 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
       );
       if (!mounted) return;
       _toast('举报已提交，管理员会尽快处理');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _toast('举报提交失败，请重试');
+      _toast('举报提交失败：${describeError(e)}');
     }
   }
 
@@ -343,41 +346,31 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
             icon: Icon(_favorited ? Icons.bookmark : Icons.bookmark_border),
             onPressed: _favoriting ? null : _toggleFavorite,
           ),
-          PopupMenuButton<String>(
+          // 菜单项由动作表渲染：项样式/图标尺寸照原来的
+          // `ListTile(dense, contentPadding: zero, Icon 20)` 传，观感不变。
+          rowActionMenu(
             tooltip: '更多',
-            onSelected: (String value) {
-              if (value == 'link') _copyLink();
-              if (value == 'report') _openReport();
-              if (value == 'edit') _edit();
-            },
-            itemBuilder: (_) => <PopupMenuEntry<String>>[
-              if (_isMine)
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.edit_outlined, size: 20),
-                    title: Text('编辑'),
-                  ),
-                ),
-              const PopupMenuItem<String>(
-                value: 'link',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.link, size: 20),
-                  title: Text('复制链接'),
-                ),
+            itemStyle: RowActionItemStyle.listTile,
+            iconSize: 20,
+            actions: <RowAction>[
+              RowAction(
+                id: 'edit',
+                label: '编辑',
+                icon: Icons.edit_outlined,
+                visible: _isMine,
+                onSelected: _edit,
               ),
-              const PopupMenuItem<String>(
-                value: 'report',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.flag_outlined, size: 20),
-                  title: Text('举报'),
-                ),
+              RowAction(
+                id: 'link',
+                label: '复制链接',
+                icon: Icons.link,
+                onSelected: _copyLink,
+              ),
+              RowAction(
+                id: 'report',
+                label: '举报',
+                icon: Icons.flag_outlined,
+                onSelected: _openReport,
               ),
             ],
           ),
@@ -489,8 +482,9 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
               children: <Widget>[
-                for (final String tag in d.tags)
-                  Chip(label: Text(tag), visualDensity: VisualDensity.compact),
+                // 世界卡标签是**只读元信息**：以前用 Chip 画，但它一个回调都没有，
+                // 长成 chip 只会让用户以为能点（审计 3.3 的典型例子）。
+                for (final String tag in d.tags) StatusBadge(label: tag),
               ],
             ),
           ],

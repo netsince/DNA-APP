@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "file": "夏明朗.dnata",
+      "startConversation": false
+    },
+    {
+      "file": "林夏.dnata",
+      "startConversation": true
+    }
+  ]
+}

@@ -83,7 +83,7 @@ class SectionPageData {
     this.contentMaxWidth = AppSize.listMaxWidth,
     this.hideBottomNav = false,
     this.hideAppBar = false,
-    this.mountWhenPassing = true,
+    this.mountWhenPassing = false,
   });
 
   final AppSection section;
@@ -415,7 +415,9 @@ class AppSectionShellState extends State<AppSectionShell>
   ) {
     final SectionPageData d = _data(s)!;
     if (d.mountWhenPassing || s == f.from || s == f.to) {
-      return d.body(context);
+      // RepaintBoundary：滑动时每一帧都要重新 paint 这一层，不隔离的话
+      // 整棵子树（长列表、图片、阴影）跟着重绘 —— 这是切栏目掉帧的主因。
+      return RepaintBoundary(child: d.body(context));
     }
     return const SectionPassingPlaceholder();
   }
@@ -436,7 +438,15 @@ class AppSectionShellState extends State<AppSectionShell>
     if (_flight == null) {
       return bar;
     }
-    return AnimatedSwitcher(duration: AppMotion.fast, child: bar);
+    // 标题与内容用同一个时长：原来标题 200ms 就落位、内容还要滑 300~600ms，
+    // 观感是"标题先到、内容后到"。这里取本次飞行的实际时长，两者同进同出。
+    final int distance = (_flight!.toIndex - _flight!.fromIndex).abs();
+    return AnimatedSwitcher(
+      duration: sectionTravelDuration(distance),
+      switchInCurve: AppMotion.standard,
+      switchOutCurve: AppMotion.exit,
+      child: bar,
+    );
   }
 
   /// 悬浮按钮:只换不滑;飞行中随进度淡入。
@@ -471,62 +481,133 @@ class AppSectionShellState extends State<AppSectionShell>
   ///
   /// 标题栏、内容区、悬浮按钮都用这一份留白 ⇒ 三者对齐到同一条
   /// 内容列边缘。窄窗口算出来为负,取 0(铺满,与手机端一致)。
-  double _contentInset(BuildContext context, bool landscape) {
-    final double area =
-        MediaQuery.sizeOf(context).width -
-        (landscape ? widget.drawerWidth + 1 : 0);
+  double _contentInset(BuildContext context, double navWidth) {
+    final double area = MediaQuery.sizeOf(context).width - navWidth;
     final double inset = (area - _data(_current)!.contentMaxWidth) / 2;
     return inset > 0 ? inset : 0;
   }
 
+  /// M3 宽度类断点：compact（小于 600）/ medium（600–839）/ expanded（840+）。
+  ///
+  /// 用**可用宽度**判断，不用 orientation：640×360 的手机横屏仍应是 compact，
+  /// 1024 的竖屏平板应是 expanded（审计 3.4「按方向而不是宽度决策」）。
+  // 断点来自令牌（M3 宽度类），不再各页各写一份。
+  static const double _mediumWidth = AppBreakpoints.compactMax;
+  static const double _expandedWidth = AppBreakpoints.mediumMax;
+
+  /// 600 及以下算 compact（M3 的 compact 是"小于 600"，这里把 600 也算进去：
+  /// 边界值归哪一档只是 1dp 的取舍，归 compact 更稳——600 宽的设备大多是
+  /// 竖屏手机/小平板，突然换成侧栏反而奇怪）。
+  _NavLayout _layoutFor(double width) => width <= _mediumWidth
+      ? _NavLayout.compact
+      : width < _expandedWidth
+      ? _NavLayout.medium
+      : _NavLayout.expanded;
+
+  /// 侧栏占位宽度（只用于内容列居中留白；rail 自身宽度由内建规则决定）。
+  double _railWidth(_NavLayout layout) =>
+      layout == _NavLayout.expanded ? 200 : 80;
+
   @override
   Widget build(BuildContext context) {
-    final bool landscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final double inset = _contentInset(context, landscape);
-    final Widget content = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        // 标题栏:背景与页面同色,按内容列内缩 ⇒ 标题与右侧动作
-        // 都对齐到内容列边缘(视觉上仍是通栏的栏,只是内容对齐了)。
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: inset),
-          child: _appBarSlot(),
-        ),
-        Expanded(
-          child: Padding(
+    final double width = MediaQuery.sizeOf(context).width;
+    final _NavLayout layout = _layoutFor(width);
+    // 「社区」等自带完整外壳（侧栏/顶栏）的栏目：主项目导航整体让位。
+    final bool islandOwnsChrome = _data(_current)!.hideBottomNav;
+    // medium 用 NavigationRail；expanded 用常驻 AppDrawer（M3 的 expanded
+    // 窗口既可以是 extended rail，也可以是常驻 NavigationDrawer —— 这里选后者：
+    // 抽屉里还有「搜索/身份/设置」这些侧栏放不下的入口，保留它信息更全）。
+    final bool useRail = !islandOwnsChrome && layout == _NavLayout.medium;
+    final bool usePersistentDrawer =
+        !islandOwnsChrome && layout == _NavLayout.expanded;
+    final double navWidth = useRail
+        ? _railWidth(layout)
+        : usePersistentDrawer
+        ? widget.drawerWidth + 1
+        : 0;
+    final double inset = _contentInset(context, navWidth);
+    // ScrollNotificationObserver：AppBar 靠它感知「内容滚到自己下面」才能抬色阶
+    // （appBarTheme.scrolledUnderElevation）。壳里标题栏和内容区是兄弟节点，
+    // 不套这一层，AppBar 永远收不到滚动通知，滚动分层就形同虚设。
+    final Widget content = ScrollNotificationObserver(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // 标题栏:背景与页面同色,按内容列内缩 ⇒ 标题与右侧动作
+          // 都对齐到内容列边缘(视觉上仍是通栏的栏,只是内容对齐了)。
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: inset),
-            child: _film(context),
+            child: _appBarSlot(),
           ),
-        ),
-      ],
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              child: _film(context),
+            ),
+          ),
+        ],
+      ),
     );
 
     // 系统返回 → 回主页（「社区」例外，见 _withBack）。
     final Widget bodyWithBack = _withBack(content);
 
-    if (landscape) {
-      // 「社区」等自带完整外壳(侧栏/顶栏)的栏目:主项目的常驻侧栏让位,
-      // 内容占满 —— 否则两条侧栏并排(主项目的 + 岛自己的)没法看。
-      final bool islandOwnsChrome = _data(_current)!.hideBottomNav;
+    if (useRail) {
+      // 中等及以上：用 M3 的 NavigationRail 承担顶级目的地
+      // （原来是"横屏就把抽屉塞进固定宽度 SizedBox"，那不是 rail 也不是 drawer）。
+      final List<AppSection> sections = AppBottomNav.sectionsFor(
+        widget.controller,
+      );
+      final int rawIndex = sections.indexOf(_current);
       return Scaffold(
-        body: islandOwnsChrome
-            ? bodyWithBack
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  SizedBox(
-                    width: widget.drawerWidth,
-                    child: AppDrawer(
-                      controller: widget.controller,
-                      current: _current,
-                      persistent: true,
-                    ),
-                  ),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: bodyWithBack),
-                ],
+        // 身份/设置是抽屉专属栏目，侧栏里没有它们的位置：保留抽屉入口。
+        drawer: AppDrawer(
+          controller: widget.controller,
+          current: _current,
+          persistent: false,
+        ),
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            NavigationRail(
+              // 身份/设置不在 rail 里：允许"无选中项"（NavigationBar 不允许）。
+              selectedIndex: rawIndex < 0 ? null : rawIndex,
+              extended: layout == _NavLayout.expanded,
+              labelType: layout == _NavLayout.expanded
+                  ? null
+                  : NavigationRailLabelType.selected,
+              onDestinationSelected: (int index) =>
+                  navigateTo(sections[index], axis: Axis.horizontal),
+              destinations: <NavigationRailDestination>[
+                for (final AppSection s in sections)
+                  AppBottomNav.railDestination(s),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: bodyWithBack),
+          ],
+        ),
+        floatingActionButton: _buildFab(context, inset),
+      );
+    }
+
+    if (usePersistentDrawer) {
+      return Scaffold(
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            SizedBox(
+              width: widget.drawerWidth,
+              child: AppDrawer(
+                controller: widget.controller,
+                current: _current,
+                persistent: true,
               ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: bodyWithBack),
+          ],
+        ),
         floatingActionButton: _buildFab(context, inset),
       );
     }
@@ -554,3 +635,6 @@ class AppSectionShellState extends State<AppSectionShell>
     );
   }
 }
+
+/// 窗口宽度类（M3 adaptive）：决定顶级导航用底栏还是侧栏。
+enum _NavLayout { compact, medium, expanded }

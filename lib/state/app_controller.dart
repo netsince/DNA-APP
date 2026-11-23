@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/app_settings_patch.dart';
 import '../models/conversation.dart';
 import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
@@ -17,6 +19,10 @@ import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../utils/message_processor.dart';
 import '../utils/platform_capabilities.dart';
+import '../services/attachment_storage.dart';
+import '../services/model_capabilities.dart';
+import '../services/preset_release_service.dart';
+import '../services/removed_stt_cleanup.dart';
 import '../services/openai_service.dart';
 import '../services/anthropic_service.dart';
 import '../services/zhipu_service.dart';
@@ -132,7 +138,7 @@ class AppController extends ChangeNotifier {
   /// baseUrl/apiKey/model 一律从激活的配置实体(activeModel/activeProviderConfig)
   /// 派生,采样参数按「模型自定义覆盖全局」的既有规则合并——
   /// 请求路径不再依赖 legacy 扁平字段是否被正确同步。
-  LlmRequest buildLlmRequest({required List<Map<String, String>> messages}) {
+  LlmRequest buildLlmRequest({required List<Map<String, dynamic>> messages}) {
     final LlmModelConfig model = activeModel;
     final LlmProviderConfig provider = activeProviderConfig;
     final AppSettings s = _settings;
@@ -192,12 +198,14 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _hiveService.init();
     _settings = await _settingsService.load();
+    // 升级清理：旧版本装的离线语音模型（文档目录下几百 MB）与设置键已无人使用，
+    // 首启后台删一次；跑过就只是一次字典查找，不挡启动。
+    unawaited(cleanupRemovedSpeechInput());
+    // 预热模型能力快照（约 70KB，读一次常驻内存），供「能不能传图」判断用。
+    unawaited(ModelCapabilities.instance.ensureLoaded());
     // 同步激活配置到顶层遗留字段
     _syncActiveModelToLegacyFields();
     // 平台能力门控：Web 上强制关闭不支持的功能设置（置灰，不触发原生调用）。
-    if (!PlatformCapabilities.voiceInputSupported) {
-      _settings = _settings.copyWith(voiceInputEnabled: false);
-    }
     if (!PlatformCapabilities.ttsSupported) {
       _settings = _settings.copyWith(ttsEnabled: false);
     }
@@ -223,10 +231,17 @@ class AppController extends ChangeNotifier {
         // 忽略：系统未准备好或切换失败都不应阻塞应用启动
       }
     }
-    _tas = await _hiveService.getTas();
-    _identities = await _hiveService.getIdentities();
-    _worlds = await _hiveService.getWorlds();
-    final allConversations = await _hiveService.getConversations();
+    // 四个 box 互不依赖：并行读，省掉三次串行等待（Hive 每次 openBox 都有文件 I/O）。
+    final List<Object> loaded = await Future.wait(<Future<Object>>[
+      _hiveService.getTas(),
+      _hiveService.getIdentities(),
+      _hiveService.getWorlds(),
+      _hiveService.getConversations(),
+    ]);
+    _tas = loaded[0] as List<TA>;
+    _identities = loaded[1] as List<UserIdentity>;
+    _worlds = loaded[2] as List<World>;
+    final allConversations = loaded[3] as List<Conversation>;
     _conversations = allConversations.where((c) => !c.isGroup).toList();
     _groupConversations = allConversations.where((c) => c.isGroup).toList();
     notifyListeners();
@@ -400,6 +415,22 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// **配置驱动设置页的唯一写入口。**
+  ///
+  /// 声明式设置项只带一个 key（即 AppSettings.toJson() 的键），由渲染器
+  /// 调这里落盘。键 → 字段的映射在 applySettingsPatch 里是一张穷尽的
+  /// switch，未声明的键会当场抛错。
+  ///
+  /// 为什么不是「改 toJson 再 fromJson」：见 app_settings_patch.dart 的说明。
+  ///
+  /// 需要副作用（重建主题、初始化 TTS、切换模型…）的设置项，在声明里挂
+  /// writeOverride，不要往这里塞 if。
+  Future<void> patchSettings(String key, Object? value) async {
+    _settings = applySettingsPatch(_settings, key, value);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
   /// 保存并应用主题模式（'system' / 'light' / 'dark'）。
   Future<void> saveThemeMode(String themeMode) async {
     _settings = _settings.copyWith(themeMode: themeMode.trim());
@@ -468,6 +499,19 @@ class AppController extends ChangeNotifier {
   Future<void> completeOobe() async {
     _settings = _settings.copyWith(completedOobe: true);
     await _settingsService.save(_settings);
+    // 释放内置角色卡。**不设任何"已释放"标记**：
+    // 释放本身是幂等的（同 id 跳过、不覆盖用户改动），而 OOBE 正常只走一次，
+    // 加标记只会带来「换卡后不再释放」这种自找的麻烦。失败也不阻断引导。
+    try {
+      final PresetReleaseResult result =
+          await PresetReleaseService.release(controller: this);
+      debugPrint(
+        '[preset] 释放 ${result.releasedCount}/${result.entries.length} 张卡，'
+        '建会话 ${result.conversationsCreated} 个',
+      );
+    } catch (e) {
+      debugPrint('[preset] 释放异常（不阻断引导）: $e');
+    }
     notifyListeners();
   }
 
@@ -535,8 +579,17 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveSplashAnimation({required bool showSplashAnimation}) async {
-    _settings = _settings.copyWith(showSplashAnimation: showSplashAnimation);
+  /// 保存「开发者选项是否已解锁」（关于页连点版本号 10 次切换）。
+  Future<void> saveDeveloperOptionsUnlocked({
+    required bool unlocked,
+  }) async {
+    _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
+    await _settingsService.save(_settings);
+    notifyListeners();
+  }
+
+  Future<void> saveSplashAnimation({required String splashAnimation}) async {
+    _settings = _settings.copyWith(splashAnimation: splashAnimation);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -656,36 +709,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存语音识别模型来源偏好。
-  Future<void> saveSherpaModelSource(String source) async {
-    _settings = _settings.copyWith(sherpaModelSource: source);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
-  /// 保存自定义模型服务器根地址。
-  Future<void> saveSherpaCustomBaseUrl(String? url) async {
-    _settings = _settings.copyWith(sherpaCustomBaseUrl: url);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 记录模型是否已下载就绪及其本地目录。
-  Future<void> setSherpaModelReady(String? modelPath) async {
-    _settings = _settings.copyWith(
-      sherpaModelReady: modelPath != null && modelPath.isNotEmpty,
-      sherpaModelPath: modelPath,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存当前选中的语音识别模型 id。
-  Future<void> saveSelectedVoiceModel(String id) async {
-    _settings = _settings.copyWith(selectedVoiceModelId: id);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
   /// 保存强调色（莫奈取色）模式：'auto' 或 'custom'。
   Future<void> saveAccentMode(String mode) async {
@@ -874,13 +898,6 @@ class AppController extends ChangeNotifier {
       repetitionPenalty: 1.0,
       repetitionPenaltySlope: 0.0,
     );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「离线语音输入（STT）」开关。
-  Future<void> saveVoiceInputEnabled(bool value) async {
-    _settings = _settings.copyWith(voiceInputEnabled: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -1617,15 +1634,17 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 把 [oldIndex] 的 TA 移到 [newIndex]。
+  ///
+  /// [newIndex] 是**移除之后**的下标（即 `ReorderableListView.onReorderItem`
+  /// 的口径），不要在这里再减一 —— 旧代码适配的是已弃用的 `onReorder`，
+  /// 它在回调里传的是"移除前"的下标。
   Future<void> reorderTas(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _tas.length) {
       return;
     }
-    if (newIndex < 0 || newIndex > _tas.length) {
+    if (newIndex < 0 || newIndex >= _tas.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<TA> updated = List<TA>.from(_tas);
     final TA moved = updated.removeAt(oldIndex);
@@ -1635,15 +1654,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 同 [reorderTas]：下标口径是"移除之后"。
   Future<void> reorderWorlds(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _worlds.length) {
       return;
     }
-    if (newIndex < 0 || newIndex > _worlds.length) {
+    if (newIndex < 0 || newIndex >= _worlds.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<World> updated = List<World>.from(_worlds);
     final World moved = updated.removeAt(oldIndex);
@@ -1653,15 +1670,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 同 [reorderTas]：下标口径是"移除之后"。
   Future<void> reorderConversations(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _conversations.length) {
       return;
     }
     if (newIndex < 0 || newIndex > _conversations.length) {
       return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
     }
     final List<Conversation> updated = List<Conversation>.from(_conversations);
     final Conversation moved = updated.removeAt(oldIndex);
@@ -1850,6 +1865,7 @@ class AppController extends ChangeNotifier {
     List<String> conversationIds, {
     required bool includeCharacterCards,
     required ConversationExportFormat format,
+    bool includeAttachments = true,
   }) async {
     try {
       final List<Conversation> selected = allConversations
@@ -1867,6 +1883,7 @@ class AppController extends ChangeNotifier {
         tasById: tasById,
         format: format,
         includeCharacterCards: includeCharacterCards,
+        includeAttachments: includeAttachments,
       );
       return ExportImportResult(success: true, data: result);
     } catch (e) {
@@ -2049,6 +2066,29 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// 把备份包里的附件还原到本机附件库（幂等）。
+  Future<void> _restoreAttachments(
+    Map<String, List<int> Function()> data,
+  ) async {
+    if (data.isEmpty) return;
+    int restored = 0;
+    for (final MapEntry<String, List<int> Function()> entry in data.entries) {
+      try {
+        if (await AttachmentStore.instance.exists(entry.key)) continue;
+        final String ext =
+            entry.key.contains('.') ? entry.key.split('.').last : 'bin';
+        await AttachmentStore.instance.save(
+          Uint8List.fromList(entry.value()),
+          ext: ext,
+        );
+        restored++;
+      } catch (e) {
+        debugPrint('[backup] 附件还原失败 ${entry.key}: $e');
+      }
+    }
+    debugPrint('[backup] 附件还原 $restored 个');
+  }
+
   Future<ExportImportResult<DataImportReport>> _applyImport(
     ExportImportResult<ParsedBackup> parsed, {
     required bool replaceAll,
@@ -2060,6 +2100,10 @@ class AppController extends ChangeNotifier {
       );
     }
     final ParsedBackup backup = parsed.data!;
+
+    // 附件先落盘：内容寻址，已存在的直接跳过（天然去重，同一份文件不会存两遍）。
+    // 这里**不清旧附件**：它们可能被别的会话共用，回收要靠按引用 GC。
+    await _restoreAttachments(backup.attachmentBytes);
 
     String? backupPath;
     String? backupError;
@@ -2202,7 +2246,8 @@ class AppController extends ChangeNotifier {
     } catch (_) {
     }
     _settings = AppSettings.empty();
-    setSnackDuration(const Duration(milliseconds: 1000));
+    // 重置后与 AppSettings 的默认值保持一致（审计 3.5：提示不能只停 1 秒）。
+    setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
     _tas = <TA>[];
     _worlds = <World>[];
     _conversations = <Conversation>[];

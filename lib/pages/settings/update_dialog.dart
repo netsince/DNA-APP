@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -85,10 +84,10 @@ class UpdateDialog extends StatelessWidget {
                 constraints: const BoxConstraints(maxHeight: 240),
                 padding: AppInsets.card,
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  color: cs.surfaceContainerHighest.withValues(alpha: AppAlpha.a40),
                   borderRadius: AppRadius.smAll,
                   border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.5)),
+                      color: cs.outlineVariant.withValues(alpha: AppAlpha.half)),
                 ),
                 child: SelectableText(
                   info.changelog.trim().isEmpty

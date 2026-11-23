@@ -42,6 +42,13 @@ class _FadeInNetworkImageState extends State<FadeInNetworkImage>
   ImageStreamListener? _listener;
   ImageInfo? _info;
 
+  /// 渐显动画是否已经跑完。
+  ///
+  /// 跑完之后要把 Opacity / Transform.scale / ImageFiltered 三层壳拆掉：
+  /// 这三层每张图各占一个离屏图层（ImageFiltered 尤其贵），动画结束后它们
+  /// 一点视觉贡献都没有，却让 GPU 侧一直留着，滚一屏就叠一屏。
+  bool _settled = false;
+
   @override
   void initState() {
     super.initState();
@@ -78,8 +85,12 @@ class _FadeInNetworkImageState extends State<FadeInNetworkImage>
         setState(() {
           _info?.dispose();
           _info = info;
+          _settled = false;
         });
-        _controller.forward(from: 0);
+        _controller.forward(from: 0).whenComplete(() {
+          if (!mounted) return;
+          setState(() => _settled = true);
+        });
       },
       onError: (error, stackTrace) {
         // 失败时保持占位，无需额外标记。
@@ -99,6 +110,7 @@ class _FadeInNetworkImageState extends State<FadeInNetworkImage>
     _listener = null;
     _info?.dispose();
     _info = null;
+    _settled = false;
     _controller.value = 0;
   }
 
@@ -114,7 +126,15 @@ class _FadeInNetworkImageState extends State<FadeInNetworkImage>
     final info = _info;
     // 解码成功后才叠加"模糊 → 清晰"动画层；否则只显示占位色块。
     final Widget? image;
-    if (info != null) {
+    if (info != null && _settled) {
+      // 动画跑完：直接画原图，不再套任何图层。
+      image = RawImage(
+        image: info.image,
+        fit: widget.fit,
+        alignment: widget.alignment,
+        filterQuality: FilterQuality.medium,
+      );
+    } else if (info != null) {
       // 分层缓动：模糊散去（慢）与淡入、缩放错峰收尾，模拟网页版效果。
       final curve = Curves.easeOutCubic;
       image = AnimatedBuilder(

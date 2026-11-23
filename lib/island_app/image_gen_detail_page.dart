@@ -164,7 +164,14 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
               return InteractiveViewer(
                 child: Center(
                   child: Image(
-                    image: AuthNetworkImage(widget.urls[i]),
+                    image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(widget.urls[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Text(
                       '图片加载失败',
@@ -233,7 +240,7 @@ class _ImageGenGalleryPageState extends State<ImageGenGalleryPage> {
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
         child: Material(
-          color: Colors.black.withValues(alpha: 0.35),
+          color: Colors.black.withValues(alpha: AppAlpha.a35),
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: IconButton(
@@ -346,7 +353,8 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
         builder: (BuildContext context, BoxConstraints constraints) {
           //宽屏（桌面）左右分栏：左边看图、右边看信息，各自滚动。
           //窄屏（手机）保持原来的单列上下排布，观感不变。
-          final bool wide = constraints.maxWidth >= 900;
+          // 双栏阈值走 M3 宽度类令牌（原来写死 900）。
+          final bool wide = constraints.maxWidth >= AppBreakpoints.mediumMax;
           if (!wide) {
             return ListView(
               padding: const EdgeInsets.all(kPagePadding),
@@ -424,7 +432,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(kRadiusMd),
               child: Image(
-                image: AuthNetworkImage(_images[_current]),
+                image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[_current]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => ColoredBox(
                   color: scheme.surfaceContainerHighest,
@@ -522,7 +537,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
         child: AspectRatio(
           aspectRatio: _aspect,
           child: Image(
-            image: AuthNetworkImage(_images[_current]),
+            image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[_current]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => ColoredBox(
               color: scheme.surfaceContainerHighest,
@@ -557,7 +579,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(kRadiusSm - 1),
                 child: Image(
-                  image: AuthNetworkImage(_images[i]),
+                  image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_images[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) =>
                       ColoredBox(color: scheme.surfaceContainerHighest),
@@ -722,7 +751,14 @@ class _ImageGenDetailPageState extends State<ImageGenDetailPage> {
                   child: SizedBox(
                     width: 72,
                     child: Image(
-                      image: AuthNetworkImage(_refs[i]),
+                      image: ResizeImage(
+            // 生图原图 1024~2048px，按屏幕宽限宽即可。
+            AuthNetworkImage(_refs[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1600)
+                .round(),
+          ),
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) =>
                           ColoredBox(color: scheme.surfaceContainerHighest),

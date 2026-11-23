@@ -1,36 +1,19 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
 import '../theme/tokens.dart';
-import '../utils/platform_capabilities.dart';
 import '../widgets/app_section.dart';
-import 'settings/advanced_settings_page.dart';
-import 'settings/ai_service_settings_page.dart';
-import 'settings/appearance_display_page.dart';
-import 'settings/conversation_advanced_page.dart';
-import 'settings/conversation_prompt_strategy_page.dart';
-import 'settings/conversation_send_page.dart';
-import 'settings/conversation_summary_page.dart';
-import 'settings/data_settings_page.dart';
-import 'settings/security_settings_page.dart';
-import 'settings/tts_settings_page.dart';
-import 'settings/voice_input_settings_page.dart';
-import 'settings/about_page.dart';
-// 社区设置项:原样复用「岛」的子页,不重写。
-import '../island_app/server_settings_body.dart';
-import '../island_app/sponsor_body.dart';
+import '../widgets/app_surface.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'settings/settings_catalog.dart';
+import 'settings/settings_usage_store.dart';
+import 'settings/settings_search_page.dart';
 
 /// 设置主页。
 ///
-/// **组织原则:按「用户想干什么」分组,而不是按技术模块分组。**
-///
-/// 本次重构(参见 DESIGN_SPEC.md 设置页章节):
-/// * 删除 `conversation_settings_page` / `appearance_settings_page` 两个
-///   「只列入口、自己不含任何设置项」的跳板页,所有入口直达最终页面;
-/// * 导航深度从最多 6 层压到 4 层;
-/// * 副标题一律**单行**,用 `maxLines: 1` 强制约束文案长度。
+/// 分组与入口的内容全部来自 [settingsCatalog]（单一数据源），
+/// 这里只负责装配外壳：顶栏（含搜索入口）+ 可保留滚动位置的内容体。
+/// 分组原则与设计约束见 settings/settings_catalog.dart。
 /// 设置栏目装配。
 ///
 /// 滚动位置(跨子页面保留)住在装配闭包里,随壳常驻:
@@ -42,8 +25,21 @@ SectionPageData settingsSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.settings,
-    contentMaxWidth: AppSize.settingsMaxWidth,
-    appBar: (BuildContext context) => AppBar(title: const FitText('设置')),
+    contentMaxWidth: AppSize.pageMaxWidth,
+    appBar: (BuildContext context) => AppBar(
+      title: const FitText('设置'),
+      actions: <Widget>[
+        IconButton(
+          tooltip: '搜索设置',
+          icon: const Icon(Icons.search),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SettingsSearchPage(controller: controller),
+            ),
+          ),
+        ),
+      ],
+    ),
     body: (BuildContext context) =>
         SettingsBody(controller: controller, scrollOffset: _scrollOffset),
   );
@@ -83,206 +79,15 @@ class SettingsBody extends StatelessWidget {
               initialOffset: scrollOffset.value,
               onOffsetChanged: (double v) => scrollOffset.value = v,
               children: <Widget>[
-                // ===== 1. AI 接入 =====
-                _Group(
-                  title: 'AI 接入',
-                  icon: Icons.memory,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.smart_toy_outlined,
-                      title: 'AI 服务与模型',
-                      subtitle: '用哪个 AI、接口地址与密钥',
-                      onTap: () => _push(
-                        context,
-                        AiServiceSettingsPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 2. 对话风格 =====
-                _Group(
-                  title: '对话风格',
-                  icon: Icons.chat_bubble_outline,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.tune,
-                      title: '提示词策略',
-                      subtitle: 'AI 扮演的性格、语气与回复长度',
-                      onTap: () => _push(
-                        context,
-                        PromptStrategyPage(controller: controller),
-                      ),
-                    ),
-                    _Entry(
-                      icon: Icons.send_outlined,
-                      title: '回复与发送',
-                      subtitle: '回车键行为、灵感生成与快速回复',
-                      onTap: () => _push(
-                        context,
-                        ConversationSendPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 3. 记忆与上下文 =====
-                _Group(
-                  title: '记忆与上下文',
-                  icon: Icons.psychology_outlined,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.history_edu_outlined,
-                      title: '剧情摘要与上下文',
-                      subtitle: 'AI 记得多久、世界书怎么生效',
-                      onTap: () => _push(
-                        context,
-                        ConversationSummaryPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 4. 角色语音 =====
-                _Group(
-                  title: '角色语音',
-                  icon: Icons.record_voice_over_outlined,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.volume_up_outlined,
-                      title: '语音合成与背景音乐',
-                      subtitle: '让角色开口说话，或自带背景音乐',
-                      enabled: PlatformCapabilities.ttsSupported,
-                      onTap: () => _push(
-                        context,
-                        TtsSettingsPage(controller: controller),
-                      ),
-                    ),
-                    _Entry(
-                      icon: Icons.mic_none_outlined,
-                      title: '语音输入',
-                      subtitle: '用说话代替打字',
-                      enabled: PlatformCapabilities.voiceInputSupported,
-                      onTap: () => _push(
-                        context,
-                        VoiceInputSettingsPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 5. 界面与显示 =====
-                _Group(
-                  title: '界面与显示',
-                  icon: Icons.palette_outlined,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.dashboard_customize_outlined,
-                      title: '外观与聊天界面',
-                      subtitle: '明暗主题、强调色、气泡与半屏模式',
-                      onTap: () => _push(
-                        context,
-                        AppearanceDisplayPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 6. 数据与安全 =====
-                _Group(
-                  title: '数据与安全',
-                  icon: Icons.shield_outlined,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.storage_outlined,
-                      title: '备份与还原',
-                      subtitle: '定期备份、换设备时迁移',
-                      onTap: () => _push(
-                        context,
-                        DataSettingsPage(controller: controller),
-                      ),
-                    ),
-                    _Entry(
-                      icon: Icons.lock_outline,
-                      title: '安全与隐私',
-                      subtitle: '应用锁、删除前的二次确认',
-                      onTap: () => _push(
-                        context,
-                        SecuritySettingsPage(controller: controller),
-                      ),
-                    ),
-                    _Entry(
-                      icon: Icons.cleaning_services_outlined,
-                      title: '消息与高级',
-                      subtitle: '删除单条消息、剧情分叉、文本清洗',
-                      onTap: () => _push(
-                        context,
-                        ConversationAdvancedPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ===== 7. 社区（DNAISLAND） =====
-                // 服务器与赞助是从「岛」的设置里并过来的两件还活着的配置;
-                // 岛的外观设置改的是已被主项目主题取代的旧主题,不再入口。
-                // 整个社区功能在「界面与显示 → 启动与导航」里可以关掉,
-                // 关掉后这一组设置也一并收起(开关本身不在这里,不会锁死)。
-                if (controller.settings.enableCommunity)
-                  _Group(
-                    title: '社区（DNAISLAND）',
-                    icon: Icons.explore_outlined,
-                    entries: <_Entry>[
-                      _Entry(
-                        icon: Icons.dns_outlined,
-                        title: '社区服务器',
-                        subtitle: '社区后端地址，可用官方或自建',
-                        onTap: () => _push(
-                          context,
-                          Scaffold(
-                            appBar: AppBar(title: const Text('社区服务器')),
-                            body: ServerSettingsBody(),
-                          ),
-                        ),
-                      ),
-                      _Entry(
-                        icon: Icons.volunteer_activism_outlined,
-                        title: '赞助社区',
-                        subtitle: '支持 DNAISLAND 持续运转',
-                        onTap: () => _push(
-                          context,
-                          Scaffold(
-                            appBar: AppBar(title: const Text('赞助社区')),
-                            body: SponsorBody(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                // ===== 8. 关于 =====
-                _Group(
-                  title: '关于',
-                  icon: Icons.info_outline,
-                  entries: <_Entry>[
-                    _Entry(
-                      icon: Icons.info_outline,
-                      title: '版本与开源',
-                      subtitle: '版本信息、项目成员与开源许可',
-                      onTap: () => _push(context, const AboutPage()),
-                    ),
-                    _Entry(
-                      icon: Icons.terminal_outlined,
-                      title: '开发者选项',
-                      subtitle: '命令控制台与调试工具',
-                      onTap: () => _push(
-                        context,
-                        AdvancedSettingsPage(controller: controller),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                for (final SettingsGroup group in settingsCatalog(controller))
+                  _GroupTile(
+                    group: group,
+                    onOpen: (SettingsEntry entry) {
+                      // 记一次打开：搜索页的「常用 / 最近使用」靠它。
+                      SettingsUsageStore.instance.record(entry.spec.id);
+                      _push(context, entry.page());
+                    },
+                  ),              ],
             ),
           ),
         );
@@ -334,17 +139,30 @@ class _SettingsScrollBodyState extends State<_SettingsScrollBody> {
   }
 }
 
-/// 一个设置分组:标题 + 一张卡片。
-class _Group extends StatelessWidget {
-  const _Group({
-    required this.title,
-    required this.icon,
-    required this.entries,
-  });
+/// 一个设置分组：分组小标题 + 直接贴在 surface 上的行。
+///
+/// 分组内容来自 [settingsCatalog]，这里只负责画、不持有数据。
+///
+/// ## 为什么不再「每组一张卡」（审计 3.3 / 4.2）
+///
+/// 卡片是「可整体操作的内容单元」的容器。设置分组不是那种单元 —— 它就是
+/// 一串同构的行。给每组套一张卡，等于用容器（描边/圆角/卡片间距）代替
+/// **字号阶 + 间距**来表达层级，结果一屏七个框，谁也不是重点。
+///
+/// 现在层级由三件事建立：小标题的字号与语义色（`titleSmall` + `onSurfaceVariant`，
+/// `primary` 只留给可交互元素）、组间距、以及组内至多一根 Divider。
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({required this.group, required this.onOpen});
 
-  final String title;
-  final IconData icon;
-  final List<_Entry> entries;
+  final SettingsGroup group;
+  final ValueChanged<SettingsEntry> onOpen;
+
+  /// 行内文字的左边缘：行内边距 + leading 图标 + `ListTile` 默认的
+  /// horizontalTitleGap（正好等于 [AppSpacing.lg]）。
+  ///
+  /// Divider 用这个缩进，才能和行标题对齐而不是从屏幕边走。
+  static const double _rowTextIndent =
+      AppSpacing.lg + AppSize.iconCard + AppSpacing.lg;
 
   @override
   Widget build(BuildContext context) {
@@ -354,58 +172,59 @@ class _Group extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        // 分组小标题：左缘对齐**行的 leading 图标**（AppSpacing.lg = 16）。
+        // 选「与图标同列」而不是「与行标题同列」：图标是一条稳定的竖轨，
+        // 不依赖 ListTile 内部的 horizontalTitleGap；行标题比它再右移 16，
+        // 读起来仍是同一列（图标列）对齐。
         Padding(
           padding: const EdgeInsets.only(
-            left: AppSpacing.xs,
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
             bottom: AppSpacing.sm,
           ),
           child: Row(
             children: <Widget>[
-              Icon(icon, size: AppSize.iconCard, color: cs.primary),
+              Icon(
+                group.icon,
+                size: AppSize.iconCard,
+                color: cs.onSurfaceVariant,
+              ),
               AppSpacing.wSm,
               Expanded(
                 child: FitText(
-                  title,
-                  style: ts.labelLarge?.copyWith(
+                  group.title,
+                  style: ts.titleSmall?.copyWith(
                     fontWeight: AppWeight.medium,
-                    color: cs.primary,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Card(
-          child: Column(
-            children: <Widget>[
-              for (int i = 0; i < entries.length; i++) ...<Widget>[
-                if (i > 0) Divider(height: 1, indent: AppSize.iconInline * 3),
-                _EntryTile(entry: entries[i]),
-              ],
+        // 入口行放进一张有底色的卡：标题在卡外、行在卡内，
+        // 一眼能看出「这几行属于上面那个分组」（此前全部贴页面底色，难以辨认）。
+        AppSurfaceList(
+          children: <Widget>[
+            for (int i = 0; i < group.entries.length; i++) ...<Widget>[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  indent: _rowTextIndent,
+                  color: cs.outlineVariant,
+                ),
+              _EntryTile(
+                entry: group.entries[i],
+                onTap: () => onOpen(group.entries[i]),
+              ),
             ],
-          ),
+          ],
         ),
-        AppSpacing.hLg,
+        // 组间距现在是唯一的分组信号，所以比原来的卡片间距大一档。
+        AppSpacing.hXl,
       ],
     );
   }
-}
-
-/// 一个设置入口的数据。
-class _Entry {
-  const _Entry({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.enabled = true,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool enabled;
 }
 
 /// 设置入口行。
@@ -415,9 +234,11 @@ class _Entry {
 /// * 副标题 **`maxLines: 1`** 强制单行,用代码逼着文案写短;
 /// * 内边距收紧,一屏能看到更多入口。
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.entry});
+  const _EntryTile({required this.entry, required this.onTap});
 
-  final _Entry entry;
+  final SettingsEntry entry;
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -452,9 +273,10 @@ class _EntryTile extends StatelessWidget {
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: 0.5),
+        color: on ? cs.onSurfaceVariant : cs.outline.withValues(alpha: AppAlpha.half),
       ),
-      onTap: on ? entry.onTap : null,
+      onTap: on ? onTap : null,
     );
   }
 }
+

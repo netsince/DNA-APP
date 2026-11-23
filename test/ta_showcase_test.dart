@@ -3,7 +3,7 @@ import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/ta.dart';
 import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
-import 'package:dna/pages/chat_page.dart';
+import 'package:dna/pages/chat/chat_surface.dart';
 import 'package:dna/pages/ta_editor_page.dart';
 import 'package:dna/pages/ta_showcase_page.dart';
 import 'package:dna/services/hive_service.dart';
@@ -174,7 +174,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       tester
-          .widget<ChatConversationView>(find.byType(ChatConversationView))
+          .widget<ChatSurface>(find.byType(ChatSurface))
           .conversationId,
       'c2',
     );
@@ -198,19 +198,30 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(c.conversations.length, before + 1);
-    expect(find.byType(ChatConversationView), findsOneWidget);
+    expect(find.byType(ChatSurface), findsOneWidget);
   });
   testWidgets('宽窗口一分为二:hero 在左,信息栏在右', (WidgetTester tester) async {
     final AppController c = await boot();
     await pumpShowcase(tester, c, size: const Size(1400, 900));
 
-    // 右侧信息栏:tab 落在窗口右半边(窄窗口时它贴着左边)
-    final double tabLeft = tester.getRect(label('介绍')).left;
-    expect(tabLeft, greaterThan(1400 * 0.4), reason: '宽窗口应把信息栏放到右半边');
+    // 右侧信息栏:tab 落在窗口右半边(窄窗口时它贴着左边)。
+    //
+    // 量的是 TabBar 而不是「介绍」这两个字的左边:标签文字受 Tab 自身内边距影响
+    // (换成 M3 TabBar 后文字比旧的胶囊 tab 左移了约 7px),量容器的左缘才是
+    // "信息栏在哪一侧"这个契约。
+    final Rect tabBar = tester.getRect(find.byType(TabBar));
 
-    // 左栏是 hero(没有立绘时是首字占位),占据左侧 40%
+    // 左栏是 hero(没有立绘时是首字占位),占据左侧
     final Rect heroAvatar = tester.getRect(find.byType(TaAvatar).first);
     expect(heroAvatar.left, lessThan(1400 * 0.4));
+
+    // 真正的契约:信息栏整块在 hero 右侧,两者不重叠。
+    // (不再钉"恰好 40%"这种布局数值 —— 分栏宽度是可调的实现细节。)
+    expect(
+      tabBar.left,
+      greaterThan(heroAvatar.right),
+      reason: '宽窗口下信息栏应在 hero 右侧',
+    );
 
     // 窄窗口同一页仍是单列:tab 靠左
     await pumpShowcase(tester, c, size: const Size(600, 1200));

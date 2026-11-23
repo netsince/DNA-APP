@@ -36,7 +36,7 @@ SectionPageData myHomeSection(AppController controller) {
     section: AppSection.myHome,
     showArchived: showArchived,
     // 瀑布流卡片墙:和群聊/身份一样用卡片网格的宽度,桌面才排得开列。
-    contentMaxWidth: AppSize.cardGridMaxWidth,
+    contentMaxWidth: AppSize.pageMaxWidth,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
       builder: (BuildContext context, bool archived, Widget? _) => AppBar(
@@ -264,11 +264,9 @@ class _TaListBodyState extends State<TaListBody> {
             padding: AppInsets.card,
             buildDefaultDragHandles: false,
             itemCount: tas.length,
-            // 这里刻意用旧的 onReorder:reorderTas 内部已经做了
-            // 「newIndex > oldIndex 时 -1」的调整,换成 onReorderItem
-            // (它会**预先**调整)就成了双重调整,顺序会错。
-            // ignore: deprecated_member_use
-            onReorder: (int oldIndex, int newIndex) async {
+            // 新回调 onReorderItem 的 newIndex 已按"移除之后"算好，
+            // reorderTas 同口径。
+            onReorderItem: (int oldIndex, int newIndex) async {
               await widget.controller.reorderTas(oldIndex, newIndex);
             },
             itemBuilder: (BuildContext context, int index) => _ReorderRow(

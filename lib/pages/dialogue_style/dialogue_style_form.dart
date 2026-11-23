@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -114,11 +113,11 @@ class _DialogueStyleFormState extends State<DialogueStyleForm> {
           return Card(
             elevation: 0,
             color: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.4),
+                .withValues(alpha: AppAlpha.a40),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: AppAlpha.a40),
               ),
             ),
             margin: const EdgeInsets.only(bottom: 12),
@@ -162,7 +161,7 @@ class _DialogueStyleFormState extends State<DialogueStyleForm> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              color: theme.colorScheme.outlineVariant.withValues(alpha: AppAlpha.half),
             ),
           ),
           child: Padding(

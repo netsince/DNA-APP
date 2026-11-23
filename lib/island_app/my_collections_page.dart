@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/card_detail_page.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 
 /// 卡片分页加载回调（默认走 [ApiClient.getMyFavorites]/[getMyLikes]）。
 typedef MyCardsLoader = Future<Map<String, dynamic>> Function({int page});
@@ -26,52 +27,42 @@ class MyCollectionsPage extends StatefulWidget {
 }
 
 class _MyCollectionsPageState extends State<MyCollectionsPage> {
-  final List<Map<String, dynamic>> _cards = <Map<String, dynamic>>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管，页面只提供「怎么取一页」。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await widget.loader(page: page);
+          final Object? raw = data['items'];
+          final List<Map<String, dynamic>> items = raw is List
+              ? raw
+                    .whereType<Map>()
+                    .map((Map e) => e.map((k, v) => MapEntry(k.toString(), v)))
+                    .toList()
+              : <Map<String, dynamic>>[];
+          return PagedResult<Map<String, dynamic>>(
+            items: items,
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        // 首屏失败不能被渲染成「暂无内容」（审计 3.5）；翻页中途失败由
+        // 控制器保留已加载内容，不会把页面打成错误态。
+        firstLoadError: '内容加载失败，请稍后重试',
+      );
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-      } else {
-        _loadingMore = true;
-      }
-    });
-    try {
-      final data = await widget.loader(page: reset ? 1 : _page + 1);
-      if (!mounted) return;
-      final raw = data['items'];
-      final items = raw is List
-          ? raw
-                .whereType<Map>()
-                .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-                .toList()
-          : <Map<String, dynamic>>[];
-      setState(() {
-        if (reset) _cards.clear();
-        _cards.addAll(items);
-        _page = reset ? 1 : _page + 1;
-        _noMore = items.isEmpty || data['has_next'] != true;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _openCard(String cardId) {
@@ -85,42 +76,23 @@ class _MyCollectionsPageState extends State<MyCollectionsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: _loading && _cards.isEmpty
-          ? const LoadingState()
-          : _cards.isEmpty
-          ? const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容')
-          : AppRefreshIndicator(
-              onRefresh: () => _load(reset: true),
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400) {
-                    _load();
-                  }
-                  return false;
-                },
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: <Widget>[
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      sliver: ResponsiveCardGrid(
-                        cards: _cards,
-                        minColumnWidth: 180,
-                        maxColumns: 6,
-                        onCardTap: _openCard,
-                      ),
-                    ),
-                    if (_loadingMore)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+      // 五态 + 下拉刷新 + 触底加载由 [PagedGridBody] 统一负责；
+      // 具体怎么排（ResponsiveCardGrid）仍留在本页，不强行统一布局算法。
+      body: PagedGridBody<Map<String, dynamic>>(
+        controller: _paged,
+        empty: const EmptyState(icon: Icons.inbox_outlined, title: '暂无内容'),
+        sliverBuilder: (BuildContext context, List<Map<String, dynamic>> items) {
+          return SliverPadding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            sliver: ResponsiveCardGrid(
+              cards: items,
+              minColumnWidth: 180,
+              maxColumns: 6,
+              onCardTap: _openCard,
             ),
+          );
+        },
+      ),
     );
   }
 }

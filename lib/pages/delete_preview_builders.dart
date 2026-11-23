@@ -5,6 +5,7 @@ import 'package:dna/theme/tokens.dart';
 import '../models/conversation.dart';
 import '../models/dialogue_style.dart';
 import '../models/ta.dart';
+import '../models/ta_gender.dart';
 import '../models/world.dart';
 import '../services/image_storage.dart';
 import '../state/app_controller.dart';
@@ -72,7 +73,7 @@ List<Widget> buildTaPreviewSections(BuildContext context, TA ta) {
             FitText('人设', style: tt.titleLarge),
             const SizedBox(height: 12),
             _infoRow(cs, tt, '名字', ta.name),
-            _infoRow(cs, tt, '性别', ta.gender),
+            _infoRow(cs, tt, '性别', TaGender.labelOf(ta.gender)),
             _infoRow(cs, tt, '设定', ta.persona),
             _infoRow(cs, tt, '介绍', ta.intro),
             _infoRow(cs, tt, '开场白', ta.opening),

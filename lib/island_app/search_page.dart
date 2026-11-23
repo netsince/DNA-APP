@@ -11,10 +11,15 @@ import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/island_app/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
+import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
+import 'package:dna/island_app/widgets/world_list_tile.dart';
 import 'package:dna/island_app/world_detail_page.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 搜索结果类型。
@@ -34,41 +39,131 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _controller;
-  late String _query;
 
-  SearchTab _tab = SearchTab.all;
+  /// 已提交的搜索词（≠ 输入框里正在编辑的文字）。
+  ///
+  /// 同时兼任「搜没搜过」：空串 = 还没搜，结果区显示「输入关键词开始搜索」。
+  /// 原来是一个独立的 `_searched` 布尔，和 `_query` 会各自漂移（清空输入框时
+  /// 一处清了一处没清），现在只留一个真源。
+  String _query = '';
+
+  /// tab 元数据：顺序既是 TabBar 顺序，也是 TabBarView 的顺序。
+  ///
+  /// 以前这里是裸 int 状态 + 手搭一条「SizedBox(48) + Row + Expanded + InkWell」
+  /// 的假 tab 条：没有指示器、选中态只靠颜色、读屏也念不出「选项卡」
+  /// （审计 3.1）。现在交给 M3 的 TabBar + TabBarView。
+  static const List<(SearchTab, String, IconData)> _tabMeta =
+      <(SearchTab, String, IconData)>[
+        (SearchTab.all, '全部', Icons.apps_outlined),
+        (SearchTab.cards, '角色卡', Icons.badge_outlined),
+        (SearchTab.worlds, '世界', Icons.public_outlined),
+        (SearchTab.users, '用户', Icons.person_outline),
+        (SearchTab.posts, '茶馆帖', Icons.local_cafe_outlined),
+      ];
+
+  late final TabController _tabController = TabController(
+    length: _tabMeta.length,
+    vsync: this,
+  );
+
+  /// 角色卡排序（只作用于角色卡这一支，与改造前一致）。
   String _sort = 'relevance';
 
-  // 卡片搜索结果。
-  List<Map<String, dynamic>> _cards = const <Map<String, dynamic>>[];
-  bool _cardsDone = false;
-  int _cardsPage = 1;
-  bool _cardsHasMore = false;
-  bool _cardsLoadingMore = false;
-  // 世界卡搜索结果。
-  List<WorldCardSummary> _worlds = const <WorldCardSummary>[];
-  bool _worldsDone = false;
-  int _worldsPage = 1;
-  bool _worldsHasMore = false;
-  bool _worldsLoadingMore = false;
-  // 用户搜索结果。
-  List<Map<String, dynamic>> _users = const <Map<String, dynamic>>[];
-  bool _usersDone = false;
-  int _usersPage = 1;
-  bool _usersHasMore = false;
-  bool _usersLoadingMore = false;
-  // 茶馆帖搜索结果。
-  List<Map<String, dynamic>> _posts = const <Map<String, dynamic>>[];
-  bool _postsDone = false;
-  int _postsPage = 1;
-  bool _postsHasMore = false;
-  bool _postsLoadingMore = false;
+  // —— 四类结果的分页状态 ——
+  //
+  // 「加载中 / 加载更多 / 有没有下一页 / 页码 / 错误」这 16 个字段以前每个 tab
+  // 各抄一份（`_cardsDone/_cardsPage/_cardsHasMore/_cardsLoadingMore` × 4），
+  // 外加 4 份 `_loadXxx` 和 4 支 `_onScroll` 里的手写守卫。现在四类各自只是
+  // 一个共享 [PagedController]，本页只回答「怎么取第 page 页」。
+  //
+  // 分页语义**逐支保持原样**：角色卡 / 用户 / 茶馆帖走接口的 `hasNext`
+  // （页码从 1 开始），世界卡那支走裸 Map 的 `has_next`。
 
-  bool _loading = false;
-  bool _searched = false;
-  String? _error;
+  late final PagedController<Map<String, dynamic>> _cardsPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final r = await ApiClient.instance.searchCards(
+            _query,
+            page: page,
+            sort: _sort,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: r.items,
+            hasMore: r.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '角色卡搜索失败，请稍后重试',
+      );
+
+  late final PagedController<WorldCardSummary> _worldsPaged =
+      PagedController<WorldCardSummary>(
+        fetch: (int page) async {
+          final Map<String, dynamic> data = await ApiClient.instance.getWorlds(
+            page: page,
+            query: _query,
+          );
+          final Object? raw = data['items'];
+          final List<WorldCardSummary> items = raw is List
+              ? raw
+                    .whereType<Map>()
+                    .map(
+                      (Map e) => WorldCardSummary.fromJson(
+                        e.cast<String, dynamic>(),
+                      ),
+                    )
+                    .where((WorldCardSummary w) => w.id.isNotEmpty)
+                    .toList()
+              : <WorldCardSummary>[];
+          return PagedResult<WorldCardSummary>(
+            items: items,
+            // 世界卡接口这一支用 has_next，别跟上面三支统一掉。
+            hasMore: data['has_next'] == true,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '世界卡搜索失败，请稍后重试',
+      );
+
+  late final PagedController<Map<String, dynamic>> _usersPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final r = await ApiClient.instance.searchUsers(_query, page: page);
+          return PagedResult<Map<String, dynamic>>(
+            items: r.items,
+            hasMore: r.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '用户搜索失败，请稍后重试',
+      );
+
+  late final PagedController<Map<String, dynamic>> _postsPaged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final r = await ApiClient.instance.searchTeahousePosts(
+            _query,
+            page: page,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: r.items,
+            hasMore: r.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '茶馆帖搜索失败，请稍后重试',
+      );
 
   // —— 实时下拉建议 ——
   Timer? _suggestDebounce;
@@ -76,7 +171,13 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> _suggestUsers = const <Map<String, dynamic>>[];
   bool _suggestLoading = false;
 
-  final ScrollController _scrollController = ScrollController();
+  /// 分页滚动回调是按 tab 走的，而 TabBarView 会让相邻 tab 同时挂在树上
+  /// （滑动过渡期间两页都在场）。因此每个分页 tab 各拿一个 ScrollController：
+  /// 共用一个会在过渡帧里触发「attached to multiple scroll views」断言。
+  final ScrollController _cardsScroll = ScrollController();
+  final ScrollController _worldsScroll = ScrollController();
+  final ScrollController _usersScroll = ScrollController();
+  final ScrollController _postsScroll = ScrollController();
 
   @override
   void initState() {
@@ -84,7 +185,10 @@ class _SearchPageState extends State<SearchPage> {
     _controller = TextEditingController(text: widget.initialQuery);
     _query = widget.initialQuery;
     _controller.addListener(_onTextChanged);
-    _scrollController.addListener(() => _onScroll(_scrollController));
+    _cardsScroll.addListener(() => _onScroll(_cardsScroll));
+    _worldsScroll.addListener(() => _onScroll(_worldsScroll));
+    _usersScroll.addListener(() => _onScroll(_usersScroll));
+    _postsScroll.addListener(() => _onScroll(_postsScroll));
     if (_query.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
@@ -94,7 +198,15 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _suggestDebounce?.cancel();
-    _scrollController.dispose();
+    _tabController.dispose();
+    _cardsScroll.dispose();
+    _worldsScroll.dispose();
+    _usersScroll.dispose();
+    _postsScroll.dispose();
+    _cardsPaged.dispose();
+    _worldsPaged.dispose();
+    _usersPaged.dispose();
+    _postsPaged.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -133,164 +245,55 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  /// 输入框里正在编辑的文字与「已提交的搜索词」不一致时，展示实时下拉建议。
   bool get _showSuggest =>
-      _controller.text.trim().isNotEmpty &&
-      (!_searched || _controller.text.trim() != _query);
+      _controller.text.trim().isNotEmpty && _controller.text.trim() != _query;
 
+  /// 提交搜索：换了搜索词 ⇒ 四类结果**先清空、再按新条件重取**。
+  ///
+  /// 为什么先 `items.clear()` 再 `refresh()`：[PagedController] 刷新失败时按
+  /// 设计保留旧列表（翻页中途失败用户还能看已有内容），换成新搜索词时那就会把
+  /// 上一个关键词的结果留在屏幕上。清空是页面级语义，放在页面里做。
+  ///
+  /// 四类并发跑：一次搜索 = 一次请求打底，四个 tab 同时就绪。
   Future<void> _search() async {
-    final q = _controller.text.trim();
+    final String q = _controller.text.trim();
     if (q.isEmpty) {
-      setState(() {
-        _searched = false;
-        _error = null;
-        _cards = const <Map<String, dynamic>>[];
-        _users = const <Map<String, dynamic>>[];
-        _posts = const <Map<String, dynamic>>[];
-        _worlds = const <WorldCardSummary>[];
-        _cardsHasMore = false;
-        _usersHasMore = false;
-        _postsHasMore = false;
-        _worldsHasMore = false;
-      });
+      _clearResults();
       return;
     }
     setState(() {
       _query = q;
-      _loading = true;
-      _searched = true;
-      _error = null;
-      _cardsPage = 1;
-      _usersPage = 1;
-      _postsPage = 1;
-      _worldsPage = 1;
+      _cardsPaged.items.clear();
+      _worldsPaged.items.clear();
+      _usersPaged.items.clear();
+      _postsPaged.items.clear();
     });
-    try {
-      final Future<void> cardsF = _loadCards(q, reset: true);
-      final Future<void> usersF = _loadUsers(q, reset: true);
-      final Future<void> postsF = _loadPosts(q, reset: true);
-      final Future<void> worldsF = _loadWorlds(q, reset: true);
-      await Future.wait(<Future<void>>[cardsF, usersF, postsF, worldsF]);
-      if (!mounted) return;
-      setState(() => _loading = false);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
+    await Future.wait(<Future<void>>[
+      _cardsPaged.refresh(),
+      _worldsPaged.refresh(),
+      _usersPaged.refresh(),
+      _postsPaged.refresh(),
+    ]);
   }
 
-  Future<void> _loadCards(String q, {bool reset = false}) async {
-    try {
-      final page = reset ? 1 : _cardsPage + 1;
-      final r = await ApiClient.instance.searchCards(
-        q,
-        page: page,
-        sort: _sort,
-      );
-      if (!mounted) return;
-      setState(() {
-        _cards = reset
-            ? r.items
-            : <Map<String, dynamic>>[..._cards, ...r.items];
-        _cardsPage = page;
-        _cardsHasMore = r.hasNext;
-        _cardsDone = true;
-        _cardsLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _cardsDone = true;
-          _cardsLoadingMore = false;
-        });
-      }
-    }
+  /// 搜索词被清空：回到「输入关键词开始搜索」，四类结果一起清掉。
+  ///
+  /// 旧实现在这里漏清 `_worlds`（只清了另三类），现在四类一起清。
+  void _clearResults() {
+    setState(() {
+      _query = '';
+      _cardsPaged.items.clear();
+      _worldsPaged.items.clear();
+      _usersPaged.items.clear();
+      _postsPaged.items.clear();
+    });
   }
 
-  Future<void> _loadUsers(String q, {bool reset = false}) async {
-    try {
-      final page = reset ? 1 : _usersPage + 1;
-      final r = await ApiClient.instance.searchUsers(q, page: page);
-      if (!mounted) return;
-      setState(() {
-        _users = reset
-            ? r.items
-            : <Map<String, dynamic>>[..._users, ...r.items];
-        _usersPage = page;
-        _usersHasMore = r.hasNext;
-        _usersDone = true;
-        _usersLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _usersDone = true;
-          _usersLoadingMore = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadPosts(String q, {bool reset = false}) async {
-    try {
-      final page = reset ? 1 : _postsPage + 1;
-      final r = await ApiClient.instance.searchTeahousePosts(q, page: page);
-      if (!mounted) return;
-      setState(() {
-        _posts = reset
-            ? r.items
-            : <Map<String, dynamic>>[..._posts, ...r.items];
-        _postsPage = page;
-        _postsHasMore = r.hasNext;
-        _postsDone = true;
-        _postsLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _postsDone = true;
-          _postsLoadingMore = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadWorlds(String q, {bool reset = false}) async {
-    try {
-      final page = reset ? 1 : _worldsPage + 1;
-      final Map<String, dynamic> data = await ApiClient.instance.getWorlds(
-        page: page,
-        query: q,
-      );
-      if (!mounted) return;
-      final Object? raw = data['items'];
-      final List<WorldCardSummary> items = raw is List
-          ? raw
-                .whereType<Map>()
-                .map(
-                  (Map e) =>
-                      WorldCardSummary.fromJson(e.cast<String, dynamic>()),
-                )
-                .where((WorldCardSummary w) => w.id.isNotEmpty)
-                .toList()
-          : <WorldCardSummary>[];
-      setState(() {
-        _worlds = reset ? items : <WorldCardSummary>[..._worlds, ...items];
-        _worldsPage = page;
-        _worldsHasMore = data['has_next'] == true;
-        _worldsDone = true;
-        _worldsLoadingMore = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _worldsDone = true;
-          _worldsLoadingMore = false;
-        });
-      }
-    }
+  /// 换了排序：先把旧排序的结果清掉再重取（失败不残留旧排序的列表）。
+  void _reloadCards() {
+    setState(() => _cardsPaged.items.clear());
+    _cardsPaged.refresh();
   }
 
   void _openWorld(WorldCardSummary w) {
@@ -301,36 +304,26 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  /// 滚动接近底部时按当前 tab 加载下一页。
+  /// 滚动接近底部时给**这个滚动视图所属的 tab** 加载下一页。
+  ///
+  /// 判断依据从「当前 tab 是哪个」换成「是哪个 ScrollController 在滚」：
+  /// TabBarView 过渡期间两页都可能在场，只有真正在滚的那一页该翻页。
+  ///
+  /// 「还有没有下一页 / 是不是正在加载」这些守卫都收进了
+  /// [PagedController.loadMore]（幂等），这里只负责把球传给对应的那一支。
   void _onScroll(ScrollController c) {
     if (!c.hasClients) return;
     final pos = c.position;
-    if (pos.pixels >= pos.maxScrollExtent - 300) {
-      if (_tab == SearchTab.cards &&
-          _cardsHasMore &&
-          !_cardsLoadingMore &&
-          !_loading) {
-        setState(() => _cardsLoadingMore = true);
-        _loadCards(_query);
-      } else if (_tab == SearchTab.users &&
-          _usersHasMore &&
-          !_usersLoadingMore &&
-          !_loading) {
-        setState(() => _usersLoadingMore = true);
-        _loadUsers(_query);
-      } else if (_tab == SearchTab.posts &&
-          _postsHasMore &&
-          !_postsLoadingMore &&
-          !_loading) {
-        setState(() => _postsLoadingMore = true);
-        _loadPosts(_query);
-      } else if (_tab == SearchTab.worlds &&
-          _worldsHasMore &&
-          !_worldsLoadingMore &&
-          !_loading) {
-        setState(() => _worldsLoadingMore = true);
-        _loadWorlds(_query);
-      }
+    // 阈值与判定公式来自共享分页工具（原来是就地写死的 -300）。
+    if (!isNearScrollEnd(pos, threshold: kLoadMoreFeedThreshold)) return;
+    if (identical(c, _cardsScroll)) {
+      _cardsPaged.loadMore();
+    } else if (identical(c, _worldsScroll)) {
+      _worldsPaged.loadMore();
+    } else if (identical(c, _usersScroll)) {
+      _usersPaged.loadMore();
+    } else if (identical(c, _postsScroll)) {
+      _postsPaged.loadMore();
     }
   }
 
@@ -370,21 +363,23 @@ class _SearchPageState extends State<SearchPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  /// 更新搜索结果里某条帖的 stats。
+  /// 更新搜索结果里某条帖的 stats（就地替换控制器里的那一项）。
   void _updatePostStats(int id, void Function(Map<String, dynamic>) apply) {
     setState(() {
-      _posts = _posts.map((p) {
+      final List<Map<String, dynamic>> items = _postsPaged.items;
+      for (int i = 0; i < items.length; i++) {
+        final Map<String, dynamic> p = items[i];
         final pid = p['id'] is num
             ? (p['id'] as num).toInt()
             : int.tryParse('${p['id']}');
-        if (pid != id) return p;
+        if (pid != id) continue;
         final stats = <String, dynamic>{
           if (p['stats'] is Map)
             ...((p['stats'] as Map).map((k, v) => MapEntry(k.toString(), v))),
         };
         apply(stats);
-        return <String, dynamic>{...p, 'stats': stats};
-      }).toList();
+        items[i] = <String, dynamic>{...p, 'stats': stats};
+      }
     });
   }
 
@@ -404,8 +399,8 @@ class _SearchPageState extends State<SearchPage> {
         s['liked'] = r.liked;
         s['like_count'] = r.count;
       });
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -423,8 +418,8 @@ class _SearchPageState extends State<SearchPage> {
       if (!mounted) return;
       _updatePostStats(id, (s) => s['favorited'] = r.favorited);
       _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (_) {
-      _snack('操作失败，请重试');
+    } catch (e) {
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
@@ -454,13 +449,7 @@ class _SearchPageState extends State<SearchPage> {
                 icon: const Icon(Icons.close),
                 onPressed: () {
                   _controller.clear();
-                  setState(() {
-                    _searched = false;
-                    _error = null;
-                    _cards = const <Map<String, dynamic>>[];
-                    _users = const <Map<String, dynamic>>[];
-                    _posts = const <Map<String, dynamic>>[];
-                  });
+                  _clearResults();
                 },
               ),
             ),
@@ -476,7 +465,6 @@ class _SearchPageState extends State<SearchPage> {
             _buildSuggestPanel()
           else ...[
             _buildTabs(),
-            const Divider(height: 1),
             Expanded(child: _buildResults()),
           ],
         ],
@@ -560,192 +548,252 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 五个平级视图（同一次查询的不同切面）⇒ M3 的 tab。
+  ///
+  /// 旧实现是手搭的一条 48 高 Row + InkWell：没有指示器、选中态只有颜色，
+  /// 而且两支字重都写了 w500（死代码）。TabBar 自带指示器、选中态、
+  /// 「选项卡 / 已选中」的读屏语义与键盘左右切换（审计 3.1）。
+  /// 图标 + 文字是 M3 primary tabs 的标准形态。
   Widget _buildTabs() {
-    const tabs = <(SearchTab, String, IconData)>[
-      (SearchTab.all, '全部', Icons.apps_outlined),
-      (SearchTab.cards, '角色卡', Icons.badge_outlined),
-      (SearchTab.worlds, '世界', Icons.public_outlined),
-      (SearchTab.users, '用户', Icons.person_outline),
-      (SearchTab.posts, '茶馆帖', Icons.local_cafe_outlined),
-    ];
-    return SizedBox(
-      height: 48,
-      child: Row(
-        children: tabs.map((t) {
-          final selected = _tab == t.$1;
-          return Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _tab = t.$1),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(
-                        t.$3,
-                        size: 16,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        t.$2,
-                        style: TextStyle(
-                          fontWeight: selected
-                              ? FontWeight.w500
-                              : FontWeight.w500,
-                          color: selected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return TabBar(
+      controller: _tabController,
+      tabs: <Widget>[
+        for (final (SearchTab, String, IconData) t in _tabMeta)
+          Tab(icon: Icon(t.$3), text: t.$2),
+      ],
     );
   }
 
   Widget _buildResults() {
-    if (!_searched) {
-      return const Center(
+    // 五个 tab 是同一查询的平级切面：交给 TabBarView 负责切换动画、
+    // 懒构建（不可见的 tab 不会建），以及左右滑动。
+    return TabBarView(
+      controller: _tabController,
+      children: <Widget>[
+        _resultsShell(
+          // 「全部」是四类的汇总：还没全回来就别画半张，任一支还在首屏
+          // 加载/刷新就整体转圈（与改造前的全局 loading 一致）。
+          loading: _anyLoading,
+          error: _allError,
+          empty:
+              _cardsPaged.isEmpty &&
+              _worldsPaged.isEmpty &&
+              _usersPaged.isEmpty &&
+              _postsPaged.isEmpty,
+          emptyText: '未找到相关结果',
+          body: _allResults,
+        ),
+        _resultsShell(
+          loading: _cardsPaged.isLoading,
+          error: _cardsPaged.error,
+          empty: _cardsPaged.isEmpty,
+          emptyText: '未找到相关角色卡',
+          withSortBar: true,
+          body: _cardResults,
+        ),
+        _resultsShell(
+          loading: _worldsPaged.isLoading,
+          error: _worldsPaged.error,
+          empty: _worldsPaged.isEmpty,
+          emptyText: '未找到相关世界卡',
+          body: _worldResults,
+        ),
+        _resultsShell(
+          loading: _usersPaged.isLoading,
+          error: _usersPaged.error,
+          empty: _usersPaged.isEmpty,
+          emptyText: '未找到相关用户',
+          body: _userResults,
+        ),
+        _resultsShell(
+          loading: _postsPaged.isLoading,
+          error: _postsPaged.error,
+          empty: _postsPaged.isEmpty,
+          emptyText: '未找到相关茶馆帖',
+          body: _postResults,
+        ),
+      ],
+    );
+  }
+
+  /// 四类里还有没有在首屏/刷新加载的。
+  bool get _anyLoading =>
+      _cardsPaged.isLoading ||
+      _worldsPaged.isLoading ||
+      _usersPaged.isLoading ||
+      _postsPaged.isLoading;
+
+  /// 「全部」tab 的错误：**四类都空**才算整体失败。
+  ///
+  /// 只有一支挂了时其余能看的先给用户看（单类错误切到对应 tab 去看）。
+  /// 旧实现在这里其实没有错误态（`_error` 只在一段永远走不到的 try/catch 里
+  /// 赋值），现在才真正生效。
+  String? get _allError {
+    if (_cardsPaged.items.isNotEmpty ||
+        _worldsPaged.items.isNotEmpty ||
+        _usersPaged.items.isNotEmpty ||
+        _postsPaged.items.isNotEmpty) {
+      return null;
+    }
+    return _cardsPaged.error ??
+        _worldsPaged.error ??
+        _usersPaged.error ??
+        _postsPaged.error;
+  }
+
+  /// 五个 tab 共用的「未搜索 / 加载中 / 出错 / 空 / 结果」外壳。
+  ///
+  /// 搜索是一次请求打底（_search 并发拉四类），四个结果 tab 的状态判断必须
+  /// 长得一样；把状态判断收在这一处，body 仍是各 tab 原本的结果视图，状态数据
+  /// 则全部来自各自的分页控制器。排序条只属于「角色卡」，位置与改造前一致
+  /// （tab 下、结果上；加载中 / 出错时不显示，只在展示结果时有意义）。
+  Widget _resultsShell({
+    required Widget Function() body,
+    required bool loading,
+    required bool empty,
+    required String emptyText,
+    String? error,
+    bool withSortBar = false,
+  }) {
+    if (_query.isEmpty) {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.search, size: 48, color: Colors.grey),
-            SizedBox(height: 8),
-            Text('输入关键词开始搜索'),
+            Icon(
+              Icons.search,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 8),
+            const Text('输入关键词开始搜索'),
           ],
         ),
       );
     }
-    if (_loading) {
+    if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
+    if (error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(_error!, textAlign: TextAlign.center),
+            Text(error, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             FilledButton(onPressed: _search, child: const Text('重试')),
           ],
         ),
       );
     }
-
-    switch (_tab) {
-      case SearchTab.cards:
-        return Column(
-          children: <Widget>[
-            _buildSortBar(),
-            Expanded(child: _cardResults()),
-          ],
-        );
-      case SearchTab.worlds:
-        return _worldResults();
-      case SearchTab.users:
-        return _userResults();
-      case SearchTab.posts:
-        return _postResults();
-      case SearchTab.all:
-        return _allResults();
+    final Widget content = empty ? Center(child: Text(emptyText)) : body();
+    if (!withSortBar) {
+      return content;
     }
+    return Column(
+      children: <Widget>[_buildSortBar(), Expanded(child: content)],
+    );
   }
 
   /// 角色卡排序（相关度 / 最热 / 最新），对齐网页版 search。
+  ///
+  /// 排序：互斥 3 项、常显 → SegmentedButton（与探索 / 世界 / 茶馆 / 评论区
+  /// 同一个控件）。原来这里是一行手搭的等宽 InkWell —— 选中态只有颜色，
+  /// 而且两个分支的字重都写成 w500（死代码）。
   Widget _buildSortBar() {
     const sorts = <(String, String)>[
       ('relevance', '相关度'),
       ('hot', '最热'),
       ('new', '最新'),
     ];
-    return SizedBox(
-      height: 44,
-      child: Row(
-        children: sorts.map((s) {
-          final selected = _sort == s.$1;
-          return Expanded(
-            child: InkWell(
-              onTap: () {
-                if (_sort == s.$1) return;
-                setState(() => _sort = s.$1);
-                _loadCards(_query, reset: true);
-              },
-              child: Center(
-                child: Text(
-                  s.$2,
-                  style: TextStyle(
-                    fontSize: AppFontSize.body,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<String>(
+          segments: <ButtonSegment<String>>[
+            for (final (String key, String label) in sorts)
+              ButtonSegment<String>(value: key, label: Text(label)),
+          ],
+          selected: <String>{_sort},
+          onSelectionChanged: (Set<String> picked) {
+            final String next = picked.first;
+            if (next == _sort) return;
+            setState(() => _sort = next);
+            _reloadCards();
+          },
+          // 不压密度：M3 默认高度 40dp 就是本项目的行为下限
+          // （与探索/世界页的排序控件一致；compact 会把它压到 36）。
+
+        ),
       ),
     );
   }
 
   Widget _cardResults() {
-    if (_cardsDone && _cards.isEmpty) {
-      return const Center(child: Text('未找到相关角色卡'));
-    }
     return AppRefreshIndicator(onRefresh: _search, child: _cardGrid());
   }
 
   Widget _cardGrid() {
-    return GridView.builder(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: AppInsets.card,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 220,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.62,
-      ),
-      itemCount: _cards.length + (_cardsLoadingMore ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i >= _cards.length) {
-          return const Center(
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        }
-        return CardTile(card: _cards[i], onTap: () => _openCard(_cards[i]));
+    // 列数与格子比例来自 [cardGridMetrics]（与 explore / 我的收藏 / 骨架屏同一套
+    // 算法）。原来这里写死 maxCrossAxisExtent 220 + childAspectRatio 0.62，
+    // 算出来的格子比别处矮一截，同一张卡在不同页面高宽比都不一样（审计 3.3）。
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final CardGridMetrics m = cardGridMetrics(
+          constraints.maxWidth - AppInsets.card.horizontal,
+          // 搜索结果比浏览页更密一档：单列最小 220 而不是 200。
+          minColumnWidth: 220,
+        );
+        return GridView.builder(
+          controller: _cardsScroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: AppInsets.card,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: m.columns,
+            mainAxisSpacing: kCardGridSpacing,
+            crossAxisSpacing: kCardGridSpacing,
+            childAspectRatio: m.childAspectRatio,
+          ),
+          itemCount:
+              _cardsPaged.items.length + (_cardsPaged.isLoadingMore ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i >= _cardsPaged.items.length) {
+              return const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            return CardTile(
+              card: _cardsPaged.items[i],
+              onTap: () => _openCard(_cardsPaged.items[i]),
+            );
+          },
+        );
       },
     );
   }
 
   Widget _worldResults() {
-    if (_worldsDone && _worlds.isEmpty) {
-      return const Center(child: Text('未找到相关世界卡'));
-    }
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.separated(
-        controller: _scrollController,
+        controller: _worldsScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _worlds.length + (_worldsLoadingMore ? 1 : 0),
+        itemCount:
+            _worldsPaged.items.length + (_worldsPaged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
         itemBuilder: (context, i) {
-          if (i >= _worlds.length) {
+          if (i >= _worldsPaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(
@@ -757,47 +805,31 @@ class _SearchPageState extends State<SearchPage> {
               ),
             );
           }
-          return _worldTile(_worlds[i]);
+          return _worldTile(_worldsPaged.items[i]);
         },
       ),
     );
   }
 
-  /// 世界卡搜索结果一行：名字 + 简介 + 元信息。
+  /// 世界卡搜索结果一行。
+  ///
+  /// 与「我的」页共用 [WorldListTile]：同一实体、同一语境（列表 / 定位）
+  /// 就该是同一种行；搜索这边只是多一个 leading 图标（提示「这是一条世界」）
+  /// 和「作者名」这段补充元信息（审计 3.3：世界卡曾有三种形态）。
   Widget _worldTile(WorldCardSummary w) {
-    final scheme = Theme.of(context).colorScheme;
-    final String meta = <String>[
-      if (w.entryCount > 0) '${w.entryCount} 词条',
-      if (w.sizeLabel.isNotEmpty) w.sizeLabel,
-      if (w.copyCount > 0) '复制 ${w.copyCount}',
-      if (w.authorName.isNotEmpty) w.authorName,
-    ].join(' · ');
-    return ListTile(
-      leading: const Icon(Icons.public_outlined),
-      title: Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        w.summary.isEmpty ? meta : '${w.summary}\n$meta',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: AppFontSize.caption,
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
-      isThreeLine: w.summary.isNotEmpty,
-      trailing: const Icon(Icons.chevron_right),
+    return WorldListTile(
+      world: w,
+      leadingIcon: Icons.public_outlined,
+      extraMeta: w.authorName.isEmpty ? null : w.authorName,
       onTap: () => _openWorld(w),
     );
   }
 
   Widget _userResults() {
-    if (_usersDone && _users.isEmpty) {
-      return const Center(child: Text('未找到相关用户'));
-    }
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.separated(
-        controller: _scrollController,
+        controller: _usersScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           vertical: 8,
@@ -806,10 +838,11 @@ class _SearchPageState extends State<SearchPage> {
             maxWidth: WideContent.grid.maxWidth,
           ),
         ),
-        itemCount: _users.length + (_usersLoadingMore ? 1 : 0),
+        itemCount:
+            _usersPaged.items.length + (_usersPaged.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
         itemBuilder: (context, i) {
-          if (i >= _users.length) {
+          if (i >= _usersPaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(
@@ -821,7 +854,7 @@ class _SearchPageState extends State<SearchPage> {
               ),
             );
           }
-          return _userTile(_users[i]);
+          return _userTile(_usersPaged.items[i]);
         },
       ),
     );
@@ -866,9 +899,7 @@ class _SearchPageState extends State<SearchPage> {
       trailing: _loggedIn && !isSelf
           ? OutlinedButton(
               style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: () => _toggleFollow(u),
               child: Text(isFollowing ? '已关注' : '关注'),
@@ -876,6 +907,18 @@ class _SearchPageState extends State<SearchPage> {
           : const Icon(Icons.chevron_right),
       onTap: () => _openUser(u),
     );
+  }
+
+  /// 就地改控制器里该用户的关注态（乐观更新 / 失败回滚都走这里）。
+  void _setUserFollowing(String username, bool following) {
+    setState(() {
+      final List<Map<String, dynamic>> items = _usersPaged.items;
+      for (int i = 0; i < items.length; i++) {
+        final Map<String, dynamic> u = items[i];
+        if ((u['username'] ?? '') != username) continue;
+        items[i] = <String, dynamic>{...u, 'is_following': following};
+      }
+    });
   }
 
   Future<void> _toggleFollow(Map<String, dynamic> user) async {
@@ -886,54 +929,31 @@ class _SearchPageState extends State<SearchPage> {
     final username = (user['username'] ?? '').toString();
     final isFollowing = user['is_following'] == true;
     // 乐观更新。
-    setState(() {
-      _users = _users.map((u) {
-        if ((u['username'] ?? '') == username) {
-          return <String, dynamic>{...u, 'is_following': !isFollowing};
-        }
-        return u;
-      }).toList();
-    });
+    _setUserFollowing(username, !isFollowing);
     try {
       final nowFollowing = await ApiClient.instance.toggleFollow(username);
       if (!mounted) return;
-      setState(() {
-        _users = _users.map((u) {
-          if ((u['username'] ?? '') == username) {
-            return <String, dynamic>{...u, 'is_following': nowFollowing};
-          }
-          return u;
-        }).toList();
-      });
+      _setUserFollowing(username, nowFollowing);
       _snack(nowFollowing ? '已关注' : '已取消关注');
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       // 失败回滚。
-      setState(() {
-        _users = _users.map((u) {
-          if ((u['username'] ?? '') == username) {
-            return <String, dynamic>{...u, 'is_following': isFollowing};
-          }
-          return u;
-        }).toList();
-      });
-      _snack('操作失败，请重试');
+      _setUserFollowing(username, isFollowing);
+      _snack('操作失败：${describeError(e)}');
     }
   }
 
   Widget _postResults() {
-    if (_postsDone && _posts.isEmpty) {
-      return const Center(child: Text('未找到相关茶馆帖'));
-    }
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView.builder(
-        controller: _scrollController,
+        controller: _postsScroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _posts.length + (_postsLoadingMore ? 1 : 0),
+        itemCount:
+            _postsPaged.items.length + (_postsPaged.isLoadingMore ? 1 : 0),
         itemBuilder: (context, i) {
-          if (i >= _posts.length) {
+          if (i >= _postsPaged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(
@@ -945,12 +965,12 @@ class _SearchPageState extends State<SearchPage> {
               ),
             );
           }
-          final post = TeaPost.fromJson(_posts[i]);
+          final post = TeaPost.fromJson(_postsPaged.items[i]);
           return TeahousePostTile(
             post: post,
-            onTap: () => _openPost(_posts[i]),
-            onLike: () => _togglePostLike(_posts[i]),
-            onFavorite: () => _togglePostFavorite(_posts[i]),
+            onTap: () => _openPost(_postsPaged.items[i]),
+            onLike: () => _togglePostLike(_postsPaged.items[i]),
+            onFavorite: () => _togglePostFavorite(_postsPaged.items[i]),
           );
         },
       ),
@@ -958,27 +978,15 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _allResults() {
-    final bool nothing =
-        _cardsDone &&
-        _worldsDone &&
-        _usersDone &&
-        _postsDone &&
-        _cards.isEmpty &&
-        _worlds.isEmpty &&
-        _users.isEmpty &&
-        _posts.isEmpty;
-    if (nothing) {
-      return const Center(child: Text('未找到相关结果'));
-    }
     return AppRefreshIndicator(
       onRefresh: _search,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: <Widget>[
-          if (_cards.isNotEmpty) ...<Widget>[
+          if (_cardsPaged.items.isNotEmpty) ...<Widget>[
             const _SectionHeader('角色卡'),
-            ..._cards.map(
+            ..._cardsPaged.items.map(
               (c) => ListTile(
                 leading: const Icon(Icons.badge_outlined),
                 title: Text(
@@ -996,53 +1004,49 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
           ],
-          if (_worlds.isNotEmpty) ...<Widget>[
+          if (_worldsPaged.items.isNotEmpty) ...<Widget>[
             const _SectionHeader('世界卡'),
-            ..._worlds
-                .take(10)
-                .map(
-                  (w) => ListTile(
-                    leading: const Icon(Icons.public_outlined),
-                    title: Text(
-                      w.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      w.summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openWorld(w),
-                  ),
+            ..._worldsPaged.items.take(10).map(
+              (w) => ListTile(
+                leading: const Icon(Icons.public_outlined),
+                title: Text(
+                  w.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                subtitle: Text(
+                  w.summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openWorld(w),
+              ),
+            ),
           ],
-          if (_users.isNotEmpty) ...<Widget>[
+          if (_usersPaged.items.isNotEmpty) ...<Widget>[
             const _SectionHeader('用户'),
-            ..._users
-                .take(10)
-                .map(
-                  (u) => ListTile(
-                    leading: Avatar(avatar: (u['avatar'] ?? '').toString()),
-                    title: Text(
-                      (u['nickname'] ?? '').toString(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      '@${u['username'] ?? ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openUser(u),
-                  ),
+            ..._usersPaged.items.take(10).map(
+              (u) => ListTile(
+                leading: Avatar(avatar: (u['avatar'] ?? '').toString()),
+                title: Text(
+                  (u['nickname'] ?? '').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                subtitle: Text(
+                  '@${u['username'] ?? ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openUser(u),
+              ),
+            ),
           ],
-          if (_posts.isNotEmpty) ...<Widget>[
+          if (_postsPaged.items.isNotEmpty) ...<Widget>[
             const _SectionHeader('茶馆帖'),
-            ..._posts.take(10).map((p) {
+            ..._postsPaged.items.take(10).map((p) {
               final post = TeaPost.fromJson(p);
               return TeahousePostTile(
                 post: post,

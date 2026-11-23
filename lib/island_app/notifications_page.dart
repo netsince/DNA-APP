@@ -4,8 +4,10 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 
 /// 通知分页加载回调（默认走 [ApiClient.getNotifications]）。
 typedef NotificationsLoader = Future<NotificationsData> Function({int page});
@@ -48,14 +50,27 @@ class NotificationsBody extends StatefulWidget {
 }
 
 class _NotificationsBodyState extends State<NotificationsBody> {
-  List<Map<String, dynamic>> _items = const [];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
   int _unread = 0;
   bool _markingAll = false;
-  String? _error;
+
+  /// 分页状态（加载中 / 加载更多 / 没有更多 / 页码 / 错误）统一由
+  /// [PagedController] 管；未读数是列表附带的头部信息，不是分页状态。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final NotificationsData result = await _loader(page: page);
+          // 每页都会带回最新未读数，只有成功时才覆盖。
+          _unread = result.unreadCount;
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '加载失败',
+      );
 
   NotificationsLoader get _loader =>
       widget.loader ?? ApiClient.instance.getNotifications;
@@ -66,37 +81,13 @@ class _NotificationsBodyState extends State<NotificationsBody> {
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) _loading = true;
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await _loader(page: page);
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items = <Map<String, dynamic>>[];
-        _items = <Map<String, dynamic>>[..._items, ...result.items];
-        _page = page;
-        _unread = result.unreadCount;
-        _noMore = !result.hasNext;
-        _loading = false;
-        _loadingMore = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (_items.isEmpty) _error = '$e';
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   Future<void> _markAllRead() async {
@@ -105,20 +96,30 @@ class _NotificationsBodyState extends State<NotificationsBody> {
     try {
       await _readAll();
       if (!mounted) return;
+      // 只把「已经加载到的行」就地标成已读：分页状态（页码 / 有没有更多）
+      // 一点没变，重新拉一遍列表反而会丢滚动位置。
+      final List<Map<String, dynamic>> marked = _paged.items
+          .map(
+            (Map<String, dynamic> n) => <String, dynamic>{
+              ...n,
+              'is_read': true,
+            },
+          )
+          .toList();
       setState(() {
         _unread = 0;
-        _items = _items.map((n) {
-          return <String, dynamic>{...n, 'is_read': true};
-        }).toList();
+        _paged.items
+          ..clear()
+          ..addAll(marked);
       });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已全部标记为已读')));
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('操作失败，请稍后重试')));
+        ).showSnackBar(SnackBar(content: Text('操作失败：${describeError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _markingAll = false);
@@ -148,7 +149,7 @@ class _NotificationsBodyState extends State<NotificationsBody> {
       children: <Widget>[
         _buildHeader(context),
         const Divider(height: 1),
-        Expanded(child: _buildList(context)),
+        Expanded(child: _buildList()),
       ],
     );
   }
@@ -190,25 +191,17 @@ class _NotificationsBodyState extends State<NotificationsBody> {
     );
   }
 
-  Widget _buildList(BuildContext context) {
-    if (_loading && _items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_error != null && _items.isEmpty) {
-      return ErrorState(onRetry: () => _load(reset: true));
-    }
-    if (_items.isEmpty) {
-      return const EmptyState(icon: Icons.notifications_none, title: '暂时没有通知。');
-    }
-    return LoadMoreListView(
-      itemCount: _items.length,
-      hasMore: !_noMore,
-      onLoadMore: _load,
-      onRefresh: () => _load(reset: true),
+  Widget _buildList() {
+    // 五态 + 下拉刷新 + 触底加载由 [PagedListBody] 统一负责；宽窗口的版心
+    // （审计 3.4「同一条内容，列表有版心、详情没有」）也交给它算，本页不再
+    // 自己求 inset。
+    return PagedListBody<Map<String, dynamic>>(
+      controller: _paged,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
-      itemBuilder: (context, index) {
-        final n = _items[index];
+      separator: (_, _) => const Divider(height: 1, indent: 16),
+      empty: const EmptyState(icon: Icons.notifications_none, title: '暂时没有通知。'),
+      itemBuilder: (BuildContext context, int index) {
+        final n = _paged.items[index];
         final isRead = n['is_read'] == true;
         final message = (n['message'] ?? '').toString();
         final created = (n['created_at'] ?? '').toString();

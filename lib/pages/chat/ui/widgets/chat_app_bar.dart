@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../models/ta.dart';
+import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/action_table.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 typedef SearchChanged = void Function(String value);
@@ -41,6 +43,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.ta,
     this.titleOverride,
     this.transparentBackground = false,
+    this.showAppBarScrim = false,
+    this.immersiveHidden = false,
+    this.onToggleImmersive,
   });
 
   final bool searching;
@@ -71,9 +76,22 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? titleOverride;
   final bool transparentBackground;
 
+  /// 是否在顶栏内画那条「上实下虚」的底色渐变。
+  ///
+  /// 由**当前是否真的半屏**决定（不是"开了半屏聊天"这个开关）：
+  /// 动态半屏滚成全屏之后，栏下面是消息列表而不是立绘，渐变就该消失。
+  final bool showAppBarScrim;
+
+  /// 当前是否处于沉浸态（隐藏顶栏与输入岛）。只影响菜单项文案，
+  /// 状态本身由聊天页持有。
+  final bool immersiveHidden;
+
+  /// 切换沉浸（⋮ 菜单里的「沉浸模式 / 退出沉浸」）。为 null 时不渲染该菜单项。
+  final VoidCallback? onToggleImmersive;
+
   @override
   Widget build(BuildContext context) {
-    return AppBar(
+    final Widget bar = AppBar(
       backgroundColor: transparentBackground ? Colors.transparent : null,
       surfaceTintColor: transparentBackground ? Colors.transparent : null,
       elevation: transparentBackground ? 0 : null,
@@ -122,6 +140,9 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : <Widget>[
+              // 视图状态（半屏/全屏、沉浸）不再占用顶栏按钮位：
+              // 半屏/全屏由滚动自动切换恢复（see docs/REGRESSION_AUDIT.md R2），
+              // 沉浸收进右侧 ⋮ 菜单，顶栏回到原来的 3 个动作。
               IconButton(
                 tooltip: '回到底部',
                 onPressed: onScrollToBottom,
@@ -134,96 +155,127 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                   backgroundMode == 'image' ? Icons.image_not_supported : Icons.image,
                 ),
               ),
-              PopupMenuButton<String>(
+              rowActionMenu(
                 tooltip: '更多',
-                onSelected: (String value) {
-                  if (value == 'archive') {
-                    onManageSnapshots();
-                  } else if (value == 'export') {
-                    onExport();
-                  } else if (value == 'search') {
-                    onToggleSearch();
-                  } else if (value == 'tokens') {
-                    onToggleTokens();
-                  } else if (value == 'force_summary') {
-                    onForceSummary();
-                  } else if (value == 'range_summary') {
-                    onRangeSummary();
-                  } else if (value == 'bgm') {
-                    onToggleBgm();
-                  } else if (value == 'bgm_animation') {
-                    onToggleBgmAnimation();
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  if (showBgmOption)
-                    CheckedPopupMenuItem<String>(
-                      value: 'bgm',
-                      checked: bgmEnabled,
-                      child: const ListTile(
-                        leading: Icon(Icons.music_note_outlined),
-                        title: FitText('背景音乐'),
-                      ),
-                    ),
-                  if (showBgmAnimationOption)
-                    CheckedPopupMenuItem<String>(
-                      value: 'bgm_animation',
-                      checked: bgmAnimated,
-                      child: const ListTile(
-                        leading: Icon(Icons.animation_outlined),
-                        title: FitText('动态背景'),
-                      ),
-                    ),
-                  PopupMenuItem<String>(
-                    value: 'range_summary',
+                child: const Icon(Icons.more_horiz),
+                iconSize: 24,
+                // 前 6 项原来是 ListTile（非紧凑 + 水平 16 内边距），
+                // 后 3 项原来是 Row(Icon, 12, 文案)：用项级样式覆盖回紧凑行。
+                itemStyle: RowActionItemStyle.listTilePadded,
+                iconGap: 12,
+                actions: <RowAction>[
+                  RowAction(
+                    id: 'bgm',
+                    label: '背景音乐',
+                    icon: Icons.music_note_outlined,
+                    visible: showBgmOption,
+                    checked: bgmEnabled,
+                    onSelected: onToggleBgm,
+                  ),
+                  RowAction(
+                    id: 'bgm_animation',
+                    label: '动态背景',
+                    icon: Icons.animation_outlined,
+                    visible: showBgmAnimationOption,
+                    checked: bgmAnimated,
+                    onSelected: onToggleBgmAnimation,
+                  ),
+                  RowAction(
+                    id: 'range_summary',
+                    label: '范围总结',
+                    icon: Icons.summarize_outlined,
                     enabled: !rangeSummaryInProgress,
-                    child: const ListTile(
-                      leading: Icon(Icons.summarize_outlined),
-                      title: FitText('范围总结'),
-                    ),
+                    onSelected: onRangeSummary,
                   ),
-                  PopupMenuItem<String>(
-                    value: 'force_summary',
+                  RowAction(
+                    id: 'force_summary',
+                    label: '强制摘要',
+                    icon: Icons.auto_awesome,
                     enabled: !summaryInProgress,
-                    child: const ListTile(
-                      leading: Icon(Icons.auto_awesome),
-                      title: FitText('强制摘要'),
-                    ),
+                    onSelected: onForceSummary,
                   ),
-                  CheckedPopupMenuItem<String>(
-                    value: 'search',
+                  RowAction(
+                    id: 'search',
+                    label: '消息搜索',
+                    icon: Icons.search,
                     checked: searching,
-                    child: const ListTile(
-                      leading: Icon(Icons.search),
-                      title: FitText('消息搜索'),
-                    ),
+                    onSelected: onToggleSearch,
                   ),
-                  CheckedPopupMenuItem<String>(
-                    value: 'tokens',
+                  RowAction(
+                    id: 'tokens',
+                    label: '显示字数/Token',
+                    icon: Icons.numbers,
                     checked: showTokenCounts,
-                    child: const ListTile(
-                      leading: Icon(Icons.numbers),
-                      title: FitText('显示字数/Token'),
-                    ),
+                    onSelected: onToggleTokens,
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'export',
-                    child: ListTile(
-                      leading: Icon(Icons.file_download_outlined),
-                      title: FitText('导出对话'),
-                    ),
+                  RowAction(
+                    id: 'immersive',
+                    label: immersiveHidden ? '退出沉浸' : '沉浸模式',
+                    icon: immersiveHidden
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    visible: onToggleImmersive != null,
+                    onSelected: () => onToggleImmersive?.call(),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'archive',
-                    child: ListTile(
-                      leading: Icon(Icons.save),
-                      title: FitText('存档'),
-                    ),
+                  RowAction(
+                    id: 'export',
+                    label: '导出对话',
+                    icon: Icons.file_download_outlined,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    onSelected: onExport,
+                  ),
+                  RowAction(
+                    id: 'archive',
+                    label: '存档',
+                    icon: Icons.save,
+                    itemStyle: RowActionItemStyle.compactRow,
+                    onSelected: onManageSnapshots,
                   ),
                 ],
-                child: const Icon(Icons.more_horiz),
               ),
             ],
+    );
+
+    if (!transparentBackground) {
+      return bar;
+    }
+    // 半屏 / 图片背景时顶栏是透明的：标题直接压在立绘上会看不清。
+    // 这里在栏内加一条「上实下虚」的蒙层（用页面底色，不是黑色遮罩）：
+    // 高度**严格等于顶栏**，出了栏就完全透明，所以不会遮挡下面的立绘。
+    final Color surface = Theme.of(context).colorScheme.surface;
+    // 渐变本身铺满整条栏，但**只在前半段保持较实**，后半段缓降到 0：
+    // 直接 0.92→0 的线性收尾会在栏底留一道看得见的分界，很生硬。
+    // 显隐走 AnimatedOpacity，半屏 ↔ 全屏切换时是淡出而不是闪没。
+    return Stack(
+      fit: StackFit.passthrough,
+      children: <Widget>[
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: showAppBarScrim ? 1.0 : 0.0,
+              duration: AppMotion.medium,
+              curve: Curves.easeInOutCubicEmphasized,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      surface.withValues(alpha: 0.90),
+                      surface.withValues(alpha: 0.72),
+                      surface.withValues(alpha: 0.30),
+                      surface.withValues(alpha: 0.0),
+                    ],
+                    stops: const <double>[0.0, 0.45, 0.78, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        bar,
+      ],
     );
   }
 

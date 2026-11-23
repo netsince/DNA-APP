@@ -2,16 +2,32 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// 设置页重构的结构性约束(纯静态检查,不启动 UI)。
+import 'package:dna/pages/settings/spec/settings_spec.dart';
+import 'package:dna/pages/settings/spec/settings_tree.dart';
+
+/// 设置区的结构性约束。
 ///
-/// 这些断言保护「按用户任务分组、入口直达」这一设计决定,
-/// 防止后续开发重新引入跳板页或把入口藏进多层导航。
+/// 保护的是「按用户任务分组、入口直达」这个设计决定，以及**单一数据源**：
+/// 设置树（spec/settings_tree.dart）同时驱动主页分组、搜索索引与字段渲染，
+/// 谁也不许自带一份清单。
+///
+/// 断言尽量跑在**运行时数据**上（遍历 settingsTree），而不是数源码里的
+/// 字符串：源码正则会被格式化和抽函数骗过去，也会在入口被引用而不是内联时
+/// 数错。
 void main() {
   group('设置页结构约束', () {
-    late String src;
+    late String pageSrc;
+    late String catalogSrc;
+    late String searchSrc;
 
     setUpAll(() {
-      src = File('lib/pages/settings_page.dart').readAsStringSync();
+      pageSrc = File('lib/pages/settings_page.dart').readAsStringSync();
+      catalogSrc = File(
+        'lib/pages/settings/settings_catalog.dart',
+      ).readAsStringSync();
+      searchSrc = File(
+        'lib/pages/settings/settings_search_page.dart',
+      ).readAsStringSync();
     });
 
     test('已删除两个纯跳板页', () {
@@ -49,40 +65,111 @@ void main() {
         'AppearanceAppPage',
         'AppearanceChatPage',
       ]) {
-        expect(src.contains(cls), isFalse, reason: '设置主页不应再引用 $cls');
+        expect(catalogSrc.contains(cls), isFalse, reason: '目录不应再引用 $cls');
       }
     });
 
-    test('分组数为 8(第 8 组是社区)(按用户任务而非技术模块)', () {
-      // _Group( 共 9 处 = 8 个调用 + 1 个 `const _Group(` 构造定义。
-      final int all = RegExp(r'_Group\(').allMatches(src).length;
-      expect(all - 1, 8);
+    test('分组数为 8，第 7 组是社区（按用户任务而非技术模块）', () {
+      final Set<SettingsGroupId> groups = <SettingsGroupId>{
+        for (final SettingsEntrySpec e in settingsTree) e.groupId,
+      };
+      expect(groups.length, 8);
+      expect(settingsGroups.length, 8);
+      expect(
+        settingsGroups[6].id,
+        SettingsGroupId.community,
+        reason: '第 7 组应为社区（第 8 组是关于）',
+      );
     });
 
-    test('入口总数为 14', () {
-      // _Entry( 共 15 处 = 14 个调用 + 1 个 `const _Entry(` 构造定义。
-      final int all = RegExp(r'_Entry\(').allMatches(src).length;
-      expect(all - 1, 14);
+    // 离线语音输入入口随 STT 移除后为 13 个，加上「存储空间」为 14 个。
+    test('入口总数为 15', () {
+      // 13（STT 移除后）+ 存储空间 = 14；「背景音乐」从语音合成页拆出来后 +1 = 15。
+      expect(settingsTree.length, 15);
     });
 
-    test('入口副标题强制单行(防止文案写长撑高行高)', () {
-      expect(src.contains('maxLines: 1'), isTrue);
-      expect(src.contains('TextOverflow.ellipsis'), isTrue);
+    test('入口 id 唯一（搜索与测试靠它定位）', () {
+      final Set<String> ids = <String>{
+        for (final SettingsEntrySpec e in settingsTree) e.id,
+      };
+      expect(ids.length, settingsTree.length);
     });
 
-    test('保留滚动位置(从子页返回不跳回顶部)', () {
-      expect(src.contains('_scrollOffset'), isTrue);
-      expect(src.contains('initialScrollOffset'), isTrue);
+    test('每个入口都有副标题（不允许只有标题的裸入口）', () {
+      for (final SettingsEntrySpec e in settingsTree) {
+        expect(e.subtitle.trim(), isNotEmpty, reason: '入口 ${e.id} 缺少副标题');
+      }
     });
 
-    test('每个入口都有副标题(不允许只有标题的裸入口)', () {
-      // 只取真正的调用点(排除 `const _Entry(` 构造定义)。
-      final Iterable<RegExpMatch> entries = RegExp(r'(?<!const )_Entry\(([\s\S]*?)\n\s*\),')
-          .allMatches(src);
-      expect(entries.length, 14);
-      for (final RegExpMatch m in entries) {
-        expect(m.group(1)!.contains('subtitle:'), isTrue,
-            reason: '入口缺少副标题:\n${m.group(1)}');
+    test('每个入口的 groupId 都在 settingsGroups 里（分组用 id 不用文案）', () {
+      final Set<SettingsGroupId> known = <SettingsGroupId>{
+        for (final SettingsGroupSpec g in settingsGroups) g.id,
+      };
+      for (final SettingsEntrySpec e in settingsTree) {
+        expect(
+          known.contains(e.groupId),
+          isTrue,
+          reason: '入口 ${e.id} 指向了未定义的分组 ${e.groupId}',
+        );
+      }
+    });
+
+    test('分组定义 id 唯一（一个分组只能定义一次）', () {
+      final Set<SettingsGroupId> ids = <SettingsGroupId>{
+        for (final SettingsGroupSpec g in settingsGroups) g.id,
+      };
+      expect(ids.length, settingsGroups.length);
+    });
+
+    test('入口副标题强制单行（防止文案写长撑高行高）', () {
+      expect(pageSrc.contains('maxLines: 1'), isTrue);
+      expect(pageSrc.contains('TextOverflow.ellipsis'), isTrue);
+    });
+
+    test('保留滚动位置（从子页返回不跳回顶部）', () {
+      expect(pageSrc.contains('_scrollOffset'), isTrue);
+      expect(pageSrc.contains('initialScrollOffset'), isTrue);
+    });
+
+    test('搜索覆盖「不在主页但声明驱动」的页面', () {
+      // 采样参数/自由剪图/检查更新不在设置主页，但用户搜「温度」应该找得到。
+      expect(
+        searchSrc.contains('settingsDetachedEntries'),
+        isTrue,
+        reason: '搜索索引必须把脱离主页的声明页也算进去',
+      );
+    });
+
+    test('设置主页与搜索页都从同一棵树取数据，不自带清单', () {
+      expect(
+        pageSrc.contains('settingsCatalog('),
+        isTrue,
+        reason: '设置主页应按目录渲染',
+      );
+      expect(
+        searchSrc.contains('buildSettingsSearchIndex('),
+        isTrue,
+        reason: '搜索页应从设置树建索引，而不是另建一份清单',
+      );
+      expect(
+        catalogSrc.contains('settingsTree'),
+        isTrue,
+        reason: '目录（适配层）必须从设置树取数据',
+      );
+    });
+
+    test('搜索页不内联任何入口标题（那是第二份真相）', () {
+      // 只看代码行：注释里提到入口名是正常的（那是解释，不是数据）。
+      final String codeOnly = searchSrc
+          .split('\n')
+          .where((String line) => !line.trimLeft().startsWith('//'))
+          .join('\n');
+      for (final SettingsEntrySpec e in settingsTree) {
+        expect(
+          codeOnly.contains(e.title),
+          isFalse,
+          reason: '搜索页的代码里内联了入口标题「${e.title}」',
+        );
       }
     });
   });

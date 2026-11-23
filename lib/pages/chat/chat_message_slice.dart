@@ -1,6 +1,10 @@
 import '../../models/conversation.dart';
+import '../../models/message_attachment.dart';
 import 'chat_models.dart';
 import 'chat_token_counter.dart';
+
+/// 单张图片在上下文预算里的粗略 token 折算（视觉模型的真实计费因模型而异）。
+const int kImageTokenEstimate = 1000;
 
 class ChatMessageSlice {
   static ConversationSummary? latestSummary(Conversation conversation) {
@@ -58,10 +62,10 @@ class ChatMessageSlice {
       }
       int keepFrom = slice.length; // 保留 [keepFrom, len)
       for (int i = slice.length - 1; i >= 0; i--) {
-        final int t = tokenCounter.countTokens(
-          model: tokenModel ?? '',
-          messageId: slice[i].id,
-          text: slice[i].text,
+        final int t = _estimateMessageTokens(
+          tokenCounter: tokenCounter,
+          tokenModel: tokenModel ?? '',
+          message: slice[i],
         );
         if (budget + t > maxTokens) {
           break;
@@ -69,10 +73,54 @@ class ChatMessageSlice {
         budget += t;
         keepFrom = i;
       }
+      // 兜底：**最新一条消息永远保留**。
+      //
+      // 否则「一条消息就超预算」时（大文件附件、粘贴了几万字），整轮上下文
+      // 会被裁成空 —— 用户发了一句话，模型却连这句话都没收到，只看到错误。
+      // 这条保证之后，超预算的后果退化成「模型上下文被截断」，而不是「失联」。
+      if (keepFrom >= slice.length && slice.isNotEmpty) {
+        keepFrom = slice.length - 1;
+      }
       if (keepFrom > 0) {
         slice = slice.sublist(keepFrom);
       }
     }
     return MessageSlice(messages: slice, includeSummary: includeSummary);
+  }
+
+  /// 估算一条消息实际会占多少 token。
+  ///
+  /// **不能只算 `message.text`**：文本附件会把几千字正文塞进请求，图片虽然
+  /// 不占文本 token，但视觉模型按图计费。不把它们算进来的话，用户丢一个
+  /// 大文件进来，预算看起来还很空，请求却直接 400（超上下文）。
+  ///
+  /// 图片按每张 [kImageTokenEstimate] 粗估：不同模型差异大，这里取保守值，
+  /// 宁可少留一点余量，也不要卡着上限去撞 400。
+  static int _estimateMessageTokens({
+    required ChatTokenCounter tokenCounter,
+    required String tokenModel,
+    required ConversationMessage message,
+  }) {
+    int tokens = tokenCounter.countTokens(
+      model: tokenModel,
+      messageId: message.id,
+      text: message.text,
+    );
+    if (message.attachments.isEmpty) return tokens;
+    int images = 0;
+    for (final MessageAttachment a in message.attachments) {
+      if (a.isImage) {
+        images++;
+        continue;
+      }
+      final String? preview = a.textPreview;
+      if (preview == null || preview.isEmpty) continue;
+      tokens += tokenCounter.countTokens(
+        model: tokenModel,
+        messageId: '${message.id}#${a.hashCode}',
+        text: preview,
+      );
+    }
+    return tokens + images * kImageTokenEstimate;
   }
 }

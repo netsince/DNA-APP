@@ -1,4 +1,5 @@
 import '../models/ta.dart';
+import '../models/prompt_strategy.dart';
 import '../models/dialogue_style.dart';
 
 /// 导出导入结果
@@ -64,6 +65,7 @@ class ExportedCharacter {
     this.voiceSeed,
     this.authorNote,
     this.authorNoteInterval = 0,
+    this.strategyOverride,
   });
 
   final String id;
@@ -81,6 +83,9 @@ class ExportedCharacter {
   final String? authorNote;
   final int authorNoteInterval;
 
+  /// 角色卡的「对话策略」覆盖；null 表示全部继承。
+  final StrategyDetails? strategyOverride;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -94,6 +99,8 @@ class ExportedCharacter {
         if (voiceSeed != null) 'voiceSeed': voiceSeed,
         if (authorNote != null) 'authorNote': authorNote,
         'authorNoteInterval': authorNoteInterval,
+        if (strategyOverride != null && !strategyOverride!.isEmpty)
+          'strategy': strategyOverride!.toJson(),
       };
 
   static ExportedCharacter fromJson(Map<String, dynamic> json) {
@@ -135,6 +142,11 @@ class ExportedCharacter {
       voiceSeed: json['voiceSeed'] as int?,
       authorNote: json['authorNote'] as String?,
       authorNoteInterval: (json['authorNoteInterval'] as int?) ?? 0,
+      strategyOverride: StrategyDetails.fromJsonOrNull(
+        json['strategy'] is Map
+            ? (json['strategy'] as Map).cast<String, dynamic>()
+            : null,
+      ),
     );
   }
 
@@ -157,6 +169,7 @@ class ExportedCharacter {
       voiceSeed: voiceSeed,
       authorNote: authorNote,
       authorNoteInterval: authorNoteInterval,
+      strategyOverride: strategyOverride,
       originalLink: protection?['originalLink'] as String?,
       protection: protection,
     );

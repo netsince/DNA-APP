@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
@@ -7,7 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:dna/services/update_service.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/state/app_controller.dart';
+
 import 'authors_page.dart';
+import 'developer_options_unlock.dart';
 import 'license_page.dart' as dna_license;
 import 'open_source_page.dart';
 import 'update_dialog.dart';
@@ -27,14 +29,21 @@ abstract final class AppInfo {
 }
 
 /// 关于页面：展示软件名称、版本、作者、官网、社区、许可证等信息。
+///
+/// 版本号本身是个隐藏开关：连点 10 次解锁「开发者选项」，再连点 10 次收起。
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key});
+  const AboutPage({super.key, required this.controller});
+
+  final AppController controller;
 
   @override
   State<AboutPage> createState() => _AboutPageState();
 }
 
 class _AboutPageState extends State<AboutPage> {
+  /// 连点计数（10 次 / 3 秒内）。
+  final DeveloperUnlockCounter _unlockCounter = DeveloperUnlockCounter();
+
   String _version = '';
   bool _checking = false;
 
@@ -44,6 +53,21 @@ class _AboutPageState extends State<AboutPage> {
   void initState() {
     super.initState();
     _loadVersion();
+  }
+
+  /// 版本号连点：满 10 次切换「开发者选项」。
+  Future<void> _onVersionTap() async {
+    if (!_unlockCounter.tap(DateTime.now())) return;
+    final bool unlocked = !widget.controller.settings.developerOptionsUnlocked;
+    await widget.controller.saveDeveloperOptionsUnlocked(unlocked: unlocked);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: FitText(
+          unlocked ? '开发者选项已开启' : '开发者选项已收起',
+        ),
+      ),
+    );
   }
 
   /// 手动检查更新。用户主动触发,失败时明确告知。
@@ -115,7 +139,9 @@ class _AboutPageState extends State<AboutPage> {
       appBar: AppBar(title: const FitText('关于与开源')),
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w = constraints.maxWidth > AppSize.pageMaxWidth
+              ? AppSize.pageMaxWidth
+              : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),
@@ -150,17 +176,25 @@ class _AboutPageState extends State<AboutPage> {
                           style: ts.bodyMedium?.copyWith(color: cs.outline),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: cs.primaryContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: FitText(
-                            _version.isEmpty ? '版本加载中…' : 'v$_version',
-                            style: ts.labelMedium?.copyWith(
-                              color: cs.onPrimaryContainer,
-                              fontWeight: AppWeight.medium,
+                        // 连点 10 次解锁/收起开发者选项（再点 10 次反向切换）。
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _onVersionTap,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primaryContainer,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: FitText(
+                              _version.isEmpty ? '版本加载中…' : 'v$_version',
+                              style: ts.labelMedium?.copyWith(
+                                color: cs.onPrimaryContainer,
+                                fontWeight: AppWeight.medium,
+                              ),
                             ),
                           ),
                         ),
@@ -183,7 +217,7 @@ class _AboutPageState extends State<AboutPage> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: cs.primaryContainer.withValues(alpha: 0.6),
+                          color: cs.primaryContainer.withValues(alpha: AppAlpha.a60),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.system_update_alt,
@@ -213,7 +247,7 @@ class _AboutPageState extends State<AboutPage> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: cs.primaryContainer.withValues(alpha: 0.6),
+                          color: cs.primaryContainer.withValues(alpha: AppAlpha.a60),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.people_outline, color: cs.onPrimaryContainer, size: 20),

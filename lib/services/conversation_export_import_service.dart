@@ -1,6 +1,11 @@
 import 'dart:convert';
 
+import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
+
 import '../models/conversation.dart';
+import '../models/message_attachment.dart';
+import 'attachment_storage.dart';
 import '../models/ta.dart';
 import 'ta_export_import_service.dart';
 
@@ -15,10 +20,24 @@ class ConversationExportResult {
   const ConversationExportResult({
     required this.content,
     required this.suggestedFileName,
+    this.bytes,
+    this.attachmentCount = 0,
+    this.attachmentBytes = 0,
   });
 
+  /// 文本内容（纯文本导出时有值；打包成 zip 时为空串）。
   final String content;
+
   final String suggestedFileName;
+
+  /// 打包后的二进制内容（zip；null 表示纯文本导出）。
+  final Uint8List? bytes;
+
+  /// 打包进去的附件个数与总字节（用于给用户一句「带了 N 个文件」的反馈）。
+  final int attachmentCount;
+  final int attachmentBytes;
+
+  bool get isBinary => bytes != null;
 }
 
 /// 导入时某个角色需要的决议信息（供 UI 展示）
@@ -90,6 +109,19 @@ class ConversationExportImportService {
   static const int _version = 1;
   static const String _app = 'dna-client';
 
+  // ---- 导出文稿的兜底文案 ----
+  //
+  // 这三条只出现在**给人读的 Markdown 文稿**里：会话没名字时总要有个标题，
+  // 说话人没名字时总要有个称呼。它们属于「文稿排版」，不是身份 ——
+  // 界面语言变了它跟着变是预期行为，所以不进 token、也不做映射。
+  //
+  // 边界：**结构化导出（JSON）里不放兜底**。空名字就写空串，由界面负责补显示。
+  // 否则同一份数据在中文/英文客户端上导出的 JSON 会不一样，导入端也没法判断
+  // 「这个名字是用户的，还是我们编的」。
+  static const String fallbackGroupTitle = '群聊';
+  static const String fallbackChatTitle = '对话';
+  static const String fallbackSpeakerName = '角色';
+
   static String _timestamp() {
     final DateTime d = DateTime.now();
     String p(int n) => n.toString().padLeft(2, '0');
@@ -104,6 +136,79 @@ class ConversationExportImportService {
   }
 
   /// 收集对话引用到的角色 ID
+  /// 收集所有消息引用到的附件（去重；保持稳定顺序便于对比导出结果）。
+  static List<String> collectAttachmentRefs(List<Conversation> conversations) {
+    final Set<String> seen = <String>{};
+    for (final Conversation c in conversations) {
+      for (final ConversationMessage m in c.messages) {
+        for (final MessageAttachment a in m.attachments) {
+          seen.add(a.ref);
+        }
+      }
+    }
+    return seen.toList();
+  }
+
+  /// 从二进制导出（zip：conversations.json + attachments/*）导入。
+  ///
+  /// 附件会先落回本机附件库（同引用已存在则跳过 —— 内容寻址天然去重），
+  /// 再走与纯 JSON 相同的解析路径。
+  static Future<ExportImportResult<ConversationImportData>> parseConversationImportBytes(
+    Uint8List bytes,
+  ) async {
+    Archive archive;
+    try {
+      archive = ZipDecoder().decodeBytes(bytes);
+    } catch (e) {
+      return ExportImportResult<ConversationImportData>(
+        success: false,
+        message: '不是有效的导出包：$e',
+      );
+    }
+    ArchiveFile? jsonFile;
+    int restored = 0;
+    int skipped = 0;
+    for (final ArchiveFile file in archive.files) {
+      if (!file.isFile) continue;
+      final String name = file.name;
+      if (name == 'conversations.json') {
+        jsonFile = file;
+        continue;
+      }
+      if (!name.startsWith('attachments/')) continue;
+      final String ref = name.substring('attachments/'.length);
+      if (ref.isEmpty || ref.contains('/') || ref.contains('..')) continue;
+      final List<int>? content = file.content as List<int>?;
+      if (content == null) continue;
+      try {
+        final bool exists = await AttachmentStore.instance.exists(ref);
+        if (exists) {
+          skipped++;
+          continue;
+        }
+        final String ext = ref.contains('.') ? ref.split('.').last : 'bin';
+        await AttachmentStore.instance.save(Uint8List.fromList(content), ext: ext);
+        restored++;
+      } catch (_) {
+        skipped++;
+      }
+    }
+    if (jsonFile == null) {
+      return const ExportImportResult<ConversationImportData>(
+        success: false,
+        message: '导出包里没有 conversations.json',
+      );
+    }
+    final String json = utf8.decode(jsonFile.content as List<int>, allowMalformed: true);
+    final ExportImportResult<ConversationImportData> parsed =
+        parseConversationImport(json);
+    if (!parsed.success) return parsed;
+    if (restored > 0 || skipped > 0) {
+      debugPrint('[export] 附件恢复：新增 $restored，已存在跳过 $skipped');
+    }
+    return parsed;
+  }
+
   static Set<String> collectTaIds(List<Conversation> conversations) =>
       ConversationImportData(conversations: conversations, embeddedPackages: const {})
           .collectTaIds();
@@ -114,6 +219,7 @@ class ConversationExportImportService {
     required Map<String, TA> tasById,
     required ConversationExportFormat format,
     required bool includeCharacterCards,
+    bool includeAttachments = true,
   }) async {
     if (format == ConversationExportFormat.markdown) {
       final String md = _buildMarkdown(conversations, tasById);
@@ -154,6 +260,41 @@ class ConversationExportImportService {
     };
 
     final String json = const JsonEncoder.withIndent('  ').convert(envelope);
+
+    // 有附件且用户选择带上 → 打成 zip：
+    //   conversations.json  +  attachments/<ref>（每个引用只存一份）
+    // 这样「三条消息引用同一张图」不会把图重复打包三遍。
+    final List<String> refs = collectAttachmentRefs(conversations);
+    if (includeAttachments && refs.isNotEmpty) {
+      final Archive archive = Archive();
+      final List<int> jsonBytes = utf8.encode(json);
+      archive.addFile(
+        ArchiveFile('conversations.json', jsonBytes.length, jsonBytes),
+      );
+      int packed = 0;
+      int packedBytes = 0;
+      for (final String ref in refs) {
+        final Uint8List? data = await AttachmentStore.instance.read(ref);
+        if (data == null) continue; // 本机已丢失的附件跳过，不阻断导出
+        final ArchiveFile file = ArchiveFile(
+          'attachments/$ref',
+          data.length,
+          data,
+        );
+        archive.addFile(file);
+        packed++;
+        packedBytes += data.length;
+      }
+      final List<int> zipped = ZipEncoder().encode(archive);
+      return ConversationExportResult(
+        content: '',
+        suggestedFileName: 'DNA_conversation_${_timestamp()}.zip',
+        bytes: Uint8List.fromList(zipped),
+        attachmentCount: packed,
+        attachmentBytes: packedBytes,
+      );
+    }
+
     return ConversationExportResult(
       content: json,
       suggestedFileName: 'DNA_conversation_${_timestamp()}.json',
@@ -243,10 +384,12 @@ class ConversationExportImportService {
     Map<String, TA> tasById,
   ) {
     final String title = c.isGroup
-        ? (c.groupName.trim().isNotEmpty ? c.groupName.trim() : '群聊')
+        ? (c.groupName.trim().isNotEmpty
+            ? c.groupName.trim()
+            : fallbackGroupTitle)
         : (tasById[c.taId]?.name.isNotEmpty == true
             ? tasById[c.taId]!.name
-            : '对话');
+            : fallbackChatTitle);
     sb.writeln('# $title');
     if (c.note.trim().isNotEmpty) {
       sb.writeln('> ${c.note.trim()}');
@@ -254,10 +397,10 @@ class ConversationExportImportService {
     sb.writeln();
 
     final String fallbackName = c.isGroup
-        ? '角色'
+        ? fallbackSpeakerName
         : (tasById[c.taId]?.name.isNotEmpty == true
             ? tasById[c.taId]!.name
-            : '角色');
+            : fallbackSpeakerName);
 
     for (final ConversationMessage m in c.messages) {
       if (m.kind == 'summary_prompt') {

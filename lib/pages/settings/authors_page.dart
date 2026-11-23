@@ -39,6 +39,11 @@ const List<_Author> _kAuthors = <_Author>[
     website: 'roko.nb6.ltd',
   ),
   _Author(
+    name: '终LFFX',
+    role: '贡献者 · 前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/终',
+  ),
+  _Author(
     name: '太空虎设计',
     role: '软件 LOGO 设计',
   ),
@@ -46,6 +51,21 @@ const List<_Author> _kAuthors = <_Author>[
     name: '辞安',
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/辞安',
+  ),
+  _Author(
+    name: '晨霧',
+    role: '前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/Chengwu',
+  ),
+  _Author(
+    name: 'Hookfish',
+    role: '前期社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/Hookfish',
+  ),
+  _Author(
+    name: '小意',
+    role: '社区搭建',
+    website: 'https://dnaisland.nb6.ltd/user/小黎',
   ),
   _Author(
     name: 'zwqq',
@@ -58,21 +78,7 @@ const List<_Author> _kAuthors = <_Author>[
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/2933376189@qq.com',
   ),
-  _Author(
-    name: '晨霧',
-    role: '前期社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/Chengwu',
-  ),
-  _Author(
-    name: '小意',
-    role: '社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/小黎',
-  ),
-  _Author(
-    name: '终LFFX',
-    role: '前期社区搭建',
-    website: 'https://dnaisland.nb6.ltd/user/终',
-  ),
+
   _Author(
     name: '人r',
     role: '第三个看板娘图标绘制',
@@ -102,7 +108,9 @@ class AuthorsPage extends StatelessWidget {
       appBar: AppBar(title: const FitText('参与人员名单')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final double w = constraints.maxWidth > 900 ? 900 : constraints.maxWidth;
+          final double w = constraints.maxWidth > AppSize.pageMaxWidth
+              ? AppSize.pageMaxWidth
+              : constraints.maxWidth;
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: w),
@@ -143,7 +151,7 @@ class _AuthorCard extends StatelessWidget {
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: AppAlpha.a40)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

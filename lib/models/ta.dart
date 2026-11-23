@@ -1,4 +1,5 @@
 import 'dialogue_style.dart';
+import 'prompt_strategy.dart';
 
 class TA {
   const TA({
@@ -18,6 +19,7 @@ class TA {
     this.authorNote,
     this.authorNoteInterval = 0,
     this.musicPath,
+    this.strategyOverride,
   });
 
   final String id;
@@ -53,6 +55,11 @@ class TA {
   /// 导出/分享角色卡到其它端时不会带上音乐。
   final String? musicPath;
 
+  /// 该角色的「对话策略」覆盖（角色编辑页 → 对话策略）。
+  ///
+  /// 只记录用户**显式设过**的项；null 或空表示完全跟随世界卡 / 全局。
+  final StrategyDetails? strategyOverride;
+
   TA copyWith({
     String? id,
     String? name,
@@ -70,6 +77,7 @@ class TA {
     String? authorNote,
     int? authorNoteInterval,
     String? musicPath,
+    StrategyDetails? strategyOverride,
   }) {
     return TA(
       id: id ?? this.id,
@@ -86,6 +94,7 @@ class TA {
       protection: protection ?? this.protection,
       voiceSeed: voiceSeed ?? this.voiceSeed,
       musicPath: musicPath ?? this.musicPath,
+      strategyOverride: strategyOverride ?? this.strategyOverride,
     );
   }
 
@@ -109,6 +118,9 @@ class TA {
       // musicPath 用于本地持久化（Hive）与全量 ZIP 备份。角色卡导出（exportCharacter）
       // 不经过本方法，因此不会把音乐塞进导出 JSON。
       'musicPath': musicPath,
+      // 未设置时不落盘，旧数据读到仍是旧形状。
+      if (strategyOverride != null && !strategyOverride!.isEmpty)
+        'strategyOverride': strategyOverride!.toJson(),
     };
   }
 
@@ -138,6 +150,11 @@ class TA {
       // 本地持久化 / 全量备份恢复时读回 musicPath；角色卡导入（importCharacter）
       // 不经过本方法，因此不会从外部导入包中识别音乐字段。
       musicPath: json['musicPath'] as String?,
+      strategyOverride: StrategyDetails.fromJsonOrNull(
+        json['strategyOverride'] is Map
+            ? (json['strategyOverride'] as Map).cast<String, dynamic>()
+            : null,
+      ),
     );
   }
 }

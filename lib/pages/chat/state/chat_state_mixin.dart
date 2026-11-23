@@ -1,7 +1,10 @@
-part of '../../chat_page.dart';
+part of '../chat_surface.dart';
 
-mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
+mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
+
+  /// 待发送附件草稿（输入区加/删，回溯时回填；发送后清空）。
+  final AttachmentDraft _attachmentDraft = AttachmentDraft();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   // 记录上一次键盘是否处于展开状态，用于检测「键盘被收起」的时刻
@@ -149,6 +152,7 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onSettingsChanged);
+    _attachmentDraft.dispose();
     _inputController.dispose();
     _inputFocusNode.dispose();
     _scrollController.dispose();
@@ -286,7 +290,7 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
         primary: accent,
         onPrimary: onAccent,
         primaryContainer:
-            Color.alphaBlend(accent.withValues(alpha: 0.16), base.colorScheme.surface),
+            Color.alphaBlend(accent.withValues(alpha: AppAlpha.a16), base.colorScheme.surface),
         onPrimaryContainer: accent,
       ),
     );
@@ -300,9 +304,33 @@ mixin ChatStateMixin on State<ChatConversationView>, WidgetsBindingObserver {
       if (provider == null) {
         return null;
       }
-      _imageCache[path] = provider;
+      _imageCache[path] = _limitDecodeSize(provider);
     }
     return _imageCache[path];
+  }
+
+  /// 限制图片解码尺寸：立绘/头像原图动辄 2000px 以上，按原尺寸解码会吃掉
+  /// 几十 MB 内存与显存。这里统一按「整屏最长边」解码 —— 屏幕外的图再大，
+  /// 也只按显示需要的尺寸解一次。
+  ImageProvider _limitDecodeSize(ImageProvider provider) {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) {
+      return provider;
+    }
+    final view = views.first;
+    final double dpr = view.devicePixelRatio;
+    if (dpr <= 0) {
+      return provider;
+    }
+    final Size logical = view.physicalSize / dpr;
+    final double longest =
+        logical.width > logical.height ? logical.width : logical.height;
+    // 窗口尚未布局时 physicalSize 可能是 0 或 NaN：此时不限制，交给默认解码。
+    if (!longest.isFinite || longest <= 0) {
+      return provider;
+    }
+    final int maxEdge = longest.clamp(800, 2560).round();
+    return ResizeImage.resizeIfNeeded(maxEdge, maxEdge, provider);
   }
 
   Future<void> _ensureGroupDefaults() async {

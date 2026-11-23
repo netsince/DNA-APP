@@ -6,10 +6,15 @@ import '../models/user_identity.dart';
 import '../models/world.dart';
 import '../state/app_controller.dart';
 import '../utils/id_utils.dart';
-import '../utils/ui_feedback.dart';
-import 'package:dna/widgets/fit_text.dart';
 import '../widgets/app_editor_frame.dart';
+import '../widgets/fit_text.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/form_fields.dart';
 
+/// 新建会话：TA（必选）+ 世界背景 / 我的身份 / 备注（可选）。
+///
+/// 字段由 [FormDraft] + [FormFields] 的构件渲染 —— 与「更改信息」页共用
+/// 同一套字段描述，两页不再各抄一遍下拉构造、错误落点与归一化。
 class ConversationCreatePage extends StatefulWidget {
   const ConversationCreatePage({super.key, required this.controller});
 
@@ -20,39 +25,54 @@ class ConversationCreatePage extends StatefulWidget {
 }
 
 class _ConversationCreatePageState extends State<ConversationCreatePage> {
-  String? _selectedTaId;
-  String? _selectedWorldId;
-  String? _selectedIdentityId;
-  final TextEditingController _noteController = TextEditingController();
+  final FormDraft _draft = FormDraft(textFields: const <String>['note']);
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
-    _noteController.dispose();
+    _draft.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  String _generateId() {
-    return newId();
+  /// 把视口带回第一个出错的字段（这一页唯一的必填项在最上面）。
+  void _revealFirstError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _create() async {
-    if (_selectedTaId == null) {
-      showSnack(context, '请先选择TA。');
+    // 必填校验落在字段上（不是 snackbar），并把视图带回该字段。
+    final bool ok = _draft.validateRequired(<(String, String)>[
+      ('ta', '请先选择一个 TA。'),
+    ]);
+    if (!ok) {
+      setState(() {});
+      _revealFirstError();
       return;
     }
 
-    String id = _generateId();
-    final Set<String> existing = widget.controller.conversations.map((Conversation c) => c.id).toSet();
+    String id = newId();
+    final Set<String> existing = widget.controller.conversations
+        .map((Conversation c) => c.id)
+        .toSet();
     while (existing.contains(id)) {
-      id = _generateId();
+      id = newId();
     }
 
+    final String taId = _draft.selection('ta')!;
     final Conversation conversation = Conversation(
       id: id,
-      taId: _selectedTaId!,
-      worldId: _selectedWorldId,
-      identityId: _selectedIdentityId,
-      note: _noteController.text.trim(),
+      taId: taId,
+      worldId: _draft.selection('world'),
+      identityId: _draft.selection('identity'),
+      note: _draft.text('note'),
       messages: const <ConversationMessage>[],
       backgroundMode: 'none',
       summaries: const <ConversationSummary>[],
@@ -60,14 +80,12 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
       isGroup: false,
       groupName: '',
       groupPrompt: '',
-      memberTaIds: <String>[_selectedTaId!],
-      activeTaId: _selectedTaId!,
+      memberTaIds: <String>[taId],
+      activeTaId: taId,
     );
 
     await widget.controller.upsertConversation(conversation);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 
@@ -80,134 +98,84 @@ class _ConversationCreatePageState extends State<ConversationCreatePage> {
     return Scaffold(
       appBar: AppBar(
         title: const FitText('新建会话'),
-        actions: <Widget>[
-          IconButton(
-            onPressed: _create,
-            icon: const Icon(Icons.check),
-            tooltip: '创建',
-          ),
-        ],
+        actions: const <Widget>[],
       ),
-      body: ListView(
-        padding: AppEditorLayout.bodyPadding(context),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  FitText('选择TA（必选）', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  if (tas.isEmpty)
-                    const FitText('暂无TA，请先在“我家”创建TA。')
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedTaId,
-                      decoration: const InputDecoration(labelText: 'TA'),
-                      items: tas
-                          .map(
-                            (TA ta) => DropdownMenuItem<String>(
-                              value: ta.id,
-                              child: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (String? value) => setState(() => _selectedTaId = value),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  FitText('选择世界背景（可选）', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  if (worlds.isEmpty)
-                    const FitText('暂无世界背景，可在“世界”页面创建。')
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedWorldId,
-                      decoration: const InputDecoration(labelText: '世界背景'),
-                      items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: '', child: FitText('不选择')),
-                        ...worlds.map(
-                          (World world) => DropdownMenuItem<String>(
-                            value: world.id,
-                            child: FitText(world.name.isEmpty ? '未命名世界' : world.name),
-                          ),
-                        ),
-                      ],
-                      onChanged: (String? value) {
-                        setState(() {
-                          _selectedWorldId = (value == null || value.isEmpty) ? null : value;
-                        });
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (identities.isNotEmpty) const SizedBox(height: 12),
-          if (identities.isNotEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    FitText('我的身份（可选）', style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedIdentityId,
-                      decoration: const InputDecoration(labelText: '身份'),
-                      items: <DropdownMenuItem<String>>[
-                        const DropdownMenuItem<String>(value: '', child: FitText('不选择')),
-                        ...identities.map(
-                          (UserIdentity idt) => DropdownMenuItem<String>(
-                            value: idt.id,
-                            child: FitText(idt.name.isEmpty ? '未命名身份' : idt.name),
-                          ),
-                        ),
-                      ],
-                      onChanged: (String? value) {
-                        setState(() {
-                          _selectedIdentityId = (value == null || value.isEmpty) ? null : value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  FitText('备注', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _noteController,
-                    decoration: const InputDecoration(labelText: '可选备注'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      // 主操作放回右下 FAB（拇指可达）；顶栏不再放同一个动作（审计回归 R4）。
       floatingActionButton: AppEditorFab(
         onPressed: _create,
         icon: const Icon(Icons.check),
         label: const FitText('创建会话'),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: AppEditorLayout.bodyPadding(context),
+        children: <Widget>[
+          FormSection(
+            title: '选择TA（必选）',
+            children: <Widget>[
+              FormEntitySelect(
+                draft: _draft,
+                id: 'ta',
+                label: 'TA',
+                emptyHint: '暂无TA，请先在“我家”创建TA。',
+                options: <FormOption>[
+                  for (final TA ta in tas)
+                    (
+                      value: ta.id,
+                      label: ta.name.isEmpty ? '未命名TA' : ta.name,
+                    ),
+                ],
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          FormSection(
+            title: '选择世界背景（可选）',
+            children: <Widget>[
+              FormEntitySelect(
+                draft: _draft,
+                id: 'world',
+                label: '世界背景',
+                allowNone: true,
+                emptyHint: '暂无世界背景，可在“世界”页面创建。',
+                options: <FormOption>[
+                  for (final World world in worlds)
+                    (
+                      value: world.id,
+                      label: world.name.isEmpty ? '未命名世界' : world.name,
+                    ),
+                ],
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          if (identities.isNotEmpty)
+            FormSection(
+              title: '我的身份（可选）',
+              children: <Widget>[
+                FormEntitySelect(
+                  draft: _draft,
+                  id: 'identity',
+                  label: '身份',
+                  allowNone: true,
+                  options: <FormOption>[
+                    for (final UserIdentity identity in identities)
+                      (
+                        value: identity.id,
+                        label: identity.name.isEmpty ? '未命名身份' : identity.name,
+                      ),
+                  ],
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
+            ),
+          FormSection(
+            title: '备注',
+            children: <Widget>[
+              FormTextField(draft: _draft, id: 'note', label: '可选备注'),
+            ],
+          ),
+        ],
       ),
     );
   }

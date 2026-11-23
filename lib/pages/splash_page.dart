@@ -1,102 +1,61 @@
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
-import 'splash/logo_painter.dart';
+import 'splash/splash_animations.dart';
 
-class SplashPage extends StatefulWidget {
-  const SplashPage({super.key, required this.onComplete});
+// 旧的引用点（如果有）仍可从 splash_page.dart 拿到默认动画。
+export 'splash/logo_draw_animation.dart' show LogoDrawAnimation;
 
+/// 开场动画的**外壳**：只负责底色与居中，播哪段由 [SplashPage.animation] 决定。
+///
+/// 动画本身在 `splash/splash_animations.dart` 里声明（数据驱动）：
+/// 想加一种新动画，只改那张表，不用碰这个文件和启动逻辑。
+class SplashPage extends StatelessWidget {
+  const SplashPage({
+    super.key,
+    required this.animation,
+    required this.onComplete,
+  });
+
+  final SplashAnimationSpec animation;
   final VoidCallback onComplete;
-
-  @override
-  State<SplashPage> createState() => _SplashPageState();
-}
-
-class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _drawAnimation;
-  late Animation<double> _fillAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3200),
-    );
-
-    _drawAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0, 0.47, curve: Curves.easeOut),
-      ),
-    );
-
-    _fillAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.375, 0.53, curve: Curves.easeIn),
-      ),
-    );
-
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1, end: 0.8), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 60), weight: 70),
-    ]).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.69, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _opacityAnimation = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.69, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _controller.forward().then((_) {
-      widget.onComplete();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.splashBackground,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (BuildContext context, Widget? child) {
-            return Opacity(
-              opacity: _opacityAnimation.value,
-              child: Transform.scale(
-                scale: _scaleAnimation.value,
-                child: SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: CustomPaint(
-                    painter: LogoPainter(
-                      drawProgress: _drawAnimation.value,
-                      fillProgress: _fillAnimation.value,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+      body: SplashStage(animation: animation, onComplete: onComplete),
+    );
+  }
+}
+
+/// 只有「深色底 + 居中播放」的舞台，不含 Scaffold。
+///
+/// 启动页与设置里的「预览开场动画」共用它 —— 预览弹窗里塞一整个 Scaffold
+/// 既多余又会带上它自己的安全区与背景色。
+class SplashStage extends StatelessWidget {
+  const SplashStage({
+    super.key,
+    required this.animation,
+    required this.onComplete,
+  });
+
+  final SplashAnimationSpec animation;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.splashBackground,
+      // 用动画 id 当 key：换动画时会重建子树，不会复用上一段动画的 State
+      //（复用的后果是控制器还停在「已播完」，新动画一帧都不播）。
+      child: Center(
+        child: KeyedSubtree(
+          key: ValueKey<String>(animation.id),
+          child: animation.build(context, onComplete, animation.durationMs),
         ),
       ),
     );
   }
 }
+

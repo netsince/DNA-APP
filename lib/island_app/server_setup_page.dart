@@ -103,10 +103,12 @@ class _ServerSetupPageState extends State<ServerSetupPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     '无法连接官方服务器。请检查网络后重试，或改填你的自建服务器地址。'
                     'DNAISLAND 是开源项目，官方与自建服务器都受支持。',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   ServerAddressForm(

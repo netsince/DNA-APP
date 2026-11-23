@@ -59,17 +59,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 内容列 720 居中 ⇒ 左起 (1600-720)/2 = 440,卡片铺满内容列(720)。
-    final Rect card = tester.getRect(find.byType(Card).first);
-    expect(card.width, closeTo(AppSize.editorMaxWidth, 1.0));
-    expect(card.left, closeTo((windowWidth - AppSize.editorMaxWidth) / 2, 1.0));
-    // 通栏时代卡片宽度会接近整窗宽,这里明确不该发生。
-    expect(card.width, lessThan(windowWidth * 0.6));
+    // 内容列 720 居中 ⇒ 正文左右各留白 (1600-720)/2 = 440。
+    // （字段组已经按审计 3.3 去掉卡片容器，所以量的是正文的内边距，
+    //   不是某张卡片的矩形——契约是"正文收进内容列"。）
+    final EdgeInsets bodyPadding =
+        tester.widget<ListView>(find.byType(ListView).first).padding!
+            as EdgeInsets;
+    expect(
+      bodyPadding.left,
+      closeTo((windowWidth - AppSize.editorMaxWidth) / 2, 1.0),
+    );
+    expect(bodyPadding.right, bodyPadding.left);
 
-    // 保存按钮:右缘落在内容列右缘(440 + 720 = 1160),
-    // 而不是窗口最右(1584)。
-    final Rect fab = tester.getRect(find.byType(FloatingActionButton));
-    expect(fab.right, closeTo((windowWidth + AppSize.editorMaxWidth) / 2, 1.0));
+    // 保存入口回到右下 FAB（docs/REGRESSION_AUDIT.md R4 回滚）：
+    // 拇指可达，且顶栏不再放同一个动作。
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '保存'), findsNothing);
   });
 
   testWidgets('窄窗口:编辑器铺满,外观与手机端一致', (WidgetTester tester) async {
@@ -84,9 +89,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 600 < 内容列 720 ⇒ 不留白,只有正文自身的 16 边距。
-    final Rect card = tester.getRect(find.byType(Card).first);
-    expect(card.width, closeTo(600 - 2 * AppSpacing.lg, 1.0));
-    expect(card.left, closeTo(AppSpacing.lg, 1.0));
+    final EdgeInsets bodyPadding =
+        tester.widget<ListView>(find.byType(ListView).first).padding!
+            as EdgeInsets;
+    expect(bodyPadding.left, closeTo(AppSpacing.lg, 1.0));
+    expect(bodyPadding.right, closeTo(AppSpacing.lg, 1.0));
   });
 
   test('所有编辑器正文都收进内容列(防止新增编辑器漏掉)', () {
@@ -109,10 +116,12 @@ void main() {
         reason: '$name 的正文没有收进内容列(桌面宽窗口下会通栏铺开)',
       );
     }
+    // 2026-11：对话范例/身份/会话/群聊等页面的「保存」已收敛到顶栏文字按钮
+    // （审计 4.1：同一主操作两个入口），只有这两个页面仍是「AppBar + FAB」，
+    // 因为它们的 FAB 是页面主入口之外的第二形态……仍是待收敛项，先守现状。
     const List<String> shells = <String>[
       'ta_editor_page',
       'world_editor_page',
-      'dialogue_style_page',
     ];
     for (final String name in shells) {
       final String src = File('lib/pages/$name.dart').readAsStringSync();

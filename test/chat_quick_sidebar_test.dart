@@ -3,6 +3,7 @@ import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/user_identity.dart';
 import 'package:dna/models/world.dart';
 import 'package:dna/models/ta.dart';
+import 'package:dna/pages/chat/chat_surface.dart';
 import 'package:dna/pages/chat_page.dart';
 import 'package:dna/services/hive_service.dart';
 import 'package:dna/services/openai_service.dart';
@@ -419,7 +420,7 @@ void main() {
     }
 
     String currentId(WidgetTester tester) => tester
-        .widget<ChatConversationView>(find.byType(ChatConversationView))
+        .widget<ChatSurface>(find.byType(ChatSurface))
         .conversationId;
 
     testWidgets('宽窗口:侧栏可见;两级点击后原地换会话(不新增路由)', (WidgetTester tester) async {
@@ -437,7 +438,7 @@ void main() {
       expect(currentId(tester), 'c1');
       final State shellState = tester.state(find.byType(ChatPage));
       final State viewStateBefore = tester.state(
-        find.byType(ChatConversationView),
+        find.byType(ChatSurface),
       );
 
       // 第一步:点鲍勃(只换右列)
@@ -459,11 +460,11 @@ void main() {
       );
       // 会话视图的 State 换了 ⇒ 该重置的状态确实重置了
       expect(
-        identical(tester.state(find.byType(ChatConversationView)), viewStateBefore),
+        identical(tester.state(find.byType(ChatSurface)), viewStateBefore),
         isFalse,
         reason: '会话视图应随会话 id 重建,避免残留上一会话的状态',
       );
-      expect(find.byType(ChatConversationView), findsOneWidget);
+      expect(find.byType(ChatSurface), findsOneWidget);
     });
 
     testWidgets('窄窗口(竖屏):不显示侧栏', (WidgetTester tester) async {
@@ -478,7 +479,7 @@ void main() {
       await settle(tester);
 
       expect(find.byType(ChatQuickSidebar), findsNothing);
-      expect(find.byType(ChatConversationView), findsOneWidget);
+      expect(find.byType(ChatSurface), findsOneWidget);
     });
 
     testWidgets('设置里关掉:宽窗口也不显示侧栏', (WidgetTester tester) async {
@@ -587,7 +588,7 @@ void main() {
         MaterialApp(home: ChatPage(controller: c, conversationId: 'c1')),
       );
       await settle(tester);
-      expect(find.byType(ChatConversationView), findsOneWidget);
+      expect(find.byType(ChatSurface), findsOneWidget);
 
       await tester.tap(find.byTooltip('鲍勃'));
       await settle(tester);
@@ -596,10 +597,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 80));
 
       // 淡入淡出中:旧会话视图尚未移除,与新的一起在场
-      expect(find.byType(ChatConversationView), findsNWidgets(2));
+      expect(find.byType(ChatSurface), findsNWidgets(2));
 
       await settle(tester);
-      expect(find.byType(ChatConversationView), findsOneWidget);
+      expect(find.byType(ChatSurface), findsOneWidget);
     });
 
     testWidgets('侧栏是磨砂浮层:底下有模糊,且换会话时原地不动', (
@@ -634,9 +635,9 @@ void main() {
       expect(find.byType(ChatQuickSidebar), findsOneWidget);
       expect(tester.getRect(find.byType(ChatQuickSidebar)), railBefore);
       // 退场中:旧会话还在(滑出/淡出),新会话已在下面就位
-      expect(find.byType(ChatConversationView), findsNWidgets(2));
+      expect(find.byType(ChatSurface), findsNWidgets(2));
       await settle(tester);
-      expect(find.byType(ChatConversationView), findsOneWidget);
+      expect(find.byType(ChatSurface), findsOneWidget);
       // 换角色时右列整列淡入(单列表淡入:不保留旧列表,避免两个列表
       // 共用同一个 ScrollController)。此时当前会话已是鲍勃的,
       // 点爱丽丝验证右列切换。
@@ -674,7 +675,7 @@ void main() {
 
       // 弹一条底部提示(应用里到处都在用这条路径)
       ScaffoldMessenger.of(
-        tester.element(find.byType(ChatConversationView)),
+        tester.element(find.byType(ChatSurface)),
       ).showSnackBar(const SnackBar(content: Text('测试提示')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -740,12 +741,12 @@ void main() {
     }
 
     String currentId(WidgetTester tester) => tester
-        .widget<ChatConversationView>(find.byType(ChatConversationView))
+        .widget<ChatSurface>(find.byType(ChatSurface))
         .conversationId;
 
     Future<void> swipeBy(WidgetTester tester, double dx) async {
       // 在聊天视图中心横向拖动 = 落在消息区(手势只覆盖消息区)
-      await tester.drag(find.byType(ChatConversationView), Offset(dx, 0));
+      await tester.drag(find.byType(ChatSurface), Offset(dx, 0));
       await settle(tester);
     }
 
@@ -808,7 +809,7 @@ void main() {
       expect(currentId(tester), 'c1');
 
       final TestGesture gesture = await tester.startGesture(
-        tester.getCenter(find.byType(ChatConversationView)),
+        tester.getCenter(find.byType(ChatSurface)),
       );
       // 分两步:识别器接受拖动的那一次 move 不产生 update(真实手指
       // 同样有约 18px 死区),所以先走一个 slop 再走主体。
@@ -817,7 +818,7 @@ void main() {
       await tester.pump();
 
       // 当前页跟着手指左移(不是"松手才动")
-      final Rect moved = tester.getRect(find.byType(ChatConversationView));
+      final Rect moved = tester.getRect(find.byType(ChatSurface));
       expect(moved.left, lessThan(0), reason: '当前页应跟手平移');
       // 旁边露出下一个角色(鲍勃)的预览
       expect(find.text('鲍勃'), findsWidgets, reason: '应露出下一页预览');
@@ -833,7 +834,7 @@ void main() {
       await pump(tester, c, conversationId: 'c1');
 
       final TestGesture gesture = await tester.startGesture(
-        tester.getCenter(find.byType(ChatConversationView)),
+        tester.getCenter(find.byType(ChatSurface)),
       );
       await gesture.moveBy(const Offset(-20, 0)); // 让识别器接受拖动
       await gesture.moveBy(const Offset(-30, 0)); // 累计 -30,小于 64 阈值
@@ -843,7 +844,7 @@ void main() {
 
       expect(currentId(tester), 'c1', reason: '没拖够应弹回,不切换');
       // 弹回后回到原位
-      final Rect rect = tester.getRect(find.byType(ChatConversationView));
+      final Rect rect = tester.getRect(find.byType(ChatSurface));
       expect(rect.left, closeTo(0, 1.0));
     });
     testWidgets('上下滚动不会误触发左右切换(纵向占优时把手势让给列表)', (
@@ -855,7 +856,7 @@ void main() {
       // 纵向占优,但横向漂移 80px —— 已经超过 64 的切换阈值。
       // 修方向判定之前,这种"上下滑带点偏"会被抢成横滑并切换。
       await tester.drag(
-        find.byType(ChatConversationView),
+        find.byType(ChatSurface),
         const Offset(80, -300),
       );
       await settle(tester);
@@ -868,7 +869,7 @@ void main() {
 
       // 横向明显占优(200 vs 40):应正常切换
       await tester.drag(
-        find.byType(ChatConversationView),
+        find.byType(ChatSurface),
         const Offset(-200, 40),
       );
       await settle(tester);

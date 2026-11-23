@@ -1,9 +1,9 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/utils/dialogs.dart';
 import 'package:dna/utils/ui_feedback.dart';
+import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 
@@ -126,66 +126,69 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
       animation: widget.controller,
       builder: (BuildContext context, Widget? _) {
         final bool isSimple = widget.controller.settings.simpleModelMode;
-        return ListView(
-          padding: AppInsets.page,
-          children: <Widget>[
-            SettingSection(
-              icon: Icons.tune,
-              title: '界面模式',
-              children: <Widget>[
-                SettingSwitch(
-                  title: '新手简易模式',
-                  subtitle: isSimple
-                      ? '只显示连接与模型选择'
-                      : '显示模型预设与服务商管理',
-                  value: isSimple,
-                  onChanged: (bool v) =>
-                      widget.controller.toggleSimpleModelMode(v),
-                ),
-                // 模型选择在精简模式里的显示方式：列表要不要跟着模型数量变长。
-                SettingSwitch(
-                  title: '模型列表不限高',
-                  subtitle: '模型多时列表会变长',
-                  value: widget.controller.settings.unboundedModelList,
-                  onChanged: (bool v) =>
-                      widget.controller.saveUnboundedModelList(v),
-                ),
-              ],
-            ),
-            AppSpacing.hLg,
-            SettingSection(
-              icon: Icons.speed,
-              title: '生成参数',
-              children: <Widget>[
-                SettingTile(
-                  icon: Icons.tune,
-                  title: '全局默认采样参数',
-                  subtitle: '场景预设与采样、防复读',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          SamplerSettingsPage(controller: widget.controller),
+        return AppContentFrame(
+          maxWidth: AppSize.pageMaxWidth,
+          child: ListView(
+            padding: AppInsets.page,
+            children: <Widget>[
+              SettingSection(
+                icon: Icons.tune,
+                title: '界面模式',
+                children: <Widget>[
+                  SettingSwitch(
+                    title: '新手简易模式',
+                    subtitle: isSimple
+                        ? '只显示连接与模型选择'
+                        : '显示模型预设与服务商管理',
+                    value: isSimple,
+                    onChanged: (bool v) =>
+                        widget.controller.toggleSimpleModelMode(v),
+                  ),
+                  // 模型选择在精简模式里的显示方式：列表要不要跟着模型数量变长。
+                  SettingSwitch(
+                    title: '模型列表不限高',
+                    subtitle: '模型多时列表会变长',
+                    value: widget.controller.settings.unboundedModelList,
+                    onChanged: (bool v) =>
+                        widget.controller.saveUnboundedModelList(v),
+                  ),
+                ],
+              ),
+              AppSpacing.hLg,
+              SettingSection(
+                icon: Icons.speed,
+                title: '生成参数',
+                children: <Widget>[
+                  SettingTile(
+                    icon: Icons.tune,
+                    title: '全局默认采样参数',
+                    subtitle: '场景预设与采样、防复读',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            SamplerSettingsPage(controller: widget.controller),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            AppSpacing.hLg,
-            SettingSection(
-              icon: Icons.timer_outlined,
-              title: '网络',
-              children: <Widget>[
-                SettingTile(
-                  icon: Icons.hourglass_bottom,
-                  title: '请求超时',
-                  subtitle: _timeoutSubtitle(
-                    widget.controller.settings.requestTimeoutSeconds,
+                ],
+              ),
+              AppSpacing.hLg,
+              SettingSection(
+                icon: Icons.timer_outlined,
+                title: '网络',
+                children: <Widget>[
+                  SettingTile(
+                    icon: Icons.hourglass_bottom,
+                    title: '请求超时',
+                    subtitle: _timeoutSubtitle(
+                      widget.controller.settings.requestTimeoutSeconds,
+                    ),
+                    onTap: _editRequestTimeout,
                   ),
-                  onTap: _editRequestTimeout,
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         );
       },
     );

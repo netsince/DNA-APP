@@ -7,7 +7,6 @@ import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
 import '../models/prompt_strategy.dart';
 import '../models/quick_reply.dart';
-import '../models/voice_models.dart';
 
 class SettingsService {
   static const String _simpleModelModeKey = 'simple_model_mode';
@@ -24,6 +23,8 @@ class SettingsService {
   static const String _freeImageCropKey = 'free_image_crop';
   static const String _modelKey = 'selected_model';
   static const String _oobeKey = 'completed_oobe';
+
+  /// 已释放的预置清单版本（0 = 从未释放）。[AppController.restartOobe] 不碰它。
   static const String _autoSummaryPromptKey = 'auto_summary_prompt';
   static const String _summaryTurnIntervalKey = 'summary_turn_interval';
   static const String _summaryWordThresholdKey = 'summary_word_threshold';
@@ -32,27 +33,25 @@ class SettingsService {
   static const String _promptStrategyKey = 'prompt_strategy';
   static const String _requireAuthForArchiveKey = 'require_auth_for_archive';
   static const String _requireAuthForAppKey = 'require_auth_for_app';
+  static const String _developerOptionsUnlockedKey = 'developer_options_unlocked';
   static const String _requireNameToDeleteKey = 'require_name_to_delete';
   static const String _allowDeleteMessageKey = 'allow_delete_message';
-  static const String _showSplashAnimationKey = 'show_splash_animation';
+  static const String _splashAnimationKey = 'splash_animation';
+  /// 老版本用的布尔键：只读来做迁移，不再写。
+  static const String _legacyShowSplashKey = 'show_splash_animation';
   static const String _autoOpenLastChatKey = 'auto_open_last_chat';
   static const String _unboundedModelListKey = 'unbounded_model_list';
   static const String _fontSizeStepKey = 'font_size_step';
   static const String _appIconKey = 'app_icon';
   static const String _snackDurationMsKey = 'snack_duration_ms';
-  static const String _sherpaModelSourceKey = 'sherpa_model_source';
-  static const String _sherpaCustomBaseUrlKey = 'sherpa_custom_base_url';
-  static const String _sherpaModelReadyKey = 'sherpa_model_ready';
-  static const String _sherpaModelPathKey = 'sherpa_model_path';
-  static const String _sherpaSelectedModelKey = 'sherpa_selected_model_id';
   static const String _accentModeKey = 'accent_mode';
   static const String _customAccentColorKey = 'custom_accent_color';
   static const String _ttsEnabledKey = 'tts_enabled';
   static const String _ttsGlobalSeedKey = 'tts_global_seed';
   static const String _bgmVolumeKey = 'bgm_volume';
   static const String _bgmSizeLimitUnlockedKey = 'bgm_size_limit_unlocked';
-  static const String _voiceInputEnabledKey = 'voice_input_enabled';
   static const String _showParenButtonKey = 'show_paren_button';
+  static const String _showUploadButtonKey = 'show_upload_button';
   static const String _showMessageAvatarKey = 'show_message_avatar';
   static const String _showMessageRetryKey = 'show_message_retry';
   static const String _showMessageCopyKey = 'show_message_copy';
@@ -79,6 +78,41 @@ class SettingsService {
   static const String _quickRepliesKey = 'quick_replies';
   static const String _autoBackupKey = 'auto_backup';
   static const String _lastAutoBackupDateKey = 'last_auto_backup_date';
+
+  // ---- 宽松读取 ----
+  //
+  // 这些偏好的类型由「谁最后写的」决定，而不是由键名决定：旧版本可能写过 int，
+  // 手动改过 prefs 文件，外部工具写过字符串 —— 任何一种都会让
+  // SharedPreferences.getDouble / getInt 直接抛类型错误。
+  //
+  // 而 load() 在 runApp 之前执行：一旦它抛出，应用启动后没有窗口，
+  // 用户看到的是「点了没反应」，也很难查到原因。所以数值型偏好一律走下面
+  // 三个宽松读取，读不出来就退回默认值。
+
+  static double _readDouble(
+    SharedPreferences p,
+    String key,
+    double fallback,
+  ) {
+    final Object? raw = p.get(key);
+    if (raw is double) return raw;
+    if (raw is int) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim()) ?? fallback;
+    return fallback;
+  }
+
+  static int _readInt(SharedPreferences p, String key, int fallback) {
+    final int? value = _readNullableInt(p, key);
+    return value ?? fallback;
+  }
+
+  static int? _readNullableInt(SharedPreferences p, String key) {
+    final Object? raw = p.get(key);
+    if (raw is int) return raw;
+    if (raw is double) return raw.round();
+    if (raw is String) return int.tryParse(raw.trim());
+    return null;
+  }
 
   Future<AppSettings> load() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -140,36 +174,35 @@ class SettingsService {
       selectedModel: legacyModel,
       completedOobe: prefs.getBool(_oobeKey) ?? false,
       autoSummaryPrompt: prefs.getBool(_autoSummaryPromptKey) ?? true,
-      summaryTurnInterval: prefs.getInt(_summaryTurnIntervalKey) ?? 200,
-      summaryWordThreshold: prefs.getInt(_summaryWordThresholdKey) ?? 6000,
+      summaryTurnInterval: _readInt(prefs, _summaryTurnIntervalKey, 200),
+      summaryWordThreshold: _readInt(prefs, _summaryWordThresholdKey, 6000),
       retrySequential: prefs.getBool(_retrySequentialKey) ?? false,
       inspirationIncludeSummary: prefs.getBool(_inspirationIncludeSummaryKey) ?? false,
       promptStrategy: promptStrategy,
       requireAuthForArchive: prefs.getBool(_requireAuthForArchiveKey) ?? false,
       requireAuthForApp: prefs.getBool(_requireAuthForAppKey) ?? false,
+      developerOptionsUnlocked:
+          prefs.getBool(_developerOptionsUnlockedKey) ?? false,
       requireNameToDelete: prefs.getBool(_requireNameToDeleteKey) ?? true,
       allowDeleteMessage: prefs.getBool(_allowDeleteMessageKey) ?? false,
-      showSplashAnimation: prefs.getBool(_showSplashAnimationKey) ?? true,
+      splashAnimation: prefs.getString(_splashAnimationKey) ??
+          // 迁移：老版本只有一个布尔开关，关掉过的人继续不播。
+          ((prefs.getBool(_legacyShowSplashKey) ?? true) ? 'logoDraw' : 'none'),
       autoOpenLastChat: prefs.getBool(_autoOpenLastChatKey) ?? false,
       unboundedModelList: prefs.getBool(_unboundedModelListKey) ?? false,
-      fontSizeStep: prefs.getInt(_fontSizeStepKey) ?? 0,
+      fontSizeStep: _readInt(prefs, _fontSizeStepKey, 0),
       appIcon: prefs.getString(_appIconKey) ?? 'default',
-      snackDurationMs: prefs.getInt(_snackDurationMsKey) ?? 1000,
-      sherpaModelSource:
-          prefs.getString(_sherpaModelSourceKey) ?? 'modelscope',
-      sherpaModelReady: prefs.getBool(_sherpaModelReadyKey) ?? false,
-      sherpaCustomBaseUrl: prefs.getString(_sherpaCustomBaseUrlKey),
-      sherpaModelPath: prefs.getString(_sherpaModelPathKey),
-      selectedVoiceModelId:
-          prefs.getString(_sherpaSelectedModelKey) ?? kVoiceModelDefaultId,
+      // 兜底值与 AppSettings 的默认值同源（审计 3.5：提示不能只停 1 秒）。
+      snackDurationMs:
+          _readInt(prefs, _snackDurationMsKey, kDefaultSnackDurationMs),
       accentMode: prefs.getString(_accentModeKey) ?? 'auto',
-      customAccentColor: prefs.getInt(_customAccentColorKey),
+      customAccentColor: _readNullableInt(prefs, _customAccentColorKey),
       ttsEnabled: prefs.getBool(_ttsEnabledKey) ?? false,
-      ttsGlobalSeed: prefs.getInt(_ttsGlobalSeedKey),
-      bgmVolume: prefs.getInt(_bgmVolumeKey) ?? 50,
+      ttsGlobalSeed: _readNullableInt(prefs, _ttsGlobalSeedKey),
+      bgmVolume: _readInt(prefs, _bgmVolumeKey, 50),
       bgmSizeLimitUnlocked: prefs.getBool(_bgmSizeLimitUnlockedKey) ?? false,
-      voiceInputEnabled: prefs.getBool(_voiceInputEnabledKey) ?? false,
       showParenButton: prefs.getBool(_showParenButtonKey) ?? true,
+      showUploadButton: prefs.getBool(_showUploadButtonKey) ?? true,
       showMessageAvatar: prefs.getBool(_showMessageAvatarKey) ?? true,
       showMessageRetry: prefs.getBool(_showMessageRetryKey) ?? true,
       showMessageCopy: prefs.getBool(_showMessageCopyKey) ?? true,
@@ -182,18 +215,18 @@ class SettingsService {
           prefs.getBool(_chatQuickSidebarCollapsedKey) ?? false,
       chatSwipeSwitch: prefs.getBool(_chatSwipeSwitchKey) ?? true,
       autoBackup: prefs.getBool(_autoBackupKey) ?? true,
-      chatMaskStrength: prefs.getInt(_chatMaskStrengthKey) ?? 75,
-      chatBubbleOpacity: prefs.getInt(_chatBubbleOpacityKey) ?? 100,
+      chatMaskStrength: _readInt(prefs, _chatMaskStrengthKey, 75),
+      chatBubbleOpacity: _readInt(prefs, _chatBubbleOpacityKey, 100),
       halfScreenChat: prefs.getBool(_halfScreenChatKey) ?? false,
       dynamicHalfScreen: prefs.getBool(_dynamicHalfScreenKey) ?? false,
-      maxContextMessages: prefs.getInt(_maxContextMessagesKey) ?? 120,
-      maxContextTokens: prefs.getInt(_maxContextTokensKey) ?? 8000,
-      temperature: (prefs.getDouble(_temperatureKey)) ?? 0.7,
-      frequencyPenalty: (prefs.getDouble(_frequencyPenaltyKey)) ?? 0.0,
-      presencePenalty: (prefs.getDouble(_presencePenaltyKey)) ?? 0.0,
-      loreStickyRounds: prefs.getInt(_loreStickyRoundsKey) ?? 3,
-      loreMaxEntries: prefs.getInt(_loreMaxEntriesKey) ?? 8,
-      loreBudgetTokens: prefs.getInt(_loreBudgetTokensKey) ?? 0,
+      maxContextMessages: _readInt(prefs, _maxContextMessagesKey, 120),
+      maxContextTokens: _readInt(prefs, _maxContextTokensKey, 8000),
+      temperature: _readDouble(prefs, _temperatureKey, 0.7),
+      frequencyPenalty: _readDouble(prefs, _frequencyPenaltyKey, 0.0),
+      presencePenalty: _readDouble(prefs, _presencePenaltyKey, 0.0),
+      loreStickyRounds: _readInt(prefs, _loreStickyRoundsKey, 3),
+      loreMaxEntries: _readInt(prefs, _loreMaxEntriesKey, 8),
+      loreBudgetTokens: _readInt(prefs, _loreBudgetTokensKey, 0),
       quickReplies: _decodeQuickReplies(prefs.getString(_quickRepliesKey)),
       simpleModelMode: simpleModelMode,
       activeModelId: activeModelId,
@@ -267,29 +300,18 @@ class SettingsService {
     await prefs.setString(_promptStrategyKey, jsonEncode(settings.promptStrategy.toJson()));
     await prefs.setBool(_requireAuthForArchiveKey, settings.requireAuthForArchive);
     await prefs.setBool(_requireAuthForAppKey, settings.requireAuthForApp);
+    await prefs.setBool(
+      _developerOptionsUnlockedKey,
+      settings.developerOptionsUnlocked,
+    );
     await prefs.setBool(_requireNameToDeleteKey, settings.requireNameToDelete);
     await prefs.setBool(_allowDeleteMessageKey, settings.allowDeleteMessage);
-    await prefs.setBool(_showSplashAnimationKey, settings.showSplashAnimation);
+    await prefs.setString(_splashAnimationKey, settings.splashAnimation);
     await prefs.setBool(_autoOpenLastChatKey, settings.autoOpenLastChat);
     await prefs.setBool(_unboundedModelListKey, settings.unboundedModelList);
     await prefs.setInt(_fontSizeStepKey, settings.fontSizeStep);
     await prefs.setString(_appIconKey, settings.appIcon);
     await prefs.setInt(_snackDurationMsKey, settings.snackDurationMs);
-    await prefs.setString(_sherpaModelSourceKey, settings.sherpaModelSource);
-    if (settings.sherpaCustomBaseUrl != null) {
-      await prefs.setString(
-          _sherpaCustomBaseUrlKey, settings.sherpaCustomBaseUrl!);
-    } else {
-      await prefs.remove(_sherpaCustomBaseUrlKey);
-    }
-    await prefs.setBool(_sherpaModelReadyKey, settings.sherpaModelReady);
-    if (settings.sherpaModelPath != null) {
-      await prefs.setString(_sherpaModelPathKey, settings.sherpaModelPath!);
-    } else {
-      await prefs.remove(_sherpaModelPathKey);
-    }
-    await prefs.setString(
-        _sherpaSelectedModelKey, settings.selectedVoiceModelId);
     await prefs.setString(_accentModeKey, settings.accentMode);
     if (settings.customAccentColor != null) {
       await prefs.setInt(
@@ -305,8 +327,8 @@ class SettingsService {
     }
     await prefs.setInt(_bgmVolumeKey, settings.bgmVolume);
     await prefs.setBool(_bgmSizeLimitUnlockedKey, settings.bgmSizeLimitUnlocked);
-    await prefs.setBool(_voiceInputEnabledKey, settings.voiceInputEnabled);
     await prefs.setBool(_showParenButtonKey, settings.showParenButton);
+    await prefs.setBool(_showUploadButtonKey, settings.showUploadButton);
     await prefs.setBool(_showMessageAvatarKey, settings.showMessageAvatar);
     await prefs.setBool(_showMessageRetryKey, settings.showMessageRetry);
     await prefs.setBool(_showMessageCopyKey, settings.showMessageCopy);

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../utils/action_table.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -318,6 +320,14 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
   final WorldFormController _form = WorldFormController();
   bool _saving = false;
 
+  /// 「世界名称」为空时的就地校验文案（审计 3.5：校验不能靠一闪而过的 snackbar）。
+  ///
+  /// 名称字段的 TextField 在共享的 [WorldEditorForm] 里，那个组件没有暴露
+  /// 字段级 errorText 的入口（它的注释写明「要不要校验全归外壳决定」），
+  /// 所以外壳把错误**常驻渲染在表单正上方**——紧挨着第一个字段、不随 snackbar 消失；
+  /// 下一次点保存通过校验时清掉。
+  String? _nameError;
+
   @override
   void dispose() {
     _form.dispose();
@@ -333,12 +343,15 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
     if (_saving) return;
     final World world = _form.current();
     if (world.name.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: FitText('请填写世界名称')));
+      // 就地报错：错误条常驻在表单顶部（世界名称就是第一个字段），
+      // 用户补完再点保存就消失。
+      setState(() => _nameError = '请填写世界名称再发布');
       return;
     }
-    setState(() => _saving = true);
+    setState(() {
+      _nameError = null;
+      _saving = true;
+    });
     try {
       await widget.onSave(world);
     } catch (e) {
@@ -359,24 +372,9 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
       Navigator.of(context).pop(result);
       return;
     }
-    final bool? discard = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const FitText('放弃修改？'),
-        content: const FitText('还有未保存的修改，返回会丢失。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const FitText('继续编辑'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const FitText('放弃'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || discard != true) return;
+    // 「放弃修改？」的文案与按钮由动作表统一（5 个外壳原来各抄一遍）。
+    if (!await confirmDiscardEdits(context)) return;
+    if (!mounted) return;
     Navigator.of(context).pop(result);
   }
 
@@ -396,15 +394,69 @@ class _CommunityWorldEditorPageState extends State<CommunityWorldEditorPage> {
             ),
           ],
         ),
-        body: WorldEditorForm(
-          world: widget.world,
-          formController: _form,
-          tagSuggestions: widget.tagSuggestions,
+        body: Column(
+          children: <Widget>[
+            if (_nameError != null) _InlineFormError(message: _nameError!),
+            Expanded(
+              child: WorldEditorForm(
+                world: widget.world,
+                formController: _form,
+                tagSuggestions: widget.tagSuggestions,
+                // 错误同时落在字段上（能定位）与表单顶部（读屏可播报）。
+                nameError: _nameError,
+                onNameChanged: () {
+                  if (_nameError == null) return;
+                  setState(() => _nameError = null);
+                },
+              ),
+            ),
+          ],
         ),
         floatingActionButton: AppEditorFab(
           onPressed: _save,
           icon: const Icon(Icons.check),
           label: FitText(widget.saveLabel),
+        ),
+      ),
+    );
+  }
+}
+
+/// 表单级就地错误条：贴在表单顶部，**不自动消失**（与 snackbar 相反）。
+///
+/// 用 errorContainer / onErrorContainer 语义色，并标为 live region ——
+/// 读屏用户在保存失败时能听到这条错误，而不是只看到颜色变化。
+class _InlineFormError extends StatelessWidget {
+  const _InlineFormError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        color: cs.errorContainer,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.error_outline, size: 18, color: cs.onErrorContainer),
+            AppSpacing.wSm,
+            Expanded(
+              child: FitText(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

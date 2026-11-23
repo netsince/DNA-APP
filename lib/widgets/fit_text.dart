@@ -28,20 +28,36 @@ class FitText extends Text {
     super.selectionColor,
     this.contrastBackground,
     this.minShrink = 0,
+    this.wrapWhenTooNarrow = true,
   });
+
+  /// 空间不足时是否允许「不缩字、改为换行」。
+  ///
+  /// 默认 true（大字号下优先保真）。**但在按固有宽度排版的容器里必须设为 false**
+  /// （如 `SegmentedButton` 的段）：那种布局会在测量阶段向子节点要 intrinsic
+  /// 宽度，而换行分支内部是 `LayoutBuilder` —— 一查 intrinsic 就抛断言。
+  /// 这也是「换行不是万能解」的边界：定宽控件里只能缩字。
+  final bool wrapWhenTooNarrow;
+
+  /// 短文本「缩小保单行」的推荐下限（0.85 = 最多压到 85%，再窄改为换行）。
+  ///
+  /// **只是推荐值，不是默认值。** 默认保持 0（无条件缩到装下为止）——
+  /// 这是 2026-10-29 `cb3a0da` 定下的口径：短标签缩字是「字号全局生效」
+  /// 之外被明确保留的例外，要换行的位置逐个调用点自己传。
+  /// 详见 docs/REGRESSION_AUDIT.md §4。
+  static const double recommendedMinShrink = 0.85;
 
   /// 所在容器的背景颜色。若提供，将自动根据其混合亮度计算最佳对比度文本颜色。
   final Color? contrastBackground;
 
-  ///短文本「缩小保单行」的下限（0 =不设下限，永远缩到装下为止）。
+  /// 短文本「缩小保单行」的下限（0 = 不设下限，永远缩到装下为止）。
   ///
-  /// `FitText`对6字以内的文本会套 FittedBox强制单行；空间不足时**无限缩小**，
-  ///于是字号调大后，窄容器里的短标签会「长到装不下就不再长」。
+  /// `FitText` 对 6 字以内的文本会套 FittedBox 强制单行；空间不足时会**缩小**，
+  /// 于是字号调大后，窄容器里的短标签「长到装不下就不再长」——用户会把系统
+  /// 字号调到最大，界面却纹丝不动。
   ///
-  ///设成0.85这类值时：若需要的缩放比低于该值就不缩了，交给正常换行 ——
-  ///宁可多一行，也不把字压成蚂蚁。
-  ///
-  /// **默认0保持既有行为**：全项目750余处调用观感不变，需要的地方再逐个开。
+  /// 默认 [defaultMinShrink]（0.85）：缩放比低于该值就不再压字，改为正常换行。
+  /// 显式传 `0` 恢复旧行为（无条件缩到装下为止）。
   final double minShrink;
 
   static const int _shortThreshold = 6;
@@ -99,8 +115,25 @@ class FitText extends Text {
     final Color effective = surfaceColor != null
         ? compositeOver(background, surfaceColor)
         : background;
-    final double withLightInk = _contrastRatio(AppColors.inkOnLight, effective);
-    final double withDarkInk = _contrastRatio(AppColors.inkOnDark, effective);
+    final Color picked = _betterInk(effective);
+    // 阈值取 7:1（WCAG AAA）而不是 4.5：
+    // 近黑气泡 @50% 叠浅色页面会合成中灰，深墨在中灰上正好 4.6 —— 刚过 AA，
+    // 于是还会选深墨，观感就是"黑气泡上仍然是黑字"。只有对比足够高才信任
+    // 合成色，否则按气泡本身判断。
+    if (_contrastRatio(picked, effective) >= 7.0) {
+      return picked;
+    }
+    // 半透明气泡叠在页面底色上可能刚好落在"两头都不够"的中灰区间
+    // （例：莫奈取色给出近黑的气泡 @50% 叠在浅色页面上），此时按合成色
+    // 选墨只会得到勉强合格、观感却像"黑底黑字"的结果。
+    // 这时退化为按**气泡本身的颜色**判断：黑气泡就给浅色字。
+    return _betterInk(background);
+  }
+
+  /// 在两种墨色里挑对比度更高的那个。
+  static Color _betterInk(Color background) {
+    final double withLightInk = _contrastRatio(AppColors.inkOnLight, background);
+    final double withDarkInk = _contrastRatio(AppColors.inkOnDark, background);
     return withLightInk >= withDarkInk
         ? AppColors.inkOnLight
         : AppColors.inkOnDark;
@@ -146,8 +179,22 @@ class FitText extends Text {
       selectionColor: selectionColor,
     );
 
+    // 缩放下限**只由调用点显式决定**，不跟字号倍率联动。
+    //
+    // 这里曾经被改成「字号倍率 > 1 时自动启用下限」，那是一处越界改动：
+    // 作者在 2026-10-29（提交 cb3a0da「字号真正全局生效」）已经处理过
+    // 「字号没生效」这个真问题（封掉 RichText/TextPainter 的逃逸口、改成
+    // 系统×应用组合），并把短标签缩字作为**明确保留的例外**——
+    // minShrink 默认 0，注释原话是「需要的地方再逐个开」。
+    //
+    // 所以：默认 0 = 缩到装下为止（既有行为）；要换行就在那一处显式传
+    // minShrink（推荐 FitText.recommendedMinShrink）。
+    // wrapWhenTooNarrow 只服务于「显式传了 minShrink、但容器按固有宽度排版」
+    // 的场景（例如 SegmentedButton 的段：那里查 intrinsic，不能用 LayoutBuilder）。
+    final double cap = wrapWhenTooNarrow ? minShrink : 0;
+
     if (isShort && canWrap) {
-      if (minShrink <= 0) {
+      if (cap <= 0) {
         //默认路径：与历史行为完全一致（无条件缩到装下为止）。
         result = FittedBox(
           fit: BoxFit.scaleDown,
@@ -162,7 +209,7 @@ class FitText extends Text {
             final double intrinsic = _intrinsicWidth(context, effectiveStyle);
             if (available.isFinite && intrinsic > 0) {
               final double ratio = available / intrinsic;
-              if (ratio < minShrink) {
+              if (ratio < cap) {
                 //缩得太狠：保持原字号、允许换行。
                 return plain;
               }

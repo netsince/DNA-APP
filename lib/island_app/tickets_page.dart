@@ -1,11 +1,21 @@
 import 'dart:convert';
+import '../widgets/memo_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
+import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/utils/error_display.dart';
+import 'package:dna/widgets/paged_controller.dart';
+import '../widgets/form_draft.dart';
+import '../widgets/form_fields.dart';
+import '../widgets/submit_form.dart';
 import '../theme/tokens.dart';
 
 /// 工单状态标签映射。
@@ -25,59 +35,49 @@ class TicketsPage extends StatefulWidget {
 }
 
 class _TicketsPageState extends State<TicketsPage> {
-  final List<Map<String, dynamic>> _tickets = <Map<String, dynamic>>[];
+  /// 工单列表的分页状态（首屏 / 加载更多 / 没有更多 / 错误）统一由
+  /// [PagedController] 管，本页只提供「怎么取一页」。
+  ///
+  /// 接口返回的是**记录类型**（items / page / pages / total / hasNext），
+  /// 交给类型推断，不自造类型名。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final result = await ApiClient.instance.getMyTickets(
+            page: page,
+            status: _status,
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '工单列表加载失败，请稍后重试',
+      );
+
   String _status = 'all';
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  int _page = 0;
 
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
+    _paged.refresh();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-      } else {
-        _loadingMore = true;
-      }
-    });
-    try {
-      final r = await ApiClient.instance.getMyTickets(
-        page: reset ? 1 : _page + 1,
-        status: _status,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _tickets.clear();
-        _tickets.addAll(r.items);
-        _page = reset ? 1 : _page + 1;
-        _noMore = r.items.isEmpty || !r.hasNext;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-      });
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _setStatus(String s) {
-    setState(() {
-      _status = s;
-      _page = 0;
-      _noMore = false;
-      _tickets.clear();
-    });
-    _load(reset: true);
+    setState(() => _status = s);
+    // 换了状态筛选，旧结果立即作废：控制器「失败不清列表」是给翻页用的，
+    // 这里必须清掉，否则新筛选失败会把上一个状态的工单留在屏幕上。
+    _paged.items.clear();
+    _paged.refresh();
   }
 
   Future<void> _openDetail(Map<String, dynamic> t) async {
@@ -86,19 +86,18 @@ class _TicketsPageState extends State<TicketsPage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => TicketDetailPage(ticketId: id)),
     );
-    if (mounted) _load(reset: true);
+    if (mounted) _paged.refresh();
   }
 
   Future<void> _openNew() async {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const NewTicketPage()));
-    if (mounted) _load(reset: true);
+    if (mounted) _paged.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('我的工单')),
       floatingActionButton: FloatingActionButton.extended(
@@ -110,54 +109,71 @@ class _TicketsPageState extends State<TicketsPage> {
         children: <Widget>[
           _statusBar(),
           const Divider(height: 1),
-          Expanded(
-            child: _loading && _tickets.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _tickets.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        const Icon(
-                          Icons.support_agent,
-                          size: 40,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '暂无工单',
-                          style: TextStyle(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  )
-                : AppRefreshIndicator(
-                    onRefresh: () => _load(reset: true),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (n) {
-                        if (n.metrics.pixels >=
-                            n.metrics.maxScrollExtent - 400) {
-                          _load();
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        itemCount: _tickets.length + (_loadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= _tickets.length) {
-                            return const Padding(
-                              padding: AppInsets.card,
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          return _ticketTile(_tickets[index]);
-                        },
-                      ),
-                    ),
-                  ),
-          ),
+          Expanded(child: _buildList(context)),
         ],
+      ),
+    );
+  }
+
+  /// 列表区：加载中 / 失败（可重试）/ 空 / 有数据，四态分开。
+  ///
+  /// 失败必须与「暂无工单」分开：以前请求失败只复位 loading，用户看到的是
+  /// 「你没有工单」这个错误结论，而且没有任何恢复路径。
+  Widget _buildList(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    if (_paged.isLoading && _paged.items.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_paged.error != null && _paged.items.isEmpty) {
+      return ErrorState(
+        message: _paged.error!,
+        onRetry: () => _paged.refresh(),
+      );
+    }
+    if (_paged.items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              Icons.support_agent,
+              size: AppSize.iconEmptyCompact,
+              // 空态图标用 outline：不抢正文、又是语义色（审计 4.4）。
+              color: scheme.outline,
+            ),
+            const SizedBox(height: 8),
+            Text('暂无工单', style: TextStyle(color: scheme.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
+    return AppRefreshIndicator(
+      onRefresh: () => _paged.refresh(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n.metrics.pixels >=
+              n.metrics.maxScrollExtent - kLoadMoreThreshold) {
+            _paged.loadMore();
+          }
+          return false;
+        },
+        child: ListView.separated(
+          // 行贴 surface，横向内边距交给 ListTile（16）；
+          // 行之间一根 Divider，缩进与行文字对齐。
+          padding: EdgeInsets.zero,
+          itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: AppSpacing.lg),
+          itemBuilder: (context, index) {
+            if (index >= _paged.items.length) {
+              return const Padding(
+                padding: AppInsets.card,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return _ticketTile(_paged.items[index]);
+          },
+        ),
       ),
     );
   }
@@ -211,48 +227,48 @@ class _TicketsPageState extends State<TicketsPage> {
       _ => null,
     };
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (preview.isNotEmpty)
-              Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Row(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chipBg,
-                    borderRadius: BorderRadius.circular(AppRadius.xs),
-                  ),
-                  child: Text(
-                    ticketStatusLabel(status),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: chipFg),
-                  ),
+    // 裸 ListTile：工单列表是结构同构、需要线性扫读的集合，
+    // 每行一张卡只会把「一屏能看几条」换成「一屏几个框」（审计 3.3）。
+    return ListTile(
+      contentPadding: AppInsets.tile,
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (preview.isNotEmpty)
+            Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
                 ),
-                const Spacer(),
-                Text(
-                  _fmtDate(updated),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                decoration: BoxDecoration(
+                  color: chipBg,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
-              ],
-            ),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openDetail(t),
+                child: Text(
+                  ticketStatusLabel(status),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: chipFg),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _fmtDate(updated),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openDetail(t),
     );
   }
 
@@ -271,25 +287,38 @@ class NewTicketPage extends StatefulWidget {
 }
 
 class _NewTicketPageState extends State<NewTicketPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _content = TextEditingController();
+  // 两个文本字段的控制器统一由草稿持有（页面不再各 new 一个）。
+  final FormDraft _draft = FormDraft(
+    textFields: const <String>['title', 'content'],
+  );
+
+  // 一次性提交的忙态 + 失败原因（原因就地显示，不再只弹一句 snackbar）。
+  final SubmitFormState _submit = SubmitFormState();
+
   List<Map<String, dynamic>> _categories = const <Map<String, dynamic>>[];
   int? _categoryId;
   XFile? _image;
-  bool _submitting = false;
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
+    // 提交态变了就重建：顶栏按钮转圈 / 顶部横幅出现或消失。
+    _submit.addListener(_onSubmitChanged);
     _loadCategories();
+  }
+
+  /// 提交态（忙 / 失败原因）变了就重建。
+  void _onSubmitChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _title.dispose();
-    _content.dispose();
+    // 只摘监听、不 dispose _submit：提交请求可能在页面 pop 之后才回来，
+    // 那时 run() 还会 notifyListeners()。
+    _submit.removeListener(_onSubmitChanged);
+    _draft.dispose();
     super.dispose();
   }
 
@@ -313,9 +342,9 @@ class _NewTicketPageState extends State<NewTicketPage> {
       );
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('选择图片失败');
+      _snack('选择图片失败：${describeError(e)}');
     }
   }
 
@@ -346,30 +375,33 @@ class _NewTicketPageState extends State<NewTicketPage> {
     }
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _onSubmit() async {
+    // 必填校验落在「主题」字段上（文案与时机同原来的 Form validator）。
+    if (!_draft.validateRequired(const <(String, String)>[
+      ('title', '请填写工单主题'),
+    ])) {
+      setState(() {});
+      return;
+    }
     if (!AuthSession.instance.isLoggedIn) {
       _snack('请先登录');
       return;
     }
-    setState(() => _submitting = true);
-    try {
-      final image = await _readImage();
-      await ApiClient.instance.createTicket(
-        title: _title.text.trim(),
-        content: _content.text.trim(),
-        categoryId: _categoryId,
-        imageData: image,
-      );
-      if (!mounted) return;
-      _snack('工单已提交，请等待管理员回复');
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      _snack('提交失败：$e');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    await _submit.run(
+      errorPrefix: '提交失败',
+      action: () async {
+        final image = await _readImage();
+        await ApiClient.instance.createTicket(
+          title: _draft.text('title'),
+          content: _draft.text('content'),
+          categoryId: _categoryId,
+          imageData: image,
+        );
+        if (!mounted) return;
+        _snack('工单已提交，请等待管理员回复');
+        Navigator.of(context).pop(true);
+      },
+    );
   }
 
   void _snack(String msg) {
@@ -385,85 +417,92 @@ class _NewTicketPageState extends State<NewTicketPage> {
         actions: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: _submitting
-                ? const Center(child: CircularProgressIndicator())
-                : FilledButton(onPressed: _submit, child: const Text('提交')),
+            // 忙时禁用并转圈（占位尺寸不变，按钮不跳）。
+            child: FormSubmitButton(
+              label: '提交',
+              busy: _submit.busy,
+              onPressed: _onSubmit,
+            ),
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: AppInsets.card,
-          children: <Widget>[
-            if (_categories.isNotEmpty) ...<Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: '分类（可选）',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  for (final c in _categories)
-                    DropdownMenuItem<int>(
-                      value: (c['id'] as num?)?.toInt(),
-                      child: Text((c['name'] ?? '').toString()),
-                    ),
-                ],
-                onChanged: (v) => _categoryId = v,
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextFormField(
-              controller: _title,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '请填写工单主题' : null,
+      body: ListView(
+        padding: AppInsets.card,
+        children: <Widget>[
+          // 提交失败的真实原因就地显示（不再只弹一句「提交失败」）。
+          FormErrorBanner(
+            message: _submit.errorText,
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          ),
+          if (_categories.isNotEmpty) ...<Widget>[
+            DropdownButtonFormField<int>(
+              initialValue: _categoryId,
               decoration: const InputDecoration(
-                labelText: '主题 *',
+                labelText: '分类（可选）',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _content,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: '问题描述',
-                hintText: '请详细描述你遇到的问题（也可只传图）',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                if (_image != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.xs),
-                    child: Image.file(
-                      File(_image!.path),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                if (_image != null) const SizedBox(width: 12),
-                TextButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: Text(_image != null ? '更换图片' : '添加图片（可选）'),
-                ),
-                if (_image != null)
-                  TextButton(
-                    onPressed: () => setState(() => _image = null),
-                    child: const Text('移除'),
+              items: [
+                for (final c in _categories)
+                  DropdownMenuItem<int>(
+                    value: (c['id'] as num?)?.toInt(),
+                    child: Text((c['name'] ?? '').toString()),
                   ),
               ],
+              onChanged: (v) => _categoryId = v,
             ),
+            const SizedBox(height: 12),
           ],
-        ),
+          FormTextField(
+            draft: _draft,
+            id: 'title',
+            label: '主题 *',
+            isDense: true,
+            border: const OutlineInputBorder(),
+            // 一输入就把该字段的必填错误清掉（重建归页面）。
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          // 问题描述保留原 TextFormField：多行标签靠 alignLabelWithHint 顶到
+          // 首行，共享的 FormTextField 没有透传这个参数，换过去标签会回到垂直
+          // 居中（观感变化），所以只把控制器换成草稿里的那一个。
+          TextFormField(
+            controller: _draft.controller('content'),
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: '问题描述',
+              hintText: '请详细描述你遇到的问题（也可只传图）',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: <Widget>[
+              if (_image != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                  child: Image.file(
+                    File(_image!.path),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              if (_image != null) const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(_image != null ? '更换图片' : '添加图片（可选）'),
+              ),
+              if (_image != null)
+                TextButton(
+                  onPressed: () => setState(() => _image = null),
+                  child: const Text('移除'),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -535,9 +574,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       );
       if (!mounted) return;
       setState(() => _image = picked);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('选择图片失败');
+      _snack('选择图片失败：${describeError(e)}');
     }
   }
 
@@ -698,6 +737,14 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     );
   }
 
+  /// 气泡最大宽度：窄屏取屏宽 78%，宽屏按阅读宽度封顶。
+  double _bubbleMaxWidth(BuildContext context) {
+    final double screen = MediaQuery.sizeOf(context).width;
+    final double reading = WideContent.reading.maxWidth;
+    final double byScreen = screen * 0.78;
+    return byScreen < reading ? byScreen : reading;
+  }
+
   Widget _messageBubble(Map<String, dynamic> m) {
     final scheme = Theme.of(context).colorScheme;
     final role = (m['sender_role'] ?? 'user').toString();
@@ -717,7 +764,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
+          // 屏宽 78% 只在窄屏成立；宽屏下要按阅读宽度封顶，
+          // 否则 1920 宽时一行近百字（审计 3.4）。
+          maxWidth: _bubbleMaxWidth(context),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -830,24 +879,27 @@ class _TicketImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (image.startsWith('data:')) {
-      try {
-        return Image.memory(
-          base64Decode(image.split(',').last),
-          width: 180,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const SizedBox(
-            width: 180,
-            height: 120,
-            child: Icon(Icons.broken_image),
-          ),
-        );
-      } catch (_) {
+      final int target =
+          (180 * MediaQuery.devicePixelRatioOf(context)).clamp(180, 720).round();
+      final ImageProvider? provider =
+          MemoImage.dataUrl(image, cacheWidth: target);
+      if (provider == null) {
         return const SizedBox(
           width: 180,
           height: 120,
           child: Icon(Icons.broken_image),
         );
       }
+      return Image(
+        image: provider,
+        width: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const SizedBox(
+          width: 180,
+          height: 120,
+          child: Icon(Icons.broken_image),
+        ),
+      );
     }
     // 服务器相对路径（目前后端返回的是 data URL，这里作兜底）。
     return const SizedBox(

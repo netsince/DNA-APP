@@ -1,67 +1,18 @@
 import 'dart:async';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
-import 'package:palette_generator/palette_generator.dart';
-import 'package:share_plus/share_plus.dart';
-import '../utils/conversation_labels.dart';
-import '../utils/id_utils.dart';
-import '../utils/fork_utils.dart';
-import '../utils/message_processor.dart';
-import '../utils/api_guard.dart';
-import '../utils/dialogs.dart';
-import '../utils/ui_feedback.dart';
-import '../widgets/app_content_frame.dart';
-import '../models/conversation.dart';
-import '../models/app_settings.dart';
-import '../models/quick_reply.dart';
-import '../models/ta.dart';
-import '../models/user_identity.dart';
-import '../models/service_results.dart';
-import '../models/world.dart';
-import '../services/conversation_export_import_service.dart';
-import '../services/bgm_player.dart';
-import '../services/image_storage.dart';
-import '../services/llm_request.dart';
-import '../services/llm_stream_chunk.dart';
-import '../services/resume_service.dart';
-import '../services/ta_export_import_service.dart';
-import '../state/app_controller.dart';
-import '../widgets/conversation_export_import_dialogs.dart';
-import '../widgets/group_avatar.dart';
-import 'chat/chat_models.dart';
-import 'chat/chat_snapshot_store.dart';
-import 'chat/chat_stream_parser.dart';
-import 'chat/chat_token_counter.dart';
-import 'chat/chat_message_slice.dart';
-import 'chat/chat_message_builder.dart';
-import 'chat/chat_system_prompt.dart';
-import 'chat/world_lorebook.dart';
-import 'chat/state/chat_state.dart';
-import 'chat/state/chat_controller.dart';
-import 'chat/ui/widgets/chat_app_bar.dart';
-import 'chat/ui/widgets/animated_background.dart';
-import 'chat/ui/widgets/chat_input_bar.dart';
-import 'chat/ui/widgets/chat_message_list.dart';
-import 'package:dna/widgets/fit_text.dart';
-import '../theme/tokens.dart';
-import '../widgets/ta_avatar.dart';
 
-part 'chat/state/chat_state_mixin.dart';
+import '../utils/conversation_labels.dart';
+import '../models/conversation.dart';
+import '../models/ta.dart';
+import '../services/resume_service.dart';
+import '../state/app_controller.dart';
+import '../theme/tokens.dart';
+import '../widgets/fit_text.dart';
+import '../widgets/ta_avatar.dart';
+import 'chat/chat_surface.dart';
+
 part 'chat/ui/chat_quick_sidebar.dart';
-part 'chat/ui/chat_ui_helpers.dart';
-part 'chat/ui/chat_search.dart';
-part 'chat/builders/chat_payload_builders.dart';
-part 'chat/chat_summary.dart';
-part 'chat/builders/chat_stream_handlers.dart';
-part 'chat/actions/chat_actions.dart';
-part 'chat/actions/chat_actions_send.dart';
-part 'chat/actions/chat_actions_inspiration.dart';
-part 'chat/actions/chat_actions_snapshots.dart';
-part 'chat/actions/chat_actions_summary_ui.dart';
 
 /// 聊天页。
 ///
@@ -154,6 +105,23 @@ class _ChatPageState extends State<ChatPage>
   double _animFrom = 0;
   double _animTo = 0;
 
+  /// 拖动位移单独走 ValueNotifier：跟手阶段只更新「平移」这一层。
+  ///
+  /// 以前每次拖动都 setState，整页（消息列表、侧栏磨砂、标题栏）每帧重建一遍；
+  /// 拖动一次就有几十个 move 事件，等于几十次全页 build —— 这是切换卡顿的主因。
+  final ValueNotifier<double> _dragNotifier = ValueNotifier<double>(0);
+
+  /// 拖动预览视图缓存：目标与方向不变时复用同一个 Widget 实例。
+  Widget? _peekView;
+  String? _peekViewId;
+  bool? _peekViewFromRight;
+
+  /// 会话视图缓存（与动画无关，见 [_viewFor]）。
+  Widget? _cachedView;
+  String? _cachedViewConversationId;
+  double _cachedViewInset = double.nan;
+  bool _cachedViewSwipe = true;
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +130,7 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
+    _dragNotifier.dispose();
     _settleAnim.dispose();
     super.dispose();
   }
@@ -208,6 +177,9 @@ class _ChatPageState extends State<ChatPage>
       _conversationId = id;
       _rememberCurrentConversation();
       _peekTarget = null;
+      _peekView = null;
+      _peekViewId = null;
+      _peekViewFromRight = null;
     });
     _settle(
       from: mode == _OutgoingMode.fade ? 0 : from,
@@ -215,6 +187,7 @@ class _ChatPageState extends State<ChatPage>
       onDone: () => setState(() {
         _outgoingView = null;
         _dragDx = 0;
+        _dragNotifier.value = 0;
       }),
     );
   }
@@ -245,9 +218,13 @@ class _ChatPageState extends State<ChatPage>
       return;
     }
     _settleAnim.stop();
+    _dragDx = 0;
+    _dragNotifier.value = 0;
     setState(() {
-      _dragDx = 0;
       _peekTarget = null;
+      _peekView = null;
+      _peekViewId = null;
+      _peekViewFromRight = null;
     });
   }
 
@@ -255,11 +232,19 @@ class _ChatPageState extends State<ChatPage>
     if (!_swipeEnabled) {
       return;
     }
-    setState(() {
-      _dragDx += dx;
-      // 拖动中就露出"下一页"是谁,松手前心里有数。
-      _peekTarget = _swipeTarget(dx < 0 ? 1 : -1);
-    });
+    _dragDx += dx;
+    _dragNotifier.value = _dragDx;
+    // 拖动中就露出"下一页"是谁,松手前心里有数。
+    // 方向与目标没变时不触发整页 setState —— 只是平移在动。
+    final _SwipeTarget? next = _swipeTarget(dx < 0 ? 1 : -1);
+    if (next?.conversationId != _peekTarget?.conversationId) {
+      setState(() {
+        _peekTarget = next;
+        _peekView = null;
+        _peekViewId = null;
+        _peekViewFromRight = null;
+      });
+    }
   }
 
   void _onSwipeEnd() {
@@ -279,6 +264,7 @@ class _ChatPageState extends State<ChatPage>
         to: 0,
         onDone: () => setState(() {
           _dragDx = 0;
+          _dragNotifier.value = 0;
           _peekTarget = null;
         }),
       );
@@ -396,7 +382,7 @@ class _ChatPageState extends State<ChatPage>
   // ---- 渲染 ----
 
   Widget _buildView(String conversationId, double inset) {
-    return ChatConversationView(
+    return ChatSurface(
       key: _viewKey(conversationId),
       controller: widget.controller,
       conversationId: conversationId,
@@ -408,13 +394,57 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// 取当前会话视图：**同一个 Widget 实例**重复使用。
+  ///
+  /// 切换/滑动的动画帧只该重建外面的 Transform/Opacity 外壳；如果每帧都
+  /// 重新构造 ChatSurface，整棵消息列表都会被 build 一遍。
+  /// Flutter 在 updateChild 里对「同一个 Widget 实例」有快速路径，
+  /// 只要实例不变，这棵子树直接跳过 build。
+  Widget _viewFor(String conversationId, double inset) {
+    final bool swipe = _swipeEnabled;
+    final Widget? cached = _cachedView;
+    if (cached != null &&
+        _cachedViewConversationId == conversationId &&
+        _cachedViewSwipe == swipe &&
+        (_cachedViewInset - inset).abs() < 0.01) {
+      return cached;
+    }
+    final Widget view = _buildView(conversationId, inset);
+    _cachedView = view;
+    _cachedViewConversationId = conversationId;
+    _cachedViewInset = inset;
+    _cachedViewSwipe = swipe;
+    return view;
+  }
+
+  /// 拖动预览视图：目标与方向不变时复用同一个实例。
+  Widget? _peekFor(BuildContext context, {required double offset}) {
+    final _SwipeTarget? target = _peekTarget;
+    if (target == null) {
+      return null;
+    }
+    final bool fromRight = offset < 0;
+    if (_peekView != null &&
+        _peekViewId == target.conversationId &&
+        _peekViewFromRight == fromRight) {
+      return _peekView;
+    }
+    final Widget view = _buildSwipePeek(context, target, fromRight);
+    _peekView = view;
+    _peekViewId = target.conversationId;
+    _peekViewFromRight = fromRight;
+    return view;
+  }
+
   /// 拖动时露出的"下一页"预览:一张中性底 + 目标角色的头像与名字,
   /// 让人在松手前就知道要切到谁。
-  Widget _buildSwipePeek(BuildContext context, _SwipeTarget target) {
+  Widget _buildSwipePeek(
+    BuildContext context,
+    _SwipeTarget target,
+    bool fromRight,
+  ) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme cs = theme.colorScheme;
-    // 向左滑 ⇒ 下一页从右侧露出,内容也靠右排,顺着手指方向。
-    final bool fromRight = _dragDx < 0;
     return ColoredBox(
       color: cs.surface,
       child: Align(
@@ -466,21 +496,39 @@ class _ChatPageState extends State<ChatPage>
       curve: Curves.easeOutCubic,
       builder: (BuildContext context, double inset, Widget? _) {
         _lastInset = inset;
+        // 视图实例在这里取一次，动画帧里不再重新构造（见 [_viewFor]）。
+        final Widget currentView = _viewFor(_conversationId, inset);
         return AnimatedBuilder(
           animation: _settleAnim,
           builder: (BuildContext context, Widget? _) {
-            final bool committing = _outgoingView != null;
-            final double viewDx = committing ? 0 : _dragDx;
-            return Stack(
+            return ValueListenableBuilder<double>(
+              valueListenable: _dragNotifier,
+              builder: (BuildContext context, double dragDx, Widget? _) {
+                final bool committing = _outgoingView != null;
+                // 弹回时没有退场层，当前视图自己跟着 settle 曲线回去；
+                // 提交切换时新视图直接归位(0)，旧视图滑出。
+                final bool bouncing =
+                    !committing && _settleAnim.isAnimating && _animTo == 0;
+                final double viewDx = committing
+                    ? 0
+                    : (bouncing
+                          ? _animFrom + (_animTo - _animFrom) * _settleT
+                          : dragDx);
+                // 预览来自 [_peekFor]，同样复用实例，不重建。
+                final Widget? peek = committing
+                    ? null
+                    : _peekFor(context, offset: dragDx);
+                return Stack(
               children: <Widget>[
                 // 拖动中露出的"下一页"预览(提交后由新会话视图接管)。
-                if (_peekTarget != null && !committing)
-                  Positioned.fill(child: _buildSwipePeek(context, _peekTarget!)),
-                // 当前会话(拖动时跟手平移)。
+                if (peek != null)
+                  Positioned.fill(child: RepaintBoundary(child: peek)),
+                // 当前会话(拖动时跟手平移)。RepaintBoundary 让平移只动图层，
+                // 不重画整页内容。
                 Positioned.fill(
                   child: Transform.translate(
                     offset: Offset(viewDx, 0),
-                    child: _buildView(_conversationId, inset),
+                    child: RepaintBoundary(child: currentView),
                   ),
                 ),
                 // 退场中的旧会话:滑出或淡出,期间不接收点击。
@@ -518,6 +566,8 @@ class _ChatPageState extends State<ChatPage>
                     ),
                   ),
               ],
+                );
+              },
             );
           },
         );
@@ -525,1134 +575,12 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 }
-/// 只在**横向明显占优**时才接受拖动的手势识别器。
-///
-/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
-/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
-/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
-/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
-/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
-///
-/// 未判定前不参与(不把位移喂给父类),避免它在方向未明时就接受。
-class _HorizontalDominantDragRecognizer
-    extends HorizontalDragGestureRecognizer {
-  _HorizontalDominantDragRecognizer({super.debugOwner});
-
-  /// 横向位移要达到纵向的多少倍才算横滑。
-  static const double _dominance = 1.6;
-
-  Offset _origin = Offset.zero;
-  bool _decided = false;
-
-  @override
-  void addAllowedPointer(PointerDownEvent event) {
-    _origin = event.position;
-    _decided = false;
-    super.addAllowedPointer(event);
-  }
-
-  @override
-  void handleEvent(PointerEvent event) {
-    if (!_decided && event is PointerMoveEvent) {
-      final Offset delta = event.position - _origin;
-      if (delta.dx.abs() >= delta.dy.abs() * _dominance) {
-        _decided = true; // 判定为横滑:开始交给父类累积并竞争
-      } else if (delta.dy.abs() > kTouchSlop) {
-        _decided = true; // 纵向已明确:退出,让列表滚
-        resolve(GestureDisposition.rejected);
-        return;
-      } else {
-        return; // 方向未明:先不参与
-      }
-    }
-    super.handleEvent(event);
-  }
-}
-class ChatConversationView extends StatefulWidget {
-  const ChatConversationView({
-    super.key,
-    required this.controller,
-    required this.conversationId,
-    this.isGroup = false,
-    this.contentLeftInset = 0,
-    this.onSwipeStart,
-    this.onSwipeUpdate,
-    this.onSwipeEnd,
-  });
+/// 只在**横向明显占优**时才接受拖动的手势识别器。
+///
+/// Flutter 自带的 [HorizontalDragGestureRecognizer] 只看横向位移:手指
+/// 上下滚动列表时,只要横向漂移超过命中容差,它就会把手势抢走 ——
+/// 于是"上下滑动有时会触发左右切换"。这里先比方向:
+/// * 横向位移 ≥ 纵向的 [_dominance] 倍 ⇒ 判定为横滑,交给父类竞争;
+/// * 纵向已经超过命中容差 ⇒ 直接退出,把手势让给列表滚动。
+///
 
-  final AppController controller;
-  final String conversationId;
-  final bool isGroup;
-
-  /// 左侧留给「快速切换侧栏」的宽度:标题栏与聊天内容整体右移这么多,
-  /// 但**背景立绘仍然铺满整宽** —— 于是侧栏浮层底下也是这张立绘,
-  /// 磨砂透出来就与聊天区连成一片。
-  final double contentLeftInset;
-
-  /// 消息区横向拖动开始(为空表示不启用左右滑动)。
-  ///
-  /// 手势**只覆盖消息区**:标题栏与输入框不参与 —— 否则在输入框里
-  /// 横向拖动选字会被误判成"切换角色"。
-  final VoidCallback? onSwipeStart;
-
-  /// 横向拖动中:转发本次的横向位移(跟手平移与预览由外层决定)。
-  final ValueChanged<double>? onSwipeUpdate;
-
-  /// 横向拖动结束(松手):由外层决定提交切换还是弹回原位。
-  final VoidCallback? onSwipeEnd;
-
-  @override
-  State<ChatConversationView> createState() => _ChatConversationViewState();
-}
-
-class _ChatConversationViewState extends State<ChatConversationView>
-    with
-        WidgetsBindingObserver,
-        ChatStateMixin,
-        ChatUiHelpers,
-        ChatSearchHelpers,
-        ChatPayloadBuilders,
-        ChatSummaryHelpers,
-        ChatStreamHandlers,
-        ChatActions,
-        ChatActionsSend,
-        ChatActionsInspiration,
-        ChatActionsSnapshots,
-        ChatActionsSummaryUi {
-  // 沉浸模式：隐藏顶栏与底部输入岛，纯享全屏立绘与对话
-  bool _immersiveUiHidden = false;
-
-  // 动态自适应滚动：向上翻看历史记录时临时展开为全屏
-  bool _dynamicIsFullScreen = false;
-
-  // 缓存回调函数避免重建
-  late final _TokenCountCallback _tokenCountCallback = _TokenCountCallback(
-    counter: _tokenCounter,
-    getModel: () => widget.controller.settings.selectedModel,
-  );
-
-  @override
-  Future<void> _ensureOpeningMessage() async {
-    if (_isGroup) {
-      return;
-    }
-    if (_conversation.messages.isNotEmpty) {
-      return;
-    }
-    final TA? ta = _ta;
-    if (ta == null || ta.opening.trim().isEmpty) {
-      return;
-    }
-    final ConversationMessage opening = ConversationMessage(
-      id: newId(),
-      role: 'assistant',
-      text: ta.opening.trim(),
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[opening],
-    );
-    await widget.controller.upsertConversation(_conversation);
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-  }
-
-  @override
-  Future<void> _loadAccent() async {
-    final s = widget.controller.settings;
-    // 自定义模式：直接使用用户指定颜色，跳过角色卡取色。
-    if (s.accentMode == 'custom' && s.customAccentColor != null) {
-      if (mounted) {
-        setState(() => _accent = Color(s.customAccentColor!));
-      }
-      return;
-    }
-
-    final TA? ta = _ta;
-    // 自动模式下强调色跟随角色卡图片：优先用当前显示的背景图，否则依次回退到
-    // 方形头像 / 竖屏图 / 横屏图，取第一张存在的图片，确保只要有角色卡图片就能取色。
-    final bool useLandscape =
-        MediaQuery.of(context).size.width >= MediaQuery.of(context).size.height;
-    final List<String?> candidates = <String?>[
-      if (_conversation.backgroundMode == 'image')
-        ta?.images[useLandscape ? 'landscape' : 'portrait'],
-      ta?.images['square'],
-      ta?.images['portrait'],
-      ta?.images['landscape'],
-    ];
-    String? ref;
-    for (final String? candidate in candidates) {
-      if (candidate != null &&
-          candidate.isNotEmpty &&
-          await ImageStorage.instance.readBytes(candidate) != null) {
-        ref = candidate;
-        break;
-      }
-    }
-    if (ref == null) {
-      if (mounted) {
-        setState(() => _accent = null);
-      }
-      return;
-    }
-
-    try {
-      // 提取图片主色调（用 dart:ui 按 64x64 解码，避免在后台 isolate 里
-      // 走 ImageProvider 触发 PaintingBinding 未初始化的问题）
-      final Color? dominantColor = await _extractDominantColor(ref);
-
-      if (!mounted || dominantColor == null) {
-        return;
-      }
-      setState(() {
-        _accent = dominantColor;
-      });
-    } catch (e) {
-      debugPrint('Failed to load accent color: $e');
-    }
-  }
-
-  @override
-  void _scrollToBottom() {
-    if (_dynamicIsFullScreen) {
-      setState(() => _dynamicIsFullScreen = false);
-    }
-    _chatController.scrollToBottom();
-  }
-
-  /// 统计当前上下文（所有消息型气泡）占用的 token 总数。
-  /// 仅当仪表盘开启时调用；[ChatTokenCounter] 自带缓存，文本不变时不重复编码。
-  int _countContextTokens() {
-    final String model = widget.controller.settings.selectedModel;
-    int total = 0;
-    for (final ConversationMessage m in _conversation.messages) {
-      if (m.kind != 'message') {
-        continue;
-      }
-      total += _tokenCounter.countTokens(
-        model: model,
-        messageId: m.id,
-        text: m.text,
-      );
-    }
-    return total;
-  }
-
-  TA? _lastAssistantSpeaker() {
-    for (int i = _conversation.messages.length - 1; i >= 0; i--) {
-      final ConversationMessage message = _conversation.messages[i];
-      if (message.kind != 'message' || message.role != 'assistant') {
-        continue;
-      }
-      final String? taId = message.speakerTaId;
-      if (taId != null && taId.isNotEmpty) {
-        return widget.controller.getTaById(taId);
-      }
-      return _activeTa;
-    }
-    return null;
-  }
-
-  Widget _buildGroupBackground(bool useLandscape) {
-    final TA? speaker = _lastAssistantSpeaker();
-    final String? path = useLandscape
-        ? speaker?.images['landscape']
-        : speaker?.images['portrait'];
-    final ImageProvider? image = path != null ? _getCachedImage(path) : null;
-    final bool hasImage = image != null;
-
-    final Widget child = hasImage
-        ? Image(
-            image: image,
-            key: ValueKey<String>('ta:$path'),
-            fit: BoxFit.cover,
-          )
-        : LayoutBuilder(
-            key: const ValueKey<String>('group-avatar'),
-            builder: (BuildContext context, BoxConstraints constraints) {
-              final double size = constraints.maxWidth < constraints.maxHeight
-                  ? constraints.maxWidth
-                  : constraints.maxHeight;
-              return Center(
-                child: GroupAvatar(
-                  tas: _memberTas,
-                  size: size * 0.72,
-                  radius: 18,
-                ),
-              );
-            },
-          );
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: child,
-    );
-  }
-
-  Future<void> _showMemberPicker() async {
-    if (!_isGroup) {
-      return;
-    }
-    final List<TA> allTas = widget.controller.activeTas;
-    final List<TA> candidates = allTas
-        .where((TA t) => !_memberTaIds.contains(t.id))
-        .toList();
-    if (candidates.isEmpty) {
-      if (!mounted) {
-        return;
-      }
-      showSnack(context, '没有可添加的TA了。');
-      return;
-    }
-    final Set<String> selected = <String>{};
-    final List<String>? updated = await showDialog<List<String>>(
-      context: context,
-      builder: (BuildContext context) {
-        return Theme(
-          data: _accentTheme,
-          child: StatefulBuilder(
-            builder:
-                (
-                  BuildContext context,
-                  void Function(void Function()) setDialogState,
-                ) {
-                  return AlertDialog(
-                    title: const FitText('添加群成员'),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: candidates.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final TA ta = candidates[index];
-                          final bool checked = selected.contains(ta.id);
-                          return CheckboxListTile(
-                            value: checked,
-                            onChanged: (bool? value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  selected.add(ta.id);
-                                } else {
-                                  selected.remove(ta.id);
-                                }
-                              });
-                            },
-                            title: FitText(ta.name.isEmpty ? '未命名TA' : ta.name),
-                          );
-                        },
-                      ),
-                    ),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const FitText('取消'),
-                      ),
-                      FilledButton(
-                        onPressed: selected.isEmpty
-                            ? null
-                            : () =>
-                                  Navigator.of(context).pop(selected.toList()),
-                        child: const FitText('添加'),
-                      ),
-                    ],
-                  );
-                },
-          ),
-        );
-      },
-    );
-    if (updated == null || updated.isEmpty) {
-      return;
-    }
-    final List<String> merged = <String>[
-      ..._memberTaIds,
-      ...updated.where((String id) => !_memberTaIds.contains(id)),
-    ];
-    _conversation = _conversation.copyWith(memberTaIds: merged);
-    await widget.controller.upsertGroupConversation(_conversation);
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-  }
-
-  Future<void> _exportCurrentConversation() async {
-    final ExportOptions? options = await showExportOptionsDialog(
-      context: context,
-      accentColor: _accent,
-    );
-    if (options == null || !mounted) {
-      return;
-    }
-    final ExportImportResult<ConversationExportResult> result = await widget
-        .controller
-        .exportConversationsById(
-          <String>[_conversation.id],
-          includeCharacterCards: options.includeCharacterCards,
-          format: options.format,
-        );
-    if (!mounted) {
-      return;
-    }
-    if (!result.success || result.data == null) {
-      showSnack(context, result.message ?? '导出失败');
-      return;
-    }
-    await handleExportResult(context, result.data!);
-  }
-
-  ImageProvider? _avatarForTa(TA ta) {
-    final String? path = ta.images['square'];
-    if (path == null || path.isEmpty) {
-      return null;
-    }
-    return _getCachedImage(path);
-  }
-
-  /// 根据 speakerTaId 解析消息气泡头像（群聊/单聊通用，无头像返回 null）。
-  ImageProvider? _avatarForSpeakerTa(String? taId) {
-    final TA? ta = widget.controller.getTaById(taId ?? '');
-    return ta == null ? null : _avatarForTa(ta);
-  }
-
-  Widget _buildSpeakerBar(
-    Color primaryContainer,
-    Color surfaceContainerHighest,
-    TextTheme textTheme,
-  ) {
-    if (!_isGroup) {
-      return const SizedBox.shrink();
-    }
-    final List<TA> tas = _memberTas;
-    if (tas.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      decoration: BoxDecoration(
-        color: surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          const FitText('发言控制'),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 56,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: tas.length,
-                separatorBuilder: (_, int index) => const SizedBox(width: 8),
-                itemBuilder: (BuildContext context, int index) {
-                  final TA ta = tas[index];
-                  final bool active = ta.id == _activeTaId;
-                  final ImageProvider? avatar = _avatarForTa(ta);
-                  return GestureDetector(
-                    onTap: () => _triggerTaReply(ta),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: active
-                              ? primaryContainer
-                              : surfaceContainerHighest,
-                          foregroundImage: avatar,
-                          child: avatar == null
-                              ? FitText(
-                                  ta.name.isNotEmpty ? ta.name[0] : '?',
-                                  style: textTheme.labelMedium,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 2),
-                        SizedBox(
-                          width: 56,
-                          child: FitText(
-                            ta.name.isEmpty ? '未命名' : ta.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: textTheme.labelSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: _showMemberPicker,
-            tooltip: '添加成员',
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 横向拖动只做"转发":跟手平移、下一页预览、提交还是弹回,都由外层
-  // (聊天页壳)决定 —— 只有它知道"下一个角色是谁、固定在哪个会话"。
-  void _onSwipeStart(DragStartDetails details) => widget.onSwipeStart?.call();
-
-  void _onSwipeUpdate(DragUpdateDetails details) =>
-      widget.onSwipeUpdate?.call(details.delta.dx);
-
-  void _onSwipeEnd(DragEndDetails details) => widget.onSwipeEnd?.call();
-  @override
-  Widget build(BuildContext context) {
-    // 缓存 Theme 数据避免重复查找
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme colorScheme = theme.colorScheme;
-    final TextTheme textTheme = theme.textTheme;
-    final Size screenSize = MediaQuery.sizeOf(context);
-
-    final TA? ta = _ta;
-    final Color schemeColor = _accent ?? colorScheme.primary;
-    // 对话框透明度：0~100，乘入用户/助手气泡的 alpha，实现气泡透出背景。
-    final double bubbleOpacity =
-        widget.controller.settings.chatBubbleOpacity.clamp(0, 100) / 100;
-    // 用户气泡保持偏淡层次（基准 0.5），并随滑块线性变化，0 时完全透明。
-    final Color userBubble = schemeColor.withValues(alpha: 0.5 * bubbleOpacity);
-    final Color assistantBubble = colorScheme.surfaceContainerHighest
-        .withValues(alpha: bubbleOpacity);
-    // 半屏聊天：聊天记录只显示在页面下半部分，上半部分留空查看背景。
-    final bool halfScreenChat = widget.controller.settings.halfScreenChat;
-    final bool dynamicHalfScreen =
-        halfScreenChat && widget.controller.settings.dynamicHalfScreen;
-    // 当开启自适应滚动且正在向上查看历史记录时，动态变为全屏模式
-    final bool isHalfScreenActive =
-        halfScreenChat && (!dynamicHalfScreen || !_dynamicIsFullScreen);
-
-    final bool useLandscape = screenSize.width >= screenSize.height;
-    final String? bgPath = useLandscape
-        ? ta?.images['landscape']
-        : ta?.images['portrait'];
-    final bool useImageBg =
-        _conversation.backgroundMode == 'image' &&
-        ((_isGroup) || (bgPath != null && bgPath.isNotEmpty));
-    final String searchQuery = _searchController.text.trim();
-    final List<int> searchMatches = _searching && searchQuery.isNotEmpty
-        ? _computeSearchMatches(searchQuery)
-        : <int>[];
-
-    final bool isExtendBehind = useImageBg || halfScreenChat;
-
-    // 背景层与前景分开:背景铺满整宽(侧栏浮层底下也要有角色立绘),
-    // 而 Scaffold 整体按侧栏宽度内缩 —— 于是它的所有"家具"(底部提示条、
-    // 悬浮按钮、底部弹层)都跟着让位,不会被侧栏压住。
-    return Stack(
-      children: <Widget>[
-        Positioned.fill(child: ColoredBox(color: colorScheme.surface)),
-        if (useImageBg)
-          Positioned.fill(
-            child: _isGroup
-                ? _buildGroupBackground(useLandscape)
-                : (() {
-                    final String bg = bgPath!;
-                    final ImageProvider? image = _getCachedImage(bg);
-                    if (image == null) return const SizedBox.shrink();
-                    // GIF 动态背景：支持暂停第一帧 / 继续播放（状态随会话）。
-                    // 静态立绘走普通 Image。
-                    return AnimatedBackground(
-                      image: image,
-                      path: bg,
-                      animate: _conversation.bgmAnimated,
-                    );
-                  })(),
-          ),
-        if (useImageBg)
-          Positioned.fill(
-            child: Builder(
-              builder: (BuildContext context) {
-                final double baseAlpha =
-                    widget.controller.settings.chatMaskStrength / 100.0;
-                final Color maskColor = colorScheme.surface.withValues(
-                  alpha: baseAlpha,
-                );
-                final Color softMaskColor = colorScheme.surface.withValues(
-                  alpha: baseAlpha * 0.20,
-                );
-                final Color halfMaskColor = colorScheme.surface.withValues(
-                  alpha: baseAlpha * 0.60,
-                );
-                final Color clearColor = colorScheme.surface.withValues(
-                  alpha: 0.0,
-                );
-
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 320),
-                  curve: Curves.easeInOutCubic,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: isHalfScreenActive
-                          ? <Color>[
-                              clearColor,
-                              clearColor,
-                              softMaskColor,
-                              halfMaskColor,
-                              maskColor,
-                            ]
-                          : <Color>[
-                              maskColor,
-                              maskColor,
-                              maskColor,
-                              maskColor,
-                              maskColor,
-                            ],
-                      stops: const <double>[0.0, 0.32, 0.44, 0.60, 1.0],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        Positioned.fill(
-          left: widget.contentLeftInset,
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: isExtendBehind,
-      appBar: PreferredSize(
-        preferredSize: _immersiveUiHidden
-            ? Size.zero
-            : const Size.fromHeight(kToolbarHeight),
-        child: AnimatedOpacity(
-          opacity: _immersiveUiHidden ? 0.0 : 1.0,
-          duration: const Duration(milliseconds: 200),
-          child: _immersiveUiHidden
-              ? const SizedBox.shrink()
-              : ChatAppBar(
-                  transparentBackground: isExtendBehind,
-                  searching: _searching,
-                  searchController: _searchController,
-                  searchMatchIndex: _searchMatchIndex,
-                  searchMatchesCount: searchMatches.length,
-                  onSearchChanged: _updateSearch,
-                  onNavigateMatch: _navigateMatch,
-                  onToggleSearch: _toggleSearch,
-                  onScrollToBottom: _scrollToBottom,
-                  onToggleBackground: _toggleBackground,
-                  onToggleBgm: _toggleBgm,
-                  bgmEnabled: _bgmEnabled,
-                  showBgmOption:
-                      !_isGroup && (_ta?.musicPath?.isNotEmpty ?? false),
-                  onToggleBgmAnimation: _toggleBgmAnimation,
-                  bgmAnimated: _conversation.bgmAnimated,
-                  showBgmAnimationOption: _bgmIsGif,
-                  rangeSummaryInProgress: _rangeSummaryInProgress,
-                  summaryInProgress: _summaryInProgress,
-                  showTokenCounts: _showTokenCounts,
-                  onRangeSummary: _summarizeRecentRange,
-                  onForceSummary: _forceSummaryPrompt,
-                  onToggleTokens: () =>
-                      setState(() => _showTokenCounts = !_showTokenCounts),
-                  onManageSnapshots: _manageSnapshots,
-                  onExport: _exportCurrentConversation,
-                  backgroundMode: _conversation.backgroundMode,
-                  ta: ta,
-                  titleOverride: _isGroup
-                      ? (_conversation.groupName.trim().isNotEmpty
-                            ? _conversation.groupName.trim()
-                            : '群聊')
-                      : null,
-                ),
-        ),
-      ),
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          if (_immersiveUiHidden) {
-            setState(() => _immersiveUiHidden = false);
-          } else {
-            FocusManager.instance.primaryFocus?.unfocus();
-          }
-        },
-        child: Stack(
-          children: <Widget>[
-            SafeArea(
-              top: isExtendBehind && !_immersiveUiHidden,
-              bottom: false,
-              child: Column(
-                children: <Widget>[
-                  if (!_immersiveUiHidden)
-                    _buildSpeakerBar(
-                      colorScheme.primaryContainer,
-                      colorScheme.surfaceContainerHighest,
-                      textTheme,
-                    ),
-                  Expanded(
-                    // 用自定义识别器而不是 GestureDetector:必须"横向明显
-                    // 占优"才接管手势,否则上下滚动会被误判成左右切换。
-                    // deferToChild:只有落在消息区(列表)上的拖动才算。
-                    child: RawGestureDetector(
-                      behavior: HitTestBehavior.deferToChild,
-                      gestures: <Type, GestureRecognizerFactory>{
-                        _HorizontalDominantDragRecognizer:
-                            GestureRecognizerFactoryWithHandlers<
-                              _HorizontalDominantDragRecognizer
-                            >(
-                              () => _HorizontalDominantDragRecognizer(
-                                debugOwner: this,
-                              ),
-                              (_HorizontalDominantDragRecognizer instance) {
-                                instance
-                                  ..onStart = widget.onSwipeStart == null
-                                      ? null
-                                      : _onSwipeStart
-                                  ..onUpdate = widget.onSwipeUpdate == null
-                                      ? null
-                                      : _onSwipeUpdate
-                                  ..onEnd = widget.onSwipeEnd == null
-                                      ? null
-                                      : _onSwipeEnd;
-                              },
-                            ),
-                      },
-                      child: Listener(
-                        onPointerSignal: (PointerSignalEvent event) {
-                        if (!dynamicHalfScreen) {
-                          return;
-                        }
-                        if (event is PointerScrollEvent) {
-                          // 鼠标滚轮向上滚动（dy < -3，向上翻看历史记录）：展开为全屏
-                          if (event.scrollDelta.dy < -3) {
-                            if (!_dynamicIsFullScreen) {
-                              setState(() => _dynamicIsFullScreen = true);
-                            }
-                          } else if (event.scrollDelta.dy > 3) {
-                            // 鼠标滚轮向下滚动（dy > 3，向最新消息方向回滚）：中途即刻收敛为半屏
-                            if (_dynamicIsFullScreen) {
-                              setState(() => _dynamicIsFullScreen = false);
-                            }
-                          }
-                        }
-                      },
-                      child: Column(
-                        children: <Widget>[
-                          if (halfScreenChat)
-                            AnimatedCrossFade(
-                              firstChild: SizedBox(
-                                height:
-                                    (screenSize.height - kToolbarHeight - 120) *
-                                    0.45,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    setState(() {
-                                      _immersiveUiHidden = !_immersiveUiHidden;
-                                      if (_immersiveUiHidden) {
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                      }
-                                    });
-                                  },
-                                  child: Container(color: Colors.transparent),
-                                ),
-                              ),
-                              secondChild: const SizedBox.shrink(),
-                              crossFadeState: isHalfScreenActive
-                                  ? CrossFadeState.showFirst
-                                  : CrossFadeState.showSecond,
-                              duration: const Duration(milliseconds: 320),
-                              sizeCurve: Curves.easeInOutCubic,
-                            ),
-                          Expanded(
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification:
-                                  (ScrollNotification notification) {
-                                    if (!dynamicHalfScreen) {
-                                      return false;
-                                    }
-                                    final ScrollMetrics metrics =
-                                        notification.metrics;
-                                    final bool isNearBottom =
-                                        metrics.pixels >=
-                                        metrics.maxScrollExtent - 24;
-
-                                    if (isNearBottom) {
-                                      // 滚动到达底部：自动收敛为半屏
-                                      if (_dynamicIsFullScreen) {
-                                        setState(
-                                          () => _dynamicIsFullScreen = false,
-                                        );
-                                      }
-                                    } else if (notification
-                                        is ScrollUpdateNotification) {
-                                      final double? delta =
-                                          notification.scrollDelta;
-                                      if (delta != null) {
-                                        if (delta < -3) {
-                                          // 向上滚动（翻看上方历史记录，含鼠标滚轮与手势）：自动展开为全屏
-                                          if (!_dynamicIsFullScreen &&
-                                              metrics.pixels > 16) {
-                                            setState(
-                                              () => _dynamicIsFullScreen = true,
-                                            );
-                                          }
-                                        } else if (delta > 3) {
-                                          // 向下滚动（向最新消息方向回滚）：中途即刻收敛为半屏
-                                          if (_dynamicIsFullScreen) {
-                                            setState(
-                                              () =>
-                                                  _dynamicIsFullScreen = false,
-                                            );
-                                          }
-                                        }
-                                      }
-                                    } else if (notification
-                                        is UserScrollNotification) {
-                                      if (notification.direction ==
-                                          ScrollDirection.forward) {
-                                        // 触摸手势从上往下滑动（向上翻看历史记录）：自动展开为全屏
-                                        if (!_dynamicIsFullScreen &&
-                                            metrics.pixels > 16) {
-                                          setState(
-                                            () => _dynamicIsFullScreen = true,
-                                          );
-                                        }
-                                      } else if (notification.direction ==
-                                          ScrollDirection.reverse) {
-                                        // 触摸手势从下往上滑动（向最新消息方向回滚）：中途即刻收敛为半屏
-                                        if (_dynamicIsFullScreen) {
-                                          setState(
-                                            () => _dynamicIsFullScreen = false,
-                                          );
-                                        }
-                                      }
-                                    }
-                                    return false;
-                                  },
-                              child: ShaderMask(
-                                shaderCallback: (Rect bounds) => LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: const <Color>[
-                                    Colors.transparent,
-                                    Colors.black,
-                                    Colors.black,
-                                    Colors.transparent,
-                                  ],
-                                  stops: isHalfScreenActive
-                                      ? const <double>[0.0, 0.05, 0.97, 1.0]
-                                      : const <double>[0.0, 0.03, 0.97, 1.0],
-                                ).createShader(bounds),
-                                blendMode: BlendMode.dstIn,
-                                child: AppContentFrame(
-                                  child: ChatMessageList(
-                                    conversation: _conversation,
-                                    scrollController: _scrollController,
-                                    messageKeys: _messageKeys,
-                                    userBubble: userBubble,
-                                    assistantBubble: assistantBubble,
-                                    showTokenCounts: _showTokenCounts,
-                                    searchQuery: searchQuery,
-                                    thoughtsByMessageId: _thoughtsByMessageId,
-                                    tokenCountForMessage:
-                                        _tokenCountCallback.call,
-                                    summaryById: _summaryById,
-                                    onStartSummary: _startSummaryFromPrompt,
-                                    onDismissSummary: _dismissSummaryPrompt,
-                                    onShowMessageMenu: _showMessageMenu,
-                                    summaryInProgress: _summaryInProgress,
-                                    showSpeakerLabels: _isGroup,
-                                    taNameForId: (String? id) => widget
-                                        .controller
-                                        .getTaById(id ?? '')
-                                        ?.name,
-                                    visibleThoughtMessageIds:
-                                        _visibleThoughtMessageIds,
-                                    ttsEnabled:
-                                        widget.controller.settings.ttsEnabled,
-                                    ttsGlobalSeed: widget
-                                        .controller
-                                        .settings
-                                        .ttsGlobalSeed,
-                                    voiceSeedForTa: (String? id) => widget
-                                        .controller
-                                        .getTaById(id ?? '')
-                                        ?.voiceSeed,
-                                    ttsQuoteOnly:
-                                        widget.controller.settings.ttsQuoteOnly,
-                                    showMessageAvatar: widget
-                                        .controller
-                                        .settings
-                                        .showMessageAvatar,
-                                    showMessageRetry: widget
-                                        .controller
-                                        .settings
-                                        .showMessageRetry,
-                                    showMessageCopy: widget
-                                        .controller
-                                        .settings
-                                        .showMessageCopy,
-                                    showMessageContinue: widget
-                                        .controller
-                                        .settings
-                                        .showMessageContinue,
-                                    avatarForMessage: _avatarForSpeakerTa,
-                                    onRetryMessage: _retryLastAssistant,
-                                    onCopyMessage: (String text) {
-                                      Clipboard.setData(
-                                        ClipboardData(text: text),
-                                      );
-                                      if (mounted) {
-                                        showSnack(
-                                          context,
-                                          '已复制到剪贴板',
-                                          behavior: SnackBarBehavior.floating,
-                                        );
-                                      }
-                                    },
-                                    onContinueMessage: _continueFromContext,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      ),
-                    ),
-                  ),
-                  if (_sending)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: assistantBubble,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const FitText('对方正在输入...'),
-                        ),
-                      ),
-                    ),
-                  if (_summaryInProgress)
-                    AppContentFrame(
-                      child: _SummaryProgressBar(
-                        onCancel: _cancelSummary,
-                        color: colorScheme.surfaceContainerHigh,
-                        borderColor: colorScheme.outlineVariant,
-                      ),
-                    ),
-                  AppContentFrame(
-                    child: AnimatedCrossFade(
-                      firstChild: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          if (widget.controller.settings.showTokenDashboard)
-                            _TokenDashboard(
-                              usedTokens: _countContextTokens(),
-                              budgetTokens:
-                                  widget.controller.settings.maxContextTokens,
-                              accent: schemeColor,
-                            ),
-                          Theme(
-                            data: _accentTheme,
-                            child: ChatInputBar(
-                              controller: widget.controller,
-                              inputController: _inputController,
-                              inputFocusNode: _inputFocusNode,
-                              sending: _sending,
-                              inspirationInProgress: _inspirationInProgress,
-                              onSend: _send,
-                              onStopGeneration: requestStopGeneration,
-                              onStartInspiration: _startInspiration,
-                              quickReplies:
-                                  widget.controller.settings.quickReplies,
-                              onQuickReply: _handleQuickReply,
-                              halfScreen: isExtendBehind,
-                            ),
-                          ),
-                        ],
-                      ),
-                      secondChild: const SizedBox.shrink(),
-                      crossFadeState: _immersiveUiHidden
-                          ? CrossFadeState.showSecond
-                          : CrossFadeState.showFirst,
-                      duration: const Duration(milliseconds: 200),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// 提取图片主色调。使用 dart:ui 的 instantiateImageCodec 按 64x64 解码并交给
-// PaletteGenerator.fromImage 计算，避免像 fromImageProvider 那样依赖
-// PaintingBinding（在后台 isolate 里会报「Binding has not yet been initialized」）。
-Future<Color?> _extractDominantColor(String ref) async {
-  try {
-    final Uint8List? bytes = await ImageStorage.instance.readBytes(ref);
-    if (bytes == null) {
-      return null;
-    }
-    // 解码时直接缩放到 64x64，既快又不阻塞 UI（单帧、小尺寸）。
-    final ui.Codec codec = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: 64,
-      targetHeight: 64,
-    );
-    final ui.FrameInfo frame = await codec.getNextFrame();
-    final ui.Image image = frame.image;
-    final PaletteGenerator palette = await PaletteGenerator.fromImage(
-      image,
-      maximumColorCount: 4, // 减少颜色数量
-    );
-    final Color? color = palette.dominantColor?.color;
-    image.dispose();
-    codec.dispose();
-    return color;
-  } catch (e) {
-    return null;
-  }
-}
-
-// 缓存 token 计数回调
-class _TokenCountCallback {
-  _TokenCountCallback({required this.counter, required this.getModel});
-
-  final ChatTokenCounter counter;
-  final String Function() getModel;
-
-  int call(String messageId, String text) {
-    return counter.countTokens(
-      model: getModel(),
-      messageId: messageId,
-      text: text,
-    );
-  }
-}
-
-// 上下文 Token 实时仪表盘：显示当前上下文占用与预算。
-class _TokenDashboard extends StatelessWidget {
-  const _TokenDashboard({
-    required this.usedTokens,
-    required this.budgetTokens,
-    required this.accent,
-  });
-
-  final int usedTokens;
-  final int budgetTokens;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final double? ratio = budgetTokens > 0 ? usedTokens / budgetTokens : null;
-    final bool over = ratio != null && ratio > 1.0;
-    final Color barColor = over ? cs.error : accent;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Icon(
-                over ? Icons.warning_amber_rounded : Icons.data_usage,
-                size: 14,
-                color: over ? cs.error : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: FitText(
-                  budgetTokens > 0
-                      ? '上下文 $usedTokens / $budgetTokens Tokens'
-                      : '上下文 $usedTokens Tokens（未设预算）',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ),
-            ],
-          ),
-          if (ratio != null) ...[
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: ratio.clamp(0.0, 1.0),
-                minHeight: 4,
-                color: barColor,
-                backgroundColor: cs.surfaceContainerHighest,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// 独立的摘要进度条组件
-class _SummaryProgressBar extends StatelessWidget {
-  const _SummaryProgressBar({
-    required this.onCancel,
-    required this.color,
-    required this.borderColor,
-  });
-
-  final VoidCallback onCancel;
-  final Color color;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Align(
-        alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Icon(Icons.auto_awesome, size: 16),
-              const SizedBox(width: 4),
-              const FitText('正在生成摘要...'),
-              const SizedBox(width: 8),
-              TextButton(onPressed: onCancel, child: const FitText('停止')),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

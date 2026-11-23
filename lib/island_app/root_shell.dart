@@ -79,9 +79,36 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<RootShell> {
+class _RootShellState extends State<RootShell>
+    with SingleTickerProviderStateMixin {
   _TopTab _tab = _TopTab.recommend;
+
+  /// 顶栏三个平级视图（推荐 / 刷一刷 / 探索）的 tab 控制器。
+  ///
+  /// 之前这段是「Row + InkWell + 手画 2px 下划线」的手搭 tab（还有一层
+  /// FittedBox 把字整体缩小）：换成 M3 TabBar 后，指示器、选中态、
+  /// 「选项卡·已选中」读屏语义与键盘左右切换都由组件提供
+  /// （见 docs/MATERIAL_DESIGN_AUDIT.md 3.1 / 4.3）。
+  late final TabController _tabController;
   AppNavTarget _page = AppNavTarget.recommend;
+
+  /// 已挂载过的页（懒挂载：没进过就不构建）。
+  ///
+  /// 以前是「一进社区就把 10 个页面全建出来」，每个页面的 initState 又各自
+  /// 发请求、各自解码一屏图 —— 实测光这一步就吃掉几十 MB 并留下大量原生缓冲。
+  final Set<AppNavTarget> _mountedPages = <AppNavTarget>{AppNavTarget.recommend};
+
+  /// 最多同时常驻几页；超了就把最久没看的卸掉，回来时重新加载。
+  ///
+  /// 取 3 是因为「主页面 + 推荐组 + 上一个看过的页」已经覆盖实际使用，
+  /// 再多的常驻只会让内存随浏览历史无上限增长。
+  static const int _maxMountedPages = 3;
+
+  /// 页面的访问顺序（最近看过的在前）。
+  final List<AppNavTarget> _pageLru = <AppNavTarget>[AppNavTarget.recommend];
+
+  /// 推荐组内三个子页的挂载状态（组内同理懒挂载）。
+  final Set<_TopTab> _mountedTabs = <_TopTab>{_TopTab.recommend};
 
   /// 「推荐」Tab 刷新信号：在「推荐」内再次点击该 Tab 时自增，首页监听到后重拉。
   final ValueNotifier<int> _recommendRefresh = ValueNotifier<int>(0);
@@ -99,6 +126,11 @@ class _RootShellState extends State<RootShell> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _TopTab.values.length,
+      vsync: this,
+      initialIndex: _tab.index,
+    );
     // 监听「去登录」请求：切换到「我」页登录表单。
     AuthSession.instance.loginRequest.addListener(_onLoginRequest);
   }
@@ -112,6 +144,7 @@ class _RootShellState extends State<RootShell> {
     AuthSession.instance.loginRequest.removeListener(_onLoginRequest);
     _recommendRefresh.dispose();
     _imageGenActivate.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -180,9 +213,11 @@ class _RootShellState extends State<RootShell> {
     final reRefresh = _tab == t && t == _TopTab.recommend;
     setState(() {
       _tab = t;
+      _mountedTabs.add(t);
       _page = AppNavTarget.recommend;
       _plusOpen = false;
     });
+    if (_tabController.index != t.index) _tabController.index = t.index;
     if (reRefresh) _recommendRefresh.value++;
   }
 
@@ -228,11 +263,27 @@ class _RootShellState extends State<RootShell> {
   }
 
   /// 通过侧边栏/底栏选中导航目标。
+  /// 标记某页需要挂载，并按 LRU 卸掉多余的页。
+  void _touchPage(AppNavTarget target) {
+    _mountedPages.add(target);
+    _pageLru.remove(target);
+    _pageLru.insert(0, target);
+    while (_pageLru.length > _maxMountedPages) {
+      final AppNavTarget eldest = _pageLru.removeLast();
+      if (eldest == target) {
+        _pageLru.insert(0, eldest);
+        break;
+      }
+      _mountedPages.remove(eldest);
+    }
+  }
+
   void _onSelectNav(AppNavTarget target) {
     _scaffoldKey.currentState?.closeDrawer();
     final firstShow = _page != target;
     setState(() {
       _page = target;
+      _touchPage(target);
       // 底栏是从 ＋ 浮层「挖空」的那块里露出来的（见 PlusHubOverlay），
       // 点它不经过蒙层、不会触发 onClose，所以必须在这里顺手收掉 ——
       // 否则会切到茶馆、浮层却还盖在上面。
@@ -257,35 +308,54 @@ class _RootShellState extends State<RootShell> {
     );
   }
 
-  /// 主页面常驻栈：索引 = 导航目标；推荐页内部按顶栏 tab 切换。
+  /// 主页面栈：索引 = 导航目标；推荐页内部按顶栏 tab 切换。
+  ///
+  /// **懒挂载**：没访问过的页只放一个空占位，不进 initState、不发请求、
+  /// 不解码图片。已挂载的页按 LRU 限制在 [_maxMountedPages] 个以内。
   Widget _buildContentStack() {
+    Widget page(AppNavTarget target, Widget Function() build) {
+      if (!_mountedPages.contains(target)) return const SizedBox.shrink();
+      return build();
+    }
+
     return IndexedStack(
       index: _page == AppNavTarget.recommend ? 0 : _page.index,
       children: <Widget>[
-        // 推荐页：内部用 IndexedStack 保活 推荐/刷一刷/探索 三个子页。
+        // 推荐组：组内三个子页同样懒挂载（刷一刷/探索没点过就不建）。
         IndexedStack(
           index: _tab.index,
           children: <Widget>[
-            HomeBody(
-              onOpenCard: _openCardDetail,
-              refreshCounter: _recommendRefresh,
-            ),
-            SwipeBody(onOpenCard: _openCardDetail),
-            ExploreBody(
-              onOpenCard: _openCardDetail,
-              cardsLoader: ApiClient.instance.getExploreCards,
-              metaLoader: ApiClient.instance.getExploreMeta,
-            ),
+            _mountedTabs.contains(_TopTab.recommend)
+                ? HomeBody(
+                    onOpenCard: _openCardDetail,
+                    refreshCounter: _recommendRefresh,
+                  )
+                : const SizedBox.shrink(),
+            _mountedTabs.contains(_TopTab.swipe)
+                ? SwipeBody(onOpenCard: _openCardDetail)
+                : const SizedBox.shrink(),
+            _mountedTabs.contains(_TopTab.explore)
+                ? ExploreBody(
+                    onOpenCard: _openCardDetail,
+                    cardsLoader: ApiClient.instance.getExploreCards,
+                    metaLoader: ApiClient.instance.getExploreMeta,
+                  )
+                : const SizedBox.shrink(),
           ],
         ),
-        WorldsBody(importSink: widget.worldImportSink),
-        const TeahouseBody(),
-        CardPublishStartBody(source: widget.cardPublishSource),
-        ImageGenBody(
-          onRequireLogin: () => _onSelectNav(AppNavTarget.me),
-          loadSignal: _imageGenActivate,
-        ),
-        MePage(importSink: widget.worldImportSink),
+        page(AppNavTarget.worlds,
+            () => WorldsBody(importSink: widget.worldImportSink)),
+        page(AppNavTarget.teahouse, () => const TeahouseBody()),
+        page(AppNavTarget.upload,
+            () => CardPublishStartBody(source: widget.cardPublishSource)),
+        page(
+            AppNavTarget.imagegen,
+            () => ImageGenBody(
+                  onRequireLogin: () => _onSelectNav(AppNavTarget.me),
+                  loadSignal: _imageGenActivate,
+                )),
+        page(AppNavTarget.me,
+            () => MePage(importSink: widget.worldImportSink)),
       ],
     );
   }
@@ -341,13 +411,18 @@ class _RootShellState extends State<RootShell> {
         // 社区内部已经退无可退 → 交回主应用。
         widget.onExitToMainApp?.call();
       },
-      child: OrientationBuilder(
-        builder: (context, orientation) {
-          final landscape = orientation == Orientation.landscape;
-          final Widget? bottomBar = landscape ? null : _bottomBar();
-          final PreferredSizeWidget topBar = _topBar(landscape);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 按**可用宽度**决定外壳形态，不按设备方向（审计 3.4）：
+          // 640×360 的手机横屏仍应是 compact；1024 的竖屏平板才该是宽窗口。
+          // 840 是 M3 expanded 的下界；以下是 compact/medium，都保留底栏
+          // （社区自己的底栏只有 5 格，中等宽度也放得下，不必再引入一套 rail）。
+          final bool wide =
+              constraints.maxWidth >= AppBreakpoints.mediumMax;
+          final Widget? bottomBar = wide ? null : _bottomBar();
+          final PreferredSizeWidget topBar = _topBar(wide);
 
-          final Widget content = landscape
+          final Widget content = wide
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -379,8 +454,10 @@ class _RootShellState extends State<RootShell> {
             children: <Widget>[
               Scaffold(
                 key: _scaffoldKey,
-                appBar: landscape ? null : topBar,
-                drawer: landscape ? null : Drawer(child: drawerContent),
+                // 宽窗口的顶栏与侧栏都在外面那层 Row 里（见上面的 content 分支），
+                // Scaffold 这里不能再挂一份，否则两条侧栏/两个顶栏并排。
+                appBar: wide ? null : topBar,
+                drawer: wide ? null : Drawer(child: drawerContent),
                 bottomNavigationBar: bottomBar,
                 body: content,
               ),
@@ -401,12 +478,12 @@ class _RootShellState extends State<RootShell> {
   /// 顶栏布局：**左边是「退」**（侧边栏、返回主应用），**右边是「找」**（通知、搜索）。
   ///
   /// 两个动作簇分开：左半区管「往回走」，右半区管「往外看」，比混在一排好扫。
-  AppBar _topBar(bool landscape) {
+  AppBar _topBar(bool wide) {
     final bool canExit = widget.onExitToMainApp != null;
     return AppBar(
-      // 两个图标占两格，默认 56 宽放不下。
-      leadingWidth: landscape ? null : (canExit ? 96 : null),
-      leading: landscape
+      // 宽窗口左侧有常驻侧栏，顶栏不再需要「退」动作簇。
+      leadingWidth: wide ? null : (canExit ? 96 : null),
+      leading: wide
           ? null
           : Row(
               mainAxisSize: MainAxisSize.min,
@@ -629,53 +706,38 @@ class _RootShellState extends State<RootShell> {
   /// 中间的可用宽度只剩 168px，而三个 tab 要 171px —— 差一点点就溢出。
   /// 这里让它按需整体缩小（最多缩几个百分点，肉眼无感），而不是硬溢出。
   Widget _topTabs() {
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: _TopTab.values.map((t) {
-            final label = switch (t) {
-              _TopTab.recommend => '推荐',
-              _TopTab.swipe => '刷一刷',
-              _TopTab.explore => '探索',
-            };
-            return _topTabButton(label, t);
-          }).toList(),
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    // 不再用 FittedBox 把字整体缩小：三个 tab 装不下时 TabBar 自己横向滚动，
+    // 用户调大系统字号也不会被压回去（审计 4.3）。
+    return SizedBox(
+      height: 48,
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.center,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.label,
+        indicatorWeight: 2,
+        labelPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        labelColor: scheme.primary,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        labelStyle: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w500,
         ),
-      ),
-    );
-  }
-
-  Widget _topTabButton(String label, _TopTab t) {
-    final scheme = Theme.of(context).colorScheme;
-    final selected = _tab == t;
-    return InkWell(
-      onTap: () => _selectTab(t),
-      borderRadius: BorderRadius.circular(AppRadius.xs),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              label,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
+        unselectedLabelStyle: theme.textTheme.titleSmall,
+        onTap: (int index) => _selectTab(_TopTab.values[index]),
+        tabs: <Widget>[
+          for (final _TopTab t in _TopTab.values)
+            Tab(
+              height: 44,
+              text: switch (t) {
+                _TopTab.recommend => '推荐',
+                _TopTab.swipe => '刷一刷',
+                _TopTab.explore => '探索',
+              },
             ),
-            const SizedBox(height: 3),
-            Container(
-              height: 2,
-              width: 20,
-              decoration: BoxDecoration(
-                color: selected ? scheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

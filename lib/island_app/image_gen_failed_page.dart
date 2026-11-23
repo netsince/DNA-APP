@@ -4,6 +4,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/image_gen_detail_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
+import 'package:dna/widgets/paged_controller.dart';
 import '../theme/tokens.dart';
 
 /// 生成失败记录页（App 端）：列出自己**所有失败的生成**及其完整信息。
@@ -23,22 +24,35 @@ class ImageGenFailedPage extends StatefulWidget {
 
 class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
   final ScrollController _controller = ScrollController();
-  final List<Map<String, dynamic>> _logs = <Map<String, dynamic>>[];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _noMore = false;
-  String? _error;
-  int _page = 0;
+  /// 分页状态统一交给 [PagedController]（全项目共用一份状态机）。
+  late final PagedController<Map<String, dynamic>> _paged =
+      PagedController<Map<String, dynamic>>(
+        fetch: (int page) async {
+          final result = await ApiClient.instance.getImageGenLogs(
+            page: page,
+            status: 'failed',
+          );
+          return PagedResult<Map<String, dynamic>>(
+            items: result.items,
+            hasMore: result.hasNext,
+          );
+        },
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+        firstLoadError: '生成失败记录加载失败，请稍后重试',
+      );
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onScroll);
-    _load(reset: true);
+    _paged.refresh();
   }
 
   @override
   void dispose() {
+    _paged.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -46,43 +60,7 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
   void _onScroll() {
     if (_controller.position.pixels >=
         _controller.position.maxScrollExtent - kLoadMoreThreshold) {
-      _load();
-    }
-  }
-
-  Future<void> _load({bool reset = false}) async {
-    if (_loadingMore || (!reset && _noMore)) return;
-    setState(() {
-      if (reset) {
-        _loading = true;
-        _noMore = false;
-        _error = null;
-        _page = 0;
-      }
-      _loadingMore = !reset;
-    });
-    try {
-      final page = reset ? 1 : _page + 1;
-      final result = await ApiClient.instance.getImageGenLogs(
-        page: page,
-        status: 'failed',
-      );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _logs.clear();
-        _logs.addAll(result.items);
-        _page = page;
-        _noMore = result.items.isEmpty || !result.hasNext;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-        if (reset) _error = '$e';
-      });
+      _paged.loadMore();
     }
   }
 
@@ -106,25 +84,25 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
 
   Widget _buildBody(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    if (_loading && _logs.isEmpty) {
+    if (_paged.isLoading && _paged.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null && _logs.isEmpty) {
+    if (_paged.error != null && _paged.items.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text('加载失败：$_error', style: TextStyle(color: scheme.error)),
+            Text('加载失败：${_paged.error}', style: TextStyle(color: scheme.error)),
             const SizedBox(height: kCardGap),
             OutlinedButton(
-              onPressed: () => _load(reset: true),
+              onPressed: () => _paged.refresh(),
               child: const Text('重试'),
             ),
           ],
         ),
       );
     }
-    if (_logs.isEmpty) {
+    if (_paged.items.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(kPagePadding),
@@ -133,13 +111,13 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
       );
     }
     return RefreshIndicator(
-      onRefresh: () => _load(reset: true),
+      onRefresh: () => _paged.refresh(),
       child: ListView.builder(
         controller: _controller,
         padding: const EdgeInsets.all(kPagePadding),
-        itemCount: _logs.length + (_loadingMore ? 1 : 0),
+        itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
         itemBuilder: (BuildContext context, int i) {
-          if (i >= _logs.length) {
+          if (i >= _paged.items.length) {
             return const Padding(
               padding: AppInsets.card,
               child: Center(
@@ -151,7 +129,7 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
               ),
             );
           }
-          final Map<String, dynamic> log = _logs[i];
+          final Map<String, dynamic> log = _paged.items[i];
           return ImageGenFailedCard(log: log, onTap: () => _openLog(log));
         },
       ),
@@ -260,7 +238,13 @@ class ImageGenFailedCard extends StatelessWidget {
                         child: SizedBox(
                           width: 56,
                           child: Image(
-                            image: AuthNetworkImage(_refs[i]),
+                            image: ResizeImage(
+            AuthNetworkImage(_refs[i]),
+            width: (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .clamp(320, 1200)
+                .round(),
+          ),
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => ColoredBox(
                               color: scheme.surfaceContainerHighest,

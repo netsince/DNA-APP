@@ -9,6 +9,7 @@ import 'delete_confirm_page.dart';
 import 'delete_preview_builders.dart';
 import 'world_editor_page.dart';
 import '../theme/tokens.dart';
+import '../utils/action_table.dart';
 import 'package:dna/widgets/app_empty_state.dart';
 import 'package:dna/widgets/fit_text.dart';
 
@@ -27,6 +28,7 @@ SectionPageData worldSection(AppController controller) {
 
   return SectionPageData(
     section: AppSection.world,
+    contentMaxWidth: AppSize.pageMaxWidth,
     showArchived: showArchived,
     appBar: (BuildContext context) => ValueListenableBuilder<bool>(
       valueListenable: showArchived,
@@ -114,11 +116,9 @@ class WorldListBody extends StatelessWidget {
           padding: AppInsets.card,
           buildDefaultDragHandles: false,
           itemCount: worlds.length,
-          // 这里刻意用旧的 onReorder:reorderWorlds 内部已经做了
-          // 「newIndex > oldIndex 时 -1」的调整,换成 onReorderItem
-          // (它会**预先**调整)就成了双重调整,顺序会错。
-          // ignore: deprecated_member_use
-          onReorder: (int oldIndex, int newIndex) async {
+          // 用新回调 onReorderItem：它的 newIndex 已按"移除之后"算好，
+          // controller.reorderWorlds 也按同一口径（见其文档）。
+          onReorderItem: (int oldIndex, int newIndex) async {
             await controller.reorderWorlds(oldIndex, newIndex);
           },
           itemBuilder: (BuildContext context, int index) {
@@ -185,71 +185,67 @@ class _WorldItem extends StatelessWidget {
                   child: const Icon(Icons.drag_handle),
                 ),
                 const SizedBox(width: 8),
-                PopupMenuButton<String>(
+                rowActionMenu(
                   tooltip: '更多操作',
-                  onSelected: (String value) async {
-                    if (value == 'archive') {
-                      await controller.setWorldArchived(
-                        id: world.id,
-                        archived: true,
-                      );
-                    } else if (value == 'unarchive') {
-                      await controller.setWorldArchived(
-                        id: world.id,
-                        archived: false,
-                      );
-                    } else if (value == 'delete') {
-                      if (!context.mounted) return;
-                      await Navigator.of(context).push<bool>(
-                        MaterialPageRoute<bool>(
-                          builder: (BuildContext context) => DeleteConfirmPage(
-                            controller: controller,
-                            title: '删除世界',
-                            entityName: world.name,
-                            validNames: <String>[world.name],
-                            promptHint: '请完整输入世界名「${world.name}」以确认删除',
-                            contentBuilder: (BuildContext ctx) =>
-                                buildWorldPreviewSections(ctx, world),
-                            onDelete: () =>
-                                controller.deleteWorldWithBackup(world.id),
-                            requireName:
-                                controller.settings.requireNameToDelete,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  itemBuilder: (BuildContext context) {
-                    if (world.archived) {
-                      return <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'unarchive',
-                          child: ListTile(
-                            leading: Icon(Icons.unarchive_outlined),
-                            title: FitText('恢复'),
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_outline),
-                            title: FitText('删除'),
-                          ),
-                        ),
-                      ];
-                    }
-                    return <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'archive',
-                        child: ListTile(
-                          leading: Icon(Icons.archive_outlined),
-                          title: FitText('归档'),
-                        ),
-                      ),
-                    ];
-                  },
                   child: const Icon(Icons.more_vert),
+                  // 归档态 / 未归档态共用这一张动作表：可见项由 visible 区分，
+                  // 菜单项沿用本页原来的非紧凑 ListTile（图标 24、零内边距）。
+                  itemStyle: RowActionItemStyle.listTileRegular,
+                  iconSize: 24,
+                  actions: <RowAction>[
+                    RowAction(
+                      id: 'archive',
+                      label: '归档',
+                      icon: Icons.archive_outlined,
+                      visible: !world.archived,
+                      onSelected: () async {
+                        await controller.setWorldArchived(
+                          id: world.id,
+                          archived: true,
+                        );
+                      },
+                    ),
+                    RowAction(
+                      id: 'unarchive',
+                      label: '恢复',
+                      icon: Icons.unarchive_outlined,
+                      visible: world.archived,
+                      // 原来「恢复」与「删除」之间的那条分隔线。
+                      dividerAfter: true,
+                      onSelected: () async {
+                        await controller.setWorldArchived(
+                          id: world.id,
+                          archived: false,
+                        );
+                      },
+                    ),
+                    RowAction(
+                      id: 'delete',
+                      label: '删除',
+                      icon: Icons.delete_outline,
+                      visible: world.archived,
+                      onSelected: () async {
+                        if (!context.mounted) return;
+                        await Navigator.of(context).push<bool>(
+                          MaterialPageRoute<bool>(
+                            builder: (BuildContext context) => DeleteConfirmPage(
+                              controller: controller,
+                              title: '删除世界',
+                              entityName: world.name,
+                              validNames: <String>[world.name],
+                              promptHint: '请完整输入世界名「${world.name}」以确认删除',
+                              contentBuilder: (BuildContext ctx) =>
+                                  buildWorldPreviewSections(ctx, world),
+                              onDelete: () =>
+                                  controller.deleteWorldWithBackup(world.id),
+                              requireName:
+                                  controller.settings.requireNameToDelete,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 8),
                 const Icon(Icons.chevron_right),

@@ -63,32 +63,109 @@ class AnthropicProvider extends LlmServiceBase {
   String modelsEndpoint(String baseUrl) => '${_apiRoot(baseUrl)}/v1/models';
 
   /// 从 OpenAI 形态的消息列表里拆出 system 文本与对话消息。
-  ({String? system, List<Map<String, String>> convo}) _splitSystem(
-    List<Map<String, String>> messages,
+  ///
+  /// 内容可能是**字符串**（纯文本），也可能是**部分数组**（多模态：文本 + 图片）。
+  /// Anthropic 的图片不是 image_url + dataURL，而是 \`image\` 块 + 裸 base64，
+  /// 所以这里做一次格式转换；转不了的部分（远程 URL）直接丢弃，不去猜。
+  ({String? system, List<Map<String, dynamic>> convo}) _splitSystem(
+    List<Map<String, dynamic>> messages,
   ) {
     final StringBuffer systemBuf = StringBuffer();
-    final List<Map<String, String>> convo = <Map<String, String>>[];
-    for (final Map<String, String> m in messages) {
-      final String role = m['role'] ?? '';
-      final String content = m['content'] ?? '';
+    final List<Map<String, dynamic>> convo = <Map<String, dynamic>>[];
+    for (final Map<String, dynamic> m in messages) {
+      final String role = (m['role'] as String?) ?? '';
+      final Object? content = m['content'];
       if (role == 'system') {
+        final String text = _flattenText(content);
+        if (text.isEmpty) continue;
         if (systemBuf.isNotEmpty) {
           systemBuf.write('\n\n');
         }
-        systemBuf.write(content);
+        systemBuf.write(text);
       } else {
-        convo.add(<String, String>{'role': role, 'content': content});
+        convo.add(<String, dynamic>{
+          'role': role,
+          'content': _toAnthropicContent(content),
+        });
       }
     }
     final String? system = systemBuf.isEmpty ? null : systemBuf.toString();
     return (system: system, convo: convo);
   }
 
+  /// 把内容压成纯文本（system 只能吃字符串）。
+  String _flattenText(Object? content) {
+    if (content is String) return content;
+    if (content is List) {
+      final StringBuffer sb = StringBuffer();
+      for (final Object? part in content) {
+        if (part is Map && part['type'] == 'text') {
+          sb.write(part['text'] ?? '');
+        }
+      }
+      return sb.toString();
+    }
+    return '';
+  }
+
+  /// OpenAI 内容部分 → Anthropic 内容。
+  ///
+  /// 纯文本仍然发字符串（最兼容）；含图片时发块数组。
+  Object _toAnthropicContent(Object? content) {
+    if (content is String) return content;
+    if (content is! List) return '';
+    final List<Map<String, dynamic>> blocks = <Map<String, dynamic>>[];
+    for (final Object? part in content) {
+      if (part is! Map) continue;
+      final String type = (part['type'] as String?) ?? '';
+      if (type == 'text') {
+        final String text = (part['text'] as String?) ?? '';
+        if (text.isNotEmpty) {
+          blocks.add(<String, dynamic>{'type': 'text', 'text': text});
+        }
+      } else if (type == 'image_url') {
+        final Object? imageUrl = part['image_url'];
+        final String url =
+            (imageUrl is Map ? (imageUrl['url'] as String?) : null) ?? '';
+        final Map<String, dynamic>? block = _imageBlock(url);
+        if (block != null) blocks.add(block);
+      }
+    }
+    if (blocks.length == 1 && blocks.first['type'] == 'text') {
+      return blocks.first['text'] as String;
+    }
+    return blocks;
+  }
+
+  /// \`data:image/png;base64,XXXX\` → Anthropic 图片块。
+  ///
+  /// 远程 http(s) 图片不转：Anthropic 不接受外链，我们也不去代下载。
+  Map<String, dynamic>? _imageBlock(String dataUrl) {
+    if (!dataUrl.startsWith('data:')) return null;
+    final int comma = dataUrl.indexOf(',');
+    if (comma < 0) return null;
+    final String meta = dataUrl.substring(5, comma);
+    if (!meta.contains('base64')) return null;
+    final String mediaType = meta.split(';').first.isEmpty
+        ? 'image/jpeg'
+        : meta.split(';').first;
+    final String data = dataUrl.substring(comma + 1);
+    if (data.isEmpty) return null;
+    return <String, dynamic>{
+      'type': 'image',
+      'source': <String, dynamic>{
+        'type': 'base64',
+        'media_type': mediaType,
+        'data': data,
+      },
+    };
+  }
+
   /// 组装 Anthropic 请求体。采样仅 top_p/top_k(非默认值时携带),
   /// temperature 始终发送;max_tokens 用配置值或默认值(E/B5)。
   Map<String, dynamic> _buildBody(LlmRequest request,
       {required bool stream}) {
-    final (:String? system, :List<Map<String, String>> convo) =
+    final (:String? system, :List<Map<String, dynamic>> convo) =
         _splitSystem(request.messages);
     return <String, dynamic>{
       'model': request.model,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
+import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/theme/tokens.dart';
 
 /// 世界卡的卡片瓦片（列表 / 搜索 / 主页共用）。
@@ -27,6 +28,12 @@ class WorldCardTile extends StatelessWidget {
 
   /// 是否显示审核状态徽章（自己的条目才有意义）。
   final bool showStatus;
+
+  /// 保留的公开参数：**当前没有任何调用点传它**。
+  ///
+  /// 状态徽章是只读指示，不是控件 —— 它原来挂着一个裸 `GestureDetector`，
+  /// 命中区只有约 14dp 高，也没有任何语义（审计 4.3）。若将来真要让状态可点，
+  /// 应该换成行内的 `IconButton`/菜单项，而不是把点击挂在徽章上。
   final VoidCallback? onStatusTap;
 
   @override
@@ -66,12 +73,7 @@ class WorldCardTile extends StatelessWidget {
                     ),
                   ),
                   if (showStatus && world.statusLabel.isNotEmpty)
-                    _StatusPill(
-                      label: world.statusLabel,
-                      status: world.status,
-                      hidden: world.isHidden,
-                      onTap: onStatusTap,
-                    ),
+                    _statusBadge(),
                 ],
               ),
               if (world.summary.isNotEmpty) ...<Widget>[
@@ -93,9 +95,9 @@ class WorldCardTile extends StatelessWidget {
                   runSpacing: 4,
                   children: <Widget>[
                     for (final String n in world.previewNames.take(3))
-                      _EntryChip(name: n),
+                      StatusBadge(label: n),
                     if (world.entryCount > 3)
-                      _EntryChip(name: '+${world.entryCount - 3}', muted: true),
+                      StatusBadge(label: '+${world.entryCount - 3}'),
                   ],
                 ),
               ],
@@ -161,73 +163,23 @@ class WorldCardTile extends StatelessWidget {
       ),
     );
   }
-}
 
-/// 卡片上的词条名小片。
-class _EntryChip extends StatelessWidget {
-  const _EntryChip({required this.name, this.muted = false});
-
-  final String name;
-  final bool muted;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: AppRadius.xsAll,
-      ),
-      child: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: AppFontSize.tiny,
-          color: muted ? cs.onSurfaceVariant : cs.onSurface,
-        ),
-      ),
+  /// 审核状态徽章：状态 → (语义色调, 图标)。
+  ///
+  /// 图标是颜色之外的第二通道（色觉障碍用户靠它区分）；`semanticLabel`
+  /// 让读屏念成「审核状态：审核中」而不是孤零零三个字。徽章**只读**，
+  /// 不挂手势（原来那枚裸 GestureDetector 的命中区只有约 14dp，审计 4.3）。
+  Widget _statusBadge() {
+    // 状态 → (色调, 图标) 的映射只有一份：[worldStatusStyle]。
+    final ({BadgeTone tone, IconData icon}) style = worldStatusStyle(
+      status: world.status,
+      hidden: world.isHidden,
     );
-  }
-}
-
-/// 审核状态小徽章（自己的条目）。
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.label,
-    required this.status,
-    required this.hidden,
-    this.onTap,
-  });
-
-  final String label;
-  final String status;
-  final bool hidden;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final (Color bg, Color fg) = switch (status) {
-      'approved' =>
-        hidden
-            ? (cs.surfaceContainerHighest, cs.onSurfaceVariant)
-            : (cs.primaryContainer, cs.onPrimaryContainer),
-      'rejected' => (cs.errorContainer, cs.onErrorContainer),
-      'deleted' => (cs.surfaceContainerHighest, cs.onSurfaceVariant),
-      _ => (cs.tertiaryContainer, cs.onTertiaryContainer),
-    };
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-        decoration: BoxDecoration(color: bg, borderRadius: AppRadius.xsAll),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: AppFontSize.tiny, color: fg),
-        ),
-      ),
+    return StatusBadge(
+      label: world.statusLabel,
+      icon: style.icon,
+      tone: style.tone,
+      semanticLabel: '审核状态：${world.statusLabel}',
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'message_attachment.dart';
+
 class Conversation {
   const Conversation({
     required this.id,
@@ -158,6 +160,7 @@ class ConversationMessage {
     this.summaryId,
     this.anchorMessageId,
     this.speakerTaId,
+    this.attachments = const <MessageAttachment>[],
   });
 
   final String id;
@@ -169,7 +172,14 @@ class ConversationMessage {
   final String? anchorMessageId;
   final String? speakerTaId;
 
-  ConversationMessage copyWith({String? text, String? speakerTaId}) {
+  /// 本条消息携带的附件（旧数据为空列表）。
+  final List<MessageAttachment> attachments;
+
+  ConversationMessage copyWith({
+    String? text,
+    String? speakerTaId,
+    List<MessageAttachment>? attachments,
+  }) {
     return ConversationMessage(
       id: id,
       role: role,
@@ -179,6 +189,7 @@ class ConversationMessage {
       summaryId: summaryId,
       anchorMessageId: anchorMessageId,
       speakerTaId: speakerTaId ?? this.speakerTaId,
+      attachments: attachments ?? this.attachments,
     );
   }
 
@@ -192,6 +203,10 @@ class ConversationMessage {
       'summaryId': summaryId,
       'anchorMessageId': anchorMessageId,
       'speakerTaId': speakerTaId,
+      if (attachments.isNotEmpty)
+        'attachments': <Map<String, dynamic>>[
+          for (final MessageAttachment a in attachments) a.toJson(),
+        ],
     };
   }
 
@@ -205,6 +220,7 @@ class ConversationMessage {
       summaryId: json['summaryId'] as String?,
       anchorMessageId: json['anchorMessageId'] as String?,
       speakerTaId: json['speakerTaId'] as String?,
+      attachments: parseAttachments(json['attachments']),
     );
   }
 }

@@ -22,7 +22,7 @@ const double kChatSidebarFullWidth =
 /// 浮层盖在**全宽的聊天视图**上,于是角色背景立绘会一直铺到侧栏底下,
 /// 侧栏用「半透明 + 高斯模糊」把它虚化透出来 —— 与气泡透出背景是
 /// 同一套设计语言,不会出现一块和背景无关的死板色块。
-/// 聊天内容则按侧栏宽度整体内缩(见 `ChatConversationView.contentLeftInset`),
+/// 聊天内容则按侧栏宽度整体内缩(见 `ChatSurface.contentLeftInset`),
 /// 所以浮层不会压住消息。
 ///
 /// ## 收起/展开
@@ -192,12 +192,12 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
           // Material 祖先(InkWell 会直接报错),所以自己带一个;
           // 底色用半透明,配合上面的模糊透出底下的角色立绘。
           child: Material(
-            color: colorScheme.surface.withValues(alpha: 0.72),
+            color: colorScheme.surface.withValues(alpha: AppAlpha.a72),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(
                   right: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: colorScheme.outlineVariant.withValues(alpha: AppAlpha.half),
                   ),
                 ),
               ),
@@ -245,10 +245,11 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
         alignment: Alignment.topCenter,
         child: Padding(
           padding: const EdgeInsets.only(top: 6),
+          // 命中区取满把手宽度（= touchTarget）。去掉 compact 密度与
+          // iconSize:18 的组合：那会把命中区压到 ~28dp（审计 4.3）。
           child: IconButton(
             tooltip: widget.collapsed ? '展开快速切换栏' : '收起快速切换栏',
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
+            iconSize: 20,
             onPressed: widget.onToggleCollapsed,
             icon: AnimatedRotation(
               turns: widget.collapsed ? 0.5 : 0,
