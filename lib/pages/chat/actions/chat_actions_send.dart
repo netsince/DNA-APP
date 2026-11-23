@@ -205,6 +205,54 @@ mixin ChatActionsSend on ChatStateMixin {
     );
   }
 
+  /// 发起一轮助手生成：插占位消息 → 落库 → 刷新 → 滚到底，返回占位 id 与消息。
+  ///
+  /// [group] **必须由调用方显式给**，不要用 `_isGroup` 猜：单聊走
+  /// `upsertConversation`，群聊必须走 `upsertGroupConversation` —— 写错会让
+  /// 群聊在会话列表里「消失」（这个坑注释里踩过一次）。
+  Future<({String id, ConversationMessage message})> _beginAssistantTurn(
+    TA ta, {
+    required bool group,
+  }) async {
+    final String assistantId = newId();
+    final ConversationMessage assistantMessage = ConversationMessage(
+      id: assistantId,
+      role: 'assistant',
+      text: '',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerTaId: ta.id,
+    );
+    _conversation = _conversation.copyWith(
+      messages: <ConversationMessage>[
+        ..._conversation.messages,
+        assistantMessage,
+      ],
+      activeTaId: ta.id,
+    );
+    if (group) {
+      await widget.controller.upsertGroupConversation(_conversation);
+    } else {
+      await widget.controller.upsertConversation(_conversation);
+    }
+    if (mounted) {
+      setState(() {});
+      _scrollToBottom();
+    }
+    return (id: assistantId, message: assistantMessage);
+  }
+
+  /// 一轮助手生成的收尾：只有真的流过才复位 `_sending` 并尝试摘要提示。
+  ///
+  /// [streamed] 为 false 时什么都不做：`_streamAssistantResponse` 在失败分支里
+  /// 已经自己把 `_sending` 复位了，这里再复位反而会掩盖错误路径。
+  Future<void> _endAssistantTurn({required bool streamed}) async {
+    if (!streamed) {
+      return;
+    }
+    setState(() => _sending = false);
+    await _maybePromptSummary();
+  }
+
   Future<void> _send() async {
     String text = _inputController.text.trim();
     // 附件也能单独发：只带文件、不写字是合法输入。
@@ -274,36 +322,19 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: false);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
     final List<Map<String, dynamic>> payload =
         await _assembleRequestPayload(ta: ta);
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 
   // ignore: unused_element
@@ -325,28 +356,15 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: false);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
     final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
     final MessageSlice slice = ChatMessageSlice.sliceForPayload(
       _conversation,
-      excludeIds: <String>{assistantId},
+      excludeIds: <String>{turn.id},
       maxMessages: widget.controller.settings.maxContextMessages,
       maxTokens: widget.controller.settings.maxContextTokens,
       tokenCounter: _tokenCounter,
@@ -408,14 +426,10 @@ mixin ChatActionsSend on ChatStateMixin {
     });
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 
   // ignore: unused_element
@@ -537,35 +551,18 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     await _setActiveTa(ta.id);
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertGroupConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: true);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
     final List<Map<String, dynamic>> payload =
-        await _assembleRequestPayload(ta: ta, excludeIds: <String>{assistantId});
+        await _assembleRequestPayload(ta: ta, excludeIds: <String>{turn.id});
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 }
