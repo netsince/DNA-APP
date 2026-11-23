@@ -2,18 +2,6 @@ part of '../chat_surface.dart';
 
 mixin ChatPayloadBuilders on ChatStateMixin {
   // ignore: unused_element
-  String _buildSystemPrompt() {
-    return ChatSystemPrompt.build(
-      ta: _ta,
-      world: _world,
-      groupPrompt: _conversation.groupPrompt,
-      strategy: widget.controller.settings.promptStrategy,
-      identity: widget.controller.getIdentityById(_conversation.identityId),
-      groupMembers: _isGroup ? _memberTas : null,
-    );
-  }
-
-  // ignore: unused_element
   int _totalTurnCount() {
     int count = 0;
     for (final ConversationMessage message in _conversation.messages) {
