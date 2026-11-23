@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
@@ -118,12 +119,7 @@ class _ProviderEditPageState extends State<ProviderEditPage> {
 
     await widget.controller.saveProviderConfig(updated);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: FitText(_isEditing ? '服务商配置已更新' : '已添加新服务商'),
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
+    showSnack(context, _isEditing ? '服务商配置已更新' : '已添加新服务商', duration: const Duration(milliseconds: 1500));
     Navigator.of(context).pop();
   }
 

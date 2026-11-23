@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/models/llm_model_config.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
@@ -53,12 +54,7 @@ class ModelListBody extends StatelessWidget {
     if (confirmed == true) {
       await controller.deleteModelConfig(model.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: FitText('已删除模型预设【${model.alias}】'),
-            duration: const Duration(milliseconds: 1500),
-          ),
-        );
+        showSnack(context, '已删除模型预设【${model.alias}】', duration: const Duration(milliseconds: 1500));
       }
     }
   }

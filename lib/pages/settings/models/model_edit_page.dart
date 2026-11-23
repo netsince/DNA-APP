@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/models/llm_model_config.dart';
 import 'package:dna/models/llm_provider_config.dart';
 import 'package:dna/state/app_controller.dart';
@@ -274,12 +275,7 @@ class _ModelEditPageState extends State<ModelEditPage> {
 
     await widget.controller.saveModelConfig(updated);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: FitText(_isEditing ? '模型预设已更新' : '已添加新模型预设'),
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
+    showSnack(context, _isEditing ? '模型预设已更新' : '已添加新模型预设', duration: const Duration(milliseconds: 1500));
     Navigator.of(context).pop();
   }
 

@@ -770,9 +770,7 @@ class _MessagePlayButtonState extends State<_MessagePlayButton> {
         _playing = false;
         _status = '';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText('语音合成失败：$e')),
-      );
+      showSnack(context, '语音合成失败：$e');
     }
   }
 

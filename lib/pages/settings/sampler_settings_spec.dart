@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/utils/ui_feedback.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
@@ -89,9 +90,6 @@ class _PresetRow extends StatelessWidget {
       avatar: Icon(icon, size: AppSize.iconInline),
       label: FitText(label),
       onPressed: () async {
-        final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
-          context,
-        );
         await _writeAll(
           controller,
           temp: temp,
@@ -103,11 +101,12 @@ class _PresetRow extends StatelessWidget {
           rep: rep,
           slope: slope,
         );
-        messenger?.showSnackBar(
-          const SnackBar(
-            content: FitText('已应用预设参数'),
-            duration: Duration(seconds: 1),
-          ),
+        // await 之后用 context：显式守卫，替代原来的「先抓 messenger」。
+        if (!context.mounted) return;
+        showSnack(
+          context,
+          '已应用预设参数',
+          duration: const Duration(seconds: 1),
         );
       },
     );
