@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../models/conversation.dart';
 import '../chat_models.dart';
 
 class ChatState {
   ChatState();
-
-  Conversation? conversation;
-  Color? accent;
 
   bool sending = false;
   bool generationStopRequested = false;

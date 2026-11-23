@@ -175,7 +175,7 @@ island_app **不是**平行体系（86 个文件里大量 `import 'package:dna/m
 | 批 | 内容 | 预计净变化 | 风险 |
 |---|---|---|---|
 | **0** | 第 5 节四条特征测试 | +测试 | 无 |
-| **1** | 纯删除：41 个死 setter、死字段 `chat_state.dart:9-10`、死文件 `conversation_service`/`world_service`、死方法 `_buildSystemPrompt`、17 条过期 `// ignore`、4 个 18 行兼容壳、悬空注释、7 个零写入 patch 键 | **-700 行** | 零 |
+| **1** | 纯删除：41 个死 setter、死字段 `chat_state.dart:9-10`、死文件 `conversation_service`/`world_service`、死方法 `_buildSystemPrompt`、4 个 18 行兼容壳、悬空注释、7 个零写入 patch 键 | **-700 行** | 零 |
 | **2** | 接上已有入口（第 1 节全表）：showSnack 64→1、三态 65→3、分页五态 18→2、AttachmentIntake 21→2、PostLikeFav 10→2、RowAction 菜单、SettingSection 分组头 11→1、copyToClipboard 3→1、relativeTime 2→1 | 行数几乎不变，**但 N 份真相变 1 份** | 低（纯替换） |
 | **3** | 合并唯一入口：chat payload 4→1、轮次脚手架 3→1、候选生成 4→1、候选弹框 2→1、编辑器外壳 2→1、折叠行 6→2、策略行 13→3、FormHandle 3→1、AsyncController 16→1、设置字段表 9→1 + 单键落盘 65→1 | **-1200 行** | 中 |
 | **4** | 拆上帝：`AppController` → 5 域（先做分组通知再做搬家）；`ApiClient` → transport + 6-8 个子客户端 + 3 个 helper | **-800 行** | 中高 |
@@ -422,6 +422,18 @@ chat_page 已经瘦成"页面壳 + 滑块动画"，真正的聊天逻辑落进�
 6. **F-06 / F-08 / F-10 / F-11** 按需。
 
 ---
+
+### 勘误：F-09 里有三条结论在实施时被推翻（2026-11-23）
+
+本条是「拆分残留」，我照着删的时候核对了一遍，**三条站不住**：
+
+1. **`:2` 与 `:5` 不是死 import。** `chat_page.dart` 只含一个 part：`chat/ui/chat_quick_sidebar.dart`。`ui.` 与 `conversationLabel`/`conversationsOfTa` 的调用点在那个 part 里（`chat_quick_sidebar.dart:139/190/354`），删掉 import 直接编译失败。
+2. **18 条 `// ignore: unused_element` 不是过期护栏，全部仍在抑制真实警告。** 去掉后再 analyze，17 条会原样变成 `unused_element` 警告。它们抑制的是一批「在 abstract 声明 + 实现 + 调用点之间跨 mixin」的私有成员，属于 analyze 的已知误报口径，**不要删**。
+3. **末尾那 9 行孤儿注释成立**（类确实已搬到 `chat_surface.dart:1385`），`_buildSystemPrompt`（含它那行 ignore）成立，`ChatState.conversation`/`.accent` 两个死字段成立（全库零读写）。
+
+净结果：本批只删了 23 行（孤儿注释 9 + 死方法 12 + 死字段 2 + 一个因此变空的 import 1，含空行抵消），不是原估的「消掉一批护栏」。
+
+**教训**：判断「import 是否死」必须看整个 library（含全部 part），只看声明文件会误判。
 
 ## 附录 B：settings 与表单编辑器（8 条，P0×3 / P1×3 / P2×2）
 
