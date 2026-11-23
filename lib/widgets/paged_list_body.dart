@@ -31,6 +31,7 @@ class PagedListBody<T> extends StatelessWidget {
 
   /// 空状态（调用方给文案与图标，同原来各页的写法）。
   final Widget empty;
+  /// 行间分隔线。**不传就不画线**（见 [build] 里的说明）。
   final IndexedWidgetBuilder? separator;
   final EdgeInsetsGeometry? padding;
   final WideContent? wide;
@@ -46,7 +47,11 @@ class PagedListBody<T> extends StatelessWidget {
       onRefresh: controller.refresh,
       error: controller.error,
       onRetry: controller.refresh,
-      separatorBuilder: separator,
+      // 默认**不画分隔线**：这一层不替调用方决定视觉分隔。
+      // [LoadMoreListView] 的缺省是 Divider，对 ListTile 列表合适，但对
+      // 卡片式列表就是「卡片之间多出一条线」——image_gen_failed_page 踩过。
+      // 需要线的页面显式传 Divider。
+      separatorBuilder: separator ?? (_, _) => const SizedBox.shrink(),
       padding: padding,
       wide: wide,
       empty: empty,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dna/island_app/image_gen_failed_page.dart';
+import 'package:dna/widgets/state_views.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 
 /// App 的「生成失败记录」：用户失败后要能看到自己当时填的提示词、选的参数、
@@ -89,9 +90,13 @@ void main() {
     // 未配置服务器地址 ⇒ 请求必然失败
     await tester.pumpWidget(const MaterialApp(home: ImageGenFailedPage()));
     await tester.pump();
-    await tester.pump();
+    // 共享骨架用 AnimatedSwitcher 做态切换的交叉淡入，
+    // 不 settle 的话新旧两棵子树会同时在树上（断言会看到两份文案）。
+    await tester.pumpAndSettle();
 
-    expect(find.textContaining('加载失败'), findsOneWidget);
-    expect(find.text('重试'), findsOneWidget);
+    // 断言按组件类型而不是文案字数：FitText 继承 Text 但 build 里又包了一层 Text，
+    // find.textContaining 会把包装件与内层都数进来，按文案计数必然数出两个。
+    expect(find.byType(AppErrorState), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsOneWidget);
   });
 }

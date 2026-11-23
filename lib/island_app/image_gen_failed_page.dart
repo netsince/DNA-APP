@@ -5,6 +5,7 @@ import 'package:dna/island_app/image_gen_detail_page.dart';
 import 'package:dna/island_app/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import '../theme/tokens.dart';
 
 /// 生成失败记录页（App 端）：列出自己**所有失败的生成**及其完整信息。
@@ -23,7 +24,6 @@ class ImageGenFailedPage extends StatefulWidget {
 }
 
 class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
-  final ScrollController _controller = ScrollController();
   /// 分页状态统一交给 [PagedController]（全项目共用一份状态机）。
   late final PagedController<Map<String, dynamic>> _paged =
       PagedController<Map<String, dynamic>>(
@@ -46,22 +46,13 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onScroll);
     _paged.refresh();
   }
 
   @override
   void dispose() {
     _paged.dispose();
-    _controller.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_controller.position.pixels >=
-        _controller.position.maxScrollExtent - kLoadMoreThreshold) {
-      _paged.loadMore();
-    }
   }
 
   /// 打开完整详情；详情页的「同款生成」会把提示词 pop 回来，这里继续往上抛给工作台
@@ -83,56 +74,23 @@ class _ImageGenFailedPageState extends State<ImageGenFailedPage> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_paged.error != null && _paged.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text('加载失败：${_paged.error}', style: TextStyle(color: scheme.error)),
-            const SizedBox(height: kCardGap),
-            OutlinedButton(
-              onPressed: () => _paged.refresh(),
-              child: const Text('重试'),
-            ),
-          ],
-        ),
-      );
-    }
-    if (_paged.items.isEmpty) {
-      return const Center(
+    // 五态 + 下拉刷新 + 触底加载统一交给 PagedListBody。
+    //
+    // 这里原先自己维护 ScrollController + 滚动监听 + 首载/错误/空/尾条四段判断，
+    // 是全模块手抄这套接线的 11 处之一（审计 F-2）。
+    return PagedListBody<Map<String, dynamic>>(
+      controller: _paged,
+      padding: const EdgeInsets.all(kPagePadding),
+      empty: const Center(
         child: Padding(
           padding: EdgeInsets.all(kPagePadding),
           child: Text('还没有生成失败的记录。'),
         ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: () => _paged.refresh(),
-      child: ListView.builder(
-        controller: _controller,
-        padding: const EdgeInsets.all(kPagePadding),
-        itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
-        itemBuilder: (BuildContext context, int i) {
-          if (i >= _paged.items.length) {
-            return const Padding(
-              padding: AppInsets.card,
-              child: Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
-          final Map<String, dynamic> log = _paged.items[i];
-          return ImageGenFailedCard(log: log, onTap: () => _openLog(log));
-        },
       ),
+      itemBuilder: (BuildContext context, int i) {
+        final Map<String, dynamic> log = _paged.items[i];
+        return ImageGenFailedCard(log: log, onTap: () => _openLog(log));
+      },
     );
   }
 }
