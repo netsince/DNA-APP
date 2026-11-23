@@ -215,6 +215,14 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
+  /// 测试注入点：非 null 时**所有 JSON 请求**都走它，不碰真实网络。
+  ///
+  /// 只为 widget 测试构造「有数据 / 空 / 失败」三种状态；生产路径永远为 null。
+  /// 注意它在 [_apiUri] 之后生效，所以测试里仍需先配好 base url。
+  @visibleForTesting
+  static Future<Map<String, dynamic>> Function(String method, Uri uri)?
+  debugJsonHandler;
+
   /// 建立连接（DNS + TCP + TLS）的超时。
   ///
   /// 比响应/正文宽松：debug 构建的冷启动（首次执行的 JIT 编译）本身就要几秒，
@@ -389,6 +397,11 @@ class ApiClient {
     Uri target,
     Future<HttpClientRequest> Function() open,
   ) async {
+    final Future<Map<String, dynamic>> Function(String, Uri)? handler =
+        debugJsonHandler;
+    if (handler != null) {
+      return handler(method, target);
+    }
     final body = await _requestBody(method, target, open);
     // 响应体可能很大（含内嵌 base64 头像），在后台 isolate 解析，避免卡 UI。
     final decoded = await compute(jsonDecode, body);
