@@ -5,7 +5,7 @@ import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/time_format.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/load_more_list.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 

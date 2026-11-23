@@ -5,7 +5,7 @@ import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 

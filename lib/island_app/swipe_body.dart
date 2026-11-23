@@ -5,7 +5,7 @@ import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/models/ta_gender.dart';
 import 'package:dna/utils/error_display.dart';

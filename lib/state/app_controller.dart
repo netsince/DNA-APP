@@ -40,7 +40,7 @@ import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
 import '../services/world_export_import_service.dart';
-import '../island_app/widgets/card_crop_page.dart' show FreeImageCrop;
+import 'package:dna/widgets/card_crop_page.dart' show FreeImageCrop;
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 

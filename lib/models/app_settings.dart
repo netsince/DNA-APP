@@ -200,7 +200,7 @@ class AppSettings {
   /// （角色卡形象、TA 形象、社区头像），想剪成什么比例就剪什么比例。默认关闭。
   ///
   /// 由「高级 → 命令」输入 `freeimage` 打开设置页切换。裁剪层通过
-  /// `FreeImageCrop.bind` 读这里，不存副本（见 lib/island_app/widgets/card_crop_page.dart）。
+  /// `FreeImageCrop.bind` 读这里，不存副本（见 lib/widgets/card_crop_page.dart）。
   final bool freeImageCrop;
 
   final String baseUrl;

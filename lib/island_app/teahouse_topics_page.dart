@@ -6,10 +6,10 @@ import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/utils/error_display.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆话题列表（GET /teahouse/topics）。

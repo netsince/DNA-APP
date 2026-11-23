@@ -5,7 +5,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/widgets/form_draft.dart';
 import 'package:dna/widgets/server_address_form.dart';
 import 'package:dna/widgets/submit_form.dart';
-import '../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
 /// 服务器设置（后端地址）内容，无脚手架，由 [RootShell] 承载。
 ///
