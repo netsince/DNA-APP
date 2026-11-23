@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
-import 'package:dna/island_app/theme/app_dimensions.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/theme/app_dimensions.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 
 // ---------------------------------------------------------------------------
 // 触底加载：阈值 + 监听器（全模块唯一实现，审计 5 节「分页 2 套」）

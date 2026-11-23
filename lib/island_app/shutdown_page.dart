@@ -3,7 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/site_config.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import '../theme/tokens.dart';
 
 /// 关站页：站点维护中说明 + 公告，点击“好的”返回首页。

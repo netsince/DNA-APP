@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/image_gen_detail_page.dart';
-import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/widgets/paged_list_body.dart';

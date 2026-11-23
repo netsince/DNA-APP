@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../island_app/theme/app_dimensions.dart';
-import '../island_app/widgets/load_more_list.dart';
-import '../island_app/widgets/refreshable.dart';
-import '../island_app/widgets/state_views.dart';
-import '../island_app/widgets/wide_body.dart';
+import 'package:dna/theme/app_dimensions.dart';
+import 'package:dna/widgets/load_more_list.dart';
+import 'package:dna/widgets/refreshable.dart';
+import 'package:dna/widgets/wide_body.dart';
+
 import 'paged_controller.dart';
+import 'state_views.dart';
 
 /// 分页列表的**五种状态骨架**（首载 / 错误 / 空 / 列表 / 触底加载中）。
 ///
@@ -86,10 +87,10 @@ class PagedGridBody<T> extends StatelessWidget {
 
   Widget _buildState(BuildContext context) {
     if (controller.isLoading && controller.items.isEmpty) {
-      return const LoadingState();
+      return const AppLoadingState();
     }
     if (controller.error != null && controller.items.isEmpty) {
-      return ErrorState(
+      return AppErrorState(
         message: controller.error!,
         onRetry: controller.refresh,
       );

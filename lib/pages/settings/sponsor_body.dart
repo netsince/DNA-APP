@@ -5,7 +5,7 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import '../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
 /// 赞助页面（无脚手架，由 [RootShell] 承载）。
 ///

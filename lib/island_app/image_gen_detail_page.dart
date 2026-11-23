@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/utils/auth_image.dart';
 import 'package:dna/island_app/utils/save_image.dart';

@@ -23,7 +23,7 @@ import 'package:dna/island_app/proxy_config_page.dart';
 import 'package:dna/island_app/recommend_page.dart';
 import 'package:dna/island_app/search_page.dart';
 import 'package:dna/island_app/site_config.dart';
-import 'package:dna/island_app/sponsor_body.dart';
+import 'package:dna/pages/settings/sponsor_body.dart';
 import 'package:dna/island_app/teahouse_body.dart';
 import 'package:dna/island_app/world_import_sink.dart';
 import 'package:dna/island_app/world_publish_page.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
-import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';

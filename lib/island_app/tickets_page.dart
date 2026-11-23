@@ -8,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/widgets/paged_list_body.dart';

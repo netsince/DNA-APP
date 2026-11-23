@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
 ///社区页面的「版心」：宽窗口下把内容**居中收窄**成一列。
 ///

@@ -1,5 +1,5 @@
-import 'package:dna/island_app/widgets/load_more_list.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/load_more_list.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

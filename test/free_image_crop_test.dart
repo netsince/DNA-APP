@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:dna/island_app/widgets/card_crop_page.dart';
+import 'package:dna/widgets/card_crop_page.dart';
 import 'package:dna/models/app_settings.dart';
 import 'package:dna/models/conversation.dart';
 import 'package:dna/models/ta.dart';
@@ -161,12 +161,12 @@ void main() {
 
     test('裁剪入口自己必须读开关（所有走 openCropPage 的编辑器靠它生效）', () {
       final String entry = File(
-        'lib/island_app/widgets/card_crop_page.dart',
+        'lib/widgets/card_crop_page.dart',
       ).readAsStringSync();
       expect(entry.contains('FreeImageCrop'), isTrue);
       for (final String impl in <String>[
-        'lib/island_app/widgets/card_crop_platform_io.dart',
-        'lib/island_app/widgets/card_crop_platform_stub.dart',
+        'lib/widgets/card_crop_platform_io.dart',
+        'lib/widgets/card_crop_platform_stub.dart',
       ]) {
         expect(
           File(impl).readAsStringSync().contains('FreeImageCrop.enabled'),
@@ -178,7 +178,7 @@ void main() {
 
     test('原生端不再写死锁定比例', () {
       final String io = File(
-        'lib/island_app/widgets/card_crop_platform_io.dart',
+        'lib/widgets/card_crop_platform_io.dart',
       ).readAsStringSync();
       expect(io.contains('FreeImageCrop.enabled'), isTrue);
       expect(
@@ -195,7 +195,7 @@ void main() {
 
     test('Web 端同样跟着开关走', () {
       final String stub = File(
-        'lib/island_app/widgets/card_crop_platform_stub.dart',
+        'lib/widgets/card_crop_platform_stub.dart',
       ).readAsStringSync();
       expect(stub.contains('FreeImageCrop.enabled'), isTrue);
     });

@@ -21,7 +21,7 @@ import '../../utils/action_table.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/ui_feedback.dart';
 import '../dialogue_style_page.dart';
-import 'package:dna/island_app/widgets/card_crop_page.dart' show FreeImageCrop;
+import 'package:dna/widgets/card_crop_page.dart' show FreeImageCrop;
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
 import '../../widgets/app_editor_frame.dart';
