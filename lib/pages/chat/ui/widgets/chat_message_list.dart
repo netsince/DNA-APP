@@ -160,7 +160,7 @@ class ChatMessageList extends StatelessWidget {
         messageKeys.putIfAbsent(message.id, () => GlobalKey(debugLabel: message.id));
         final GlobalKey? key = messageKeys[message.id];
 
-        if (message.kind == 'summary_prompt') {
+        if (message.kindEnum == MessageKind.summaryPrompt) {
           return Align(
             key: key,
             alignment: Alignment.center,
@@ -202,7 +202,7 @@ class ChatMessageList extends StatelessWidget {
           );
         }
 
-        if (message.kind == 'summary') {
+        if (message.kindEnum == MessageKind.summary) {
           final ConversationSummary? summary = summaryById(message.summaryId);
           final String raw = summary?.text.trim() ?? '';
           final String preview =
@@ -247,9 +247,9 @@ class ChatMessageList extends StatelessWidget {
         final bool isUser = message.role == 'user';
         // 是否为最近一条 AI 消息：用于控制「重说/继续说」快捷按钮的显示。
         final bool isLastAssistant = !isUser &&
-            message.kind == 'message' &&
+            message.kindEnum == MessageKind.message &&
             index == conversation.messages.lastIndexWhere(
-              (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+              (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
             );
         final Color bubbleColor = isUser ? userBubble : assistantBubble;
         final int charCount = message.text.runes.length;
@@ -392,7 +392,7 @@ class ChatMessageList extends StatelessWidget {
 
         // 对方消息：操作按钮合并为一排放在气泡外（不遮挡文字），头像在气泡左侧。
         final bool actionable =
-            message.kind == 'message' && message.text.trim().isNotEmpty;
+            message.kindEnum == MessageKind.message && message.text.trim().isNotEmpty;
         final ImageProvider? avatarProvider =
             (actionable && showMessageAvatar && avatarForMessage != null)
                 ? avatarForMessage!(message.speakerTaId)

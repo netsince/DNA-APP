@@ -28,7 +28,7 @@ class ChatController {
     final List<int> matches = <int>[];
     for (int i = 0; i < conversation.messages.length; i++) {
       final String text = conversation.messages[i].text;
-      if (conversation.messages[i].kind == 'message' &&
+      if (conversation.messages[i].kindEnum == MessageKind.message &&
           text.toLowerCase().contains(lowerQuery)) {
         matches.add(i);
       }

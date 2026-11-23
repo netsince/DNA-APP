@@ -150,6 +150,34 @@ class Conversation {
   }
 }
 
+/// 消息类型。存的是字符串（历史数据 + 序列化稳定），比较时用类型。
+///
+/// 为什么要有它：`kind` 是裸字符串，全项目 28 处字面量比较（`== 'message'`、
+/// `!= 'summary'`…），拼错一个字母编译器不管，只会在运行时表现为「这条消息不
+/// 该出现却出现了」或「该进请求却没进」。有了枚举 + [tryOf]，比较点改成
+/// `kindEnum == MessageKind.summary`，拼错直接编译失败。
+///
+/// 为什么用 `tryOf` 而不是 `of`：未知的 kind（老数据/未来新增）必须**保持原有语义**
+/// —— 现在所有比较都是「等于某个已知值才处理」，未知值一律不匹配。返回 null 正好等价；
+/// 如果默认成 `message`，未知类型会被当成普通消息塞进请求，那是行为改变。
+enum MessageKind {
+  message('message'),
+  summary('summary'),
+  summaryPrompt('summary_prompt');
+
+  const MessageKind(this.value);
+
+  /// 序列化进 JSON / Hive 的原始字符串。
+  final String value;
+
+  /// 原始字符串 → 类型；未知值返回 null（调用方按「不是已知类型」处理，与以前一致）。
+  static MessageKind? tryOf(String raw) => switch (raw) {
+    'message' => message,
+    'summary' => summary,
+    'summary_prompt' => summaryPrompt,
+    _ => null,
+  };
+}
 class ConversationMessage {
   const ConversationMessage({
     required this.id,
@@ -168,6 +196,9 @@ class ConversationMessage {
   final String text;
   final int timestamp;
   final String kind;
+
+  /// [kind] 的类型化视图；未知值返回 null（见 [MessageKind.tryOf]）。
+  MessageKind? get kindEnum => MessageKind.tryOf(kind);
   final String? summaryId;
   final String? anchorMessageId;
   final String? speakerTaId;

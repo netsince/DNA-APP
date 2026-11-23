@@ -15,7 +15,7 @@ mixin ChatUiHelpers on ChatStateMixin {
   /// 最后一条 AI 消息的索引（无则 -1）。
   int _lastAssistantIndex() {
     return _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
   }
 
@@ -48,7 +48,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       position.dx + 1,
       position.dy + 1,
     );
-    if (message.kind == 'summary') {
+    if (message.kindEnum == MessageKind.summary) {
       final String? action = await showMenu<String>(
         context: context,
         position: anchor,
@@ -90,7 +90,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       _scrollAfterMenu();
       return;
     }
-    if (message.kind == 'summary_prompt') {
+    if (message.kindEnum == MessageKind.summaryPrompt) {
       final String? action = await showMenu<String>(
         context: context,
         position: anchor,
@@ -126,7 +126,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     final bool isAssistant = message.role == 'assistant';
     final bool retryDisabled = _retryDisabled.contains(_conversation.messages[index].id);
     final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
     final bool canContinue = isAssistant && index == lastAssistantIndex;
     final bool hasThought = _thoughtsByMessageId.containsKey(message.id) &&

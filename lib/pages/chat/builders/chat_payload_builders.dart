@@ -5,7 +5,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
   int _totalTurnCount() {
     int count = 0;
     for (final ConversationMessage message in _conversation.messages) {
-      if (message.kind == 'message' && message.role == 'user') {
+      if (message.kindEnum == MessageKind.message && message.role == 'user') {
         count++;
       }
     }
@@ -16,7 +16,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
   String? _lastChatMessageId() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
-      if (message.kind == 'message') {
+      if (message.kindEnum == MessageKind.message) {
         return message.id;
       }
     }
@@ -38,7 +38,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
 
   // ignore: unused_element
   bool _hasSummaryPrompt() {
-    return _conversation.messages.any((ConversationMessage m) => m.kind == 'summary_prompt');
+    return _conversation.messages.any((ConversationMessage m) => m.kindEnum == MessageKind.summaryPrompt);
   }
 
   // ignore: unused_element
@@ -50,7 +50,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     int startIndex = 0;
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
-      if (message.kind != 'message') {
+      if (message.kindEnum != MessageKind.message) {
         continue;
       }
       if (message.role == 'user') {
@@ -63,7 +63,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     }
     return _conversation.messages
         .sublist(startIndex)
-        .where((ConversationMessage m) => m.kind == 'message')
+        .where((ConversationMessage m) => m.kindEnum == MessageKind.message)
         .toList();
   }
 
@@ -110,7 +110,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
       return <ConversationMessage>[];
     }
     final List<ConversationMessage> messages = _conversation.messages
-        .where((ConversationMessage m) => m.kind == 'message')
+        .where((ConversationMessage m) => m.kindEnum == MessageKind.message)
         .toList();
     if (messages.length <= maxCount) {
       return messages;
@@ -130,7 +130,7 @@ mixin ChatPayloadBuilders on ChatStateMixin {
     final List<String> recentAssistant = <String>[];
     for (int i = recent.length - 1; i >= 0; i--) {
       final ConversationMessage m = recent[i];
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
     final String cleaned = stripThoughtTags(m.text).trim();
