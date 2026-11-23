@@ -152,6 +152,59 @@ mixin ChatActionsSend on ChatStateMixin {
     _send();
   }
 
+  /// 把当前会话装配成一次 LLM 请求的 payload。
+  ///
+  /// 「发送 / 重说候选 / 群聊点名」三个入口原本各抄一遍这 35 行（连注释都一样），
+  /// 只差切片边界：[endExclusive] 切到某条之前，[excludeIds] 排除刚插入的占位消息。
+  /// 汇总到一处：摘要插入、视觉读图、群聊视角、作者注、lore 这些参数少传一个，
+  /// 就是「某个入口的请求和别人不一样」，而这种不一致很难被测试发现。
+  Future<List<Map<String, dynamic>>> _assembleRequestPayload({
+    required TA ta,
+    int? endExclusive,
+    Set<String>? excludeIds,
+  }) async {
+    final ConversationSummary? latestSummary =
+        ChatMessageSlice.latestSummary(_conversation);
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      endExclusive: endExclusive,
+      excludeIds: excludeIds,
+      maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
+    );
+    final ConversationSummary? summary =
+        slice.includeSummary ? latestSummary : null;
+    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
+    // 塞进请求体全是白费，还可能把请求撑大。
+    final Map<String, String> imageDataUrls =
+        resolveVisionSupport(widget.controller.activeModel)
+            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
+            : const <String, String>{};
+    return ChatMessageBuilder.buildMessagesFrom(
+      systemPrompt: ChatSystemPrompt.build(
+        ta: ta,
+        world: _world,
+        groupPrompt: _conversation.groupPrompt,
+        strategy: widget.controller.settings.promptStrategy,
+        identity: widget.controller.getIdentityById(_conversation.identityId),
+        groupMembers: _isGroup ? _memberTas : null,
+      ),
+      messages: slice.messages,
+      summaryText: summary?.text,
+      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
+      groupPerspective: _isGroup,
+      perspectiveTaId: ta.id,
+      speakerNameResolver: _speakerNameFor,
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+      loreText: _loreTextFor(slice.messages),
+      imageDataUrls: imageDataUrls,
+    );
+  }
+
   Future<void> _send() async {
     String text = _inputController.text.trim();
     // 附件也能单独发：只带文件、不写字是合法输入。
@@ -239,42 +292,8 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta);
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
       assistantId: assistantId,
@@ -444,43 +463,8 @@ mixin ChatActionsSend on ChatStateMixin {
     if (ta == null) {
       return <String>[];
     }
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      endExclusive: index,
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta, endExclusive: index);
     // 群聊输出防线:剥掉模型自带「自己名字：」前缀(全/半角冒号),
     // 避免候选文本入库后与历史前缀叠成「名字：名字：」。
     final List<String> candidates = widget.controller.settings.retrySequential
@@ -571,43 +555,8 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     setState(() {});
     _scrollToBottom();
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      excludeIds: <String>{assistantId},
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta, excludeIds: <String>{assistantId});
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
       assistantId: assistantId,
