@@ -1465,6 +1465,73 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  /// 一次对话导入的**落库收尾**：[replaceAll] 走「先自动备份 → 整体替换」，
+  /// 否则按 id 去重后追加。
+  ///
+  /// 两处导入入口（ZIP 导入、带角色决议的 JSON 导入）原本各抄一遍这 50 行，
+  /// 只差入参从哪来；去重规则改一次要同步改两处，所以收到这里。
+  Future<DataImportReport> _commitConversationImport(
+    List<Conversation> incoming, {
+    required bool replaceAll,
+  }) async {
+    if (replaceAll) {
+      // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
+      final (String?, String?) backup = await _autoBackupZip(
+        baseName: 'DNA_conversations',
+        full: false,
+      );
+
+      _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
+      _groupConversations =
+          incoming.where((Conversation c) => c.isGroup).toList();
+      await _hiveService.saveConversations(<Conversation>[
+        ..._conversations,
+        ..._groupConversations,
+      ]);
+      notifyListeners();
+      return DataImportReport(
+        replaced: true,
+        tasCount: 0,
+        worldsCount: 0,
+        conversationsCount: _conversations.length + _groupConversations.length,
+        identitiesCount: 0,
+        backupPath: backup.$1,
+        backupError: backup.$2,
+      );
+    }
+
+    // 仅追加：按 id 去重
+    final Set<String> existingIds = <String>{
+      ..._conversations.map((Conversation c) => c.id),
+      ..._groupConversations.map((Conversation c) => c.id),
+    };
+    final List<Conversation> newConvs =
+        incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
+
+    _conversations = <Conversation>[
+      ..._conversations,
+      ...newConvs.where((Conversation c) => !c.isGroup),
+    ];
+    _groupConversations = <Conversation>[
+      ..._groupConversations,
+      ...newConvs.where((Conversation c) => c.isGroup),
+    ];
+    await _hiveService.saveConversations(<Conversation>[
+      ..._conversations,
+      ..._groupConversations,
+    ]);
+    notifyListeners();
+    return DataImportReport(
+      replaced: false,
+      tasCount: 0,
+      worldsCount: 0,
+      conversationsCount: newConvs.length,
+      identitiesCount: 0,
+      backupPath: null,
+      backupError: null,
+    );
+  }
+
   /// 从 ZIP 字节导入对话
   /// [replaceAll] 为 true 时替换全部对话，并先自动备份替换前的对话；
   /// 为 false 时仅追加不存在的对话（按 id 去重）。
@@ -1483,71 +1550,11 @@ class AppController extends ChangeNotifier {
     final List<Conversation> incoming = parsed.data!;
 
     try {
-      if (replaceAll) {
-        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
-        final (String?, String?) backup =
-            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
-
-        _conversations =
-            incoming.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            incoming.where((Conversation c) => c.isGroup).toList();
-
-        await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
-        ]);
-        notifyListeners();
-        return ExportImportResult(
-          success: true,
-          data: DataImportReport(
-            replaced: true,
-            tasCount: 0,
-            worldsCount: 0,
-            conversationsCount:
-                _conversations.length + _groupConversations.length,
-            identitiesCount: 0,
-            backupPath: backup.$1,
-            backupError: backup.$2,
-          ),
-        );
-      }
-
-      // 仅追加：按 id 去重
-      final Set<String> existingIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
-      };
-      final List<Conversation> newConvs = incoming
-          .where((Conversation c) => !existingIds.contains(c.id))
-          .toList();
-
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
-
-      await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
-      ]);
-      notifyListeners();
-      return ExportImportResult(
-        success: true,
-        data: DataImportReport(
-          replaced: false,
-          tasCount: 0,
-          worldsCount: 0,
-            conversationsCount: newConvs.length,
-            identitiesCount: 0,
-            backupPath: null,
-          backupError: null,
-        ),
+      final DataImportReport report = await _commitConversationImport(
+        incoming,
+        replaceAll: replaceAll,
       );
+      return ExportImportResult(success: true, data: report);
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败：$e');
     }
@@ -1666,67 +1673,11 @@ class AppController extends ChangeNotifier {
         );
       }).toList();
 
-      if (replaceAll) {
-        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
-        final (String?, String?) backup =
-            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
-
-        _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            incoming.where((Conversation c) => c.isGroup).toList();
-        await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
-        ]);
-        notifyListeners();
-        return ExportImportResult(
-          success: true,
-          data: DataImportReport(
-            replaced: true,
-            tasCount: 0,
-            worldsCount: 0,
-            conversationsCount:
-                _conversations.length + _groupConversations.length,
-            identitiesCount: 0,
-            backupPath: backup.$1,
-            backupError: backup.$2,
-          ),
-        );
-      }
-
-      // 仅追加：按 id 去重
-      final Set<String> existingIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
-      };
-      final List<Conversation> newConvs =
-          incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
-
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
-      await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
-      ]);
-      notifyListeners();
-      return ExportImportResult(
-        success: true,
-        data: DataImportReport(
-          replaced: false,
-          tasCount: 0,
-          worldsCount: 0,
-            conversationsCount: newConvs.length,
-            identitiesCount: 0,
-            backupPath: null,
-          backupError: null,
-        ),
+      final DataImportReport report = await _commitConversationImport(
+        incoming,
+        replaceAll: replaceAll,
       );
+      return ExportImportResult(success: true, data: report);
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败：$e');
     }
