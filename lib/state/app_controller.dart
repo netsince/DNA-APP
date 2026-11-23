@@ -431,13 +431,6 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存并应用主题模式（'system' / 'light' / 'dark'）。
-  Future<void> saveThemeMode(String themeMode) async {
-    _settings = _settings.copyWith(themeMode: themeMode.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
   /// 保存字体模式（'system' 跟随系统 / 'sourcehan' 内置思源黑体）。
   ///
   /// 主题由 [DnaApp] 按 `settings.fontFamilyMode` 重建，`notifyListeners`
@@ -459,16 +452,6 @@ class AppController extends ChangeNotifier {
   /// 也不再做启动预热（见 `CommunityPreload`）。
   Future<void> saveEnableCommunity(bool value) async {
     _settings = _settings.copyWith(enableCommunity: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 开关「返回主应用」按钮。
-  ///
-  /// 社区是主项目里的一个全屏栏目（没有主项目的底栏与抽屉），关掉这个入口后
-  /// 退出社区只能靠横向滑动或系统返回。
-  Future<void> saveShowExitToMainApp(bool value) async {
-    _settings = _settings.copyWith(showExitToMainApp: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -521,60 +504,8 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveSummarySettings({
-    required bool autoSummaryPrompt,
-    required int summaryTurnInterval,
-  }) async {
-    _settings = _settings.copyWith(
-      autoSummaryPrompt: autoSummaryPrompt,
-      summaryTurnInterval: summaryTurnInterval,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveRetryStrategy({required bool retrySequential}) async {
-    _settings = _settings.copyWith(retrySequential: retrySequential);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveInspirationSettings({required bool includeSummary}) async {
-    _settings = _settings.copyWith(
-      inspirationIncludeSummary: includeSummary,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
   Future<void> savePromptStrategy(PromptStrategy strategy) async {
     _settings = _settings.copyWith(promptStrategy: strategy);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveAuthSettings({
-    required bool requireAuthForArchive,
-    required bool requireAuthForApp,
-  }) async {
-    _settings = _settings.copyWith(
-      requireAuthForArchive: requireAuthForArchive,
-      requireAuthForApp: requireAuthForApp,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「删除前强制输入名称」开关（对四类可归档实体统一生效）。
-  Future<void> saveRequireNameToDelete(bool value) async {
-    _settings = _settings.copyWith(requireNameToDelete: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「允许在聊天页删除单条对话消息」开关。
-  Future<void> saveAllowDeleteMessage(bool value) async {
-    _settings = _settings.copyWith(allowDeleteMessage: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -584,12 +515,6 @@ class AppController extends ChangeNotifier {
     required bool unlocked,
   }) async {
     _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveSplashAnimation({required String splashAnimation}) async {
-    _settings = _settings.copyWith(splashAnimation: splashAnimation);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -610,16 +535,6 @@ class AppController extends ChangeNotifier {
   /// 由整页滚动（见 [ModelPicker]）。
   Future<void> saveUnboundedModelList(bool value) async {
     _settings = _settings.copyWith(unboundedModelList: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「全局字号档位」（0 = 跟随系统，1..5 从最小到最大）。
-  ///
-  /// 存完立刻生效：DnaApp 用 settings 重建 MaterialApp，
-  /// MediaQuery.textScaler 随之改变，主应用与社区一起变。
-  Future<void> saveFontSizeStep(int step) async {
-    _settings = _settings.copyWith(fontSizeStep: step);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -650,43 +565,6 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存「启动时检查更新」开关。
-  ///
-  /// 关掉后启动不再请求 GitHub API;「关于」页的手动检查不受影响。
-  Future<void> saveUpdateCheckEnabled(bool value) async {
-    _settings = _settings.copyWith(updateCheckEnabled: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「上下文 Token 实时仪表盘」开关。
-  Future<void> saveShowTokenDashboard(bool value) async {
-    _settings = _settings.copyWith(showTokenDashboard: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「从此处分叉」开关。
-  Future<void> saveEnableForking(bool value) async {
-    _settings = _settings.copyWith(enableForking: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「命令宏」开关。
-  Future<void> saveEnableCommandMacros(bool value) async {
-    _settings = _settings.copyWith(enableCommandMacros: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「正则替换」开关。
-  Future<void> saveEnableRegexReplacement(bool value) async {
-    _settings = _settings.copyWith(enableRegexReplacement: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
   /// 保存正则替换规则列表。
   Future<void> saveRegexRules(List<RegexRule> rules) async {
     _settings = _settings.copyWith(regexRules: rules);
@@ -701,101 +579,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 保存底部提示（SnackBar）的显示时长（毫秒），并即时同步到全局。
-  Future<void> saveSnackDuration(int snackDurationMs) async {
-    _settings = _settings.copyWith(snackDurationMs: snackDurationMs);
-    await _settingsService.save(_settings);
-    setSnackDuration(Duration(milliseconds: snackDurationMs));
-    notifyListeners();
-  }
 
-
-
-  /// 保存强调色（莫奈取色）模式：'auto' 或 'custom'。
-  Future<void> saveAccentMode(String mode) async {
-    _settings = _settings.copyWith(accentMode: mode.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存自定义强调色（ARGB 整数），仅当模式为 'custom' 时生效。
-  Future<void> saveCustomAccentColor(int? color) async {
-    _settings = _settings.copyWith(customAccentColor: color);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存聊天界面背景遮罩强度（0~100）。
-  Future<void> saveChatMaskStrength(int chatMaskStrength) async {
-    final int clamped = chatMaskStrength.clamp(0, 100);
-    _settings = _settings.copyWith(chatMaskStrength: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存聊天消息气泡不透明度（0~100）。
-  Future<void> saveChatBubbleOpacity(int chatBubbleOpacity) async {
-    final int clamped = chatBubbleOpacity.clamp(0, 100);
-    _settings = _settings.copyWith(chatBubbleOpacity: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存半屏聊天开关：开启后聊天记录只显示在页面下半部分，
-  /// 上半部分留空以便查看背景。
-  Future<void> saveHalfScreenChat(bool halfScreenChat) async {
-    _settings = _settings.copyWith(halfScreenChat: halfScreenChat);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「半屏动态自适应滚动」开关：向上翻看历史自动全屏，向下滚动或触底自动收敛为半屏。
-  Future<void> saveDynamicHalfScreen(bool dynamicHalfScreen) async {
-    _settings = _settings.copyWith(dynamicHalfScreen: dynamicHalfScreen);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存消息气泡快捷按钮显示开关（头像/重说/复制/继续说）。
-  Future<void> saveMessageQuickButtons({
-    required bool showAvatar,
-    required bool showRetry,
-    required bool showCopy,
-    required bool showContinue,
-  }) async {
-    _settings = _settings.copyWith(
-      showMessageAvatar: showAvatar,
-      showMessageRetry: showRetry,
-      showMessageCopy: showCopy,
-      showMessageContinue: showContinue,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
-  Future<void> saveMaxContextMessages(int maxContextMessages) async {
-    final int clamped = maxContextMessages.clamp(0, 1000);
-    _settings = _settings.copyWith(maxContextMessages: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存单次请求历史消息的 token 预算（0 = 不限制）。
-  Future<void> saveMaxContextTokens(int maxContextTokens) async {
-    final int clamped = maxContextTokens.clamp(0, 100000);
-    _settings = _settings.copyWith(maxContextTokens: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存摘要「按词数触发」的字符数阈值（0 = 禁用）。
-  Future<void> saveSummaryWordThreshold(int summaryWordThreshold) async {
-    final int clamped = summaryWordThreshold.clamp(0, 1000000);
-    _settings = _settings.copyWith(summaryWordThreshold: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
   /// 保存单次补全请求的超时秒数（5–600 秒）。
   ///
@@ -804,30 +588,6 @@ class AppController extends ChangeNotifier {
   Future<void> saveRequestTimeoutSeconds(int seconds) async {
     final int clamped = seconds.clamp(5, 600);
     _settings = _settings.copyWith(requestTimeoutSeconds: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条 sticky 轮数（0 = 禁用）。
-  Future<void> saveLoreStickyRounds(int rounds) async {
-    final int clamped = rounds.clamp(0, 30);
-    _settings = _settings.copyWith(loreStickyRounds: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条注入条数上限（0 = 不限）。
-  Future<void> saveLoreMaxEntries(int maxEntries) async {
-    final int clamped = maxEntries.clamp(0, 50);
-    _settings = _settings.copyWith(loreMaxEntries: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条注入 token 预算（0 = 不限）。
-  Future<void> saveLoreBudgetTokens(int budgetTokens) async {
-    final int clamped = budgetTokens.clamp(0, 100000);
-    _settings = _settings.copyWith(loreBudgetTokens: clamped);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -889,19 +649,6 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 恢复「高级采样参数」到默认值。
-  Future<void> resetAdvancedSampling() async {
-    _settings = _settings.copyWith(
-      topP: 1.0,
-      topK: 0.0,
-      minP: 0.0,
-      repetitionPenalty: 1.0,
-      repetitionPenaltySlope: 0.0,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
   /// 保存「端侧语音合成（TTS）」开关。
   Future<void> saveTtsEnabled(bool value) async {
     _settings = _settings.copyWith(ttsEnabled: value);
@@ -912,41 +659,6 @@ class AppController extends ChangeNotifier {
   /// 保存全局 TTS seed（角色未设 seed 时兜底）。null 表示未设置。
   Future<void> saveTtsGlobalSeed(int? seed) async {
     _settings = _settings.copyWith(ttsGlobalSeed: seed);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「引号内容优先」开关：开启时合成优先只读引号内内容。
-  Future<void> saveTtsQuoteOnly(bool value) async {
-    _settings = _settings.copyWith(ttsQuoteOnly: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「聊天输入框旁显示括号按钮」开关。
-  Future<void> saveShowParenButton(bool value) async {
-    _settings = _settings.copyWith(showParenButton: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
-  Future<void> saveEnterToSend(bool value) async {
-    _settings = _settings.copyWith(enterToSend: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存角色卡背景音乐音量（0~100）。
-  Future<void> saveBgmVolume(int value) async {
-    _settings = _settings.copyWith(bgmVolume: value.clamp(0, 100));
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存是否解锁背景音乐 10MB 大小上限。
-  Future<void> saveBgmSizeLimitUnlocked(bool value) async {
-    _settings = _settings.copyWith(bgmSizeLimitUnlocked: value);
     await _settingsService.save(_settings);
     notifyListeners();
   }
@@ -1667,22 +1379,6 @@ class AppController extends ChangeNotifier {
     updated.insert(newIndex, moved);
     _worlds = updated;
     await _hiveService.saveWorlds(_worlds);
-    notifyListeners();
-  }
-
-  /// 同 [reorderTas]：下标口径是"移除之后"。
-  Future<void> reorderConversations(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _conversations.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex > _conversations.length) {
-      return;
-    }
-    final List<Conversation> updated = List<Conversation>.from(_conversations);
-    final Conversation moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _conversations = updated;
-    await _hiveService.saveConversations(_conversations);
     notifyListeners();
   }
 
