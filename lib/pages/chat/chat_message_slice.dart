@@ -40,7 +40,7 @@ class ChatMessageSlice {
     final int start = includeSummary ? summaryEnd + 1 : 0;
     List<ConversationMessage> slice = conversation.messages
         .sublist(start, end)
-        .where((ConversationMessage m) => m.kind == 'message')
+        .where((ConversationMessage m) => m.kindEnum == MessageKind.message)
         .where((ConversationMessage m) => excludeIds == null || !excludeIds.contains(m.id))
         .toList();
     // 上下文预算：仅保留最近 [maxMessages] 条消息，防止长对话超出模型窗口导致退化。

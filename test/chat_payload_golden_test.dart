@@ -79,8 +79,8 @@ void main() {
           messages: <ConversationMessage>[
             _msg('user', 'A', ts: 1),
             _msg('assistant', 'B', ts: 2),
-            _msg('user', '摘要提示', kind: 'summary_prompt', ts: 3),
-            _msg('assistant', '摘要正文', kind: 'summary', ts: 4),
+            _msg('user', '摘要提示', kind: MessageKind.summaryPrompt.value, ts: 3),
+            _msg('assistant', '摘要正文', kind: MessageKind.summary.value, ts: 4),
           ],
         );
     expect(payload.map((Map<String, dynamic> m) => m['content']).toList(),

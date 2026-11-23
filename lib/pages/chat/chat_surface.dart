@@ -314,7 +314,7 @@ class _ChatSurfaceState extends State<ChatSurface>
     final String model = widget.controller.settings.selectedModel;
     int total = 0;
     for (final ConversationMessage m in _conversation.messages) {
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
       total += _tokenCounter.countTokens(
@@ -329,7 +329,7 @@ class _ChatSurfaceState extends State<ChatSurface>
   TA? _lastAssistantSpeaker() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
-      if (message.kind != 'message' || message.role != 'assistant') {
+      if (message.kindEnum != MessageKind.message || message.role != 'assistant') {
         continue;
       }
       final String? taId = message.speakerTaId;

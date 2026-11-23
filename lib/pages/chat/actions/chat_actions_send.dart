@@ -78,7 +78,7 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     final StringBuffer sb = StringBuffer();
     for (final ConversationMessage m in messages) {
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
       final String t = stripThoughtTags(m.text).trim();
@@ -312,7 +312,7 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
     if (lastAssistantIndex == -1) {
       return;
@@ -375,7 +375,7 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     // 历史（追加式，保持前缀稳定）。群聊走角色通道映射(v2)。
     for (final ConversationMessage m in slice.messages) {
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
       payload.add(ChatMessageBuilder.historyEntryFor(

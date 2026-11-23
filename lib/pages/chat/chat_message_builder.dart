@@ -258,7 +258,7 @@ class ChatMessageBuilder {
       });
     }
     for (final ConversationMessage message in messages) {
-      if (message.kind != 'message') {
+      if (message.kindEnum != MessageKind.message) {
         continue;
       }
       payload.add(historyEntryFor(

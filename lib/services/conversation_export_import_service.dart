@@ -403,7 +403,7 @@ class ConversationExportImportService {
             : fallbackSpeakerName);
 
     for (final ConversationMessage m in c.messages) {
-      if (m.kind == 'summary_prompt') {
+      if (m.kindEnum == MessageKind.summaryPrompt) {
         // 系统提示，不渲染到可读文稿
         continue;
       }
@@ -420,7 +420,7 @@ class ConversationExportImportService {
       }
 
       final String prefix = time.isNotEmpty ? '**$speaker** · $time' : '**$speaker**';
-      if (m.kind == 'summary') {
+      if (m.kindEnum == MessageKind.summary) {
         sb.writeln('> 📝 摘要：${m.text.trim()}');
       } else {
         sb.writeln('$prefix：');
