@@ -138,6 +138,14 @@ class ChatMessageList extends StatelessWidget {
   /// 行内「重试」回调（复用现有的重说动作）。
   final VoidCallback? onRetryFailed;
 
+  /// 长按 / 右键统一入口：位置、消息、下标三个参数由这一处转给父级。
+  ///
+  /// 三个分支（摘要提示卡 / 摘要卡 / 普通气泡）原本各自手写一遍这段接线，
+  /// 共 12 行 × 3；现在每处只剩两行回调。
+  void _showMenuAt(Offset position, ConversationMessage message, int index) {
+    onShowMessageMenu(position: position, message: message, index: index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -157,29 +165,11 @@ class ChatMessageList extends StatelessWidget {
             key: key,
             alignment: Alignment.center,
             child: GestureDetector(
-              onLongPressStart: (LongPressStartDetails details) {
-                onShowMessageMenu(
-                  position: details.globalPosition,
-                  message: message,
-                  index: index,
-                );
-              },
-              onSecondaryTapDown: (TapDownDetails details) {
-                onShowMessageMenu(
-                  position: details.globalPosition,
-                  message: message,
-                  index: index,
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
-                  borderRadius: AppRadius.smAll,
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
+              onLongPressStart: (LongPressStartDetails details) =>
+                  _showMenuAt(details.globalPosition, message, index),
+              onSecondaryTapDown: (TapDownDetails details) =>
+                  _showMenuAt(details.globalPosition, message, index),
+              child: _SystemNoticeCard(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
@@ -221,29 +211,11 @@ class ChatMessageList extends StatelessWidget {
             key: key,
             alignment: Alignment.center,
             child: GestureDetector(
-              onLongPressStart: (LongPressStartDetails details) {
-                onShowMessageMenu(
-                  position: details.globalPosition,
-                  message: message,
-                  index: index,
-                );
-              },
-              onSecondaryTapDown: (TapDownDetails details) {
-                onShowMessageMenu(
-                  position: details.globalPosition,
-                  message: message,
-                  index: index,
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
-                  borderRadius: AppRadius.smAll,
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
+              onLongPressStart: (LongPressStartDetails details) =>
+                  _showMenuAt(details.globalPosition, message, index),
+              onSecondaryTapDown: (TapDownDetails details) =>
+                  _showMenuAt(details.globalPosition, message, index),
+              child: _SystemNoticeCard(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,20 +276,10 @@ class ChatMessageList extends StatelessWidget {
               );
 
         final Widget bubble = GestureDetector(
-          onLongPressStart: (LongPressStartDetails details) {
-            onShowMessageMenu(
-              position: details.globalPosition,
-              message: message,
-              index: index,
-            );
-          },
-          onSecondaryTapDown: (TapDownDetails details) {
-            onShowMessageMenu(
-              position: details.globalPosition,
-              message: message,
-              index: index,
-            );
-          },
+          onLongPressStart: (LongPressStartDetails details) =>
+              _showMenuAt(details.globalPosition, message, index),
+          onSecondaryTapDown: (TapDownDetails details) =>
+              _showMenuAt(details.globalPosition, message, index),
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
@@ -1131,6 +1093,32 @@ class _MessageAttachments extends StatelessWidget {
           child: Image.memory(bytes, fit: BoxFit.contain),
         ),
       ),
+    );
+  }
+}
+
+/// 系统提示卡外壳（摘要提示 / 摘要正文共用）。
+///
+/// 两份卡片原本各写一遍同样的 padding / 圆角 / 描边 / 底色，改观感要改两处；
+/// 内容（图标 + 文案 + 按钮）仍由调用方给。
+class _SystemNoticeCard extends StatelessWidget {
+  const _SystemNoticeCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
+        borderRadius: AppRadius.smAll,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: child,
     );
   }
 }

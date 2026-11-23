@@ -142,6 +142,35 @@ void main() {
     expect(payload[2]['content'], 'A2');
   });
 
+  test('extraSystemTail 追加在最尾部（"继续说"的那条指令）', () {
+    final List<Map<String, dynamic>> payload =
+        ChatMessageBuilder.buildMessagesFrom(
+          systemPrompt: 'SYS',
+          messages: <ConversationMessage>[_msg('user', 'A'), _msg('assistant', 'B')],
+          loreText: 'LORE',
+          authorNote: 'NOTE',
+          authorNoteInterval: 2,
+          extraSystemTail: '请继续',
+        );
+    // 必须是 system（对模型的要求），不能变成 user 发言；且必须在最末。
+    expect(payload.last, <String, dynamic>{'role': 'system', 'content': '请继续'});
+    expect(payload[payload.length - 2]['content'], 'NOTE');
+  });
+
+  test('extraSystemTail 排在 extraUserText 之前（system 尾注在前，用户补充在后）', () {
+    final List<Map<String, dynamic>> payload =
+        ChatMessageBuilder.buildMessagesFrom(
+          systemPrompt: 'SYS',
+          messages: <ConversationMessage>[_msg('user', 'A')],
+          extraSystemTail: 'TAIL',
+          extraUserText: 'USER_TAIL',
+        );
+    expect(payload.map((Map<String, dynamic> m) => m['role']).toList(),
+        <String>['system', 'user', 'system', 'user']);
+    expect(payload[2]['content'], 'TAIL');
+    expect(payload[3]['content'], 'USER_TAIL');
+  });
+
   test('空 system prompt 不产生空 system 段', () {
     final List<Map<String, dynamic>> payload =
         ChatMessageBuilder.buildMessagesFrom(

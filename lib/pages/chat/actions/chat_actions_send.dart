@@ -1,5 +1,11 @@
 part of '../chat_surface.dart';
 
+/// 「继续说」追加在请求最尾部的 system 指令。
+///
+/// 必须是 system 而不是 user：它是对模型的额外要求，不是用户发言；
+/// 尾随位置也不能变（KV cache 的公共前缀依赖历史之后才出现动态内容）。
+const String _kContinueInstruction = '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。';
+
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({
     required List<Map<String, dynamic>> payload,
@@ -162,6 +168,7 @@ mixin ChatActionsSend on ChatStateMixin {
     required TA ta,
     int? endExclusive,
     Set<String>? excludeIds,
+    String? systemTail,
   }) async {
     final ConversationSummary? latestSummary =
         ChatMessageSlice.latestSummary(_conversation);
@@ -202,6 +209,7 @@ mixin ChatActionsSend on ChatStateMixin {
       authorNoteInterval: _effectiveAuthorNoteInterval(ta),
       loreText: _loreTextFor(slice.messages),
       imageDataUrls: imageDataUrls,
+      extraSystemTail: systemTail,
     );
   }
 
@@ -361,69 +369,13 @@ mixin ChatActionsSend on ChatStateMixin {
     if (!mounted) {
       return;
     }
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      excludeIds: <String>{turn.id},
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final List<Map<String, dynamic>> payload = <Map<String, String>>[];
-    final String sys = ChatSystemPrompt.build(
+    // 与「发送 / 重说候选」走同一个装配入口：摘要前缀、视觉读图、群聊视角、
+    // 作者注、lore 一律由它负责；唯一多出来的是一条**尾随 system 指令**。
+    final List<Map<String, dynamic>> payload = await _assembleRequestPayload(
       ta: ta,
-      world: _world,
-      groupPrompt: _conversation.groupPrompt,
-      strategy: widget.controller.settings.promptStrategy,
-      identity: widget.controller.getIdentityById(_conversation.identityId),
-      groupMembers: _isGroup ? _memberTas : null,
+      excludeIds: <String>{turn.id},
+      systemTail: _kContinueInstruction,
     );
-    if (sys.isNotEmpty) {
-      payload.add(<String, String>{'role': 'system', 'content': sys});
-    }
-    if (slice.includeSummary &&
-        latestSummary != null &&
-        latestSummary.text.trim().isNotEmpty) {
-      payload.add(<String, String>{
-        'role': 'system',
-        'content': '对话摘要：\n${latestSummary.text.trim()}',
-      });
-    }
-    // 历史（追加式，保持前缀稳定）。群聊走角色通道映射(v2)。
-    for (final ConversationMessage m in slice.messages) {
-      if (m.kind != 'message') {
-        continue;
-      }
-      payload.add(ChatMessageBuilder.historyEntryFor(
-        message: m,
-        groupPerspective: _isGroup,
-        perspectiveTaId: ta.id,
-        speakerNameResolver: _speakerNameFor,
-      ));
-    }
-    if (_isGroup) {
-      ChatMessageBuilder.mergeAdjacentSameRole(payload);
-    }
-    // 动态尾部：Lorebook 激活词条。
-    final Map<String, dynamic>? lore = ChatMessageBuilder.loreSystemMessage(
-      _loreTextFor(slice.messages),
-    );
-    if (lore != null) {
-      payload.add(lore);
-    }
-    // 动态尾部：作者注释 Author's Note（固定位置，不深度注入）。
-    final String? authorNote = _effectiveAuthorNote(ta);
-    if (authorNote != null &&
-        authorNote.trim().isNotEmpty &&
-        _effectiveAuthorNoteInterval(ta) > 0) {
-      payload.add(<String, String>{'role': 'system', 'content': authorNote.trim()});
-    }
-    payload.add(<String, String>{
-      'role': 'system',
-      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
-    });
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
       assistantId: turn.id,
