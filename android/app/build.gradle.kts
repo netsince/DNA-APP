@@ -19,16 +19,12 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.netsince.dna"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -74,6 +70,13 @@ android {
         jniLibs {
             pickFirsts += "**/libonnxruntime.so"
         }
+    }
+}
+
+kotlin {
+    // AGP 9 / Kotlin 2.4：jvmTarget 走 compilerOptions DSL（kotlinOptions 已废弃）。
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
