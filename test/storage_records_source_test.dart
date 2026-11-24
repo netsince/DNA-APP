@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dna/pages/settings/storage_texts_zh.dart';
 import 'package:dna/services/storage_usage_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -25,7 +26,7 @@ void main() {
     final Box<String> box = await Hive.openBox<String>('tas');
     await box.put('ta1', '{"id":"ta1","name":"林夏","images":{}}');
 
-    final HiveStorageRecordsSource source = HiveStorageRecordsSource(
+    final HiveStorageRecordsSource source = HiveStorageRecordsSource(texts: const StorageTextsZh(), 
       conversationsBox: 'no_such_conversations',
       charactersBox: 'tas',
       worldsBox: 'no_such_worlds',
@@ -48,7 +49,7 @@ void main() {
     await Hive.close();
 
     Hive.init(dir.path);
-    final HiveStorageRecordsSource source = HiveStorageRecordsSource(
+    final HiveStorageRecordsSource source = HiveStorageRecordsSource(texts: const StorageTextsZh(), 
       conversationsBox: 'no_such_conversations',
       charactersBox: 'no_such_tas',
       worldsBox: 'worlds',

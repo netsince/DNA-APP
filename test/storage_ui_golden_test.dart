@@ -1,12 +1,15 @@
 import 'dart:io';
 
 import 'package:dna/pages/settings/storage_settings_page.dart';
+import 'package:dna/pages/settings/storage_texts_zh.dart';
 import 'package:dna/services/storage_usage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeUsage extends StorageUsageService {
+  _FakeUsage() : super(texts: const StorageTextsZh());
+
   @override
   Future<StorageUsageReport> scan() async => _report();
 }
