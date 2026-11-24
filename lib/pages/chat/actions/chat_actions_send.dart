@@ -433,66 +433,17 @@ mixin ChatActionsSend on ChatStateMixin {
         await _assembleRequestPayload(ta: ta, endExclusive: index);
     // 群聊输出防线:剥掉模型自带「自己名字：」前缀(全/半角冒号),
     // 避免候选文本入库后与历史前缀叠成「名字：名字：」。
-    final List<String> candidates = widget.controller.settings.retrySequential
-        ? await _generateRetriesSequential(payload)
-        : await _generateRetries(payload);
+    final List<String> candidates = await generateChatCandidates(
+      controller: widget.controller,
+      payload: payload,
+      sequential: widget.controller.settings.retrySequential,
+    );
     return candidates
         .map((String c) => ChatMessageBuilder.stripOwnSpeakerPrefix(c, ta.name))
         .where((String c) => c.trim().isNotEmpty)
         .toList();
   }
 
-  /// 并发生成一批「重说」候选(默认 3 条),不涉及任何 UI。
-  /// 请求间加入错峰延迟,降低同时并发触发限流的概率。
-  Future<List<String>> _generateRetries(
-    List<Map<String, dynamic>> payload,
-  ) async {
-    try {
-      final List<Future<String?>> tasks =
-          List<Future<String?>>.generate(3, (int i) async {
-        if (i > 0) {
-          await Future<void>.delayed(Duration(milliseconds: 300 * i));
-        }
-        final ChatCompletionResult result =
-            await widget.controller.llmProvider.createChatCompletion(
-          widget.controller.buildLlmRequest(messages: payload),
-        );
-        if (!result.success || result.content == null) {
-          return null;
-        }
-        return result.content!;
-      });
-      final List<String?> settled = await Future.wait(tasks);
-      return settled
-          .whereType<String>()
-          .where((String s) => s.trim().isNotEmpty)
-          .toList();
-    } catch (_) {
-      return <String>[];
-    }
-  }
-
-  Future<List<String>> _generateRetriesSequential(
-    List<Map<String, dynamic>> payload,
-  ) async {
-    final List<String> results = <String>[];
-    for (int i = 0; i < 3; i++) {
-      try {
-        final ChatCompletionResult result =
-            await widget.controller.llmProvider.createChatCompletion(
-          widget.controller.buildLlmRequest(messages: payload),
-        );
-        if (result.success &&
-            result.content != null &&
-            result.content!.trim().isNotEmpty) {
-          results.add(result.content!);
-        }
-      } catch (_) {
-        // Ignore.
-      }
-    }
-    return results;
-  }
 
   Future<void> _triggerTaReply(TA ta) async {
     if (_sending) {
