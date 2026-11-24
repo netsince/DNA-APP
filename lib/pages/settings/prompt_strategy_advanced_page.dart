@@ -285,17 +285,14 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(narrativeStructure: v)),
                 ),
                 AppSpacing.hSm,
-                TextField(
-                  controller: _goalCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '本段目标（可选）',
-                    hintText: '如：让两人第一次正面交锋',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) =>
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _goalCtrl,
+  label: '本段目标（可选）',
+  hint: '如：让两人第一次正面交锋',
+  onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(structureGoal: _parseText(v))),
-                ),
+),
               ],
             ),
             AppSpacing.hLg,
@@ -338,18 +335,15 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(reveal: v)),
                 ),
                 AppSpacing.hSm,
-                TextField(
-                  controller: _revealMaxCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '每轮最多揭示几条（留空不限制）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) => _updateDetails(
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _revealMaxCtrl,
+  label: '每轮最多揭示几条（留空不限制）',
+  numeric: true,
+  onSubmitted: (String v) => _updateDetails(
                     _d.copyWith(revealMaxPerTurn: _parseInt(v)),
                   ),
-                ),
+),
               ],
             ),
             AppSpacing.hLg,
@@ -414,30 +408,24 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(ambientEnabled: v)),
                 ),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _ambientTimeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '时间（可选）',
-                    hintText: '如：深夜、黄昏',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) =>
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _ambientTimeCtrl,
+  label: '时间（可选）',
+  hint: '如：深夜、黄昏',
+  onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(ambientTime: _parseText(v))),
-                ),
+),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _ambientWeatherCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '天气（可选）',
-                    hintText: '如：细雨、闷热',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) => _updateDetails(
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _ambientWeatherCtrl,
+  label: '天气（可选）',
+  hint: '如：细雨、闷热',
+  onSubmitted: (String v) => _updateDetails(
                     _d.copyWith(ambientWeather: _parseText(v)),
                   ),
-                ),
+),
               ],
             ),
             AppSpacing.hLg,
@@ -446,17 +434,14 @@ class _PromptStrategyAdvancedPageState
               title: '配角与调度',
               description: '同场能有几个配角，以及能不能由 AI 代演。',
               children: <Widget>[
-                TextField(
-                  controller: _npcMaxCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '同场最多几个配角（留空不限制）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) =>
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _npcMaxCtrl,
+  label: '同场最多几个配角（留空不限制）',
+  numeric: true,
+  onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(npcMax: _parseInt(v))),
-                ),
+),
                 StrategyTriSwitchRow(
                   bottomSpacing: 0,
                   title: 'AI 可以代演配角',
@@ -530,48 +515,38 @@ class _PromptStrategyAdvancedPageState
                       _updateDetails(_d.copyWith(addressMode: v)),
                 ),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _voiceCtrl,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '口吻样本（可选）',
-                    hintText: '一句它平时会说的话',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) => _updateDetails(
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _voiceCtrl,
+  label: '口吻样本（可选）',
+  hint: '一句它平时会说的话',
+  maxLines: 3,
+  onSubmitted: (String v) => _updateDetails(
                     _d.copyWith(anchorVoiceSample: _parseText(v)),
                   ),
-                ),
+),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _catchCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '口头禅（逗号分隔，留空不设置）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) => _updateDetails(
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _catchCtrl,
+  label: '口头禅（逗号分隔，留空不设置）',
+  onSubmitted: (String v) => _updateDetails(
                     _d.copyWith(
                       catchphrases: _split(v).isEmpty ? null : _split(v),
                     ),
                   ),
-                ),
+),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _anchorCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '必须守住的特质（逗号分隔）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) => _updateDetails(
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _anchorCtrl,
+  label: '必须守住的特质（逗号分隔）',
+  onSubmitted: (String v) => _updateDetails(
                     _d.copyWith(
                       anchorTraits: _split(v).isEmpty ? null : _split(v),
                     ),
                   ),
-                ),
+),
               ],
             ),
             AppSpacing.hLg,
@@ -580,29 +555,23 @@ class _PromptStrategyAdvancedPageState
               title: '意象母题',
               description: '反复出现的意象，用来做暗线。',
               children: <Widget>[
-                TextField(
-                  controller: _motifCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '母题（可选）',
-                    hintText: '如：雨、钟表、旧照片',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) =>
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _motifCtrl,
+  label: '母题（可选）',
+  hint: '如：雨、钟表、旧照片',
+  onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(motifName: _parseText(v))),
-                ),
+),
                 AppSpacing.hXs,
-                TextField(
-                  controller: _motifEveryCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '大约每几段出现一次（留空不限制）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (String v) =>
+StrategyTextFieldRow(
+  bottomSpacing: 0,
+  controller: _motifEveryCtrl,
+  label: '大约每几段出现一次（留空不限制）',
+  numeric: true,
+  onSubmitted: (String v) =>
                       _updateDetails(_d.copyWith(motifEveryN: _parseInt(v))),
-                ),
+),
               ],
             ),
             AppSpacing.hLg,
