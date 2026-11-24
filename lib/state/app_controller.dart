@@ -31,6 +31,7 @@ import '../services/deepseek_service.dart';
 import '../services/llm_provider.dart';
 import '../services/llm_request.dart';
 import 'identity_store.dart';
+import 'conversation_store.dart';
 import 'ta_store.dart';
 import 'world_store.dart';
 
@@ -146,6 +147,10 @@ class AppController extends ChangeNotifier {
       hive: _hiveService,
       onChanged: () => _notify(AppChange.data),
     );
+    _convStore = ConversationStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
   }
 
   final SettingsService _settingsService;
@@ -161,12 +166,13 @@ class AppController extends ChangeNotifier {
   /// 身份域（第三块）。
   late final IdentityStore _identityStore;
 
+  /// 会话域（第四块）：单聊 + 群聊两个列表，连同它们的保护规则。
+  late final ConversationStore _convStore;
+
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
   final LlmProviderRegistry _providerRegistry;
 
   AppSettings _settings = AppSettings.empty();
-  List<Conversation> _conversations = <Conversation>[];
-  List<Conversation> _groupConversations = <Conversation>[];
 
   AppSettings get settings => _settings;
   OpenAiService get openAiService => _openAiService;
@@ -264,10 +270,10 @@ class AppController extends ChangeNotifier {
   List<UserIdentity> get identities => _identityStore.items;
   List<World> get worlds => _worldStore.items;
   List<World> get activeWorlds => _worldStore.activeItems;
-  List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
-  List<Conversation> get activeConversations => _conversations.where((Conversation c) => !c.archived).toList();
-  List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
-  List<Conversation> get activeGroupConversations => _groupConversations.where((Conversation c) => !c.archived).toList();
+  List<Conversation> get conversations => List<Conversation>.unmodifiable(_convStore.items);
+  List<Conversation> get activeConversations => _convStore.items.where((Conversation c) => !c.archived).toList();
+  List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_convStore.groups);
+  List<Conversation> get activeGroupConversations => _convStore.groups.where((Conversation c) => !c.archived).toList();
 
   /// 角色 ID -> 角色 映射（用于导出时解析说话人 / 内嵌角色卡）
   Map<String, TA> get tasById {
@@ -276,7 +282,7 @@ class AppController extends ChangeNotifier {
 
   /// 全部对话（单聊 + 群聊）
   List<Conversation> get allConversations =>
-      <Conversation>[..._conversations, ..._groupConversations];
+      <Conversation>[..._convStore.items, ..._convStore.groups];
 
   Future<void> initialize() async {
     await _hiveService.init();
@@ -325,8 +331,10 @@ class AppController extends ChangeNotifier {
     _identityStore.replaceAll(loaded[1] as List<UserIdentity>);
     _worldStore.replaceAll(loaded[2] as List<World>);
     final allConversations = loaded[3] as List<Conversation>;
-    _conversations = allConversations.where((c) => !c.isGroup).toList();
-    _groupConversations = allConversations.where((c) => c.isGroup).toList();
+    _convStore.replaceAll(
+      singles: allConversations.where((c) => !c.isGroup).toList(),
+      groups: allConversations.where((c) => c.isGroup).toList(),
+    );
     _notify(AppChange.all);
   }
 
@@ -763,6 +771,43 @@ class AppController extends ChangeNotifier {
 
   Future<void> upsertTa(TA ta) => _taStore.upsert(ta);
 
+  // ---- 会话：委托给 ConversationStore（单聊/群聊两个列表与群字段保护都在那）----
+
+  Future<void> upsertConversation(Conversation conversation) =>
+      _convStore.upsert(conversation);
+
+  Future<void> upsertGroupConversation(Conversation conversation) =>
+      _convStore.upsertGroup(conversation);
+
+  Future<void> deleteConversation(String id) => _convStore.delete(id);
+
+  Future<void> deleteGroupConversation(String id) => _convStore.deleteGroup(id);
+
+  Future<void> setConversationArchived({
+    required String id,
+    required bool archived,
+  }) => _convStore.setArchived(id: id, archived: archived);
+
+  Future<void> setConversationPinned({
+    required String id,
+    required bool pinned,
+  }) => _convStore.setPinned(id: id, pinned: pinned);
+
+  Future<void> setGroupConversationPinned({
+    required String id,
+    required bool pinned,
+  }) => _convStore.setGroupPinned(id: id, pinned: pinned);
+
+  Future<void> setGroupConversationArchived({
+    required String id,
+    required bool archived,
+  }) => _convStore.setGroupArchived(id: id, archived: archived);
+
+  Future<String> duplicateConversation(String id) => _convStore.duplicate(id);
+
+  Future<void> reorderConversationSubset(List<String> orderedIds) =>
+      _convStore.reorderSubset(orderedIds);
+
   Future<void> deleteTa(String id) async {
     await _taStore.delete(id);
     // 跨域收尾留在控制器：摘群聊成员属于会话域（见 _pruneTaFromGroups）。
@@ -777,7 +822,7 @@ class AppController extends ChangeNotifier {
   Future<void> _pruneTaFromGroups(String taId) async {
     bool changed = false;
     final List<Conversation> updated = <Conversation>[];
-    for (final Conversation group in _groupConversations) {
+    for (final Conversation group in _convStore.groups) {
       final bool wasMember = group.memberTaIds.contains(taId);
       final bool wasPrimary = group.taId == taId;
       final bool wasActive = group.activeTaId == taId;
@@ -802,7 +847,7 @@ class AppController extends ChangeNotifier {
       changed = true;
     }
     if (changed) {
-      _groupConversations = updated;
+      _convStore.replaceGroups(updated);
     }
   }
 
@@ -975,19 +1020,19 @@ class AppController extends ChangeNotifier {
 
   /// 删除对话（单聊或群聊）并自动备份其 JSON 到特定目录。
   ///
-  /// 备份路径：`<应用文档目录>/dna_backups/deleted_conversations/` 下，文件名以
+  /// 备份路径：`<应用文档目录>/dna_backups/deleted_convStore.items/` 下，文件名以
   /// `Conv_`（单聊）或 `Group_`（群聊）开头，后接标题与时间戳。删除方式按对话
   /// 类型分别走单聊 / 群聊删除。
   Future<String?> deleteConversationWithBackup(String id) async {
     Conversation? conv;
     try {
-      conv = _conversations.firstWhere((Conversation c) => c.id == id);
+      conv = _convStore.items.firstWhere((Conversation c) => c.id == id);
     } catch (_) {
       conv = null;
     }
     if (conv == null) {
       try {
-        conv = _groupConversations.firstWhere((Conversation c) => c.id == id);
+        conv = _convStore.groups.firstWhere((Conversation c) => c.id == id);
       } catch (_) {
         conv = null;
       }
@@ -1061,293 +1106,7 @@ class AppController extends ChangeNotifier {
   /// 调用方常常只拿得到一个 id（搜索结果、自动续玩指针、深链），**不该由它自己
   /// 判断这是单聊还是群聊** —— 判错就会走错写回分支，把群聊记录覆盖成单聊
   /// （成员、群设定、说话人标注全丢）。类型由数据说了算，不由调用方猜。
-  Conversation? getConversationById(String id) {
-    for (final Conversation conversation in _conversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    for (final Conversation conversation in _groupConversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
-
-  /// 该 id 在库里是否已经是群聊（「群聊身份」一旦确立就不可逆）。
-  bool _isKnownGroupId(String id) =>
-      _groupConversations.any((Conversation item) => item.id == id);
-
-  /// 单聊形态的 payload 写到已有群聊 id 上时，把群聊专属字段还原回来。
-  ///
-  /// 依据很直接：单聊 payload **对群聊字段没有主张** —— 它的 `memberTaIds` 只有
-  /// 一个 taId、`groupName`/`groupPrompt` 恒为空。直接落库等于拿「没有意见」
-  /// 覆盖掉真实数据，所以这里以库里的旧值为准。
-  Conversation _restoreGroupFields(Conversation incoming) {
-    final Conversation? stored = getGroupById(incoming.id);
-    if (stored == null) {
-      return incoming.copyWith(isGroup: true);
-    }
-    return incoming.copyWith(
-      isGroup: true,
-      memberTaIds: stored.memberTaIds,
-      activeTaId: stored.activeTaId,
-      groupName: stored.groupName,
-      groupPrompt: stored.groupPrompt,
-    );
-  }
-
-  Future<void> upsertConversation(Conversation conversation) async {
-    // 群聊身份由创建时决定，之后任何写回都必须保持 —— 见 [getConversationById]。
-    // 没有这道闸，一个拿不到 isGroup 的调用方会把群聊静默踩成单聊：
-    // Hive 按 id 覆盖，成员/群设定/说话人标注一起消失，且没有任何报错。
-    if (conversation.isGroup) {
-      await upsertGroupConversation(conversation);
-      return;
-    }
-    if (_isKnownGroupId(conversation.id)) {
-      await upsertGroupConversation(_restoreGroupFields(conversation));
-      return;
-    }
-    final int index = _conversations.indexWhere((Conversation item) => item.id == conversation.id);
-    if (index == -1) {
-      _conversations = <Conversation>[..._conversations, conversation];
-    } else {
-      final List<Conversation> updated = <Conversation>[..._conversations];
-      updated[index] = conversation;
-      _conversations = updated;
-    }
-    await _hiveService.upsertConversation(conversation);
-    _notify(AppChange.data);
-  }
-
-  Future<void> upsertGroupConversation(Conversation conversation) async {
-    if (!conversation.isGroup) {
-      conversation = conversation.copyWith(isGroup: true);
-    }
-    final int index =
-        _groupConversations.indexWhere((Conversation item) => item.id == conversation.id);
-    if (index == -1) {
-      _groupConversations = <Conversation>[..._groupConversations, conversation];
-    } else {
-      final List<Conversation> updated = <Conversation>[..._groupConversations];
-      updated[index] = conversation;
-      _groupConversations = updated;
-    }
-    await _hiveService.upsertConversation(conversation);
-    _notify(AppChange.data);
-  }
-
-  Future<void> deleteConversation(String id) async {
-    _conversations = _conversations.where((Conversation item) => item.id != id).toList();
-    await _hiveService.deleteConversation(id);
-    _notify(AppChange.data);
-  }
-
-  Future<void> deleteGroupConversation(String id) async {
-    _groupConversations = _groupConversations.where((Conversation item) => item.id != id).toList();
-    await _hiveService.deleteConversation(id);
-    _notify(AppChange.data);
-  }
-
-  Future<void> setConversationArchived({
-    required String id,
-    required bool archived,
-  }) async {
-    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _conversations[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._conversations];
-    updated[index] = current.copyWith(archived: archived);
-    _conversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    _notify(AppChange.data);
-  }
-
-  /// 置顶/取消置顶某个会话。
-  Future<void> setConversationPinned({
-    required String id,
-    required bool pinned,
-  }) async {
-    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _conversations[index];
-    if (current.pinned == pinned) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._conversations];
-    updated[index] = current.copyWith(pinned: pinned);
-    _conversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    _notify(AppChange.data);
-  }
-
-  /// 复制一个会话：生成全新的会话 ID 与消息 ID，其余配置（TA、世界、身份、
-  /// 群成员、消息、摘要）与源会话一致。副本不置顶、不归档，插入源会话之后。
-  /// 返回副本的 ID。
-  Future<String> duplicateConversation(String id) async {
-    Conversation? source;
-    try {
-      source = _conversations.firstWhere((Conversation c) => c.id == id);
-    } catch (_) {
-      source = null;
-    }
-    if (source == null) {
-      try {
-        source = _groupConversations.firstWhere((Conversation c) => c.id == id);
-      } catch (_) {
-        source = null;
-      }
-    }
-    if (source == null) {
-      throw StateError('会话不存在：$id');
-    }
-
-    final String newConvId = _uniqueConversationId();
-    final Conversation copy = Conversation(
-      id: newConvId,
-      taId: source.taId,
-      worldId: source.worldId,
-      note: source.note.trim().isEmpty
-          ? '副本'
-          : '${source.note}（副本）',
-      messages: source.messages
-          .map((ConversationMessage m) => ConversationMessage(
-                id: newId(),
-                role: m.role,
-                text: m.text,
-                timestamp: m.timestamp,
-                kind: m.kind,
-                summaryId: m.summaryId,
-                anchorMessageId: m.anchorMessageId,
-                speakerTaId: m.speakerTaId,
-              ))
-          .toList(),
-      backgroundMode: source.backgroundMode,
-      summaries: source.summaries
-          .map((ConversationSummary s) => ConversationSummary(
-                id: newId(),
-                text: s.text,
-                createdAt: s.createdAt,
-                endMessageId: s.endMessageId,
-              ))
-          .toList(),
-      archived: false,
-      isGroup: source.isGroup,
-      groupName: source.groupName,
-      groupPrompt: source.groupPrompt,
-      memberTaIds: source.memberTaIds,
-      activeTaId: source.activeTaId,
-      identityId: source.identityId,
-      pinned: false,
-    );
-
-    if (copy.isGroup) {
-      final int at = _groupConversations
-          .indexWhere((Conversation c) => c.id == id);
-      final List<Conversation> updated = <Conversation>[..._groupConversations];
-      updated.insert(at == -1 ? updated.length : at + 1, copy);
-      _groupConversations = updated;
-    } else {
-      final int at = _conversations.indexWhere((Conversation c) => c.id == id);
-      final List<Conversation> updated = <Conversation>[..._conversations];
-      updated.insert(at == -1 ? updated.length : at + 1, copy);
-      _conversations = updated;
-    }
-    await _hiveService.upsertConversation(copy);
-    _notify(AppChange.data);
-    return newConvId;
-  }
-
-  String _uniqueConversationId() {
-    final Set<String> existing = _conversations
-        .map((Conversation c) => c.id)
-        .toSet()
-      ..addAll(_groupConversations.map((Conversation c) => c.id));
-    String id = newId();
-    while (existing.contains(id)) {
-      id = newId();
-    }
-    return id;
-  }
-
-  /// 置顶/取消置顶某个群聊会话。
-  Future<void> setGroupConversationPinned({
-    required String id,
-    required bool pinned,
-  }) async {
-    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _groupConversations[index];
-    if (current.pinned == pinned) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._groupConversations];
-    updated[index] = current.copyWith(pinned: pinned);
-    _groupConversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    _notify(AppChange.data);
-  }
-
-  Future<void> setGroupConversationArchived({
-    required String id,
-    required bool archived,
-  }) async {
-    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _groupConversations[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._groupConversations];
-    updated[index] = current.copyWith(archived: archived);
-    _groupConversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    _notify(AppChange.data);
-  }
-
-  Future<void> reorderConversationSubset(List<String> orderedIds) async {
-    if (orderedIds.isEmpty) {
-      return;
-    }
-    final Set<String> subset = orderedIds.toSet();
-    if (subset.length != orderedIds.length) {
-      return;
-    }
-    final Map<String, Conversation> byId = <String, Conversation>{
-      for (final Conversation c in _conversations) c.id: c,
-    };
-    for (final String id in orderedIds) {
-      if (!byId.containsKey(id)) {
-        return;
-      }
-    }
-    int cursor = 0;
-    final List<Conversation> updated = <Conversation>[];
-    for (final Conversation c in _conversations) {
-      if (!subset.contains(c.id)) {
-        updated.add(c);
-        continue;
-      }
-      updated.add(byId[orderedIds[cursor]]!);
-      cursor += 1;
-    }
-    _conversations = updated;
-    await _hiveService.saveConversations(_conversations);
-    _notify(AppChange.data);
-  }
+  Conversation? getConversationById(String id) => _convStore.byId(id);
 
   /// 把 [oldIndex] 的 TA 移到 [newIndex]。
   ///
@@ -1362,14 +1121,7 @@ class AppController extends ChangeNotifier {
   Future<void> reorderWorlds(int oldIndex, int newIndex) =>
       _worldStore.reorder(oldIndex, newIndex);
 
-  Conversation? getGroupById(String id) {
-    for (final Conversation conversation in _groupConversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
+  Conversation? getGroupById(String id) => _convStore.groupById(id);
 
   TA? getTaById(String id) {
     return _taStore.byId(id);
@@ -1388,8 +1140,8 @@ class AppController extends ChangeNotifier {
       tas: _taStore.items,
       worlds: _worldStore.items,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
       identities: _identityStore.items,
     );
@@ -1405,8 +1157,8 @@ class AppController extends ChangeNotifier {
       tas: _taStore.items,
       worlds: _worldStore.items,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
       identities: _identityStore.items,
     );
@@ -1416,8 +1168,8 @@ class AppController extends ChangeNotifier {
   Future<ExportImportResult<Uint8List>> exportConversations() async {
     return DataBackupService.buildConversationsZip(
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
     );
   }
@@ -1429,8 +1181,8 @@ class AppController extends ChangeNotifier {
     return DataBackupService.buildConversationsZipToFile(
       zipPath,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
     );
   }
@@ -1451,19 +1203,20 @@ class AppController extends ChangeNotifier {
         full: false,
       );
 
-      _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
-      _groupConversations =
-          incoming.where((Conversation c) => c.isGroup).toList();
+      _convStore.replaceAll(
+        singles: incoming.where((Conversation c) => !c.isGroup).toList(),
+        groups: incoming.where((Conversation c) => c.isGroup).toList(),
+      );
       await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ]);
       _notify(AppChange.chatAndData);
       return DataImportReport(
         replaced: true,
         tasCount: 0,
         worldsCount: 0,
-        conversationsCount: _conversations.length + _groupConversations.length,
+        conversationsCount: _convStore.items.length + _convStore.groups.length,
         identitiesCount: 0,
         backupPath: backup.$1,
         backupError: backup.$2,
@@ -1472,23 +1225,25 @@ class AppController extends ChangeNotifier {
 
     // 仅追加：按 id 去重
     final Set<String> existingIds = <String>{
-      ..._conversations.map((Conversation c) => c.id),
-      ..._groupConversations.map((Conversation c) => c.id),
+      ..._convStore.items.map((Conversation c) => c.id),
+      ..._convStore.groups.map((Conversation c) => c.id),
     };
     final List<Conversation> newConvs =
         incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
 
-    _conversations = <Conversation>[
-      ..._conversations,
-      ...newConvs.where((Conversation c) => !c.isGroup),
-    ];
-    _groupConversations = <Conversation>[
-      ..._groupConversations,
-      ...newConvs.where((Conversation c) => c.isGroup),
-    ];
+    _convStore.replaceAll(
+      singles: <Conversation>[
+        ..._convStore.items,
+        ...newConvs.where((Conversation c) => !c.isGroup),
+      ],
+      groups: <Conversation>[
+        ..._convStore.groups,
+        ...newConvs.where((Conversation c) => c.isGroup),
+      ],
+    );
     await _hiveService.saveConversations(<Conversation>[
-      ..._conversations,
-      ..._groupConversations,
+      ..._convStore.items,
+      ..._convStore.groups,
     ]);
     _notify(AppChange.chatAndData);
     return DataImportReport(
@@ -1746,16 +1501,20 @@ class AppController extends ChangeNotifier {
 
         _taStore.replaceAll(resolvedTasWithMusic);
         _worldStore.replaceAll(backup.worlds);
-        _conversations =
-            backup.conversations.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            backup.conversations.where((Conversation c) => c.isGroup).toList();
+        _convStore.replaceAll(
+          singles: backup.conversations
+              .where((Conversation c) => !c.isGroup)
+              .toList(),
+          groups: backup.conversations
+              .where((Conversation c) => c.isGroup)
+              .toList(),
+        );
 
         await _taStore.persist();
         await _worldStore.persist();
         await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
+          ..._convStore.items,
+          ..._convStore.groups,
         ]);
 
         _notify(AppChange.chatAndData);
@@ -1766,7 +1525,7 @@ class AppController extends ChangeNotifier {
             tasCount: _taStore.items.length,
             worldsCount: _worldStore.items.length,
             conversationsCount:
-                _conversations.length + _groupConversations.length,
+                _convStore.items.length + _convStore.groups.length,
             identitiesCount: _identityStore.items.length,
             backupPath: backupPath,
             backupError: backupError,
@@ -1794,8 +1553,8 @@ class AppController extends ChangeNotifier {
           .toList();
 
       final Set<String> existingConvIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
+        ..._convStore.items.map((Conversation c) => c.id),
+        ..._convStore.groups.map((Conversation c) => c.id),
       };
       final List<Conversation> newConvs = backup.conversations
           .where((Conversation c) => !existingConvIds.contains(c.id))
@@ -1810,21 +1569,23 @@ class AppController extends ChangeNotifier {
       _taStore.replaceAll(<TA>[..._taStore.items, ...resolvedNewTasWithMusic]);
       _worldStore.replaceAll(<World>[..._worldStore.items, ...newWorlds]);
       _identityStore.replaceAll(<UserIdentity>[..._identityStore.items, ...newIdentities]);
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
+      _convStore.replaceAll(
+        singles: <Conversation>[
+          ..._convStore.items,
+          ...newConvs.where((Conversation c) => !c.isGroup),
+        ],
+        groups: <Conversation>[
+          ..._convStore.groups,
+          ...newConvs.where((Conversation c) => c.isGroup),
+        ],
+      );
 
       await _taStore.persist();
       await _worldStore.persist();
       await _identityStore.persist();
       await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ]);
 
       _notify(AppChange.chatAndData);
@@ -1868,8 +1629,10 @@ class AppController extends ChangeNotifier {
     setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
     _taStore.replaceAll(const <TA>[]);
     _worldStore.replaceAll(const <World>[]);
-    _conversations = <Conversation>[];
-    _groupConversations = <Conversation>[];
+    _convStore.replaceAll(
+      singles: const <Conversation>[],
+      groups: const <Conversation>[],
+    );
     _notify(AppChange.all);
   }
 }
