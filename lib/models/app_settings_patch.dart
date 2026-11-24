@@ -21,8 +21,6 @@
 library;
 
 import 'app_settings.dart';
-import 'llm_model_config.dart';
-import 'llm_provider_config.dart';
 import 'prompt_strategy.dart';
 import 'quick_reply.dart';
 import '../utils/message_processor.dart' show RegexRule;
@@ -36,15 +34,11 @@ enum SettingsValueKind { boolean, integer, decimal, text, object }
 /// 键集合必须相等、类型必须匹配运行时类型。
 const Map<String, SettingsValueKind> settingsKeyKinds =
     <String, SettingsValueKind>{
-      'provider': SettingsValueKind.text,
       'themeMode': SettingsValueKind.text,
       'fontFamilyMode': SettingsValueKind.text,
       'chatInputStyle': SettingsValueKind.text,
       'enableCommunity': SettingsValueKind.boolean,
       'freeImageCrop': SettingsValueKind.boolean,
-      'baseUrl': SettingsValueKind.text,
-      'apiKey': SettingsValueKind.text,
-      'selectedModel': SettingsValueKind.text,
       'completedOobe': SettingsValueKind.boolean,
       'autoSummaryPrompt': SettingsValueKind.boolean,
       'summaryTurnInterval': SettingsValueKind.integer,
@@ -111,9 +105,6 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
       'deepseekThinkingEnabled': SettingsValueKind.boolean,
       'deepseekThinkingEffort': SettingsValueKind.text,
       'simpleModelMode': SettingsValueKind.boolean,
-      'activeModelId': SettingsValueKind.text,
-      'providers': SettingsValueKind.object,
-      'models': SettingsValueKind.object,
     };
 
 /// 带着写入口把值写进设置，返回**新**的 settings。
@@ -122,8 +113,6 @@ const Map<String, SettingsValueKind> settingsKeyKinds =
 /// 会当场炸，而不是静默写不进去。
 AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
   switch (key) {
-    case 'provider':
-      return s.copyWith(provider: _asText(value));
     case 'themeMode':
       return s.copyWith(themeMode: _asText(value));
     case 'fontFamilyMode':
@@ -134,12 +123,6 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(enableCommunity: _asBool(value));
     case 'freeImageCrop':
       return s.copyWith(freeImageCrop: _asBool(value));
-    case 'baseUrl':
-      return s.copyWith(baseUrl: _asText(value));
-    case 'apiKey':
-      return s.copyWith(apiKey: _asText(value));
-    case 'selectedModel':
-      return s.copyWith(selectedModel: _asText(value));
     case 'completedOobe':
       return s.copyWith(completedOobe: _asBool(value));
     case 'autoSummaryPrompt':
@@ -284,12 +267,6 @@ AppSettings applySettingsPatch(AppSettings s, String key, Object? value) {
       return s.copyWith(deepseekThinkingEffort: _asText(value));
     case 'simpleModelMode':
       return s.copyWith(simpleModelMode: _asBool(value));
-    case 'activeModelId':
-      return s.copyWith(activeModelId: _asText(value));
-    case 'providers':
-      return s.copyWith(providers: value! as List<LlmProviderConfig>);
-    case 'models':
-      return s.copyWith(models: value! as List<LlmModelConfig>);
     default:
       throw ArgumentError.value(key, 'key', '未在 applySettingsPatch 中声明的设置键');
   }

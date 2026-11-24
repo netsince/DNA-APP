@@ -27,13 +27,14 @@ class ResumeService {
   /// 上次打开的会话 id。
   static const String _idKey = 'resume_last_conversation_id';
 
-  /// 上次打开的时间戳（毫秒）。目前只记录不参与决策 —— 留给将来
-  /// "太久没来了就别硬续"的判断，别在这里偷偷加逻辑。
-  static const String _atKey = 'resume_last_opened_at';
 
   /// 正在进行的自动续玩。写入后必须被 [confirmAttempt] 清掉；
   /// 没被清掉就说明**上一次启动在自动续玩过程中整进程死掉了**。
   static const String _pendingKey = 'resume_pending_conversation_id';
+
+  /// 历史遗留键：旧版本在 [rememberOpened] 里写过 `resume_last_opened_at`，
+  /// **只写不读**，已停止写入。这里保留删除动作，让升级用户本地不再残留。
+  static const String _legacyAtKey = 'resume_last_opened_at';
 
   /// 连续失败次数：连续这么多次"自动续玩时进程死掉"就自动关掉开关，
   /// 避免用户每次开应用都被弹进一个打不开的会话。
@@ -55,7 +56,6 @@ class ResumeService {
     if (conversationId.isEmpty) return;
     final SharedPreferences prefs = await _prefs;
     await prefs.setString(_idKey, conversationId);
-    await prefs.setInt(_atKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   /// 上次打开的会话 id；没有则 null。
@@ -69,7 +69,7 @@ class ResumeService {
   Future<void> clearLast() async {
     final SharedPreferences prefs = await _prefs;
     await prefs.remove(_idKey);
-    await prefs.remove(_atKey);
+    await prefs.remove(_legacyAtKey);
   }
 
   /// 自动续玩开始：先立一个"我马上就要推这一步"的旗子。
@@ -111,7 +111,7 @@ class ResumeService {
   Future<void> clearAll() async {
     final SharedPreferences prefs = await _prefs;
     await prefs.remove(_idKey);
-    await prefs.remove(_atKey);
+    await prefs.remove(_legacyAtKey);
     await prefs.remove(_pendingKey);
     await prefs.remove(_failCountKey);
   }
