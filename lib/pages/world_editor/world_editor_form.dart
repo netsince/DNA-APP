@@ -12,6 +12,7 @@ import '../../widgets/adaptive_text_field.dart';
 import '../../widgets/app_editor_frame.dart';
 import '../../widgets/fit_text.dart';
 import '../../widgets/form_dirty_baseline.dart';
+import '../../widgets/setting_section.dart';
 import '../../widgets/form_draft.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/tag_input.dart';
@@ -242,37 +243,18 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
     return ListView(
         padding: AppEditorLayout.bodyPadding(context),
         children: <Widget>[
-          // ===== 1. 世界核心信息（无容器分组）=====
-          // 审计 3.3 / 4.2：分组标题靠字号 + onSurfaceVariant 表达层级，
-          // 不再整组套一张描边 Card（做法同 lib/widgets/setting_section.dart）。
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // ===== 1. 世界核心信息 =====
+          // 分组头改用共享 SettingSection：它与设置页是同一套「图标 + 标题 +
+          // 说明 + 内边距」语序。这里传 padding/margin 为零 —— 编辑器已有自己的
+          // bodyPadding 与组间距，再叠一层就会多出留白。
+          SettingSection(
+            icon: Icons.public,
+            title: '世界核心设定',
+            description: '设定该世界的名称与通用规则，对话时将作为基础背景注入。',
+            collapsible: false,
+            padding: EdgeInsets.zero,
+            margin: EdgeInsets.zero,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(
-                    Icons.public,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    size: AppSize.iconCard,
-                  ),
-                  const SizedBox(width: 8),
-                  FitText(
-                    '世界核心设定',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: AppWeight.medium,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              FitText(
-                '设定该世界的名称与通用规则，对话时将作为基础背景注入。',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              AppSpacing.hSm,
                   TextField(
                     controller: _nameController,
                     onChanged: (_) => widget.onNameChanged?.call(),
