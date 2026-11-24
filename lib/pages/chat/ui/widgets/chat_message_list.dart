@@ -140,18 +140,8 @@ class ChatMessageList extends StatelessWidget {
   /// 行内「重试」回调（复用现有的重说动作）。
   final VoidCallback? onRetryFailed;
 
-  /// 长按 / 右键统一入口：位置、消息、下标三个参数由这一处转给父级。
-  ///
-  /// 三个分支（摘要提示卡 / 摘要卡 / 普通气泡）原本各自手写一遍这段接线，
-  /// 共 12 行 × 3；现在每处只剩两行回调。
-  void _showMenuAt(Offset position, ConversationMessage message, int index) {
-    onShowMessageMenu(position: position, message: message, index: index);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
-    final TextTheme textTheme = Theme.of(context).textTheme;
 
     return ListView.builder(
       controller: scrollController,
@@ -201,230 +191,37 @@ class ChatMessageList extends StatelessWidget {
 
         // 气泡圆角用令牌（审计 4.4）：主体 AppRadius.lg（20），朝向头像那一角
         // 收小到 AppRadius.xs（8）暗示说话方向 —— 以前手写 20/4。
-        final BorderRadius bubbleRadius = isUser
-            ? const BorderRadius.only(
-                topLeft: Radius.circular(AppRadius.lg),
-                topRight: Radius.circular(AppRadius.lg),
-                bottomLeft: Radius.circular(AppRadius.lg),
-                bottomRight: Radius.circular(AppRadius.xxs),
-              )
-            : const BorderRadius.only(
-                topLeft: Radius.circular(AppRadius.xxs),
-                topRight: Radius.circular(AppRadius.lg),
-                bottomLeft: Radius.circular(AppRadius.lg),
-                bottomRight: Radius.circular(AppRadius.lg),
-              );
-
-        final Widget bubble = GestureDetector(
-          onLongPressStart: (LongPressStartDetails details) =>
-              _showMenuAt(details.globalPosition, message, index),
-          onSecondaryTapDown: (TapDownDetails details) =>
-              _showMenuAt(details.globalPosition, message, index),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: bubbleRadius,
-              // 阴影走全局唯一来源，不再手写 Colors.black。
-              boxShadow: AppShadows.soft,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                if (speakerName != null && speakerName.isNotEmpty) ...<Widget>[
-                  FitText(
-                    speakerName,
-                    contrastBackground: bubbleColor,
-                    style: textTheme.labelSmall?.copyWith(
-                      // 发言者名也跟着气泡反色：原来写死 onSurfaceVariant，
-                      // 深色气泡上就是"黑底黑字"。
-                      color: FitText.inkFor(bubbleColor, colorScheme.surface)
-                          .withValues(
-                            alpha: FitText.isLightBackground(
-                                    bubbleColor, colorScheme.surface)
-                                ? 0.85
-                                : 0.8,
-                          ),
-                      fontWeight: AppWeight.medium,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-                if (message.attachments.isNotEmpty) ...<Widget>[
-                  _MessageAttachments(
-                    attachments: message.attachments,
-                    bubbleColor: bubbleColor,
-                  ),
-                  if (message.text.trim().isNotEmpty) const SizedBox(height: 6),
-                ],
-                Text.rich(
-                  buildMessageTextSpan(
-                    context,
-                    message.text,
-                    searchQuery,
-                    colorScheme.tertiaryContainer.withValues(alpha: AppAlpha.a55),
-                    bubbleColor: bubbleColor,
-                  ),
-                ),
-                if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLowest,
-                      borderRadius: AppRadius.xsAll,
-                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: AppAlpha.half)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
-                            const SizedBox(width: 4),
-                            FitText(
-                              '思考内容',
-                              style: textTheme.labelSmall?.copyWith(
-                                color: colorScheme.primary,
-                                fontWeight: AppWeight.medium,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        FitText(
-                          thoughtText,
-                          style: textTheme.bodySmall?.copyWith(height: AppLineHeight.body),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
-                  const SizedBox(height: 4),
-                  FitText(
-                    '字数 $charCount / Token $tokenCount',
-                    contrastBackground: bubbleColor,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: FitText.inkFor(
-                        bubbleColor,
-                        colorScheme.surface,
-                      ).withValues(alpha: AppAlpha.muted),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-
-        // 用户消息：右侧气泡，无操作按钮。
-        if (isUser) {
-          return Align(
-            key: key,
-            alignment: Alignment.centerRight,
-            child: bubble,
-          );
-        }
-
-        // 对方消息：操作按钮合并为一排放在气泡外（不遮挡文字），头像在气泡左侧。
-        final bool actionable =
-            message.kindEnum == MessageKind.message && message.text.trim().isNotEmpty;
-        final ImageProvider? avatarProvider =
-            (actionable && showMessageAvatar && avatarForMessage != null)
-                ? avatarForMessage!(message.speakerTaId)
-                : null;
-
-        // 这条消息的生成失败原因（有值就在气泡下方挂行内错误条）。
         final String? streamError = streamErrors[message.id];
 
-        // 操作按钮排：朗读（仅端侧 TTS 开启时）、复制、重说、继续说（最近一条）。
-        // 排布与三个开关的语义都恢复成原实现：showMessageCopy 管复制、
-        // showMessageRetry 管重说、showMessageContinue 管继续说。
-        final List<Widget> actionButtons = <Widget>[];
-        if (actionable && ttsEnabled) {
-          actionButtons.add(
-            _MessagePlayButton(
-              text: message.text,
-              globalSeed: ttsGlobalSeed,
-              voiceSeedForTa: voiceSeedForTa,
-              speakerTaId: message.speakerTaId,
-              quoteOnly: ttsQuoteOnly,
-            ),
-          );
-        }
-        if (actionable && showMessageCopy) {
-          actionButtons.add(
-            _MessageActionButton(
-              tooltip: '复制',
-              icon: Icons.copy_rounded,
-              onTap: onCopyMessage == null
-                  ? null
-                  : () => onCopyMessage!(message.text),
-            ),
-          );
-        }
-        if (actionable && showMessageRetry && isLastAssistant) {
-          actionButtons.add(
-            _MessageActionButton(
-              tooltip: '重说',
-              icon: Icons.refresh_rounded,
-              onTap: onRetryMessage,
-            ),
-          );
-        }
-        if (actionable && showMessageContinue && isLastAssistant) {
-          actionButtons.add(
-            _MessageActionButton(
-              tooltip: '继续说',
-              icon: Icons.play_arrow_rounded,
-              onTap: onContinueMessage,
-            ),
-          );
-        }
-
-        return Align(
+        return ChatBubble(
           key: key,
-          alignment: Alignment.centerLeft,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // 头像列：关闭头像开关时整体移除，气泡自动回挪。
-              if (avatarProvider != null) ...<Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _MessageAvatarButton(avatar: avatarProvider),
-                ),
-              ],
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (actionButtons.isNotEmpty) ...<Widget>[
-                      // 操作按钮排（气泡外上方）：超宽时 Wrap 自动换行完整显示。
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.start,
-                        children: actionButtons,
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    bubble,
-                    if (streamError != null)
-                      _StreamErrorBanner(
-                        message: streamError,
-                        onRetry: onRetryFailed,
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          message: message,
+          index: index,
+          isUser: isUser,
+          isLastAssistant: isLastAssistant,
+          bubbleColor: bubbleColor,
+          charCount: charCount,
+          tokenCount: tokenCount,
+          thoughtText: thoughtText,
+          speakerName: speakerName,
+          searchQuery: searchQuery,
+          visibleThoughtMessageIds: visibleThoughtMessageIds,
+          showTokenCounts: showTokenCounts,
+          showMessageAvatar: showMessageAvatar,
+          showMessageCopy: showMessageCopy,
+          showMessageRetry: showMessageRetry,
+          showMessageContinue: showMessageContinue,
+          ttsEnabled: ttsEnabled,
+          ttsGlobalSeed: ttsGlobalSeed,
+          voiceSeedForTa: voiceSeedForTa,
+          ttsQuoteOnly: ttsQuoteOnly,
+          avatarForMessage: avatarForMessage,
+          streamError: streamError,
+          onShowMessageMenu: onShowMessageMenu,
+          onCopyMessage: onCopyMessage,
+          onRetryMessage: onRetryMessage,
+          onContinueMessage: onContinueMessage,
+          onRetryFailed: onRetryFailed,
         );
       },
     );
@@ -830,4 +627,297 @@ class _MessageAttachments extends StatelessWidget {
   }
 }
 
+/// 普通消息气泡（用户 / 对方两种朝向）。
+///
+/// 从 itemBuilder 里整段搬出来：那个闭包原本三百多行，现在只剩
+/// 「算好 7 个派生值 → 派发给气泡」。所有开关与回调都由列表传入，
+/// 气泡本身不读 controller，因此可以单独 pump（golden 测试就是这么用的）。
+class ChatBubble extends StatelessWidget {
+  const ChatBubble({
+    super.key,
+    required this.message,
+    required this.index,
+    required this.isUser,
+    required this.isLastAssistant,
+    required this.bubbleColor,
+    required this.charCount,
+    required this.tokenCount,
+    required this.thoughtText,
+    required this.speakerName,
+    required this.searchQuery,
+    required this.visibleThoughtMessageIds,
+    required this.showTokenCounts,
+    required this.showMessageAvatar,
+    required this.showMessageCopy,
+    required this.showMessageRetry,
+    required this.showMessageContinue,
+    required this.ttsEnabled,
+    required this.ttsGlobalSeed,
+    required this.voiceSeedForTa,
+    required this.ttsQuoteOnly,
+    required this.avatarForMessage,
+    required this.streamError,
+    required this.onShowMessageMenu,
+    required this.onCopyMessage,
+    required this.onRetryMessage,
+    required this.onContinueMessage,
+    required this.onRetryFailed,
+  });
 
+  final ConversationMessage message;
+  final int index;
+  final bool isUser;
+  final bool isLastAssistant;
+  final Color bubbleColor;
+  final int charCount;
+  final int tokenCount;
+  final String thoughtText;
+  final String? speakerName;
+  final String searchQuery;
+  final Set<String> visibleThoughtMessageIds;
+  final bool showTokenCounts;
+  final bool showMessageAvatar;
+  final bool showMessageCopy;
+  final bool showMessageRetry;
+  final bool showMessageContinue;
+  final bool ttsEnabled;
+  final int? ttsGlobalSeed;
+  final VoiceSeedForTa? voiceSeedForTa;
+  final bool ttsQuoteOnly;
+  final AvatarForTa? avatarForMessage;
+  final String? streamError;
+  final ShowMessageMenu onShowMessageMenu;
+  final void Function(String text)? onCopyMessage;
+  final VoidCallback? onRetryMessage;
+  final VoidCallback? onContinueMessage;
+  final VoidCallback? onRetryFailed;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    // 公开字段不能类型提升，取别名给 null 检查用。
+    final String? speaker = speakerName;
+    final String? errorText = streamError;
+            final BorderRadius bubbleRadius = isUser
+                ? const BorderRadius.only(
+                    topLeft: Radius.circular(AppRadius.lg),
+                    topRight: Radius.circular(AppRadius.lg),
+                    bottomLeft: Radius.circular(AppRadius.lg),
+                    bottomRight: Radius.circular(AppRadius.xxs),
+                  )
+                : const BorderRadius.only(
+                    topLeft: Radius.circular(AppRadius.xxs),
+                    topRight: Radius.circular(AppRadius.lg),
+                    bottomLeft: Radius.circular(AppRadius.lg),
+                    bottomRight: Radius.circular(AppRadius.lg),
+                  );
+
+            final Widget bubble = GestureDetector(
+              onLongPressStart: (LongPressStartDetails details) =>
+                  onShowMessageMenu(position: details.globalPosition, message: message, index: index),
+              onSecondaryTapDown: (TapDownDetails details) =>
+                  onShowMessageMenu(position: details.globalPosition, message: message, index: index),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: bubbleRadius,
+                  // 阴影走全局唯一来源，不再手写 Colors.black。
+                  boxShadow: AppShadows.soft,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (speaker != null && speaker.isNotEmpty) ...<Widget>[
+                      FitText(
+                        speaker,
+                        contrastBackground: bubbleColor,
+                        style: textTheme.labelSmall?.copyWith(
+                          // 发言者名也跟着气泡反色：原来写死 onSurfaceVariant，
+                          // 深色气泡上就是"黑底黑字"。
+                          color: FitText.inkFor(bubbleColor, colorScheme.surface)
+                              .withValues(
+                                alpha: FitText.isLightBackground(
+                                        bubbleColor, colorScheme.surface)
+                                    ? 0.85
+                                    : 0.8,
+                              ),
+                          fontWeight: AppWeight.medium,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (message.attachments.isNotEmpty) ...<Widget>[
+                      _MessageAttachments(
+                        attachments: message.attachments,
+                        bubbleColor: bubbleColor,
+                      ),
+                      if (message.text.trim().isNotEmpty) const SizedBox(height: 6),
+                    ],
+                    Text.rich(
+                      buildMessageTextSpan(
+                        context,
+                        message.text,
+                        searchQuery,
+                        colorScheme.tertiaryContainer.withValues(alpha: AppAlpha.a55),
+                        bubbleColor: bubbleColor,
+                      ),
+                    ),
+                    if (thoughtText.isNotEmpty && visibleThoughtMessageIds.contains(message.id)) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerLowest,
+                          borderRadius: AppRadius.xsAll,
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: AppAlpha.half)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Icon(Icons.psychology_outlined, size: 14, color: colorScheme.primary),
+                                const SizedBox(width: 4),
+                                FitText(
+                                  '思考内容',
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.primary,
+                                    fontWeight: AppWeight.medium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            FitText(
+                              thoughtText,
+                              style: textTheme.bodySmall?.copyWith(height: AppLineHeight.body),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (message.text.isNotEmpty && showTokenCounts) ...<Widget>[
+                      const SizedBox(height: 4),
+                      FitText(
+                        '字数 $charCount / Token $tokenCount',
+                        contrastBackground: bubbleColor,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: FitText.inkFor(
+                            bubbleColor,
+                            colorScheme.surface,
+                          ).withValues(alpha: AppAlpha.muted),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+
+            // 用户消息：右侧气泡，无操作按钮。
+            if (isUser) {
+              return Align(
+                alignment: Alignment.centerRight,
+                child: bubble,
+              );
+            }
+
+            // 对方消息：操作按钮合并为一排放在气泡外（不遮挡文字），头像在气泡左侧。
+            final bool actionable =
+                message.kindEnum == MessageKind.message && message.text.trim().isNotEmpty;
+            final ImageProvider? avatarProvider =
+                (actionable && showMessageAvatar && avatarForMessage != null)
+                    ? avatarForMessage!(message.speakerTaId)
+                    : null;
+
+            // 操作按钮排：朗读（仅端侧 TTS 开启时）、复制、重说、继续说（最近一条）。
+            // 排布与三个开关的语义都恢复成原实现：showMessageCopy 管复制、
+            // showMessageRetry 管重说、showMessageContinue 管继续说。
+            final List<Widget> actionButtons = <Widget>[];
+            if (actionable && ttsEnabled) {
+              actionButtons.add(
+                _MessagePlayButton(
+                  text: message.text,
+                  globalSeed: ttsGlobalSeed,
+                  voiceSeedForTa: voiceSeedForTa,
+                  speakerTaId: message.speakerTaId,
+                  quoteOnly: ttsQuoteOnly,
+                ),
+              );
+            }
+            if (actionable && showMessageCopy) {
+              actionButtons.add(
+                _MessageActionButton(
+                  tooltip: '复制',
+                  icon: Icons.copy_rounded,
+                  onTap: onCopyMessage == null
+                      ? null
+                      : () => onCopyMessage!(message.text),
+                ),
+              );
+            }
+            if (actionable && showMessageRetry && isLastAssistant) {
+              actionButtons.add(
+                _MessageActionButton(
+                  tooltip: '重说',
+                  icon: Icons.refresh_rounded,
+                  onTap: onRetryMessage,
+                ),
+              );
+            }
+            if (actionable && showMessageContinue && isLastAssistant) {
+              actionButtons.add(
+                _MessageActionButton(
+                  tooltip: '继续说',
+                  icon: Icons.play_arrow_rounded,
+                  onTap: onContinueMessage,
+                ),
+              );
+            }
+
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // 头像列：关闭头像开关时整体移除，气泡自动回挪。
+                  if (avatarProvider != null) ...<Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _MessageAvatarButton(avatar: avatarProvider),
+                    ),
+                  ],
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (actionButtons.isNotEmpty) ...<Widget>[
+                          // 操作按钮排（气泡外上方）：超宽时 Wrap 自动换行完整显示。
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            alignment: WrapAlignment.start,
+                            children: actionButtons,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        bubble,
+                        if (errorText != null)
+                          _StreamErrorBanner(
+                            message: errorText,
+                            onRetry: onRetryFailed,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+  }
+}
