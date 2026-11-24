@@ -2,7 +2,7 @@ import 'dart:convert';
 import '../../models/prompt_strategy.dart';
 import '../settings/widgets/strategy_override_editor.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:dna/theme/tokens.dart';
 

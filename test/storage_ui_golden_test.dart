@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dna/pages/settings/storage_settings_page.dart';
 import 'package:dna/pages/settings/storage_texts_zh.dart';
 import 'package:dna/services/storage_usage_service.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

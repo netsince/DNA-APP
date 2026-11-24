@@ -7,7 +7,7 @@
 /// 写值走 [AppController.patchSettings]（或声明上的 writeOverride）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../models/app_settings.dart';
 import '../../../state/app_controller.dart';

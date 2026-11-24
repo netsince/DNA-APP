@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 允许**鼠标拖拽**滚动的 [ScrollBehavior]。
 ///

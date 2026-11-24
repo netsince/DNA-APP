@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dna/models/app_settings.dart';
 import 'package:dna/widgets/model_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 「模型列表不限高」设置项 + [ModelPicker] 高度策略的契约。

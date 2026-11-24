@@ -21,7 +21,7 @@
 /// 与改动前的交互一致，所以两条路径都保持人手触发。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';

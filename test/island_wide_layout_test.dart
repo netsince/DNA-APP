@@ -1,6 +1,6 @@
 import 'package:dna/widgets/load_more_list.dart';
 import 'package:dna/widgets/wide_body.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ///社区页面「桌面适配」的契约。

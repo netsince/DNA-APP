@@ -3,7 +3,7 @@ import 'package:dna/pages/chat/chat_models.dart';
 import 'package:dna/pages/chat/ui/widgets/chat_message_list.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 气泡文字**自动反色**的回归测试。

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 按钮的基础样式形态。
 enum AsyncButtonVariant { filled, tonal, outlined, text }

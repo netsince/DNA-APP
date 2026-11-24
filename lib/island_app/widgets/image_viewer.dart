@@ -1,7 +1,7 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'drag_scroll_behavior.dart';

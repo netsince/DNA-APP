@@ -10,7 +10,7 @@ import 'package:dna/services/settings_service.dart';
 import 'package:dna/services/ta_service.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/widgets/fit_text.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

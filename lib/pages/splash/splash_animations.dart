@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'glass_logo_animation.dart';
 import 'logo_draw_animation.dart';

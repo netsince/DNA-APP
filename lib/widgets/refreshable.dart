@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 全局统一的下拉刷新回调类型：返回的 Future 在刷新完成后 resolve，
 /// `RefreshIndicator` 据此收起指示器。各页面把自己的刷新逻辑实现为

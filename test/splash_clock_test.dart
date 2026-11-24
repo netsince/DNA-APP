@@ -1,6 +1,6 @@
 import 'package:dna/models/app_settings.dart';
 import 'package:dna/pages/splash/splash_clock.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 开场动画时钟：卡顿只会让动画变慢，**不会跳帧**。

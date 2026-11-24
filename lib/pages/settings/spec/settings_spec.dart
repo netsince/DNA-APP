@@ -14,7 +14,7 @@
 /// 一种字段类型，所有未处理的地方**编译期报错**。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../models/app_settings.dart';
 import '../../../state/app_controller.dart';

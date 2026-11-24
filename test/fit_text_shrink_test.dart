@@ -1,5 +1,5 @@
 import 'package:dna/widgets/fit_text.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// `FitText` 的「短文本缩放下限」（minShrink）契约。

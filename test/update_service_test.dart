@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dna/pages/settings/update_dialog.dart';
 import 'package:dna/services/update_service.dart';
 import 'package:dna/widgets/fit_text.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 更新检测的解析与渲染测试。

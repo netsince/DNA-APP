@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 网络图片"模糊 → 清晰"渐显动画，对齐网页版 `.dna-img-fade` 的实现。
 ///

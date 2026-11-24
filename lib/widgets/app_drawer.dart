@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../pages/search_page.dart';
 import '../state/app_controller.dart';
@@ -77,15 +77,21 @@ class AppDrawer extends StatelessWidget {
           AppContainer<bool>(
             // 点击由 ListTile 自己发起(保留水波纹),容器不抢手势。
             tappable: false,
-            closedBuilder: (BuildContext context, VoidCallback open) =>
-                ListTile(
-                  leading: const Icon(Icons.search_outlined),
-                  title: const FitText('搜索'),
-                  onTap: () {
-                    if (!persistent) Navigator.of(context).pop();
-                    open();
-                  },
-                ),
+            // 容器变换的关闭态渲染在独立的 LookupBoundary 里，材料祖先看不到：
+            // material_ui 的 ListTile 要求同一作用域内有 Material 祖先（旧版
+            // flutter/material 没这条硬约束），所以这里自带一层透明 Material。
+            // 透明层只提供墨水效果，不改变任何布局与配色。
+            closedBuilder: (BuildContext context, VoidCallback open) => Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                leading: const Icon(Icons.search_outlined),
+                title: const FitText('搜索'),
+                onTap: () {
+                  if (!persistent) Navigator.of(context).pop();
+                  open();
+                },
+              ),
+            ),
             openBuilder: (BuildContext context, VoidCallback close) =>
                 SearchPage(controller: controller),
           ),

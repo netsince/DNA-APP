@@ -20,7 +20,7 @@
 ///   （从开发者选项/命令进入的页面）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:dna/pages/settings/server_settings_body.dart';
 import 'package:dna/pages/settings/sponsor_body.dart';

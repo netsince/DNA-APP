@@ -12,7 +12,7 @@
 ///   `searchable: false` —— 它们是装饰与跳转，不该在搜索里冒充一条设置。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme/tokens.dart';
