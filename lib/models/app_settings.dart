@@ -200,7 +200,7 @@ class AppSettings {
   /// （角色卡形象、TA 形象、社区头像），想剪成什么比例就剪什么比例。默认关闭。
   ///
   /// 由「高级 → 命令」输入 `freeimage` 打开设置页切换。裁剪层通过
-  /// `FreeImageCrop.bind` 读这里，不存副本（见 lib/island_app/widgets/card_crop_page.dart）。
+  /// `FreeImageCrop.bind` 读这里，不存副本（见 lib/widgets/card_crop_page.dart）。
   final bool freeImageCrop;
 
   final String baseUrl;
@@ -328,16 +328,6 @@ class AppSettings {
   final String appIcon;
   final int snackDurationMs;
 
-  /// 语音识别模型来源偏好：'auto' | 'modelscope' | 'github' | 'custom'。
-  /// 'auto' 才会探测并回退；其余为严格单选，失败直接报错。
-
-  /// 自定义模型服务器根地址（source 为 'custom' 时生效）。
-
-  /// 模型是否已下载就绪（本地存在可用模型）。
-
-  /// 已下载模型的本地目录路径。
-
-  /// 当前选中的语音识别模型 id。
 
   /// 强调色（莫奈取色）模式：'auto' 跟随系统/角色卡；'custom' 使用自定义色。
   final String accentMode;

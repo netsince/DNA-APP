@@ -50,6 +50,7 @@ import '../../utils/message_processor.dart';
 import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
 import '../../utils/ui_feedback.dart';
+import 'builders/chat_candidate_generator.dart';
 import '../../widgets/app_content_frame.dart';
 import '../../models/conversation.dart';
 import '../../models/app_settings.dart';
@@ -80,7 +81,11 @@ import 'state/chat_controller.dart';
 import 'ui/widgets/chat_app_bar.dart';
 import 'ui/widgets/animated_background.dart';
 import 'ui/widgets/chat_input_bar.dart';
+import 'ui/widgets/candidate_action_bar.dart';
 import 'ui/widgets/chat_message_list.dart';
+import 'ui/widgets/immersive_exit_button.dart';
+import 'ui/widgets/speaker_bar.dart';
+import 'ui/widgets/group_member_picker_sheet.dart';
 import 'package:dna/widgets/fit_text.dart';
 import '../../theme/tokens.dart';
 
@@ -314,7 +319,7 @@ class _ChatSurfaceState extends State<ChatSurface>
     final String model = widget.controller.settings.selectedModel;
     int total = 0;
     for (final ConversationMessage m in _conversation.messages) {
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
       total += _tokenCounter.countTokens(
@@ -329,7 +334,7 @@ class _ChatSurfaceState extends State<ChatSurface>
   TA? _lastAssistantSpeaker() {
     for (int i = _conversation.messages.length - 1; i >= 0; i--) {
       final ConversationMessage message = _conversation.messages[i];
-      if (message.kind != 'message' || message.role != 'assistant') {
+      if (message.kindEnum != MessageKind.message || message.role != 'assistant') {
         continue;
       }
       final String? taId = message.speakerTaId;
@@ -393,181 +398,10 @@ class _ChatSurfaceState extends State<ChatSurface>
       showSnack(context, '没有可添加的TA了。');
       return;
     }
-    final Set<String> selected = <String>{};
-    // 「添加群成员」是一次多选任务（可能很长的名单），不是需要模态阻断的决定：
-    // 用可滚动的大 sheet + 搜索，而不是把多选列表塞进 AlertDialog（审计 3.2）。
-    // 返回语义不变：确认回传选中的 id 列表，取消/下滑关闭回传 null。
-    final List<String>? updated = await showModalBottomSheet<List<String>>(
+    final List<String>? updated = await showGroupMemberPickerSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        List<TA> visible = candidates;
-        return Theme(
-          data: _accentTheme,
-          child: StatefulBuilder(
-            builder:
-                (
-                  BuildContext sheetContext,
-                  void Function(void Function()) setSheet,
-                ) {
-                  final ThemeData theme = Theme.of(sheetContext);
-                  final ColorScheme cs = theme.colorScheme;
-                  return Padding(
-                    // 键盘避让：搜索框聚焦时整块抬到键盘上方。
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight:
-                            MediaQuery.sizeOf(sheetContext).height * 0.85,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.lg,
-                              0,
-                              AppSpacing.lg,
-                              AppSpacing.md,
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: FitText(
-                                    '添加群成员',
-                                    style: theme.textTheme.titleMedium,
-                                  ),
-                                ),
-                                if (selected.isNotEmpty)
-                                  FitText(
-                                    '已选 ${selected.length}',
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(color: cs.primary),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
-                            ),
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                hintText: '搜索名字',
-                                prefixIcon: Icon(Icons.search),
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: (String value) {
-                                final String keyword = value.trim();
-                                setSheet(() {
-                                  visible = keyword.isEmpty
-                                      ? candidates
-                                      : candidates
-                                            .where(
-                                              (TA t) =>
-                                                  t.name.contains(keyword),
-                                            )
-                                            .toList();
-                                });
-                              },
-                            ),
-                          ),
-                          AppSpacing.hMd,
-                          Flexible(
-                            child: visible.isEmpty
-                                ? Padding(
-                                    padding: const EdgeInsets.all(
-                                      AppSpacing.xl,
-                                    ),
-                                    child: Center(
-                                      child: FitText(
-                                        '没有匹配的名字',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: cs.onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    padding: EdgeInsets.zero,
-                                    itemCount: visible.length,
-                                    itemBuilder:
-                                        (
-                                          BuildContext context,
-                                          int index,
-                                        ) {
-                                          final TA ta = visible[index];
-                                          return CheckboxListTile(
-                                            value: selected.contains(
-                                              ta.id,
-                                            ),
-                                            title: FitText(
-                                              ta.name.isEmpty
-                                                  ? '未命名TA'
-                                                  : ta.name,
-                                            ),
-                                            onChanged: (bool? value) {
-                                              setSheet(() {
-                                                if (value == true) {
-                                                  selected.add(ta.id);
-                                                } else {
-                                                  selected.remove(ta.id);
-                                                }
-                                              });
-                                            },
-                                          );
-                                        },
-                                  ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              AppSpacing.lg,
-                              AppSpacing.md,
-                              AppSpacing.lg,
-                              AppSpacing.lg +
-                                  MediaQuery.viewPaddingOf(
-                                    sheetContext,
-                                  ).bottom,
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () =>
-                                        Navigator.of(sheetContext).pop(),
-                                    child: const FitText('取消'),
-                                  ),
-                                ),
-                                AppSpacing.wMd,
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: selected.isEmpty
-                                        ? null
-                                        : () => Navigator.of(
-                                            sheetContext,
-                                          ).pop(selected.toList()),
-                                    child: const FitText('添加'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-          ),
-        );
-      },
+      candidates: candidates,
+      accentTheme: _accentTheme,
     );
     if (updated == null || updated.isEmpty) {
       return;
@@ -627,119 +461,6 @@ class _ChatSurfaceState extends State<ChatSurface>
     return ta == null ? null : _avatarForTa(ta);
   }
 
-  Widget _buildSpeakerBar(
-    Color primaryContainer,
-    Color surfaceContainerHighest,
-    TextTheme textTheme,
-  ) {
-    if (!_isGroup) {
-      return const SizedBox.shrink();
-    }
-    final List<TA> tas = _memberTas;
-    if (tas.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      decoration: BoxDecoration(
-        color: surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          const FitText('发言控制'),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              // 60 而不是 56：选中态外圈描边（2 内边距 + 2 描边）会让单项
-              // 高 4px，56 时正好溢出 2px（RenderFlex overflow）。
-              height: 60,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: tas.length,
-                separatorBuilder: (_, int index) => const SizedBox(width: 8),
-                itemBuilder: (BuildContext context, int index) {
-                  final TA ta = tas[index];
-                  final bool active = ta.id == _activeTaId;
-                  final ImageProvider? avatar = _avatarForTa(ta);
-                  // 发言者选择：既是"可点的目标"也是"当前选中的一项"，
-                  // 所以要有涟漪、按钮语义与 selected 语义，且选中态不能只靠
-                  // 底色（审计 4.3「只用颜色表达状态」）。外圈描边是非颜色冗余。
-                  return Semantics(
-                    button: true,
-                    selected: active,
-                    label: ta.name.isNotEmpty ? ta.name : '未命名TA',
-                    hint: active ? '当前发言者' : '点击让它发言',
-                    child: InkWell(
-                      borderRadius: AppRadius.smAll,
-                      onTap: () => _triggerTaReply(ta),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xxs,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: active
-                                  ? BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        width: 2,
-                                      ),
-                                    )
-                                  : null,
-                              child: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: active
-                                    ? primaryContainer
-                                    : surfaceContainerHighest,
-                                foregroundImage: avatar,
-                                child: avatar == null
-                                    ? FitText(
-                                        ta.name.isNotEmpty ? ta.name[0] : '?',
-                                        style: textTheme.labelMedium,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            SizedBox(
-                              width: 56,
-                              child: FitText(
-                                ta.name.isEmpty ? '未命名' : ta.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: textTheme.labelSmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: _showMemberPicker,
-            tooltip: '添加成员',
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-          ),
-        ],
-      ),
-    );
-  }
 
   // 横向拖动只做"转发":跟手平移、下一页预览、提交还是弹回,都由外层
   // (聊天页壳)决定 —— 只有它知道"下一个角色是谁、固定在哪个会话"。
@@ -816,10 +537,17 @@ class _ChatSurfaceState extends State<ChatSurface>
                       curve: Curves.easeOutCubic,
                       child: _immersiveUiHidden
                           ? const SizedBox(width: double.infinity)
-                          : _buildSpeakerBar(
-                              colorScheme.primaryContainer,
-                              colorScheme.surfaceContainerHighest,
-                              textTheme,
+                          : SpeakerBar(
+                              showBar: _isGroup && _memberTas.isNotEmpty,
+                              members: _memberTas,
+                              activeTaId: _activeTaId,
+                              avatarFor: _avatarForTa,
+                              onSpeak: _triggerTaReply,
+                              onAddMember: _showMemberPicker,
+                              primaryContainer: colorScheme.primaryContainer,
+                              surfaceContainerHighest:
+                                  colorScheme.surfaceContainerHighest,
+                              textTheme: textTheme,
                             ),
                     ),
                   ),
@@ -1052,35 +780,10 @@ class _ChatSurfaceState extends State<ChatSurface>
                 ],
               ),
             ),
-            // 沉浸态的唯一常驻控件：可见的退出入口（原来是从无到有地蹦出来，
-            // 这里改成缩放+淡入，进出沉浸时不再"闪一下"）。
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: !_immersiveUiHidden,
-                child: AnimatedScale(
-                  scale: _immersiveUiHidden ? 1.0 : 0.8,
-                  duration: AppMotion.fast,
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedOpacity(
-                    opacity: _immersiveUiHidden ? 1.0 : 0.0,
-                    duration: AppMotion.fast,
-                    curve: Curves.easeOutCubic,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        child: IconButton.filledTonal(
-                          onPressed: _toggleImmersive,
-                          tooltip: '退出沉浸',
-                          icon: const Icon(Icons.fullscreen_exit),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // 沉浸态的唯一常驻控件：见 ImmersiveExitButton。
+            ImmersiveExitButton(
+              visible: _immersiveUiHidden,
+              onPressed: _toggleImmersive,
             ),
           ],
         ),

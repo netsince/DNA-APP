@@ -3,8 +3,8 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/models/world_card.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/load_more_list.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
 import 'package:dna/island_app/widgets/state_views.dart';

@@ -1,18 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/me_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/load_more_list.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
@@ -360,7 +362,7 @@ class _SearchPageState extends State<SearchPage>
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   /// 更新搜索结果里某条帖的 stats（就地替换控制器里的那一项）。
@@ -672,21 +674,12 @@ class _SearchPageState extends State<SearchPage>
       );
     }
     if (loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(error, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _search, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: error, onRetry: _search);
     }
-    final Widget content = empty ? Center(child: Text(emptyText)) : body();
+    final Widget content = empty ? EmptyState(title: emptyText) : body();
     if (!withSortBar) {
       return content;
     }

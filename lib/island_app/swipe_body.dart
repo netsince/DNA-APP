@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/models/ta_gender.dart';
 import 'package:dna/utils/error_display.dart';
+import 'package:dna/island_app/utils/count_format.dart';
 import '../theme/tokens.dart';
 
 /// 「刷一刷」横向翻页式角色卡浏览。
@@ -115,9 +117,7 @@ class _SwipeBodyState extends State<SwipeBody> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('刷新失败：${describeError(e)}')));
+      showSnack(context, '刷新失败：${describeError(e)}');
     }
   }
 
@@ -376,7 +376,7 @@ class _SwipeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _fmtCount(card['view_count']),
+                          formatCount(card['view_count']),
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(width: 16),
@@ -387,7 +387,7 @@ class _SwipeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _fmtCount(card['copy_count']),
+                          formatCount(card['copy_count']),
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const Spacer(),
@@ -426,10 +426,4 @@ class _SwipeCard extends StatelessWidget {
     return '';
   }
 
-  String _fmtCount(dynamic v) {
-    final n = v is num ? v.toDouble() : 0;
-    if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toStringAsFixed(0);
-  }
 }

@@ -232,6 +232,7 @@ class ChatMessageBuilder {
     String? summaryText,
     String? summaryPrefix,
     String? extraUserText,
+    String? extraSystemTail,
     bool groupPerspective = false,
     String? perspectiveTaId,
     String? Function(String? speakerTaId)? speakerNameResolver,
@@ -258,7 +259,7 @@ class ChatMessageBuilder {
       });
     }
     for (final ConversationMessage message in messages) {
-      if (message.kind != 'message') {
+      if (message.kindEnum != MessageKind.message) {
         continue;
       }
       payload.add(historyEntryFor(
@@ -282,6 +283,14 @@ class ChatMessageBuilder {
         authorNote.trim().isNotEmpty &&
         authorNoteInterval > 0) {
       payload.add(<String, dynamic>{'role': 'system', 'content': authorNote.trim()});
+    }
+    // 极少数入口（「继续说」）需要在最尾部追加一条 **system** 指令：
+    // 语义是「对模型的额外要求」，不是用户发言，所以不能走 extraUserText（那条是 user）。
+    if (extraSystemTail != null && extraSystemTail.trim().isNotEmpty) {
+      payload.add(<String, dynamic>{
+        'role': 'system',
+        'content': extraSystemTail.trim(),
+      });
     }
     if (extraUserText != null && extraUserText.trim().isNotEmpty) {
       payload.add(<String, dynamic>{'role': 'user', 'content': extraUserText.trim()});

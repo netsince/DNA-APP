@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
-import 'package:dna/widgets/fit_text.dart';
+import 'fit_text.dart';
 
 /// 策略设置的可复用行组件。
 ///
 /// 设置页的「高级」、角色卡的「对话策略」、世界卡的「叙事策略」三处共用，
 /// 保证同一个选项在三个地方的观感与操作完全一致。
+///
+/// 原先住在 `lib/pages/settings/widgets/`，但消费方已经不只是设置页
+/// （角色卡、世界卡都改设置主页面来编辑），所以 2026-11 上移到共享层。
+/// 每行自带 8dp 行底距；由父级统一控制排布的页面可传 `bottomSpacing: 0`
+/// 保持原有像素。
 
 /// 一组单选：包含「未设置」这一档。
 class StrategyEnumRow<T extends Enum> extends StatelessWidget {
@@ -16,6 +21,7 @@ class StrategyEnumRow<T extends Enum> extends StatelessWidget {
     required this.labelOf,
     required this.onChanged,
     this.title,
+    this.bottomSpacing = 8,
   });
 
   final List<T> values;
@@ -24,11 +30,14 @@ class StrategyEnumRow<T extends Enum> extends StatelessWidget {
   final ValueChanged<T?> onChanged;
   final String? title;
 
+  /// 行底间距。设置页的「高级」自己用 AppSpacing 排布，传 0 与旧实现像素一致。
+  final double bottomSpacing;
+
   @override
   Widget build(BuildContext context) {
     final TextTheme ts = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -71,18 +80,20 @@ class StrategyLevelRow extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     this.max = 5,
+    this.bottomSpacing = 8,
   });
 
   final String title;
   final int? selected;
   final ValueChanged<int?> onChanged;
   final int max;
+  final double bottomSpacing;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme ts = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -116,23 +127,28 @@ class StrategyLevelRow extends StatelessWidget {
 }
 
 /// 三态开关：未设置 / 开 / 关。
+///
+/// 用「未设置」这一档，是因为这些项的默认语义是「不写进提示词」，
+/// 简单开关没法表达「我不管这件事」。
 class StrategyTriSwitchRow extends StatelessWidget {
   const StrategyTriSwitchRow({
     super.key,
     required this.title,
     required this.value,
     required this.onChanged,
+    this.bottomSpacing = 8,
   });
 
   final String title;
   final bool? value;
   final ValueChanged<bool?> onChanged;
+  final double bottomSpacing;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme ts = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -180,6 +196,7 @@ class StrategyTextFieldRow extends StatelessWidget {
     this.hint,
     this.numeric = false,
     this.maxLines = 1,
+    this.bottomSpacing = 8,
     required this.onSubmitted,
   });
 
@@ -188,12 +205,15 @@ class StrategyTextFieldRow extends StatelessWidget {
   final String? hint;
   final bool numeric;
   final int maxLines;
-  final ValueChanged<String> onSubmitted;
+
+  /// 行与行之间的下边距。默认 8；调用方自己已经用 `AppSpacing` 排布时传 0，
+  /// 避免叠加出一段多余空白。
+  final double bottomSpacing;  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: TextField(
         controller: controller,
         keyboardType: numeric ? TextInputType.number : null,

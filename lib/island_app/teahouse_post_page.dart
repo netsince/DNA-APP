@@ -5,14 +5,16 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/utils/post_like_fav.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/wide_body.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
@@ -28,7 +30,8 @@ class TeahousePostPage extends StatefulWidget {
   State<TeahousePostPage> createState() => _TeahousePostPageState();
 }
 
-class _TeahousePostPageState extends State<TeahousePostPage> {
+class _TeahousePostPageState extends State<TeahousePostPage>
+    with PostLikeFavMixin<TeahousePostPage> {
   TeaPost? _post;
   List<TeaPost> _chain = const <TeaPost>[];
 
@@ -143,46 +146,6 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
     );
   }
 
-  Future<void> _toggleLike() async {
-    if (!_loggedIn) {
-      _snack('请先登录后再点赞');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseLike(widget.postId);
-      if (!mounted || _post == null) return;
-      setState(() {
-        _post = _post!.copyWith(
-          stats: _post!.stats.copyWith(liked: r.liked, likeCount: r.count),
-        );
-      });
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
-  }
-
-  Future<void> _toggleFavorite() async {
-    if (!_loggedIn) {
-      _snack('请先登录后再收藏');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseFavorite(widget.postId);
-      if (!mounted || _post == null) return;
-      setState(() {
-        _post = _post!.copyWith(
-          stats: _post!.stats.copyWith(
-            favorited: r.favorited,
-            replyCount: _post!.stats.replyCount,
-          ),
-        );
-      });
-      _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
-  }
-
   /// 按 id 更新回复列表里某条回复的统计。
   void _updateReply(int id, TeaPostStats Function(TeaPostStats) change) {
     final int i = _paged.items.indexWhere((TeaPost r) => r.idInt == id);
@@ -264,11 +227,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
               });
             } catch (e) {
               if (ctx.mounted) {
-                ScaffoldMessenger.of(
-                  ctx,
-                ).showSnackBar(
-                  SnackBar(content: Text('选择图片失败：${describeError(e)}')),
-                );
+                showSnack(ctx, '选择图片失败：${describeError(e)}');
               }
             } finally {
               if (ctx.mounted) setSheetState(() => pickingImage = false);
@@ -519,7 +478,29 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
+  }
+
+  @override
+  void onPostLikeResult(int postId, ({bool liked, int count}) result) {
+    final TeaPost? post = _post;
+    if (post == null) return;
+    setState(() {
+      _post = post.copyWith(
+        stats: post.stats.copyWith(liked: result.liked, likeCount: result.count),
+      );
+    });
+  }
+
+  @override
+  void onPostFavoriteResult(int postId, bool favorited) {
+    final TeaPost? post = _post;
+    if (post == null) return;
+    setState(() {
+      _post = post.copyWith(
+        stats: post.stats.copyWith(favorited: favorited, replyCount: post.stats.replyCount),
+      );
+    });
   }
 
   @override
@@ -588,8 +569,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                             onCardTap: post.card != null
                                 ? () => _openCard(post.card!.id)
                                 : null,
-                            onLike: _toggleLike,
-                            onFavorite: _toggleFavorite,
+                            onLike: () => togglePostLike(widget.postId),
+                            onFavorite: () => togglePostFavorite(widget.postId),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -602,7 +583,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                                   label: '${post.stats.likeCount}',
                                   active: post.stats.liked,
                                   activeColor: scheme.error,
-                                  onTap: _toggleLike,
+                                  onTap: () => togglePostLike(widget.postId),
                                 ),
                                 const SizedBox(width: 12),
                                 _ActionButton(
@@ -612,7 +593,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                                   label: '收藏',
                                   active: post.stats.favorited,
                                   activeColor: scheme.tertiary,
-                                  onTap: _toggleFavorite,
+                                  onTap: () => togglePostFavorite(widget.postId),
                                 ),
                               ],
                             ),

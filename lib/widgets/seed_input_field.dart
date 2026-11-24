@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:dna/utils/ui_feedback.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -104,9 +105,7 @@ class _SeedInputFieldState extends State<SeedInputField> {
         _status = '';
         _busy = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText('合成失败：$e')),
-      );
+      showSnack(context, '合成失败：$e');
     }
   }
 

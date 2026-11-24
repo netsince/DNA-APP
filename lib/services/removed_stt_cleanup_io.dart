@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:dna/services/shared_prefs.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ const List<String> _legacyKeys = <String>[
 /// 清理失败不该拦住启动。
 Future<void> cleanupRemovedSpeechInput() async {
   try {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     if (prefs.getBool(_cleanupDoneKey) == true) return;
 
     final Directory docs = await getApplicationDocumentsDirectory();

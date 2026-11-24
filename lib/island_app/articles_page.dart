@@ -5,8 +5,9 @@ import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/time_format.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/load_more_list.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/island_app/utils/async_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 
 /// 文章分页加载回调（默认走 [ApiClient.getArticles]）。
@@ -317,9 +318,14 @@ class ArticleDetailPage extends StatefulWidget {
 }
 
 class _ArticleDetailPageState extends State<ArticleDetailPage> {
-  Map<String, dynamic>? _article;
-  bool _loading = true;
-  String? _error;
+  /// 文章详情：加载中 / 成功 / 失败统一由 [AsyncController] 托管。
+  /// 三个 getter 保持原名，页面里的读取点一行没改。
+  late final AsyncController<Map<String, dynamic>> _async =
+      AsyncController<Map<String, dynamic>>(() => _loader(widget.articleId));
+
+  Map<String, dynamic>? get _article => _async.value;
+  bool get _loading => _async.isInitialLoading;
+  String? get _error => _async.error;
 
   ArticleDetailLoader get _loader =>
       widget.loader ?? ApiClient.instance.getArticleDetail;
@@ -327,28 +333,21 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   @override
   void initState() {
     super.initState();
+    // controller 变化 → 重建页面（沿用原来的 setState 习惯，不引入新的重建方式）。
+    _async.addListener(_onAsyncChanged);
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final a = await _loader(widget.articleId);
-      if (!mounted) return;
-      setState(() {
-        _article = a;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
+  void _onAsyncChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() => _async.load();
+
+  @override
+  void dispose() {
+    _async.dispose();
+    super.dispose();
   }
 
   @override
@@ -361,7 +360,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_error != null) {
       return ErrorState(onRetry: _load);

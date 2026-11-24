@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import '../widgets/form_draft.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/submit_form.dart';
@@ -85,11 +86,7 @@ class _ProxyConfigPageState extends State<ProxyConfigPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-      );
+    showSnack(context, msg, duration: const Duration(seconds: 3));
   }
 
   Future<void> _save() async {

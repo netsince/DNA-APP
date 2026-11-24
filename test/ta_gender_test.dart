@@ -70,7 +70,8 @@ void main() {
         'lib/pages/ta_showcase_page.dart',
         'lib/pages/delete_preview_builders.dart',
         'lib/pages/ta_editor/ta_editor_form.dart',
-        'lib/island_app/card_detail_page.dart',
+        // 卡片详情的展示件已拆成 part 文件（2026-11），性别标签在 widgets 那边。
+        'lib/island_app/card_detail_widgets.dart',
         'lib/island_app/widgets/card_tile.dart',
         'lib/island_app/swipe_body.dart',
       ]) {

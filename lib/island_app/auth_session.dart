@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:dna/island_app/api/client.dart';
-import 'package:dna/island_app/shared_prefs.dart';
+import 'package:dna/services/shared_prefs.dart';
 import 'package:dna/island_app/utils/login_error.dart';
 
 /// 登录会话管理：维护 JWT 与当前用户信息，负责登录 / 登出 / 启动恢复。

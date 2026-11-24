@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/widgets/form_draft.dart';
 import 'package:dna/widgets/server_address_form.dart';
 import 'package:dna/widgets/submit_form.dart';
-import '../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
 /// 服务器设置（后端地址）内容，无脚手架，由 [RootShell] 承载。
 ///
@@ -79,9 +80,7 @@ class _ServerSettingsBodyState extends State<ServerSettingsBody> {
         await ServerConfig.setBaseUrl(base);
         if (!mounted) return;
         setState(() => _draft.controller('baseUrl').text = base);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已保存服务器地址')));
+        showSnack(context, '已保存服务器地址');
       },
     );
   }

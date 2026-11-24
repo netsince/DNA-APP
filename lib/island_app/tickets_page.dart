@@ -1,18 +1,17 @@
-import 'dart:convert';
 import '../widgets/memo_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
-import 'package:dna/island_app/theme/app_dimensions.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
-import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/paged_controller.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import '../widgets/form_draft.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/submit_form.dart';
@@ -121,17 +120,12 @@ class _TicketsPageState extends State<TicketsPage> {
   /// 「你没有工单」这个错误结论，而且没有任何恢复路径。
   Widget _buildList(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_paged.error != null && _paged.items.isEmpty) {
-      return ErrorState(
-        message: _paged.error!,
-        onRetry: () => _paged.refresh(),
-      );
-    }
-    if (_paged.items.isEmpty) {
-      return Center(
+    // 五态 + 下拉刷新 + 触底加载交给 PagedListBody（原先这里手写 58 行）。
+    return PagedListBody<Map<String, dynamic>>(
+      controller: _paged,
+      padding: EdgeInsets.zero,
+      separator: (_, _) => const Divider(height: 1, indent: AppSpacing.lg),
+      empty: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -145,36 +139,9 @@ class _TicketsPageState extends State<TicketsPage> {
             Text('暂无工单', style: TextStyle(color: scheme.onSurfaceVariant)),
           ],
         ),
-      );
-    }
-    return AppRefreshIndicator(
-      onRefresh: () => _paged.refresh(),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (n) {
-          if (n.metrics.pixels >=
-              n.metrics.maxScrollExtent - kLoadMoreThreshold) {
-            _paged.loadMore();
-          }
-          return false;
-        },
-        child: ListView.separated(
-          // 行贴 surface，横向内边距交给 ListTile（16）；
-          // 行之间一根 Divider，缩进与行文字对齐。
-          padding: EdgeInsets.zero,
-          itemCount: _paged.items.length + (_paged.isLoadingMore ? 1 : 0),
-          separatorBuilder: (_, _) =>
-              const Divider(height: 1, indent: AppSpacing.lg),
-          itemBuilder: (context, index) {
-            if (index >= _paged.items.length) {
-              return const Padding(
-                padding: AppInsets.card,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            return _ticketTile(_paged.items[index]);
-          },
-        ),
       ),
+      itemBuilder: (BuildContext context, int index) =>
+          _ticketTile(_paged.items[index]),
     );
   }
 
@@ -334,12 +301,7 @@ class _NewTicketPageState extends State<NewTicketPage> {
 
   Future<void> _pickImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (!mounted) return;
       setState(() => _image = picked);
     } catch (e) {
@@ -348,28 +310,12 @@ class _NewTicketPageState extends State<NewTicketPage> {
     }
   }
 
-  String? _mimeOf(String ext) {
-    switch (ext.toLowerCase()) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-      default:
-        return 'image/png';
-    }
-  }
-
   Future<String?> _readImage() async {
     final file = _image;
     if (file == null) return null;
     try {
       final bytes = await file.readAsBytes();
-      final ext = file.name.contains('.') ? file.name.split('.').last : 'png';
-      return 'data:${_mimeOf(ext)};base64,${base64Encode(bytes)}';
+      return dataUrlFor(ext: extensionOfFileName(file.name), bytes: bytes);
     } catch (_) {
       return null;
     }
@@ -406,7 +352,7 @@ class _NewTicketPageState extends State<NewTicketPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override
@@ -566,12 +512,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   Future<void> _pickImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (!mounted) return;
       setState(() => _image = picked);
     } catch (e) {
@@ -580,28 +521,12 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     }
   }
 
-  String? _mimeOf(String ext) {
-    switch (ext.toLowerCase()) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-      default:
-        return 'image/png';
-    }
-  }
-
   Future<String?> _readImage() async {
     final file = _image;
     if (file == null) return null;
     try {
       final bytes = await file.readAsBytes();
-      final ext = file.name.contains('.') ? file.name.split('.').last : 'png';
-      return 'data:${_mimeOf(ext)};base64,${base64Encode(bytes)}';
+      return dataUrlFor(ext: extensionOfFileName(file.name), bytes: bytes);
     } catch (_) {
       return null;
     }
@@ -659,7 +584,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override

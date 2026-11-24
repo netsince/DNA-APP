@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dna/pages/settings/storage_texts_zh.dart';
 import 'package:dna/services/storage_usage_service.dart';
+import 'package:dna/pages/settings/storage_labels.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 
@@ -37,6 +39,19 @@ class _BrokenRecords implements StorageRecordsSource {
 String _ref(String shard, String ext) =>
     '$shard${List<String>.generate(64 - shard.length, (int _) => 'c').join()}'
     '.$ext';
+
+const StorageTextsZh _texts = StorageTextsZh();
+
+/// 纯函数都要措辞（文本由页面侧提供）：测试里统一注入中文实现，
+/// 这样断言仍然比对中文串，与「服务不再持有文案」互不影响。
+ConversationRecordParse? _parseConv(String raw, Map<String, String> names) =>
+    parseConversationRecord(raw, names, texts: _texts);
+
+StorageDataRecord? _charRec(String raw) =>
+    characterRecordFromJson(raw, texts: _texts);
+
+StorageDataRecord? _worldRec(String raw) =>
+    worldRecordFromJson(raw, texts: _texts);
 
 void main() {
   late Directory temp;
@@ -126,7 +141,7 @@ void main() {
     StorageRecordsSource? records,
     StorageDiskSpace? disk,
   }) {
-    return StorageUsageService(
+    return StorageUsageService(texts: const StorageTextsZh(), 
       documentsPath: () async => temp.path,
       recordsSource: records ?? _FakeRecords(const StorageRecords()),
       diskSpaceReader: (String _) async => disk,
@@ -375,7 +390,7 @@ void main() {
     });
 
     test('拿不到应用目录（Web）：不扫文件，只有记录，磁盘未知', () async {
-      final StorageUsageReport report = await StorageUsageService(
+      final StorageUsageReport report = await StorageUsageService(texts: const StorageTextsZh(), 
         documentsPath: () async => null,
         recordsSource: _FakeRecords(
           const StorageRecords(
@@ -405,7 +420,7 @@ void main() {
     test('会话标题：群聊用群名，单聊用角色名，认不出写「未命名对话」', () {
       final Map<String, String> names = <String, String>{'ta-1': '小艾'};
       final ConversationRecordParse group =
-          parseConversationRecord(
+          _parseConv(
             jsonEncode(<String, Object>{
               'isGroup': true,
               'groupName': '夜间电台',
@@ -419,7 +434,7 @@ void main() {
       expect(group.record.note, '群聊 · 1 条消息');
 
       final ConversationRecordParse solo =
-          parseConversationRecord(
+          _parseConv(
             jsonEncode(<String, Object>{
               'taId': 'ta-1',
               'messages': <Object>[],
@@ -432,7 +447,7 @@ void main() {
       expect(solo.record.name, '小艾');
       expect(solo.record.note, '0 条消息 · 1 段摘要');
 
-      final ConversationRecordParse unknown = parseConversationRecord(
+      final ConversationRecordParse unknown = _parseConv(
         '{"taId":"ta-9"}',
         names,
       )!;
@@ -441,7 +456,7 @@ void main() {
 
     test('会话里的附件能还原出原始文件名；坏 JSON 返回 null', () {
       final ConversationRecordParse parsed =
-          parseConversationRecord(
+          _parseConv(
             jsonEncode(<String, Object>{
               'taId': 'ta-1',
               'messages': <Object>[
@@ -455,20 +470,20 @@ void main() {
             <String, String>{},
           )!;
       expect(parsed.attachmentNames, <String, String>{'abc.png': '猫.png'});
-      expect(parseConversationRecord('这不是 JSON', <String, String>{}), isNull);
+      expect(_parseConv('这不是 JSON', <String, String>{}), isNull);
     });
 
     test('角色卡 / 世界卡的名称与归属 id', () {
       expect(
-        characterRecordFromJson('{"id":"ta-1","name":"小艾"}')!.name,
+        _charRec('{"id":"ta-1","name":"小艾"}')!.name,
         '小艾',
       );
       expect(
-        characterRecordFromJson('{"id":"ta-1","name":"小艾"}')!.ownerId,
+        _charRec('{"id":"ta-1","name":"小艾"}')!.ownerId,
         'ta-1',
       );
-      expect(worldRecordFromJson('{"id":"w-1"}')!.name, '未命名世界');
-      expect(characterRecordFromJson('[]'), isNull);
+      expect(_worldRec('{"id":"w-1"}')!.name, '未命名世界');
+      expect(_charRec('[]'), isNull);
     });
 
     test('从文件名解析角色 id：图片与背景音乐两种命名', () {

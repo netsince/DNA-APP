@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/world_detail_page.dart';
 import 'package:dna/island_app/utils/time_format.dart';
@@ -112,14 +113,10 @@ class _NotificationsBodyState extends State<NotificationsBody> {
           ..clear()
           ..addAll(marked);
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已全部标记为已读')));
+      showSnack(context, '已全部标记为已读');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('操作失败：${describeError(e)}')));
+        showSnack(context, '操作失败：${describeError(e)}');
       }
     } finally {
       if (mounted) setState(() => _markingAll = false);

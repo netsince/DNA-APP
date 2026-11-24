@@ -75,7 +75,9 @@ class SettingsFieldsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: FitText(entry.title)),
       body: ListenableBuilder(
-        listenable: controller,
+        // 这一页只渲染设置项，只关心设置组：以前订阅整个 controller，
+        // 聊天流每吐一个字（会话 upsert → 数据组）都会把设置页重建一次。
+        listenable: controller.settingsChanges,
         builder: (BuildContext context, Widget? _) {
           final AppSettings settings = controller.settings;
           final SettingsRuntime runtime = SettingsRuntime(

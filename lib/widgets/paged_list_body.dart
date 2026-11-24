@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../island_app/theme/app_dimensions.dart';
-import '../island_app/widgets/load_more_list.dart';
-import '../island_app/widgets/refreshable.dart';
-import '../island_app/widgets/state_views.dart';
-import '../island_app/widgets/wide_body.dart';
+import 'package:dna/theme/app_dimensions.dart';
+import 'package:dna/widgets/load_more_list.dart';
+import 'package:dna/widgets/refreshable.dart';
+import 'package:dna/widgets/wide_body.dart';
+
 import 'paged_controller.dart';
+import 'state_views.dart';
 
 /// 分页列表的**五种状态骨架**（首载 / 错误 / 空 / 列表 / 触底加载中）。
 ///
@@ -31,6 +32,7 @@ class PagedListBody<T> extends StatelessWidget {
 
   /// 空状态（调用方给文案与图标，同原来各页的写法）。
   final Widget empty;
+  /// 行间分隔线。**不传就不画线**（见 [build] 里的说明）。
   final IndexedWidgetBuilder? separator;
   final EdgeInsetsGeometry? padding;
   final WideContent? wide;
@@ -46,7 +48,11 @@ class PagedListBody<T> extends StatelessWidget {
       onRefresh: controller.refresh,
       error: controller.error,
       onRetry: controller.refresh,
-      separatorBuilder: separator,
+      // 默认**不画分隔线**：这一层不替调用方决定视觉分隔。
+      // [LoadMoreListView] 的缺省是 Divider，对 ListTile 列表合适，但对
+      // 卡片式列表就是「卡片之间多出一条线」——image_gen_failed_page 踩过。
+      // 需要线的页面显式传 Divider。
+      separatorBuilder: separator ?? (_, _) => const SizedBox.shrink(),
       padding: padding,
       wide: wide,
       empty: empty,
@@ -81,10 +87,10 @@ class PagedGridBody<T> extends StatelessWidget {
 
   Widget _buildState(BuildContext context) {
     if (controller.isLoading && controller.items.isEmpty) {
-      return const LoadingState();
+      return const AppLoadingState();
     }
     if (controller.error != null && controller.items.isEmpty) {
-      return ErrorState(
+      return AppErrorState(
         message: controller.error!,
         onRetry: controller.refresh,
       );

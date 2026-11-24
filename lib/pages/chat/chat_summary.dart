@@ -47,7 +47,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       final List<ConversationMessage> msgs = _conversation.messages;
       for (int i = summaryEnd + 1; i < msgs.length; i++) {
         final ConversationMessage m = msgs[i];
-        if (m.kind != 'message') {
+        if (m.kindEnum != MessageKind.message) {
           continue;
         }
         totalChars += m.text.length;
@@ -66,7 +66,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       role: 'system',
       text: '对话已达到摘要阈值，是否生成摘要？',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      kind: 'summary_prompt',
+      kind: MessageKind.summaryPrompt.value,
       anchorMessageId: anchorId,
     );
     _insertMessageAfter(anchorId, prompt);
@@ -93,7 +93,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       role: 'system',
       text: '已请求摘要，是否现在生成？',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      kind: 'summary_prompt',
+      kind: MessageKind.summaryPrompt.value,
       anchorMessageId: anchorId,
     );
     _insertMessageAfter(anchorId, prompt);
@@ -206,7 +206,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
     }
     final List<ConversationMessage> sourceMessages = _conversation.messages
         .sublist(summaryEnd + 1, anchorIndex + 1)
-        .where((ConversationMessage m) => m.kind == 'message')
+        .where((ConversationMessage m) => m.kindEnum == MessageKind.message)
         .toList();
     if (sourceMessages.isEmpty) {
       showSnack(context, '没有可摘要的新内容。');
@@ -293,7 +293,7 @@ mixin ChatSummaryHelpers on ChatStateMixin {
       role: 'system',
       text: '摘要已生成 · 长按查看/删除',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      kind: 'summary',
+      kind: MessageKind.summary.value,
       summaryId: summary.id,
       anchorMessageId: anchorId,
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dna/utils/ui_feedback.dart';
 
 import '../utils/action_table.dart';
 
@@ -65,9 +66,7 @@ class _DialogueStylePageState extends State<DialogueStylePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: FitText(_errorText(e))),
-      );
+      showSnack(context, _errorText(e));
       return;
     }
     if (!mounted) return;

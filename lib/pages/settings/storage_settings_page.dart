@@ -6,10 +6,10 @@ import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_section.dart';
 import 'package:dna/widgets/state_views.dart';
 
-import '../../models/conversation.dart';
-import '../../models/message_attachment.dart';
 import '../../services/attachment_gc.dart';
 import '../../services/storage_usage_service.dart';
+import 'storage_labels.dart';
+import 'storage_texts_zh.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
 
@@ -45,7 +45,8 @@ class StorageSettingsPage extends StatefulWidget {
 
 class _StorageSettingsPageState extends State<StorageSettingsPage> {
   late final StorageUsageService _service =
-      widget.service ?? StorageUsageService();
+      widget.service ??
+      StorageUsageService(texts: const StorageTextsZh());
 
   StorageUsageReport? _report;
   String? _error;
@@ -69,14 +70,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     final AppController? controller = widget.controller;
     if (controller == null) return;
     try {
-      final Set<String> liveRefs = <String>{};
-      for (final Conversation c in controller.allConversations) {
-        for (final ConversationMessage m in c.messages) {
-          for (final MessageAttachment a in m.attachments) {
-            liveRefs.add(a.ref);
-          }
-        }
-      }
+      final Set<String> liveRefs = liveAttachmentRefs(
+        controller.allConversations,
+      );
       final List<String> orphans = await AttachmentGc.findOrphans(
         liveRefs: liveRefs,
       );
@@ -120,14 +116,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     if (controller == null) return;
     setState(() => _cleaning = true);
     try {
-      final Set<String> liveRefs = <String>{};
-      for (final Conversation c in controller.allConversations) {
-        for (final ConversationMessage m in c.messages) {
-          for (final MessageAttachment a in m.attachments) {
-            liveRefs.add(a.ref);
-          }
-        }
-      }
+      final Set<String> liveRefs = liveAttachmentRefs(
+        controller.allConversations,
+      );
       final AttachmentGcResult result = await AttachmentGc.collect(
         liveRefs: liveRefs,
       );

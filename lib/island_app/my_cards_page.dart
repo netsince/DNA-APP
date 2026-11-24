@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/card_payload.dart';
 import 'package:dna/island_app/card_publish_start_page.dart';
@@ -149,7 +150,7 @@ class _MyCardsPageState extends State<MyCardsPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override

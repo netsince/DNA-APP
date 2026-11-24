@@ -20,6 +20,7 @@ import 'delete_preview_builders.dart';
 import 'group_create_page.dart';
 import 'group_edit_page.dart';
 import 'package:dna/widgets/fit_text.dart';
+import 'package:dna/utils/ui_feedback.dart';
 
 /// 群聊栏目装配。
 SectionPageData groupHomeSection(AppController controller) {
@@ -88,7 +89,7 @@ class GroupListBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge(<Listenable>[controller.dataChanges, controller.settingsChanges]),
       builder: (BuildContext context, Widget? _) {
         final List<Conversation> visible = controller.groupConversations
             .where((Conversation c) => c.archived == showArchived)
@@ -203,11 +204,7 @@ class _GroupItem extends StatelessWidget {
                         await controller.duplicateConversation(group.id);
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: FitText('复制群聊失败：${describeError(e)}'),
-                            ),
-                          );
+                          showSnack(context, '复制群聊失败：${describeError(e)}');
                         }
                       }
                     },

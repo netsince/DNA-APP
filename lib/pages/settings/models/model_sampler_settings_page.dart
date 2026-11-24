@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/theme/tokens.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/widgets/app_content_frame.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_collapsible.dart';
@@ -110,12 +111,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
       _repetitionPenalty = rep;
       _repetitionPenaltySlope = slope;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: FitText('已应用预设参数'),
-        duration: Duration(milliseconds: 1500),
-      ),
-    );
+    showSnack(context, '已应用预设参数', duration: Duration(milliseconds: 1500));
   }
 
   void _resetToDefault() {
@@ -131,12 +127,7 @@ class _ModelSamplerSettingsPageState extends State<ModelSamplerSettingsPage> {
       _maxContextMessages = _defaultMaxContextMessages;
       _maxContextTokens = _defaultMaxContextTokens;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: FitText('已恢复默认参数'),
-        duration: Duration(milliseconds: 1500),
-      ),
-    );
+    showSnack(context, '已恢复默认参数', duration: Duration(milliseconds: 1500));
   }
 
   void _saveAndExit() {

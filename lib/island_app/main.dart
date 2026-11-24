@@ -5,10 +5,10 @@ import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/root_shell.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/server_setup_page.dart';
-import 'package:dna/island_app/shared_prefs.dart';
+import 'package:dna/services/shared_prefs.dart';
 import 'package:dna/island_app/shutdown_page.dart';
 import 'package:dna/island_app/site_config.dart';
-import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 

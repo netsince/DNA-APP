@@ -7,6 +7,10 @@ class ChatController {
 
   final ScrollController scrollController;
 
+  /// 滚到列表底部。
+  ///
+  /// **内部已经排到下一帧**（`addPostFrameCallback`），调用方不要再包一层——
+  /// 以前三处调用点各包了一遍，等于连排两帧才滚，表现为「发完消息先顿一下再滚」。
   void scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!scrollController.hasClients) {
@@ -28,7 +32,7 @@ class ChatController {
     final List<int> matches = <int>[];
     for (int i = 0; i < conversation.messages.length; i++) {
       final String text = conversation.messages[i].text;
-      if (conversation.messages[i].kind == 'message' &&
+      if (conversation.messages[i].kindEnum == MessageKind.message &&
           text.toLowerCase().contains(lowerQuery)) {
         matches.add(i);
       }

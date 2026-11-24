@@ -3,9 +3,9 @@ import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import '../theme/tokens.dart';
 
 /// 我的处罚加载回调（默认走 [ApiClient.getPunishments]）。

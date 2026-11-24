@@ -1,5 +1,11 @@
 part of '../chat_surface.dart';
 
+/// 「继续说」追加在请求最尾部的 system 指令。
+///
+/// 必须是 system 而不是 user：它是对模型的额外要求，不是用户发言；
+/// 尾随位置也不能变（KV cache 的公共前缀依赖历史之后才出现动态内容）。
+const String _kContinueInstruction = '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。';
+
 mixin ChatActionsSend on ChatStateMixin {
   Future<bool> _streamAssistantResponse({
     required List<Map<String, dynamic>> payload,
@@ -78,7 +84,7 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     final StringBuffer sb = StringBuffer();
     for (final ConversationMessage m in messages) {
-      if (m.kind != 'message') {
+      if (m.kindEnum != MessageKind.message) {
         continue;
       }
       final String t = stripThoughtTags(m.text).trim();
@@ -152,6 +158,109 @@ mixin ChatActionsSend on ChatStateMixin {
     _send();
   }
 
+  /// 把当前会话装配成一次 LLM 请求的 payload。
+  ///
+  /// 「发送 / 重说候选 / 群聊点名」三个入口原本各抄一遍这 35 行（连注释都一样），
+  /// 只差切片边界：[endExclusive] 切到某条之前，[excludeIds] 排除刚插入的占位消息。
+  /// 汇总到一处：摘要插入、视觉读图、群聊视角、作者注、lore 这些参数少传一个，
+  /// 就是「某个入口的请求和别人不一样」，而这种不一致很难被测试发现。
+  Future<List<Map<String, dynamic>>> _assembleRequestPayload({
+    required TA ta,
+    int? endExclusive,
+    Set<String>? excludeIds,
+    String? systemTail,
+  }) async {
+    final ConversationSummary? latestSummary =
+        ChatMessageSlice.latestSummary(_conversation);
+    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
+      _conversation,
+      endExclusive: endExclusive,
+      excludeIds: excludeIds,
+      maxMessages: widget.controller.settings.maxContextMessages,
+      maxTokens: widget.controller.settings.maxContextTokens,
+      tokenCounter: _tokenCounter,
+      tokenModel: widget.controller.settings.selectedModel,
+      summaryText: latestSummary?.text,
+    );
+    final ConversationSummary? summary =
+        slice.includeSummary ? latestSummary : null;
+    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
+    // 塞进请求体全是白费，还可能把请求撑大。
+    final Map<String, String> imageDataUrls =
+        resolveVisionSupport(widget.controller.activeModel)
+            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
+            : const <String, String>{};
+    return ChatMessageBuilder.buildMessagesFrom(
+      systemPrompt: ChatSystemPrompt.build(
+        ta: ta,
+        world: _world,
+        groupPrompt: _conversation.groupPrompt,
+        strategy: widget.controller.settings.promptStrategy,
+        identity: widget.controller.getIdentityById(_conversation.identityId),
+        groupMembers: _isGroup ? _memberTas : null,
+      ),
+      messages: slice.messages,
+      summaryText: summary?.text,
+      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
+      groupPerspective: _isGroup,
+      perspectiveTaId: ta.id,
+      speakerNameResolver: _speakerNameFor,
+      authorNote: _effectiveAuthorNote(ta),
+      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
+      loreText: _loreTextFor(slice.messages),
+      imageDataUrls: imageDataUrls,
+      extraSystemTail: systemTail,
+    );
+  }
+
+  /// 发起一轮助手生成：插占位消息 → 落库 → 刷新 → 滚到底，返回占位 id 与消息。
+  ///
+  /// [group] **必须由调用方显式给**，不要用 `_isGroup` 猜：单聊走
+  /// `upsertConversation`，群聊必须走 `upsertGroupConversation` —— 写错会让
+  /// 群聊在会话列表里「消失」（这个坑注释里踩过一次）。
+  Future<({String id, ConversationMessage message})> _beginAssistantTurn(
+    TA ta, {
+    required bool group,
+  }) async {
+    final String assistantId = newId();
+    final ConversationMessage assistantMessage = ConversationMessage(
+      id: assistantId,
+      role: 'assistant',
+      text: '',
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      speakerTaId: ta.id,
+    );
+    _conversation = _conversation.copyWith(
+      messages: <ConversationMessage>[
+        ..._conversation.messages,
+        assistantMessage,
+      ],
+      activeTaId: ta.id,
+    );
+    if (group) {
+      await widget.controller.upsertGroupConversation(_conversation);
+    } else {
+      await widget.controller.upsertConversation(_conversation);
+    }
+    if (mounted) {
+      setState(() {});
+      _scrollToBottom();
+    }
+    return (id: assistantId, message: assistantMessage);
+  }
+
+  /// 一轮助手生成的收尾：只有真的流过才复位 `_sending` 并尝试摘要提示。
+  ///
+  /// [streamed] 为 false 时什么都不做：`_streamAssistantResponse` 在失败分支里
+  /// 已经自己把 `_sending` 复位了，这里再复位反而会掩盖错误路径。
+  Future<void> _endAssistantTurn({required bool streamed}) async {
+    if (!streamed) {
+      return;
+    }
+    setState(() => _sending = false);
+    await _maybePromptSummary();
+  }
+
   Future<void> _send() async {
     String text = _inputController.text.trim();
     // 附件也能单独发：只带文件、不写字是合法输入。
@@ -221,70 +330,19 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: false);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta);
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 
   // ignore: unused_element
@@ -293,7 +351,7 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
     if (lastAssistantIndex == -1) {
       return;
@@ -306,97 +364,24 @@ mixin ChatActionsSend on ChatStateMixin {
       return;
     }
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: false);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      excludeIds: <String>{assistantId},
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final List<Map<String, dynamic>> payload = <Map<String, String>>[];
-    final String sys = ChatSystemPrompt.build(
+    // 与「发送 / 重说候选」走同一个装配入口：摘要前缀、视觉读图、群聊视角、
+    // 作者注、lore 一律由它负责；唯一多出来的是一条**尾随 system 指令**。
+    final List<Map<String, dynamic>> payload = await _assembleRequestPayload(
       ta: ta,
-      world: _world,
-      groupPrompt: _conversation.groupPrompt,
-      strategy: widget.controller.settings.promptStrategy,
-      identity: widget.controller.getIdentityById(_conversation.identityId),
-      groupMembers: _isGroup ? _memberTas : null,
+      excludeIds: <String>{turn.id},
+      systemTail: _kContinueInstruction,
     );
-    if (sys.isNotEmpty) {
-      payload.add(<String, String>{'role': 'system', 'content': sys});
-    }
-    if (slice.includeSummary &&
-        latestSummary != null &&
-        latestSummary.text.trim().isNotEmpty) {
-      payload.add(<String, String>{
-        'role': 'system',
-        'content': '对话摘要：\n${latestSummary.text.trim()}',
-      });
-    }
-    // 历史（追加式，保持前缀稳定）。群聊走角色通道映射(v2)。
-    for (final ConversationMessage m in slice.messages) {
-      if (m.kind != 'message') {
-        continue;
-      }
-      payload.add(ChatMessageBuilder.historyEntryFor(
-        message: m,
-        groupPerspective: _isGroup,
-        perspectiveTaId: ta.id,
-        speakerNameResolver: _speakerNameFor,
-      ));
-    }
-    if (_isGroup) {
-      ChatMessageBuilder.mergeAdjacentSameRole(payload);
-    }
-    // 动态尾部：Lorebook 激活词条。
-    final Map<String, dynamic>? lore = ChatMessageBuilder.loreSystemMessage(
-      _loreTextFor(slice.messages),
-    );
-    if (lore != null) {
-      payload.add(lore);
-    }
-    // 动态尾部：作者注释 Author's Note（固定位置，不深度注入）。
-    final String? authorNote = _effectiveAuthorNote(ta);
-    if (authorNote != null &&
-        authorNote.trim().isNotEmpty &&
-        _effectiveAuthorNoteInterval(ta) > 0) {
-      payload.add(<String, String>{'role': 'system', 'content': authorNote.trim()});
-    }
-    payload.add(<String, String>{
-      'role': 'system',
-      'content': '请继续上一条助手回复，延续语气，不要重复已说内容，不要引入新话题。',
-    });
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 
   // ignore: unused_element
@@ -444,105 +429,21 @@ mixin ChatActionsSend on ChatStateMixin {
     if (ta == null) {
       return <String>[];
     }
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      endExclusive: index,
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta, endExclusive: index);
     // 群聊输出防线:剥掉模型自带「自己名字：」前缀(全/半角冒号),
     // 避免候选文本入库后与历史前缀叠成「名字：名字：」。
-    final List<String> candidates = widget.controller.settings.retrySequential
-        ? await _generateRetriesSequential(payload)
-        : await _generateRetries(payload);
+    final List<String> candidates = await generateChatCandidates(
+      controller: widget.controller,
+      payload: payload,
+      sequential: widget.controller.settings.retrySequential,
+    );
     return candidates
         .map((String c) => ChatMessageBuilder.stripOwnSpeakerPrefix(c, ta.name))
         .where((String c) => c.trim().isNotEmpty)
         .toList();
   }
 
-  /// 并发生成一批「重说」候选(默认 3 条),不涉及任何 UI。
-  /// 请求间加入错峰延迟,降低同时并发触发限流的概率。
-  Future<List<String>> _generateRetries(
-    List<Map<String, dynamic>> payload,
-  ) async {
-    try {
-      final List<Future<String?>> tasks =
-          List<Future<String?>>.generate(3, (int i) async {
-        if (i > 0) {
-          await Future<void>.delayed(Duration(milliseconds: 300 * i));
-        }
-        final ChatCompletionResult result =
-            await widget.controller.llmProvider.createChatCompletion(
-          widget.controller.buildLlmRequest(messages: payload),
-        );
-        if (!result.success || result.content == null) {
-          return null;
-        }
-        return result.content!;
-      });
-      final List<String?> settled = await Future.wait(tasks);
-      return settled
-          .whereType<String>()
-          .where((String s) => s.trim().isNotEmpty)
-          .toList();
-    } catch (_) {
-      return <String>[];
-    }
-  }
-
-  Future<List<String>> _generateRetriesSequential(
-    List<Map<String, dynamic>> payload,
-  ) async {
-    final List<String> results = <String>[];
-    for (int i = 0; i < 3; i++) {
-      try {
-        final ChatCompletionResult result =
-            await widget.controller.llmProvider.createChatCompletion(
-          widget.controller.buildLlmRequest(messages: payload),
-        );
-        if (result.success &&
-            result.content != null &&
-            result.content!.trim().isNotEmpty) {
-          results.add(result.content!);
-        }
-      } catch (_) {
-        // Ignore.
-      }
-    }
-    return results;
-  }
 
   Future<void> _triggerTaReply(TA ta) async {
     if (_sending) {
@@ -553,70 +454,18 @@ mixin ChatActionsSend on ChatStateMixin {
     }
     await _setActiveTa(ta.id);
     setState(() => _sending = true);
-    final String assistantId = newId();
-    ConversationMessage assistantMessage = ConversationMessage(
-      id: assistantId,
-      role: 'assistant',
-      text: '',
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      speakerTaId: ta.id,
-    );
-    _conversation = _conversation.copyWith(
-      messages: <ConversationMessage>[..._conversation.messages, assistantMessage],
-      activeTaId: ta.id,
-    );
-    await widget.controller.upsertGroupConversation(_conversation);
+    final ({String id, ConversationMessage message}) turn =
+        await _beginAssistantTurn(ta, group: true);
     if (!mounted) {
       return;
     }
-    setState(() {});
-    _scrollToBottom();
-    final ConversationSummary? latestSummary = ChatMessageSlice.latestSummary(_conversation);
-    final MessageSlice slice = ChatMessageSlice.sliceForPayload(
-      _conversation,
-      excludeIds: <String>{assistantId},
-      maxMessages: widget.controller.settings.maxContextMessages,
-      maxTokens: widget.controller.settings.maxContextTokens,
-      tokenCounter: _tokenCounter,
-      tokenModel: widget.controller.settings.selectedModel,
-      summaryText: latestSummary?.text,
-    );
-    final ConversationSummary? summary = slice.includeSummary ? latestSummary : null;
-    // 图片数据只在模型确实支持视觉时才读：不支持时读盘、base64 编码、
-    // 塞进请求体全是白费，还可能把请求撑大。
-    final Map<String, String> imageDataUrls =
-        resolveVisionSupport(widget.controller.activeModel)
-            ? await AttachmentImageLoader.instance.collectFor(slice.messages)
-            : const <String, String>{};
-    final List<Map<String, dynamic>> payload = ChatMessageBuilder.buildMessagesFrom(
-      systemPrompt: ChatSystemPrompt.build(
-        ta: ta,
-        world: _world,
-        groupPrompt: _conversation.groupPrompt,
-        strategy: widget.controller.settings.promptStrategy,
-        identity: widget.controller.getIdentityById(_conversation.identityId),
-        groupMembers: _isGroup ? _memberTas : null,
-      ),
-      messages: slice.messages,
-      summaryText: summary?.text,
-      summaryPrefix: ChatMessageBuilder.summarySystemPrefix,
-      groupPerspective: _isGroup,
-      perspectiveTaId: ta.id,
-      speakerNameResolver: _speakerNameFor,
-      authorNote: _effectiveAuthorNote(ta),
-      authorNoteInterval: _effectiveAuthorNoteInterval(ta),
-      loreText: _loreTextFor(slice.messages),
-      imageDataUrls: imageDataUrls,
-    );
+    final List<Map<String, dynamic>> payload =
+        await _assembleRequestPayload(ta: ta, excludeIds: <String>{turn.id});
     final bool streamed = await _streamAssistantResponse(
       payload: payload,
-      assistantId: assistantId,
-      assistantMessage: assistantMessage,
+      assistantId: turn.id,
+      assistantMessage: turn.message,
     );
-    if (!streamed) {
-      return;
-    }
-    setState(() => _sending = false);
-    await _maybePromptSummary();
+    await _endAssistantTurn(streamed: streamed);
   }
 }

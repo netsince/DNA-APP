@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:dna/services/shared_prefs.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
-import '../models/app_settings_patch.dart';
 import '../models/conversation.dart';
 import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
@@ -29,6 +29,11 @@ import '../services/zhipu_service.dart';
 import '../services/deepseek_service.dart';
 import '../services/llm_provider.dart';
 import '../services/llm_request.dart';
+import 'identity_store.dart';
+import 'conversation_store.dart';
+import 'settings_store.dart';
+import 'ta_store.dart';
+import 'world_store.dart';
 
 import '../services/settings_service.dart';
 import '../services/app_icon_service.dart';
@@ -40,11 +45,74 @@ import '../services/data_backup_service.dart';
 import '../services/ta_export_import_service.dart';
 import '../services/conversation_export_import_service.dart';
 import '../services/world_export_import_service.dart';
-import '../island_app/widgets/card_crop_page.dart' show FreeImageCrop;
+import 'package:dna/widgets/card_crop_page.dart' show FreeImageCrop;
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 
+/// 一次状态变更落到哪几组监听方 —— [AppController._notify] 的唯一入参。
+///
+/// 以前只有一种通知：`notifyListeners()` 全量广播。60 处写入口全量一发，
+/// 结果是「聊天流每吐一个字，设置页和首页也跟着重建」。分组之后，
+/// 每个监听方可以只订阅自己关心的那一组。
+enum AppChange {
+  /// 设置 / 模型配置 / TTS / 外观。
+  settings,
+  /// 角色卡 / 身份 / 世界 / 会话（列表数据）。
+  data,
+  /// 聊天运行期（当前会话内容被批量改写：导入提交、附件恢复）。
+  chat,
+
+  /// 批量改写会话内容 —— 既是聊天运行期变更，也改了数据（列表要跟着刷新）。
+  chatAndData,
+  /// 全都通知（启动、清空数据这类全局动作）。
+  all;
+
+  bool get affectsSettings => this == settings || this == all;
+  bool get affectsData =>
+      this == data || this == chatAndData || this == all;
+  bool get affectsChat => this == chat || this == chatAndData || this == all;
+}
+
+/// 可分组通知的 ChangeNotifier（`notifyListeners` 是 protected，包一层）。
+class _GroupNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
 class AppController extends ChangeNotifier {
+  final _GroupNotifier _settingsGroup = _GroupNotifier();
+  final _GroupNotifier _dataGroup = _GroupNotifier();
+  final _GroupNotifier _chatGroup = _GroupNotifier();
+
+  /// 只关心设置变化的监听方订阅它（设置页、外观预览）。
+  Listenable get settingsChanges => _settingsGroup;
+
+  /// 只关心列表数据变化的监听方订阅它（首页、我的、世界页）。
+  Listenable get dataChanges => _dataGroup;
+
+  /// 只关心聊天运行期变化的监听方订阅它。
+  Listenable get chatChanges => _chatGroup;
+
+  /// 唯一通知出口：只发受到影响的那几组。
+  ///
+  /// **不再发整体通知**：全应用的监听方已逐个迁到分组订阅（动画/监听点
+  /// 全仓已无 `animation: controller` / `listenable: controller` /
+  /// `controller.addListener`）。留一个「都通知」的口子等于让分组白做。
+  ///
+  /// 新增监听方时**必须**订阅具体分组：订阅错组不会崩，只会白重建或页面
+  /// 不刷新（`app_change_groups_test` 锁着这条）。
+  void _notify(AppChange change) {
+    if (change.affectsSettings) _settingsGroup.notify();
+    if (change.affectsData) _dataGroup.notify();
+    if (change.affectsChat) _chatGroup.notify();
+  }
+
+  @override
+  void dispose() {
+    _settingsGroup.dispose();
+    _dataGroup.dispose();
+    _chatGroup.dispose();
+    super.dispose();
+  }
   AppController({
     required SettingsService settingsService,
     required OpenAiService openAiService,
@@ -65,23 +133,60 @@ class AppController extends ChangeNotifier {
     // 「自由剪图」开关：把裁剪层（含内嵌社区）的读取回调指向本控制器的当前设置。
     // 只绑一次、不存副本，所以设置一变裁剪层立刻跟着变（见 FreeImageCrop 的说明）。
     FreeImageCrop.bind(() => _settings.freeImageCrop);
+    // 世界卡这一域已拆到 WorldStore（见 lib/state/world_store.dart）。
+    // 通知仍由本控制器统一发：store 只喊「我变了」，分组归属在这里决定。
+    _worldStore = WorldStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
+    _taStore = TaStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
+    _identityStore = IdentityStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
+    _convStore = ConversationStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
+    _settingsStore = SettingsStore(
+      service: _settingsService,
+      onChanged: () => _notify(AppChange.settings),
+    );
   }
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
   final HiveService _hiveService;
 
+  /// 世界卡域（拆出 [AppController] 的第一块状态）。
+  late final WorldStore _worldStore;
+
+  /// 角色卡域（拆出 [AppController] 的第二块状态）。
+  late final TaStore _taStore;
+
+  /// 身份域（第三块）。
+  late final IdentityStore _identityStore;
+
+  /// 会话域（第四块）：单聊 + 群聊两个列表，连同它们的保护规则。
+  late final ConversationStore _convStore;
+
+  /// 设置域（第五块）。
+  late final SettingsStore _settingsStore;
+
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
   final LlmProviderRegistry _providerRegistry;
 
-  AppSettings _settings = AppSettings.empty();
-  List<TA> _tas = <TA>[];
-  List<UserIdentity> _identities = <UserIdentity>[];
-  List<World> _worlds = <World>[];
-  List<Conversation> _conversations = <Conversation>[];
-  List<Conversation> _groupConversations = <Conversation>[];
+  /// 设置域（第五块）：值、加载、落盘都在 SettingsStore 里。
+  ///
+  /// 下面这对私有 getter/setter 是**兼容壳**：控制器里 43 处 `_settings = ...`
+  /// 与 69 处 `_settings.xxx` 不需要改，改动只落在 store 里。
+  AppSettings get _settings => _settingsStore.value;
+  set _settings(AppSettings next) => _settingsStore.replace(next);
 
-  AppSettings get settings => _settings;
+  AppSettings get settings => _settingsStore.value;
   OpenAiService get openAiService => _openAiService;
 
   /// 当前是否启用 DeepSeek 思考模式（仅 DeepSeek 服务商返回非空）。
@@ -172,32 +277,28 @@ class AppController extends ChangeNotifier {
   /// 所有已注册的 Provider，供设置页 / OOBE 构建厂商选择列表。
   List<LlmProvider> get llmProviders => _providerRegistry.providers;
 
-  List<TA> get tas => _tas;
-  List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
-  List<UserIdentity> get identities => List<UserIdentity>.unmodifiable(_identities);
-  List<World> get worlds => List<World>.unmodifiable(_worlds);
-  List<World> get activeWorlds => _worlds.where((World w) => !w.archived).toList();
-  List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
-  List<Conversation> get activeConversations => _conversations.where((Conversation c) => !c.archived).toList();
-  List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
-  List<Conversation> get activeGroupConversations => _groupConversations.where((Conversation c) => !c.archived).toList();
+  List<TA> get tas => _taStore.items;
+  List<TA> get activeTas => _taStore.activeItems;
+  List<UserIdentity> get identities => _identityStore.items;
+  List<World> get worlds => _worldStore.items;
+  List<World> get activeWorlds => _worldStore.activeItems;
+  List<Conversation> get conversations => List<Conversation>.unmodifiable(_convStore.items);
+  List<Conversation> get activeConversations => _convStore.items.where((Conversation c) => !c.archived).toList();
+  List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_convStore.groups);
+  List<Conversation> get activeGroupConversations => _convStore.groups.where((Conversation c) => !c.archived).toList();
 
   /// 角色 ID -> 角色 映射（用于导出时解析说话人 / 内嵌角色卡）
   Map<String, TA> get tasById {
-    final Map<String, TA> map = <String, TA>{};
-    for (final TA ta in _tas) {
-      map[ta.id] = ta;
-    }
-    return map;
+    return _taStore.byIdMap;
   }
 
   /// 全部对话（单聊 + 群聊）
   List<Conversation> get allConversations =>
-      <Conversation>[..._conversations, ..._groupConversations];
+      <Conversation>[..._convStore.items, ..._convStore.groups];
 
   Future<void> initialize() async {
     await _hiveService.init();
-    _settings = await _settingsService.load();
+    await _settingsStore.load();
     // 升级清理：旧版本装的离线语音模型（文档目录下几百 MB）与设置键已无人使用，
     // 首启后台删一次；跑过就只是一次字典查找，不挡启动。
     unawaited(cleanupRemovedSpeechInput());
@@ -238,16 +339,27 @@ class AppController extends ChangeNotifier {
       _hiveService.getWorlds(),
       _hiveService.getConversations(),
     ]);
-    _tas = loaded[0] as List<TA>;
-    _identities = loaded[1] as List<UserIdentity>;
-    _worlds = loaded[2] as List<World>;
+    _taStore.replaceAll(loaded[0] as List<TA>);
+    _identityStore.replaceAll(loaded[1] as List<UserIdentity>);
+    _worldStore.replaceAll(loaded[2] as List<World>);
     final allConversations = loaded[3] as List<Conversation>;
-    _conversations = allConversations.where((c) => !c.isGroup).toList();
-    _groupConversations = allConversations.where((c) => c.isGroup).toList();
-    notifyListeners();
+    _convStore.replaceAll(
+      singles: allConversations.where((c) => !c.isGroup).toList(),
+      groups: allConversations.where((c) => c.isGroup).toList(),
+    );
+    _notify(AppChange.all);
   }
 
-  /// 同步激活模型和服务商至顶层 settings 遗留字段，以保证下游聊天服务透明适配。
+  /// 同步激活模型 / 服务商的**身份字段**到顶层 settings 遗留投影。
+  ///
+  /// 只同步「用哪个服务商 / 哪个模型」这类身份信息（provider / baseUrl /
+  /// apiKey / selectedModel 与两个 deepseek 开关）。
+  ///
+  /// **采样参数（temperature / topP / topK / minP / 两个 penalty / slope /
+  /// frequencyPenalty）刻意不在这里回写。** 它们由 [buildLlmRequest] 在请求
+  /// 时按「模型自定义覆盖全局」解析；一旦回写，模型卡的自定义值就会**覆盖掉
+  /// 用户设置的全局值**，之后所有未开自定义采样的模型都会用被覆盖后的值，
+  /// 且没有任何提示或回滚路径（审计 F-4 实测复现）。
   void _syncActiveModelToLegacyFields() {
     final p = activeProviderConfig;
     final m = activeModel;
@@ -256,34 +368,7 @@ class AppController extends ChangeNotifier {
       baseUrl: p.baseUrl,
       apiKey: p.apiKey,
       selectedModel: m.modelName,
-      temperature: m.customSamplingEnabled && m.temperature != null
-          ? m.temperature
-          : _settings.temperature,
-      frequencyPenalty:
-          m.customSamplingEnabled && m.frequencyPenalty != null
-              ? m.frequencyPenalty
-              : _settings.frequencyPenalty,
-      presencePenalty:
-          m.customSamplingEnabled && m.presencePenalty != null
-              ? m.presencePenalty
-              : _settings.presencePenalty,
-      topP: m.customSamplingEnabled && m.topP != null
-          ? m.topP
-          : _settings.topP,
-      topK: m.customSamplingEnabled && m.topK != null
-          ? m.topK
-          : _settings.topK,
-      minP: m.customSamplingEnabled && m.minP != null
-          ? m.minP
-          : _settings.minP,
-      repetitionPenalty:
-          m.customSamplingEnabled && m.repetitionPenalty != null
-              ? m.repetitionPenalty
-              : _settings.repetitionPenalty,
-      repetitionPenaltySlope:
-          m.customSamplingEnabled && m.repetitionPenaltySlope != null
-              ? m.repetitionPenaltySlope
-              : _settings.repetitionPenaltySlope,
+
       deepseekThinkingEnabled: m.deepseekThinkingEnabled ?? _settings.deepseekThinkingEnabled,
       deepseekThinkingEffort: m.deepseekThinkingEffort ?? _settings.deepseekThinkingEffort,
     );
@@ -293,8 +378,8 @@ class AppController extends ChangeNotifier {
   Future<void> toggleSimpleModelMode(bool enabled) async {
     _settings = _settings.copyWith(simpleModelMode: enabled);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 切换当前激活生效的模型。
@@ -302,8 +387,8 @@ class AppController extends ChangeNotifier {
     if (!_settings.models.any((m) => m.id == modelId)) return;
     _settings = _settings.copyWith(activeModelId: modelId);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存服务商配置（新增或编辑）。
@@ -317,8 +402,8 @@ class AppController extends ChangeNotifier {
     }
     _settings = _settings.copyWith(providers: list);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 删除服务商配置（级联删除归属于该服务商的所有模型）。默认项不可删除。
@@ -340,8 +425,8 @@ class AppController extends ChangeNotifier {
       activeModelId: activeId,
     );
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存模型配置（新增或编辑）。
@@ -355,8 +440,8 @@ class AppController extends ChangeNotifier {
     }
     _settings = _settings.copyWith(models: list);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 删除模型配置。默认项不可删除。
@@ -375,8 +460,8 @@ class AppController extends ChangeNotifier {
       activeModelId: activeId,
     );
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   Future<void> saveApiConfig({
@@ -397,8 +482,8 @@ class AppController extends ChangeNotifier {
       );
       _settings = _settings.copyWith(providers: list);
     }
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 切换当前使用的大模型厂商。
@@ -411,8 +496,8 @@ class AppController extends ChangeNotifier {
       list[defIdx] = list[defIdx].copyWith(providerType: provider.trim());
       _settings = _settings.copyWith(providers: list);
     }
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// **配置驱动设置页的唯一写入口。**
@@ -426,16 +511,18 @@ class AppController extends ChangeNotifier {
   /// 需要副作用（重建主题、初始化 TTS、切换模型…）的设置项，在声明里挂
   /// writeOverride，不要往这里塞 if。
   Future<void> patchSettings(String key, Object? value) async {
-    _settings = applySettingsPatch(_settings, key, value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    // 算新状态、只落这一个键、通知设置组 —— 全在 SettingsStore.patch 里。
+    // 落盘取的是**改完之后**的值，所以复合对象（模型列表等）不会写成旧值。
+    await _settingsStore.patch(key, value);
   }
 
-  /// 保存并应用主题模式（'system' / 'light' / 'dark'）。
-  Future<void> saveThemeMode(String themeMode) async {
-    _settings = _settings.copyWith(themeMode: themeMode.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
+  /// 应用「提示条停留时长」：写设置并**立刻生效**。
+  ///
+  /// 这是 `snackDurationMs` 唯一的可达入口。以前只有已删除的死 setter 能改它，
+  /// 结果是这一项存得进 prefs、也在启动时被读，用户却永远改不动（审计 F-11/F-3）。
+  Future<void> applySnackDuration(int milliseconds) async {
+    await patchSettings('snackDurationMs', milliseconds);
+    setSnackDuration(Duration(milliseconds: milliseconds));
   }
 
   /// 保存字体模式（'system' 跟随系统 / 'sourcehan' 内置思源黑体）。
@@ -444,33 +531,23 @@ class AppController extends ChangeNotifier {
   /// 之后整棵树立刻换字体，无需重启。
   Future<void> saveFontFamilyMode(String mode) async {
     _settings = _settings.copyWith(fontFamilyMode: mode.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存聊天输入栏样式（'capsule' 胶囊 / 'classic' 旧样式）。
   Future<void> saveChatInputStyle(String style) async {
     _settings = _settings.copyWith(chatInputStyle: style.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 开关「社区」功能。关闭后底栏/侧边栏/横向滑动顺序都不再出现社区，
   /// 也不再做启动预热（见 `CommunityPreload`）。
   Future<void> saveEnableCommunity(bool value) async {
     _settings = _settings.copyWith(enableCommunity: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 开关「返回主应用」按钮。
-  ///
-  /// 社区是主项目里的一个全屏栏目（没有主项目的底栏与抽屉），关掉这个入口后
-  /// 退出社区只能靠横向滑动或系统返回。
-  Future<void> saveShowExitToMainApp(bool value) async {
-    _settings = _settings.copyWith(showExitToMainApp: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「自由剪图」开关（高级 → 命令 → `freeimage`）。
@@ -479,8 +556,8 @@ class AppController extends ChangeNotifier {
   /// 通知界面重建，不需要再同步第二份状态。
   Future<void> saveFreeImageCrop(bool value) async {
     _settings = _settings.copyWith(freeImageCrop: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   Future<void> saveSelectedModel(String model) async {
@@ -492,13 +569,13 @@ class AppController extends ChangeNotifier {
       list[defIdx] = list[defIdx].copyWith(modelName: model.trim());
       _settings = _settings.copyWith(models: list);
     }
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   Future<void> completeOobe() async {
     _settings = _settings.copyWith(completedOobe: true);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     // 释放内置角色卡。**不设任何"已释放"标记**：
     // 释放本身是幂等的（同 id 跳过、不覆盖用户改动），而 OOBE 正常只走一次，
     // 加标记只会带来「换卡后不再释放」这种自找的麻烦。失败也不阻断引导。
@@ -512,71 +589,19 @@ class AppController extends ChangeNotifier {
     } catch (e) {
       debugPrint('[preset] 释放异常（不阻断引导）: $e');
     }
-    notifyListeners();
+    _notify(AppChange.all);
   }
 
   Future<void> restartOobe() async {
     _settings = _settings.copyWith(completedOobe: false);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveSummarySettings({
-    required bool autoSummaryPrompt,
-    required int summaryTurnInterval,
-  }) async {
-    _settings = _settings.copyWith(
-      autoSummaryPrompt: autoSummaryPrompt,
-      summaryTurnInterval: summaryTurnInterval,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveRetryStrategy({required bool retrySequential}) async {
-    _settings = _settings.copyWith(retrySequential: retrySequential);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveInspirationSettings({required bool includeSummary}) async {
-    _settings = _settings.copyWith(
-      inspirationIncludeSummary: includeSummary,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   Future<void> savePromptStrategy(PromptStrategy strategy) async {
     _settings = _settings.copyWith(promptStrategy: strategy);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveAuthSettings({
-    required bool requireAuthForArchive,
-    required bool requireAuthForApp,
-  }) async {
-    _settings = _settings.copyWith(
-      requireAuthForArchive: requireAuthForArchive,
-      requireAuthForApp: requireAuthForApp,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「删除前强制输入名称」开关（对四类可归档实体统一生效）。
-  Future<void> saveRequireNameToDelete(bool value) async {
-    _settings = _settings.copyWith(requireNameToDelete: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「允许在聊天页删除单条对话消息」开关。
-  Future<void> saveAllowDeleteMessage(bool value) async {
-    _settings = _settings.copyWith(allowDeleteMessage: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「开发者选项是否已解锁」（关于页连点版本号 10 次切换）。
@@ -584,14 +609,8 @@ class AppController extends ChangeNotifier {
     required bool unlocked,
   }) async {
     _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  Future<void> saveSplashAnimation({required String splashAnimation}) async {
-    _settings = _settings.copyWith(splashAnimation: splashAnimation);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「打开应用时自动回到上次的聊天」开关。
@@ -600,8 +619,8 @@ class AppController extends ChangeNotifier {
   /// （见 [ResumeService]），只是没有入口消费它。
   Future<void> saveAutoOpenLastChat(bool value) async {
     _settings = _settings.copyWith(autoOpenLastChat: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「模型列表不限高」开关。
@@ -610,192 +629,51 @@ class AppController extends ChangeNotifier {
   /// 由整页滚动（见 [ModelPicker]）。
   Future<void> saveUnboundedModelList(bool value) async {
     _settings = _settings.copyWith(unboundedModelList: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「全局字号档位」（0 = 跟随系统，1..5 从最小到最大）。
-  ///
-  /// 存完立刻生效：DnaApp 用 settings 重建 MaterialApp，
-  /// MediaQuery.textScaler 随之改变，主应用与社区一起变。
-  Future<void> saveFontSizeStep(int step) async {
-    _settings = _settings.copyWith(fontSizeStep: step);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
   Future<void> saveChatQuickSidebar(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebar: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
   /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
   Future<void> saveChatQuickSidebarCollapsed(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
   /// 保存「聊天页左右滑动切换角色」开关。
   Future<void> saveChatSwipeSwitch(bool value) async {
     _settings = _settings.copyWith(chatSwipeSwitch: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「启动时检查更新」开关。
-  ///
-  /// 关掉后启动不再请求 GitHub API;「关于」页的手动检查不受影响。
-  Future<void> saveUpdateCheckEnabled(bool value) async {
-    _settings = _settings.copyWith(updateCheckEnabled: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「上下文 Token 实时仪表盘」开关。
-  Future<void> saveShowTokenDashboard(bool value) async {
-    _settings = _settings.copyWith(showTokenDashboard: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「从此处分叉」开关。
-  Future<void> saveEnableForking(bool value) async {
-    _settings = _settings.copyWith(enableForking: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「命令宏」开关。
-  Future<void> saveEnableCommandMacros(bool value) async {
-    _settings = _settings.copyWith(enableCommandMacros: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「正则替换」开关。
-  Future<void> saveEnableRegexReplacement(bool value) async {
-    _settings = _settings.copyWith(enableRegexReplacement: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存正则替换规则列表。
   Future<void> saveRegexRules(List<RegexRule> rules) async {
     _settings = _settings.copyWith(regexRules: rules);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
   Future<void> saveAutoBackup(bool value) async {
     _settings = _settings.copyWith(autoBackup: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存底部提示（SnackBar）的显示时长（毫秒），并即时同步到全局。
-  Future<void> saveSnackDuration(int snackDurationMs) async {
-    _settings = _settings.copyWith(snackDurationMs: snackDurationMs);
-    await _settingsService.save(_settings);
-    setSnackDuration(Duration(milliseconds: snackDurationMs));
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
 
-
-  /// 保存强调色（莫奈取色）模式：'auto' 或 'custom'。
-  Future<void> saveAccentMode(String mode) async {
-    _settings = _settings.copyWith(accentMode: mode.trim());
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存自定义强调色（ARGB 整数），仅当模式为 'custom' 时生效。
-  Future<void> saveCustomAccentColor(int? color) async {
-    _settings = _settings.copyWith(customAccentColor: color);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存聊天界面背景遮罩强度（0~100）。
-  Future<void> saveChatMaskStrength(int chatMaskStrength) async {
-    final int clamped = chatMaskStrength.clamp(0, 100);
-    _settings = _settings.copyWith(chatMaskStrength: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存聊天消息气泡不透明度（0~100）。
-  Future<void> saveChatBubbleOpacity(int chatBubbleOpacity) async {
-    final int clamped = chatBubbleOpacity.clamp(0, 100);
-    _settings = _settings.copyWith(chatBubbleOpacity: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存半屏聊天开关：开启后聊天记录只显示在页面下半部分，
-  /// 上半部分留空以便查看背景。
-  Future<void> saveHalfScreenChat(bool halfScreenChat) async {
-    _settings = _settings.copyWith(halfScreenChat: halfScreenChat);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「半屏动态自适应滚动」开关：向上翻看历史自动全屏，向下滚动或触底自动收敛为半屏。
-  Future<void> saveDynamicHalfScreen(bool dynamicHalfScreen) async {
-    _settings = _settings.copyWith(dynamicHalfScreen: dynamicHalfScreen);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存消息气泡快捷按钮显示开关（头像/重说/复制/继续说）。
-  Future<void> saveMessageQuickButtons({
-    required bool showAvatar,
-    required bool showRetry,
-    required bool showCopy,
-    required bool showContinue,
-  }) async {
-    _settings = _settings.copyWith(
-      showMessageAvatar: showAvatar,
-      showMessageRetry: showRetry,
-      showMessageCopy: showCopy,
-      showMessageContinue: showContinue,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存单次请求最多携带的历史消息条数（0 = 不限制）。
-  Future<void> saveMaxContextMessages(int maxContextMessages) async {
-    final int clamped = maxContextMessages.clamp(0, 1000);
-    _settings = _settings.copyWith(maxContextMessages: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存单次请求历史消息的 token 预算（0 = 不限制）。
-  Future<void> saveMaxContextTokens(int maxContextTokens) async {
-    final int clamped = maxContextTokens.clamp(0, 100000);
-    _settings = _settings.copyWith(maxContextTokens: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存摘要「按词数触发」的字符数阈值（0 = 禁用）。
-  Future<void> saveSummaryWordThreshold(int summaryWordThreshold) async {
-    final int clamped = summaryWordThreshold.clamp(0, 1000000);
-    _settings = _settings.copyWith(summaryWordThreshold: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
 
   /// 保存单次补全请求的超时秒数（5–600 秒）。
   ///
@@ -804,39 +682,15 @@ class AppController extends ChangeNotifier {
   Future<void> saveRequestTimeoutSeconds(int seconds) async {
     final int clamped = seconds.clamp(5, 600);
     _settings = _settings.copyWith(requestTimeoutSeconds: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条 sticky 轮数（0 = 禁用）。
-  Future<void> saveLoreStickyRounds(int rounds) async {
-    final int clamped = rounds.clamp(0, 30);
-    _settings = _settings.copyWith(loreStickyRounds: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条注入条数上限（0 = 不限）。
-  Future<void> saveLoreMaxEntries(int maxEntries) async {
-    final int clamped = maxEntries.clamp(0, 50);
-    _settings = _settings.copyWith(loreMaxEntries: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存世界词条注入 token 预算（0 = 不限）。
-  Future<void> saveLoreBudgetTokens(int budgetTokens) async {
-    final int clamped = budgetTokens.clamp(0, 100000);
-    _settings = _settings.copyWith(loreBudgetTokens: clamped);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存快速回复列表。
   Future<void> saveQuickReplies(List<QuickReply> quickReplies) async {
     _settings = _settings.copyWith(quickReplies: quickReplies);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存 DeepSeek 思考模式配置（开关与强度）。
@@ -851,8 +705,8 @@ class AppController extends ChangeNotifier {
           ? effort
           : 'high',
     );
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
@@ -866,8 +720,8 @@ class AppController extends ChangeNotifier {
       frequencyPenalty: frequencyPenalty.clamp(0.0, 2.0),
       presencePenalty: presencePenalty.clamp(0.0, 2.0),
     );
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「高级采样参数」（Top-P / Top-K / Min-P / 重复惩罚 / 惩罚斜率）。
@@ -885,77 +739,29 @@ class AppController extends ChangeNotifier {
       repetitionPenalty: repetitionPenalty.clamp(1.0, 2.0),
       repetitionPenaltySlope: repetitionPenaltySlope.clamp(0.0, 1.0),
     );
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 恢复「高级采样参数」到默认值。
-  Future<void> resetAdvancedSampling() async {
-    _settings = _settings.copyWith(
-      topP: 1.0,
-      topK: 0.0,
-      minP: 0.0,
-      repetitionPenalty: 1.0,
-      repetitionPenaltySlope: 0.0,
-    );
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存「端侧语音合成（TTS）」开关。
   Future<void> saveTtsEnabled(bool value) async {
     _settings = _settings.copyWith(ttsEnabled: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存全局 TTS seed（角色未设 seed 时兜底）。null 表示未设置。
   Future<void> saveTtsGlobalSeed(int? seed) async {
     _settings = _settings.copyWith(ttsGlobalSeed: seed);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「引号内容优先」开关：开启时合成优先只读引号内内容。
-  Future<void> saveTtsQuoteOnly(bool value) async {
-    _settings = _settings.copyWith(ttsQuoteOnly: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存「聊天输入框旁显示括号按钮」开关。
-  Future<void> saveShowParenButton(bool value) async {
-    _settings = _settings.copyWith(showParenButton: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存回车键行为：true = 回车发送、Shift+回车换行；false = 回车换行、Shift+回车发送。
-  Future<void> saveEnterToSend(bool value) async {
-    _settings = _settings.copyWith(enterToSend: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存角色卡背景音乐音量（0~100）。
-  Future<void> saveBgmVolume(int value) async {
-    _settings = _settings.copyWith(bgmVolume: value.clamp(0, 100));
-    await _settingsService.save(_settings);
-    notifyListeners();
-  }
-
-  /// 保存是否解锁背景音乐 10MB 大小上限。
-  Future<void> saveBgmSizeLimitUnlocked(bool value) async {
-    _settings = _settings.copyWith(bgmSizeLimitUnlocked: value);
-    await _settingsService.save(_settings);
-    notifyListeners();
+    await _settingsStore.persist();
+    _notify(AppChange.settings);
   }
 
   /// 保存并应用应用图标选择。
   /// Android：切换启动器图标；Web：切换浏览器标签页图标；其余平台仅保存设置。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     if (AppIconService.isSupported) {
       try {
         await AppIconService.setIcon(option);
@@ -969,27 +775,52 @@ class AppController extends ChangeNotifier {
         debugPrint('切换浏览器图标失败：$e');
       }
     }
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
-  Future<void> upsertTa(TA ta) async {
-    final int index = _tas.indexWhere((TA item) => item.id == ta.id);
-    if (index == -1) {
-      _tas = <TA>[..._tas, ta];
-    } else {
-      final List<TA> updated = <TA>[..._tas];
-      updated[index] = ta;
-      _tas = updated;
-    }
-    await _hiveService.upsertTa(ta);
-    notifyListeners();
-  }
+  Future<void> upsertTa(TA ta) => _taStore.upsert(ta);
+
+  // ---- 会话：委托给 ConversationStore（单聊/群聊两个列表与群字段保护都在那）----
+
+  Future<void> upsertConversation(Conversation conversation) =>
+      _convStore.upsert(conversation);
+
+  Future<void> upsertGroupConversation(Conversation conversation) =>
+      _convStore.upsertGroup(conversation);
+
+  Future<void> deleteConversation(String id) => _convStore.delete(id);
+
+  Future<void> deleteGroupConversation(String id) => _convStore.deleteGroup(id);
+
+  Future<void> setConversationArchived({
+    required String id,
+    required bool archived,
+  }) => _convStore.setArchived(id: id, archived: archived);
+
+  Future<void> setConversationPinned({
+    required String id,
+    required bool pinned,
+  }) => _convStore.setPinned(id: id, pinned: pinned);
+
+  Future<void> setGroupConversationPinned({
+    required String id,
+    required bool pinned,
+  }) => _convStore.setGroupPinned(id: id, pinned: pinned);
+
+  Future<void> setGroupConversationArchived({
+    required String id,
+    required bool archived,
+  }) => _convStore.setGroupArchived(id: id, archived: archived);
+
+  Future<String> duplicateConversation(String id) => _convStore.duplicate(id);
+
+  Future<void> reorderConversationSubset(List<String> orderedIds) =>
+      _convStore.reorderSubset(orderedIds);
 
   Future<void> deleteTa(String id) async {
-    _tas = _tas.where((TA ta) => ta.id != id).toList();
-    await _hiveService.deleteTa(id);
+    await _taStore.delete(id);
+    // 跨域收尾留在控制器：摘群聊成员属于会话域（见 _pruneTaFromGroups）。
     await _pruneTaFromGroups(id);
-    notifyListeners();
   }
 
   /// 把被删角色从所有群聊里摘干净。
@@ -1000,7 +831,7 @@ class AppController extends ChangeNotifier {
   Future<void> _pruneTaFromGroups(String taId) async {
     bool changed = false;
     final List<Conversation> updated = <Conversation>[];
-    for (final Conversation group in _groupConversations) {
+    for (final Conversation group in _convStore.groups) {
       final bool wasMember = group.memberTaIds.contains(taId);
       final bool wasPrimary = group.taId == taId;
       final bool wasActive = group.activeTaId == taId;
@@ -1025,7 +856,7 @@ class AppController extends ChangeNotifier {
       changed = true;
     }
     if (changed) {
-      _groupConversations = updated;
+      _convStore.replaceGroups(updated);
     }
   }
 
@@ -1198,19 +1029,19 @@ class AppController extends ChangeNotifier {
 
   /// 删除对话（单聊或群聊）并自动备份其 JSON 到特定目录。
   ///
-  /// 备份路径：`<应用文档目录>/dna_backups/deleted_conversations/` 下，文件名以
+  /// 备份路径：`<应用文档目录>/dna_backups/deleted_convStore.items/` 下，文件名以
   /// `Conv_`（单聊）或 `Group_`（群聊）开头，后接标题与时间戳。删除方式按对话
   /// 类型分别走单聊 / 群聊删除。
   Future<String?> deleteConversationWithBackup(String id) async {
     Conversation? conv;
     try {
-      conv = _conversations.firstWhere((Conversation c) => c.id == id);
+      conv = _convStore.items.firstWhere((Conversation c) => c.id == id);
     } catch (_) {
       conv = null;
     }
     if (conv == null) {
       try {
-        conv = _groupConversations.firstWhere((Conversation c) => c.id == id);
+        conv = _convStore.groups.firstWhere((Conversation c) => c.id == id);
       } catch (_) {
         conv = null;
       }
@@ -1241,21 +1072,7 @@ class AppController extends ChangeNotifier {
   Future<void> setTaArchived({
     required String id,
     required bool archived,
-  }) async {
-    final int index = _tas.indexWhere((TA item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final TA current = _tas[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<TA> updated = <TA>[..._tas];
-    updated[index] = current.copyWith(archived: archived);
-    _tas = updated;
-    await _hiveService.upsertTa(updated[index]);
-    notifyListeners();
-  }
+  }) => _taStore.setArchived(id: id, archived: archived);
 
   /// 保存 TA 槽位图片字节到平台存储，返回引用（IO: 绝对路径 / Web: 逻辑文件名）。
   Future<String> storeTaImageBytes({
@@ -1272,367 +1089,33 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> upsertIdentity(UserIdentity identity) async {
-    final int index = _identities.indexWhere((UserIdentity item) => item.id == identity.id);
-    if (index == -1) {
-      _identities = <UserIdentity>[..._identities, identity];
-    } else {
-      final List<UserIdentity> updated = <UserIdentity>[..._identities];
-      updated[index] = identity;
-      _identities = updated;
-    }
-    await _hiveService.upsertIdentity(identity);
-    notifyListeners();
-  }
+  Future<void> upsertIdentity(UserIdentity identity) =>
+      _identityStore.upsert(identity);
 
-  Future<void> deleteIdentity(String id) async {
-    _identities = _identities.where((UserIdentity i) => i.id != id).toList();
-    await _hiveService.deleteIdentity(id);
-    notifyListeners();
-  }
+  Future<void> deleteIdentity(String id) => _identityStore.delete(id);
 
   UserIdentity? getIdentityById(String? id) {
     if (id == null || id.isEmpty) {
       return null;
     }
-    for (final UserIdentity identity in _identities) {
-      if (identity.id == id) {
-        return identity;
-      }
-    }
-    return null;
+    return _identityStore.byId(id);
   }
 
-  Future<void> upsertWorld(World world) async {
-    final int index = _worlds.indexWhere((World item) => item.id == world.id);
-    if (index == -1) {
-      _worlds = <World>[..._worlds, world];
-    } else {
-      final List<World> updated = <World>[..._worlds];
-      updated[index] = world;
-      _worlds = updated;
-    }
-    await _hiveService.upsertWorld(world);
-    notifyListeners();
-  }
+  Future<void> upsertWorld(World world) => _worldStore.upsert(world);
 
-  Future<void> deleteWorld(String id) async {
-    _worlds = _worlds.where((World world) => world.id != id).toList();
-    await _hiveService.deleteWorld(id);
-    notifyListeners();
-  }
+  Future<void> deleteWorld(String id) => _worldStore.delete(id);
 
   Future<void> setWorldArchived({
     required String id,
     required bool archived,
-  }) async {
-    final int index = _worlds.indexWhere((World item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final World current = _worlds[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<World> updated = <World>[..._worlds];
-    updated[index] = current.copyWith(archived: archived);
-    _worlds = updated;
-    await _hiveService.upsertWorld(updated[index]);
-    notifyListeners();
-  }
+  }) => _worldStore.setArchived(id: id, archived: archived);
 
   /// 按 id 查会话：单聊与群聊一起查，找不到返回 null。
   ///
   /// 调用方常常只拿得到一个 id（搜索结果、自动续玩指针、深链），**不该由它自己
   /// 判断这是单聊还是群聊** —— 判错就会走错写回分支，把群聊记录覆盖成单聊
   /// （成员、群设定、说话人标注全丢）。类型由数据说了算，不由调用方猜。
-  Conversation? getConversationById(String id) {
-    for (final Conversation conversation in _conversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    for (final Conversation conversation in _groupConversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
-
-  /// 该 id 在库里是否已经是群聊（「群聊身份」一旦确立就不可逆）。
-  bool _isKnownGroupId(String id) =>
-      _groupConversations.any((Conversation item) => item.id == id);
-
-  /// 单聊形态的 payload 写到已有群聊 id 上时，把群聊专属字段还原回来。
-  ///
-  /// 依据很直接：单聊 payload **对群聊字段没有主张** —— 它的 `memberTaIds` 只有
-  /// 一个 taId、`groupName`/`groupPrompt` 恒为空。直接落库等于拿「没有意见」
-  /// 覆盖掉真实数据，所以这里以库里的旧值为准。
-  Conversation _restoreGroupFields(Conversation incoming) {
-    final Conversation? stored = getGroupById(incoming.id);
-    if (stored == null) {
-      return incoming.copyWith(isGroup: true);
-    }
-    return incoming.copyWith(
-      isGroup: true,
-      memberTaIds: stored.memberTaIds,
-      activeTaId: stored.activeTaId,
-      groupName: stored.groupName,
-      groupPrompt: stored.groupPrompt,
-    );
-  }
-
-  Future<void> upsertConversation(Conversation conversation) async {
-    // 群聊身份由创建时决定，之后任何写回都必须保持 —— 见 [getConversationById]。
-    // 没有这道闸，一个拿不到 isGroup 的调用方会把群聊静默踩成单聊：
-    // Hive 按 id 覆盖，成员/群设定/说话人标注一起消失，且没有任何报错。
-    if (conversation.isGroup) {
-      await upsertGroupConversation(conversation);
-      return;
-    }
-    if (_isKnownGroupId(conversation.id)) {
-      await upsertGroupConversation(_restoreGroupFields(conversation));
-      return;
-    }
-    final int index = _conversations.indexWhere((Conversation item) => item.id == conversation.id);
-    if (index == -1) {
-      _conversations = <Conversation>[..._conversations, conversation];
-    } else {
-      final List<Conversation> updated = <Conversation>[..._conversations];
-      updated[index] = conversation;
-      _conversations = updated;
-    }
-    await _hiveService.upsertConversation(conversation);
-    notifyListeners();
-  }
-
-  Future<void> upsertGroupConversation(Conversation conversation) async {
-    if (!conversation.isGroup) {
-      conversation = conversation.copyWith(isGroup: true);
-    }
-    final int index =
-        _groupConversations.indexWhere((Conversation item) => item.id == conversation.id);
-    if (index == -1) {
-      _groupConversations = <Conversation>[..._groupConversations, conversation];
-    } else {
-      final List<Conversation> updated = <Conversation>[..._groupConversations];
-      updated[index] = conversation;
-      _groupConversations = updated;
-    }
-    await _hiveService.upsertConversation(conversation);
-    notifyListeners();
-  }
-
-  Future<void> deleteConversation(String id) async {
-    _conversations = _conversations.where((Conversation item) => item.id != id).toList();
-    await _hiveService.deleteConversation(id);
-    notifyListeners();
-  }
-
-  Future<void> deleteGroupConversation(String id) async {
-    _groupConversations = _groupConversations.where((Conversation item) => item.id != id).toList();
-    await _hiveService.deleteConversation(id);
-    notifyListeners();
-  }
-
-  Future<void> setConversationArchived({
-    required String id,
-    required bool archived,
-  }) async {
-    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _conversations[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._conversations];
-    updated[index] = current.copyWith(archived: archived);
-    _conversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
-  }
-
-  /// 置顶/取消置顶某个会话。
-  Future<void> setConversationPinned({
-    required String id,
-    required bool pinned,
-  }) async {
-    final int index = _conversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _conversations[index];
-    if (current.pinned == pinned) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._conversations];
-    updated[index] = current.copyWith(pinned: pinned);
-    _conversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
-  }
-
-  /// 复制一个会话：生成全新的会话 ID 与消息 ID，其余配置（TA、世界、身份、
-  /// 群成员、消息、摘要）与源会话一致。副本不置顶、不归档，插入源会话之后。
-  /// 返回副本的 ID。
-  Future<String> duplicateConversation(String id) async {
-    Conversation? source;
-    try {
-      source = _conversations.firstWhere((Conversation c) => c.id == id);
-    } catch (_) {
-      source = null;
-    }
-    if (source == null) {
-      try {
-        source = _groupConversations.firstWhere((Conversation c) => c.id == id);
-      } catch (_) {
-        source = null;
-      }
-    }
-    if (source == null) {
-      throw StateError('会话不存在：$id');
-    }
-
-    final String newConvId = _uniqueConversationId();
-    final Conversation copy = Conversation(
-      id: newConvId,
-      taId: source.taId,
-      worldId: source.worldId,
-      note: source.note.trim().isEmpty
-          ? '副本'
-          : '${source.note}（副本）',
-      messages: source.messages
-          .map((ConversationMessage m) => ConversationMessage(
-                id: newId(),
-                role: m.role,
-                text: m.text,
-                timestamp: m.timestamp,
-                kind: m.kind,
-                summaryId: m.summaryId,
-                anchorMessageId: m.anchorMessageId,
-                speakerTaId: m.speakerTaId,
-              ))
-          .toList(),
-      backgroundMode: source.backgroundMode,
-      summaries: source.summaries
-          .map((ConversationSummary s) => ConversationSummary(
-                id: newId(),
-                text: s.text,
-                createdAt: s.createdAt,
-                endMessageId: s.endMessageId,
-              ))
-          .toList(),
-      archived: false,
-      isGroup: source.isGroup,
-      groupName: source.groupName,
-      groupPrompt: source.groupPrompt,
-      memberTaIds: source.memberTaIds,
-      activeTaId: source.activeTaId,
-      identityId: source.identityId,
-      pinned: false,
-    );
-
-    if (copy.isGroup) {
-      final int at = _groupConversations
-          .indexWhere((Conversation c) => c.id == id);
-      final List<Conversation> updated = <Conversation>[..._groupConversations];
-      updated.insert(at == -1 ? updated.length : at + 1, copy);
-      _groupConversations = updated;
-    } else {
-      final int at = _conversations.indexWhere((Conversation c) => c.id == id);
-      final List<Conversation> updated = <Conversation>[..._conversations];
-      updated.insert(at == -1 ? updated.length : at + 1, copy);
-      _conversations = updated;
-    }
-    await _hiveService.upsertConversation(copy);
-    notifyListeners();
-    return newConvId;
-  }
-
-  String _uniqueConversationId() {
-    final Set<String> existing = _conversations
-        .map((Conversation c) => c.id)
-        .toSet()
-      ..addAll(_groupConversations.map((Conversation c) => c.id));
-    String id = newId();
-    while (existing.contains(id)) {
-      id = newId();
-    }
-    return id;
-  }
-
-  /// 置顶/取消置顶某个群聊会话。
-  Future<void> setGroupConversationPinned({
-    required String id,
-    required bool pinned,
-  }) async {
-    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _groupConversations[index];
-    if (current.pinned == pinned) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._groupConversations];
-    updated[index] = current.copyWith(pinned: pinned);
-    _groupConversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
-  }
-
-  Future<void> setGroupConversationArchived({
-    required String id,
-    required bool archived,
-  }) async {
-    final int index = _groupConversations.indexWhere((Conversation item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final Conversation current = _groupConversations[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<Conversation> updated = <Conversation>[..._groupConversations];
-    updated[index] = current.copyWith(archived: archived);
-    _groupConversations = updated;
-    await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
-  }
-
-  Future<void> reorderConversationSubset(List<String> orderedIds) async {
-    if (orderedIds.isEmpty) {
-      return;
-    }
-    final Set<String> subset = orderedIds.toSet();
-    if (subset.length != orderedIds.length) {
-      return;
-    }
-    final Map<String, Conversation> byId = <String, Conversation>{
-      for (final Conversation c in _conversations) c.id: c,
-    };
-    for (final String id in orderedIds) {
-      if (!byId.containsKey(id)) {
-        return;
-      }
-    }
-    int cursor = 0;
-    final List<Conversation> updated = <Conversation>[];
-    for (final Conversation c in _conversations) {
-      if (!subset.contains(c.id)) {
-        updated.add(c);
-        continue;
-      }
-      updated.add(byId[orderedIds[cursor]]!);
-      cursor += 1;
-    }
-    _conversations = updated;
-    await _hiveService.saveConversations(_conversations);
-    notifyListeners();
-  }
+  Conversation? getConversationById(String id) => _convStore.byId(id);
 
   /// 把 [oldIndex] 的 TA 移到 [newIndex]。
   ///
@@ -1640,92 +1123,36 @@ class AppController extends ChangeNotifier {
   /// 的口径），不要在这里再减一 —— 旧代码适配的是已弃用的 `onReorder`，
   /// 它在回调里传的是"移除前"的下标。
   Future<void> reorderTas(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _tas.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex >= _tas.length) {
-      return;
-    }
-    final List<TA> updated = List<TA>.from(_tas);
-    final TA moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _tas = updated;
-    await _hiveService.saveTas(_tas);
-    notifyListeners();
+    await _taStore.reorder(oldIndex, newIndex);
   }
 
   /// 同 [reorderTas]：下标口径是"移除之后"。
-  Future<void> reorderWorlds(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _worlds.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex >= _worlds.length) {
-      return;
-    }
-    final List<World> updated = List<World>.from(_worlds);
-    final World moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _worlds = updated;
-    await _hiveService.saveWorlds(_worlds);
-    notifyListeners();
-  }
+  Future<void> reorderWorlds(int oldIndex, int newIndex) =>
+      _worldStore.reorder(oldIndex, newIndex);
 
-  /// 同 [reorderTas]：下标口径是"移除之后"。
-  Future<void> reorderConversations(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _conversations.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex > _conversations.length) {
-      return;
-    }
-    final List<Conversation> updated = List<Conversation>.from(_conversations);
-    final Conversation moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _conversations = updated;
-    await _hiveService.saveConversations(_conversations);
-    notifyListeners();
-  }
-
-  Conversation? getGroupById(String id) {
-    for (final Conversation conversation in _groupConversations) {
-      if (conversation.id == id) {
-        return conversation;
-      }
-    }
-    return null;
-  }
+  Conversation? getGroupById(String id) => _convStore.groupById(id);
 
   TA? getTaById(String id) {
-    for (final TA ta in _tas) {
-      if (ta.id == id) {
-        return ta;
-      }
-    }
-    return null;
+    return _taStore.byId(id);
   }
 
   World? getWorldById(String? id) {
     if (id == null || id.isEmpty) {
       return null;
     }
-    for (final World world in _worlds) {
-      if (world.id == id) {
-        return world;
-      }
-    }
-    return null;
+    return _worldStore.byId(id);
   }
 
   /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节（Web 使用）
   Future<ExportImportResult<Uint8List>> exportAllData() async {
     return DataBackupService.buildZip(
-      tas: _tas,
-      worlds: _worlds,
+      tas: _taStore.items,
+      worlds: _worldStore.items,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
-      identities: _identities,
+      identities: _identityStore.items,
     );
   }
 
@@ -1736,13 +1163,13 @@ class AppController extends ChangeNotifier {
   Future<ExportImportResult<String>> exportAllDataToFile(String zipPath) async {
     return DataBackupService.buildZipToFile(
       zipPath,
-      tas: _tas,
-      worlds: _worlds,
+      tas: _taStore.items,
+      worlds: _worldStore.items,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
-      identities: _identities,
+      identities: _identityStore.items,
     );
   }
 
@@ -1750,8 +1177,8 @@ class AppController extends ChangeNotifier {
   Future<ExportImportResult<Uint8List>> exportConversations() async {
     return DataBackupService.buildConversationsZip(
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
     );
   }
@@ -1763,9 +1190,79 @@ class AppController extends ChangeNotifier {
     return DataBackupService.buildConversationsZipToFile(
       zipPath,
       conversations: <Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ],
+    );
+  }
+
+  /// 一次对话导入的**落库收尾**：[replaceAll] 走「先自动备份 → 整体替换」，
+  /// 否则按 id 去重后追加。
+  ///
+  /// 两处导入入口（ZIP 导入、带角色决议的 JSON 导入）原本各抄一遍这 50 行，
+  /// 只差入参从哪来；去重规则改一次要同步改两处，所以收到这里。
+  Future<DataImportReport> _commitConversationImport(
+    List<Conversation> incoming, {
+    required bool replaceAll,
+  }) async {
+    if (replaceAll) {
+      // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
+      final (String?, String?) backup = await _autoBackupZip(
+        baseName: 'DNA_conversations',
+        full: false,
+      );
+
+      _convStore.replaceAll(
+        singles: incoming.where((Conversation c) => !c.isGroup).toList(),
+        groups: incoming.where((Conversation c) => c.isGroup).toList(),
+      );
+      await _hiveService.saveConversations(<Conversation>[
+        ..._convStore.items,
+        ..._convStore.groups,
+      ]);
+      _notify(AppChange.chatAndData);
+      return DataImportReport(
+        replaced: true,
+        tasCount: 0,
+        worldsCount: 0,
+        conversationsCount: _convStore.items.length + _convStore.groups.length,
+        identitiesCount: 0,
+        backupPath: backup.$1,
+        backupError: backup.$2,
+      );
+    }
+
+    // 仅追加：按 id 去重
+    final Set<String> existingIds = <String>{
+      ..._convStore.items.map((Conversation c) => c.id),
+      ..._convStore.groups.map((Conversation c) => c.id),
+    };
+    final List<Conversation> newConvs =
+        incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
+
+    _convStore.replaceAll(
+      singles: <Conversation>[
+        ..._convStore.items,
+        ...newConvs.where((Conversation c) => !c.isGroup),
+      ],
+      groups: <Conversation>[
+        ..._convStore.groups,
+        ...newConvs.where((Conversation c) => c.isGroup),
+      ],
+    );
+    await _hiveService.saveConversations(<Conversation>[
+      ..._convStore.items,
+      ..._convStore.groups,
+    ]);
+    _notify(AppChange.chatAndData);
+    return DataImportReport(
+      replaced: false,
+      tasCount: 0,
+      worldsCount: 0,
+      conversationsCount: newConvs.length,
+      identitiesCount: 0,
+      backupPath: null,
+      backupError: null,
     );
   }
 
@@ -1787,71 +1284,11 @@ class AppController extends ChangeNotifier {
     final List<Conversation> incoming = parsed.data!;
 
     try {
-      if (replaceAll) {
-        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
-        final (String?, String?) backup =
-            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
-
-        _conversations =
-            incoming.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            incoming.where((Conversation c) => c.isGroup).toList();
-
-        await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
-        ]);
-        notifyListeners();
-        return ExportImportResult(
-          success: true,
-          data: DataImportReport(
-            replaced: true,
-            tasCount: 0,
-            worldsCount: 0,
-            conversationsCount:
-                _conversations.length + _groupConversations.length,
-            identitiesCount: 0,
-            backupPath: backup.$1,
-            backupError: backup.$2,
-          ),
-        );
-      }
-
-      // 仅追加：按 id 去重
-      final Set<String> existingIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
-      };
-      final List<Conversation> newConvs = incoming
-          .where((Conversation c) => !existingIds.contains(c.id))
-          .toList();
-
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
-
-      await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
-      ]);
-      notifyListeners();
-      return ExportImportResult(
-        success: true,
-        data: DataImportReport(
-          replaced: false,
-          tasCount: 0,
-          worldsCount: 0,
-            conversationsCount: newConvs.length,
-            identitiesCount: 0,
-            backupPath: null,
-          backupError: null,
-        ),
+      final DataImportReport report = await _commitConversationImport(
+        incoming,
+        replaceAll: replaceAll,
       );
+      return ExportImportResult(success: true, data: report);
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败：$e');
     }
@@ -1970,67 +1407,11 @@ class AppController extends ChangeNotifier {
         );
       }).toList();
 
-      if (replaceAll) {
-        // 先自动备份替换前的对话（IO 平台流式写盘，避免整体载入内存）
-        final (String?, String?) backup =
-            await _autoBackupZip(baseName: 'DNA_conversations', full: false);
-
-        _conversations = incoming.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            incoming.where((Conversation c) => c.isGroup).toList();
-        await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
-        ]);
-        notifyListeners();
-        return ExportImportResult(
-          success: true,
-          data: DataImportReport(
-            replaced: true,
-            tasCount: 0,
-            worldsCount: 0,
-            conversationsCount:
-                _conversations.length + _groupConversations.length,
-            identitiesCount: 0,
-            backupPath: backup.$1,
-            backupError: backup.$2,
-          ),
-        );
-      }
-
-      // 仅追加：按 id 去重
-      final Set<String> existingIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
-      };
-      final List<Conversation> newConvs =
-          incoming.where((Conversation c) => !existingIds.contains(c.id)).toList();
-
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
-      await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
-      ]);
-      notifyListeners();
-      return ExportImportResult(
-        success: true,
-        data: DataImportReport(
-          replaced: false,
-          tasCount: 0,
-          worldsCount: 0,
-            conversationsCount: newConvs.length,
-            identitiesCount: 0,
-            backupPath: null,
-          backupError: null,
-        ),
+      final DataImportReport report = await _commitConversationImport(
+        incoming,
+        replaceAll: replaceAll,
       );
+      return ExportImportResult(success: true, data: report);
     } catch (e) {
       return ExportImportResult(success: false, message: '导入失败：$e');
     }
@@ -2127,30 +1508,34 @@ class AppController extends ChangeNotifier {
         final List<TA> resolvedTasWithMusic = await DataBackupService
             .resolveTasMusic(resolvedTas, backup.musicBytes);
 
-        _tas = resolvedTasWithMusic;
-        _worlds = backup.worlds;
-        _conversations =
-            backup.conversations.where((Conversation c) => !c.isGroup).toList();
-        _groupConversations =
-            backup.conversations.where((Conversation c) => c.isGroup).toList();
+        _taStore.replaceAll(resolvedTasWithMusic);
+        _worldStore.replaceAll(backup.worlds);
+        _convStore.replaceAll(
+          singles: backup.conversations
+              .where((Conversation c) => !c.isGroup)
+              .toList(),
+          groups: backup.conversations
+              .where((Conversation c) => c.isGroup)
+              .toList(),
+        );
 
-        await _hiveService.saveTas(_tas);
-        await _hiveService.saveWorlds(_worlds);
+        await _taStore.persist();
+        await _worldStore.persist();
         await _hiveService.saveConversations(<Conversation>[
-          ..._conversations,
-          ..._groupConversations,
+          ..._convStore.items,
+          ..._convStore.groups,
         ]);
 
-        notifyListeners();
+        _notify(AppChange.chatAndData);
         return ExportImportResult(
           success: true,
           data: DataImportReport(
             replaced: true,
-            tasCount: _tas.length,
-            worldsCount: _worlds.length,
+            tasCount: _taStore.items.length,
+            worldsCount: _worldStore.items.length,
             conversationsCount:
-                _conversations.length + _groupConversations.length,
-            identitiesCount: _identities.length,
+                _convStore.items.length + _convStore.groups.length,
+            identitiesCount: _identityStore.items.length,
             backupPath: backupPath,
             backupError: backupError,
           ),
@@ -2158,7 +1543,8 @@ class AppController extends ChangeNotifier {
       }
 
       // 仅追加：跳过已存在的 id
-      final Set<String> existingTaIds = _tas.map((TA t) => t.id).toSet();
+      final Set<String> existingTaIds =
+          _taStore.items.map((TA t) => t.id).toSet();
       final List<TA> newTas =
           backup.tas.where((TA t) => !existingTaIds.contains(t.id)).toList();
       final List<TA> resolvedNewTas = await DataBackupService.resolveTasImages(
@@ -2170,46 +1556,48 @@ class AppController extends ChangeNotifier {
           .resolveTasMusic(resolvedNewTas, backup.musicBytes);
 
       final Set<String> existingWorldIds =
-          _worlds.map((World w) => w.id).toSet();
+          _worldStore.items.map((World w) => w.id).toSet();
       final List<World> newWorlds = backup.worlds
           .where((World w) => !existingWorldIds.contains(w.id))
           .toList();
 
       final Set<String> existingConvIds = <String>{
-        ..._conversations.map((Conversation c) => c.id),
-        ..._groupConversations.map((Conversation c) => c.id),
+        ..._convStore.items.map((Conversation c) => c.id),
+        ..._convStore.groups.map((Conversation c) => c.id),
       };
       final List<Conversation> newConvs = backup.conversations
           .where((Conversation c) => !existingConvIds.contains(c.id))
           .toList();
 
       final Set<String> existingIdentityIds =
-          _identities.map((UserIdentity i) => i.id).toSet();
+          _identityStore.items.map((UserIdentity i) => i.id).toSet();
       final List<UserIdentity> newIdentities = backup.identities
           .where((UserIdentity i) => !existingIdentityIds.contains(i.id))
           .toList();
 
-      _tas = <TA>[..._tas, ...resolvedNewTasWithMusic];
-      _worlds = <World>[..._worlds, ...newWorlds];
-      _identities = <UserIdentity>[..._identities, ...newIdentities];
-      _conversations = <Conversation>[
-        ..._conversations,
-        ...newConvs.where((Conversation c) => !c.isGroup),
-      ];
-      _groupConversations = <Conversation>[
-        ..._groupConversations,
-        ...newConvs.where((Conversation c) => c.isGroup),
-      ];
+      _taStore.replaceAll(<TA>[..._taStore.items, ...resolvedNewTasWithMusic]);
+      _worldStore.replaceAll(<World>[..._worldStore.items, ...newWorlds]);
+      _identityStore.replaceAll(<UserIdentity>[..._identityStore.items, ...newIdentities]);
+      _convStore.replaceAll(
+        singles: <Conversation>[
+          ..._convStore.items,
+          ...newConvs.where((Conversation c) => !c.isGroup),
+        ],
+        groups: <Conversation>[
+          ..._convStore.groups,
+          ...newConvs.where((Conversation c) => c.isGroup),
+        ],
+      );
 
-      await _hiveService.saveTas(_tas);
-      await _hiveService.saveWorlds(_worlds);
-      await _hiveService.saveIdentities(_identities);
+      await _taStore.persist();
+      await _worldStore.persist();
+      await _identityStore.persist();
       await _hiveService.saveConversations(<Conversation>[
-        ..._conversations,
-        ..._groupConversations,
+        ..._convStore.items,
+        ..._convStore.groups,
       ]);
 
-      notifyListeners();
+      _notify(AppChange.chatAndData);
       return ExportImportResult(
         success: true,
         data: DataImportReport(
@@ -2237,7 +1625,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> clearAllData() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     await prefs.clear();
     await _hiveService.clearAll();
     try {
@@ -2248,10 +1636,12 @@ class AppController extends ChangeNotifier {
     _settings = AppSettings.empty();
     // 重置后与 AppSettings 的默认值保持一致（审计 3.5：提示不能只停 1 秒）。
     setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
-    _tas = <TA>[];
-    _worlds = <World>[];
-    _conversations = <Conversation>[];
-    _groupConversations = <Conversation>[];
-    notifyListeners();
+    _taStore.replaceAll(const <TA>[]);
+    _worldStore.replaceAll(const <World>[]);
+    _convStore.replaceAll(
+      singles: const <Conversation>[],
+      groups: const <Conversation>[],
+    );
+    _notify(AppChange.all);
   }
 }

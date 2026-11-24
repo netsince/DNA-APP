@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
-import 'package:dna/island_app/widgets/card_crop_page.dart';
+import 'package:dna/widgets/card_crop_page.dart';
 import 'package:dna/utils/error_display.dart';
 
 /// 个人资料编辑页：昵称 / 简介 / 所在地 / 网站 / 生日 / 点赞通知开关 + 头像上传/移除。
@@ -151,7 +152,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnack(context, msg);
   }
 
   @override

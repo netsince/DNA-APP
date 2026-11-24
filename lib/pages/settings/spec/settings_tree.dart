@@ -22,8 +22,8 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../island_app/server_settings_body.dart';
-import '../../../island_app/sponsor_body.dart';
+import 'package:dna/pages/settings/server_settings_body.dart';
+import 'package:dna/pages/settings/sponsor_body.dart';
 import '../../../state/app_controller.dart';
 import 'settings_spec.dart';
 

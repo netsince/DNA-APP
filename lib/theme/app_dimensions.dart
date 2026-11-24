@@ -8,7 +8,7 @@
 /// 注意旧名和主程序档位**不是同一套命名**，映射关系见每个常量的注释。
 library;
 
-import '../../theme/tokens.dart';
+import 'package:dna/theme/tokens.dart';
 
 /// 圆角（小）—— 对应 `AppRadius.xs` = 8。
 const double kRadiusSm = AppRadius.xs;

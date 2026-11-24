@@ -376,9 +376,9 @@ const Set<String> settingsInternalKeys = <String>{
   'models',
   // 没有设置页入口：靠「关于」页连点版本号 10 次切换（见 about_page.dart）。
   'developerOptionsUnlocked',
-  // 没有任何界面入口的孤儿字段。保留只为兼容旧存档；要么补界面，要么删字段，
-  // 但那是产品决定，不属于本次重构。
-  'snackDurationMs',
+  // snackDurationMs 曾经在这里：它当时没有界面入口（唯一 setter 已删）。
+  // 现在「设置 → 界面与显示 → 提示条停留时长」给了它声明，豁免随之销掉 ——
+  // 豁免表不能留着一条已经能改的字段，那会让「孤儿字段」清单失去意义。
 };
 
 /// **动作项托管的键：由 SettingAction 里的自绘控件写入，没有标量声明。**

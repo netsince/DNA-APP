@@ -4,21 +4,25 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/models/comment.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/load_more_list.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/utils/action_table.dart';
 import 'package:dna/utils/error_display.dart';
+import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import '../../theme/tokens.dart';
 
@@ -271,12 +275,7 @@ class _CommentSectionState extends State<CommentSection> {
     if (_pickingImage) return;
     setState(() => _pickingImage = true);
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (picked == null) return;
       if (!mounted) return;
       setState(() => _image = picked);
@@ -291,14 +290,7 @@ class _CommentSectionState extends State<CommentSection> {
   /// 打开评论图片全屏查看（WebP base64 data URL）。
   void _openImage(String? dataUrl) {
     if (dataUrl == null || dataUrl.isEmpty) return;
-    final comma = dataUrl.indexOf(',');
-    final b64 = comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl;
-    Uint8List? bytes;
-    try {
-      bytes = base64Decode(b64);
-    } catch (_) {
-      bytes = null;
-    }
+    final Uint8List? bytes = decodeDataUrl(dataUrl);
     if (bytes == null) return;
     final Uint8List imageBytes = bytes;
     Navigator.of(context).push(
@@ -474,9 +466,7 @@ class _CommentSectionState extends State<CommentSection> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+    showSnack(context, msg, duration: const Duration(seconds: 2));
   }
 
   /// 打开表情包选择器，把选中的 `[sticker:CODE]` 插入到评论输入框光标处。
@@ -559,26 +549,14 @@ class _CommentSectionState extends State<CommentSection> {
 
   /// 评论列表（可滚动）；输入框不随列表滚动，始终固定在底部。
   Widget _buildList(BuildContext context) {
-    final theme = Theme.of(context);
     if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_paged.error != null && _paged.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(_paged.error!, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            FilledButton.tonal(onPressed: _refresh, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: _paged.error!, onRetry: _refresh);
     }
     if (_paged.items.isEmpty) {
-      return Center(
-        child: Text('还没有评论，来抢沙发~', style: theme.textTheme.bodyMedium),
-      );
+      return const EmptyState(title: '还没有评论，来抢沙发~');
     }
     return AppRefreshIndicator(
       onRefresh: _refresh,
@@ -853,7 +831,7 @@ class _CommentSectionState extends State<CommentSection> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        _formatTime(c.createdAt),
+                        formatRelativeTime(c.createdAt),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: scheme.outline,
                         ),
@@ -935,19 +913,6 @@ Widget _tag(String text, Color bg, Color fg) => Container(
     style: TextStyle(fontSize: AppFontSize.tiny, color: fg),
   ),
 );
-
-String _formatTime(String iso) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return '';
-  final diff = DateTime.now().difference(t);
-  if (diff.inMinutes < 1) return '刚刚';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-  if (diff.inHours < 24) return '${diff.inHours}小时前';
-  if (diff.inDays < 30) return '${diff.inDays}天前';
-  final m = t.month.toString().padLeft(2, '0');
-  final d = t.day.toString().padLeft(2, '0');
-  return '${t.year}-$m-$d';
-}
 
 /// 评论图片缩略图（WebP base64 data URL），点按进全屏查看。
 class _CommentImage extends StatelessWidget {

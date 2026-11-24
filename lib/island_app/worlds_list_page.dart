@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/widgets/paged_controller.dart';
@@ -117,7 +118,7 @@ class _WorldsListPageState extends State<WorldsListPage> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    showSnack(context, text);
   }
 
   /// 撤回（软删除）：二次确认，成功后原地刷新。

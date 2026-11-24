@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:dna/models/conversation.dart';
+import 'package:dna/models/message_attachment.dart';
 
 import 'attachment_storage.dart';
 
@@ -33,6 +35,23 @@ class AttachmentGcResult {
 ///
 /// 判据只有一个：**当前所有消息引用的 ref 集合**。不猜、不按时间清、
 /// 不动「看起来很小」的东西 —— 只删确定没人引用的。
+/// 从会话集合里收集**全部被引用的附件 ref**。
+///
+/// 孤儿回收的判据只有这一个：消息里出现过 = 活的。以前这段三层遍历写在
+/// 设置页里、而且**写了两遍**（统计一次、清理一次）—— 口径漂了就会出现
+/// 「统计说 3 个、清理删 5 个」这类事。收在服务层后只有一处口径。
+Set<String> liveAttachmentRefs(Iterable<Conversation> conversations) {
+  final Set<String> refs = <String>{};
+  for (final Conversation c in conversations) {
+    for (final ConversationMessage m in c.messages) {
+      for (final MessageAttachment a in m.attachments) {
+        refs.add(a.ref);
+      }
+    }
+  }
+  return refs;
+}
+
 class AttachmentGc {
   AttachmentGc._();
 

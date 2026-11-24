@@ -2,13 +2,14 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dna/island_app/api/client.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/site_config.dart';
-import 'package:dna/island_app/theme/app_dimensions.dart';
+import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/external_link.dart';
 import 'package:dna/island_app/utils/points_format.dart';
 import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
-import 'package:dna/island_app/widgets/load_more_list.dart';
+import 'package:dna/widgets/paged_list_body.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import '../widgets/form_draft.dart';
@@ -192,16 +193,8 @@ class _PointsBodyState extends State<PointsBody> {
   }
 
   Widget _buildList(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (_paged.isLoading && _paged.items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_paged.error != null && _paged.items.isEmpty) {
-      return ErrorState(message: _paged.error!, onRetry: _paged.refresh);
-    }
-    if (_paged.items.isEmpty) {
-      return const EmptyState(icon: Icons.receipt_long_outlined, title: '暂无记录');
-    }
+    // 五态 + 下拉刷新 + 触底 + 尾条由 PagedListBody 统一负责。
+    // 上面那条「变化明细」标题留在本页：它是页头，不是列表的一部分。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -215,103 +208,104 @@ class _PointsBodyState extends State<PointsBody> {
           ),
         ),
         Expanded(
-          child: LoadMoreListView(
-            loading: _paged.isLoading,
-            itemCount: _paged.items.length,
-            hasMore: _paged.hasMore && _paged.items.isNotEmpty,
-            onLoadMore: _paged.loadMore,
-            onRefresh: _paged.refresh,
+          child: PagedListBody<Map<String, dynamic>>(
+            controller: _paged,
             padding: const EdgeInsets.symmetric(vertical: 4),
-            separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
-            itemBuilder: (context, index) {
-              final t = _paged.items[index];
-              final delta = parsePoints(t['delta']);
-              final balanceAfter = parsePoints(t['balance_after']);
-              final reason = (t['reason'] ?? '').toString();
-              final source = (t['source'] ?? '').toString();
-              final created = (t['created_at'] ?? '').toString();
-              final positive = delta >= Decimal.zero;
-              return ListTile(
-                title: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        reason.isEmpty ? source : reason,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                    // 金额列：**最小宽 + 自适应**右对齐（回滚 R7）。
-                    // 等宽数字保留，短金额仍能上下成列；长金额向左撑开，
-                    // 不溢出、不裁切。
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minWidth: _amountColumnMinWidth,
-                      ),
-                      child: Text(
-                        positive
-                            ? '+${formatPoints(delta)}'
-                            : formatPoints(delta),
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: positive ? scheme.primary : scheme.error,
-                          fontWeight: FontWeight.w500,
-                          fontFeatures: _tabularFigures,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(
-                    children: <Widget>[
-                      Text(
-                        formatDateTime(created),
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: scheme.outline),
-                      ),
-                      const SizedBox(width: 8),
-                      if (source.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(AppRadius.xs),
-                          ),
-                          child: Text(
-                            source,
-                            style: TextStyle(
-                              fontSize: AppFontSize.tiny,
-                              color: scheme.onSurfaceVariant,
+            separator: (_, _) => const Divider(height: 1, indent: 16),
+            empty: const EmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: '暂无记录',
+            ),
+            itemBuilder: (BuildContext context, int index) {
+              final ColorScheme scheme = Theme.of(context).colorScheme;
+                          final t = _paged.items[index];
+                          final delta = parsePoints(t['delta']);
+                          final balanceAfter = parsePoints(t['balance_after']);
+                          final reason = (t['reason'] ?? '').toString();
+                          final source = (t['source'] ?? '').toString();
+                          final created = (t['created_at'] ?? '').toString();
+                          final positive = delta >= Decimal.zero;
+                          return ListTile(
+                            title: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    reason.isEmpty ? source : reason,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                                // 金额列：**最小宽 + 自适应**右对齐（回滚 R7）。
+                                // 等宽数字保留，短金额仍能上下成列；长金额向左撑开，
+                                // 不溢出、不裁切。
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minWidth: _amountColumnMinWidth,
+                                  ),
+                                  child: Text(
+                                    positive
+                                        ? '+${formatPoints(delta)}'
+                                        : formatPoints(delta),
+                                    textAlign: TextAlign.end,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: positive ? scheme.primary : scheme.error,
+                                      fontWeight: FontWeight.w500,
+                                      fontFeatures: _tabularFigures,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                      const Spacer(),
-                      // 余额列同样「最小宽 + 自适应」，与金额列同一套规则。
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minWidth: _amountColumnMinWidth,
-                        ),
-                        child: Text(
-                          '余额 ${formatPoints(balanceAfter)}',
-                          textAlign: TextAlign.end,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.outline,
-                            fontFeatures: _tabularFigures,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Row(
+                                children: <Widget>[
+                                  Text(
+                                    formatDateTime(created),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(color: scheme.outline),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  if (source.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                                      ),
+                                      child: Text(
+                                        source,
+                                        style: TextStyle(
+                                          fontSize: AppFontSize.tiny,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  const Spacer(),
+                                  // 余额列同样「最小宽 + 自适应」，与金额列同一套规则。
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minWidth: _amountColumnMinWidth,
+                                    ),
+                                    child: Text(
+                                      '余额 ${formatPoints(balanceAfter)}',
+                                      textAlign: TextAlign.end,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: scheme.outline,
+                                        fontFeatures: _tabularFigures,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
           ),
         ),
       ],
@@ -415,15 +409,9 @@ class _PointsRedeemPageState extends State<PointsRedeemPage> {
         final result = await _redeemer(codes);
         if (!mounted) return;
         setState(() => _results = result.results);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.successCount > 0
+        showSnack(context, result.successCount > 0
                   ? '兑换完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个'
-                  : '全部兑换失败，请检查兑换码',
-            ),
-          ),
-        );
+                  : '全部兑换失败，请检查兑换码',);
       },
     );
   }

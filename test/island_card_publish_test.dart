@@ -83,7 +83,8 @@ void main() {
       (sent!['dialogue_style'] as List).first,
       <String, String>{'user': '你好', 'assistant': '你好呀'},
     );
-    expect(find.text('已提交，等待审核'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('已提交，等待审核'), findsWidgets);
   });
 
   testWidgets('导出 JSON 复制到剪贴板', (WidgetTester tester) async {
@@ -159,7 +160,10 @@ void main() {
     final String body = src.substring(start, start + 1600);
     expect(body.contains('try {'), isTrue, reason: '_save 必须捕获异常');
     expect(body.contains('_errorText(e)'), isTrue, reason: '失败原因要弹给用户看');
-    expect(body.contains('SnackBar('), isTrue, reason: '原因要通过 SnackBar 展示');
+    // 这条守护断言的是「用户能看到失败原因」，不是「必须手写 SnackBar」。
+    // 主程序已统一走 showSnack（见 docs/TESTING_CONVENTIONS.md 第 4 条：
+    // 单源守卫应断言入口，而不是断言实现长什么样）。
+    expect(body.contains('showSnack('), isTrue, reason: '原因要经统一入口 showSnack 展示');
   });
 
   testWidgets('未登录时点发布会被拦住', (WidgetTester tester) async {
@@ -182,7 +186,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '发布'));
     await tester.pumpAndSettle();
     expect(sent, isNull, reason: '未登录不该真的发出去');
-    expect(find.text('请先登录后再发布'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('请先登录后再发布'), findsWidgets);
   });
 
   testWidgets('新建：编辑器按钮写「发布到社区」，点它真的发布',
@@ -253,7 +258,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '发布'));
     await tester.pumpAndSettle();
     expect(sent, isNull, reason: '空名字不该发出去');
-    expect(find.text('请填写角色卡名称'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('请填写角色卡名称'), findsWidgets);
   });
 
   test('名称必填只在社区发布侧，不能污染共享编辑器', () {

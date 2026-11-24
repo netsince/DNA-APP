@@ -15,7 +15,7 @@ mixin ChatUiHelpers on ChatStateMixin {
   /// 最后一条 AI 消息的索引（无则 -1）。
   int _lastAssistantIndex() {
     return _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
   }
 
@@ -48,7 +48,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       position.dx + 1,
       position.dy + 1,
     );
-    if (message.kind == 'summary') {
+    if (message.kindEnum == MessageKind.summary) {
       final String? action = await showMenu<String>(
         context: context,
         position: anchor,
@@ -90,7 +90,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       _scrollAfterMenu();
       return;
     }
-    if (message.kind == 'summary_prompt') {
+    if (message.kindEnum == MessageKind.summaryPrompt) {
       final String? action = await showMenu<String>(
         context: context,
         position: anchor,
@@ -126,7 +126,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     final bool isAssistant = message.role == 'assistant';
     final bool retryDisabled = _retryDisabled.contains(_conversation.messages[index].id);
     final int lastAssistantIndex = _conversation.messages.lastIndexWhere(
-      (ConversationMessage m) => m.kind == 'message' && m.role == 'assistant',
+      (ConversationMessage m) => m.kindEnum == MessageKind.message && m.role == 'assistant',
     );
     final bool canContinue = isAssistant && index == lastAssistantIndex;
     final bool hasThought = _thoughtsByMessageId.containsKey(message.id) &&
@@ -436,49 +436,18 @@ mixin ChatUiHelpers on ChatStateMixin {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      8,
-                      16,
-                      16 + MediaQuery.of(sheetContext).viewPadding.bottom,
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: loading
-                                ? null
-                                : () => Navigator.of(sheetContext).pop(),
-                            child: const FitText('取消'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: loading ? null : regenerate,
-                            icon: loading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.autorenew),
-                            label: FitText(loading ? '生成中…' : '再生成三条'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: selectedIndex == null
-                                ? null
-                                : () => Navigator.of(sheetContext)
-                                    .pop(options[selectedIndex!]),
-                            child: const FitText('使用'),
-                          ),
-                        ),
-                      ],
-                    ),
+                  CandidateActionBar(
+                    onCancel: () => Navigator.of(sheetContext).pop(),
+                    onRegenerate: regenerate,
+                    onConfirm: selectedIndex == null
+                        ? null
+                        : () => Navigator.of(sheetContext).pop(options[selectedIndex!]),
+                    cancelLabel: '取消',
+                    regenerateLabel: '再生成三条',
+                    busy: loading,
+                    showRegenerateSpinner: true,
+                    confirmEnabled: selectedIndex != null,
+                    bottomInset: MediaQuery.viewPaddingOf(sheetContext).bottom,
                   ),
                 ],
               ),
@@ -504,9 +473,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
     setState(() {});
     // 重说完成后滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    _scrollToBottom();
   }
 
   Future<void> _editAssistantAt(int index) async {
@@ -666,9 +633,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       _attachmentDraft.replaceAll(restored.attachments);
     }
     // 回溯成功后滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    _scrollToBottom();
   }
 
   /// 「从此处分叉」：以当前会话为基底，保留到该气泡为止的内容，
@@ -734,9 +699,10 @@ mixin ChatUiHelpers on ChatStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         FocusManager.instance.primaryFocus?.unfocus();
-        _scrollToBottom();
       }
     });
+    // 滚动由 ChatController 自己排帧，这里不再套一层。
+    _scrollToBottom();
     Future<void>.delayed(const Duration(milliseconds: 120), () {
       if (mounted) {
         FocusManager.instance.primaryFocus?.unfocus();

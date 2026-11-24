@@ -33,6 +33,7 @@
 library;
 
 import 'dart:convert';
+import 'package:dna/services/storage_texts.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -61,15 +62,7 @@ enum StorageCategory {
 }
 
 /// 分类的显示名（界面与明细页标题共用）。
-String storageCategoryLabel(StorageCategory category) => switch (category) {
-  StorageCategory.conversations => '会话',
-  StorageCategory.characters => '角色卡',
-  StorageCategory.worlds => '世界',
-  StorageCategory.cache => '缓存',
-  StorageCategory.downloads => '下载',
-  StorageCategory.attachments => '附件',
-  StorageCategory.other => '其他',
-};
+
 
 /// 分类下面的一行（明细页的一项）。
 class StorageUsageItem {
@@ -238,10 +231,14 @@ abstract class StorageRecordsSource {
 /// 空 box 文件（那会让下一次盘点多出几项来路不明的占用）。
 class HiveStorageRecordsSource implements StorageRecordsSource {
   HiveStorageRecordsSource({
+    required this.texts,
     this.conversationsBox = 'conversations',
     this.charactersBox = 'tas',
     this.worldsBox = 'worlds',
   });
+
+  /// 措辞（角色名兜底、会话标题兜底都要用）。
+  final StorageTexts texts;
 
   final String conversationsBox;
   final String charactersBox;
@@ -255,7 +252,7 @@ class HiveStorageRecordsSource implements StorageRecordsSource {
     final Map<String, String> characterNames = <String, String>{};
     final List<StorageDataRecord> characters = <StorageDataRecord>[];
     for (final String raw in await _readStrings(charactersBox)) {
-      final StorageDataRecord? record = characterRecordFromJson(raw);
+      final StorageDataRecord? record = characterRecordFromJson(raw, texts: texts);
       if (record == null) {
         unreadable++;
         continue;
@@ -266,7 +263,7 @@ class HiveStorageRecordsSource implements StorageRecordsSource {
 
     final List<StorageDataRecord> worlds = <StorageDataRecord>[];
     for (final String raw in await _readStrings(worldsBox)) {
-      final StorageDataRecord? record = worldRecordFromJson(raw);
+      final StorageDataRecord? record = worldRecordFromJson(raw, texts: texts);
       if (record == null) {
         unreadable++;
         continue;
@@ -280,6 +277,7 @@ class HiveStorageRecordsSource implements StorageRecordsSource {
       final ConversationRecordParse? parsed = parseConversationRecord(
         raw,
         characterNames,
+        texts: texts,
       );
       if (parsed == null) {
         unreadable++;
@@ -347,8 +345,9 @@ class ConversationRecordParse {
 /// 解析不出对象时返回 null（调用方计一条「读不出来的记录」）。
 ConversationRecordParse? parseConversationRecord(
   String raw,
-  Map<String, String> characterNames,
-) {
+  Map<String, String> characterNames, {
+  required StorageTexts texts,
+}) {
   final Object? decoded;
   try {
     decoded = jsonDecode(raw);
@@ -361,8 +360,8 @@ ConversationRecordParse? parseConversationRecord(
   final String groupName = (decoded['groupName'] as String?)?.trim() ?? '';
   final String taId = (decoded['taId'] as String?) ?? '';
   final String title = isGroup
-      ? (groupName.isEmpty ? '群聊' : groupName)
-      : (characterNames[taId] ?? '未命名对话');
+      ? (groupName.isEmpty ? texts.conversationGroup() : groupName)
+      : (characterNames[taId] ?? texts.conversationTitleFallback());
 
   final int messageCount = switch (decoded['messages']) {
     List<dynamic> list => list.length,
@@ -373,9 +372,9 @@ ConversationRecordParse? parseConversationRecord(
     _ => 0,
   };
   final List<String> noteParts = <String>[
-    if (isGroup) '群聊',
-    '$messageCount 条消息',
-    if (summaryCount > 0) '$summaryCount 段摘要',
+    if (isGroup) texts.conversationGroup(),
+    texts.messageCount(messageCount),
+    if (summaryCount > 0) texts.summaryCount(summaryCount),
   ];
 
   final Map<String, String> attachmentNames = <String, String>{};
@@ -410,26 +409,32 @@ ConversationRecordParse? parseConversationRecord(
 }
 
 /// 纯函数：角色卡 JSON → 明细。解析失败返回 null。
-StorageDataRecord? characterRecordFromJson(String raw) {
+StorageDataRecord? characterRecordFromJson(
+  String raw, {
+  required StorageTexts texts,
+}) {
   final Map<String, dynamic>? json = _decodeMap(raw);
   if (json == null) return null;
   final String id = (json['id'] as String?) ?? '';
   final String name = (json['name'] as String?)?.trim() ?? '';
   return StorageDataRecord(
-    name: name.isEmpty ? '未命名角色' : name,
+    name: name.isEmpty ? texts.unnamedCharacter() : name,
     bytes: utf8ByteLength(raw),
     ownerId: id.isEmpty ? null : id,
   );
 }
 
 /// 纯函数：世界卡 JSON → 明细。解析失败返回 null。
-StorageDataRecord? worldRecordFromJson(String raw) {
+StorageDataRecord? worldRecordFromJson(
+  String raw, {
+  required StorageTexts texts,
+}) {
   final Map<String, dynamic>? json = _decodeMap(raw);
   if (json == null) return null;
   final String id = (json['id'] as String?) ?? '';
   final String name = (json['name'] as String?)?.trim() ?? '';
   return StorageDataRecord(
-    name: name.isEmpty ? '未命名世界' : name,
+    name: name.isEmpty ? texts.unnamedWorld() : name,
     bytes: utf8ByteLength(raw),
     ownerId: id.isEmpty ? null : id,
   );
@@ -552,13 +557,18 @@ Future<StorageDiskSpace?> _readUnixDiskSpace(String documentsPath) async {
 /// 不碰真实用户目录、也不去起子进程。
 class StorageUsageService {
   StorageUsageService({
+    required StorageTexts texts,
     Future<String?> Function()? documentsPath,
     StorageRecordsSource? recordsSource,
     Future<StorageDiskSpace?> Function(String documentsPath)? diskSpaceReader,
     this.itemsPerCategory = kStorageItemsPerCategory,
-  }) : _documentsPath = documentsPath ?? _defaultDocumentsPath,
-       _recordsSource = recordsSource ?? HiveStorageRecordsSource(),
+  }) : texts = texts,
+       _documentsPath = documentsPath ?? _defaultDocumentsPath,
+       _recordsSource = recordsSource ?? HiveStorageRecordsSource(texts: texts),
        _diskSpaceReader = diskSpaceReader ?? readDiskSpace;
+
+  /// 措辞来源（服务自己不含任何中文）。
+  final StorageTexts texts;
 
   final Future<String?> Function() _documentsPath;
   final StorageRecordsSource _recordsSource;
@@ -587,11 +597,12 @@ class StorageUsageService {
     try {
       records = await _recordsSource.load();
     } catch (error) {
-      recordsError = '读取本地数据库失败：$error';
+      recordsError = texts.databaseReadFailed(error);
     }
 
     final _ScanBuilder builder = _ScanBuilder(
       itemsPerCategory: itemsPerCategory,
+      texts: texts,
     );
     builder.addRecords(StorageCategory.conversations, records.conversations);
     builder.addRecords(StorageCategory.worlds, records.worlds);
@@ -649,7 +660,7 @@ class StorageUsageService {
         StorageCategory.downloads,
         rel,
         bytes,
-        note: '端侧语音模型',
+        note: texts.ttsModel(),
       );
     }
 
@@ -664,9 +675,9 @@ class StorageUsageService {
       }
       builder.addFileItem(
         StorageCategory.cache,
-        '合成语音缓存（${cacheFiles.length} 个音频）',
+        texts.ttsCacheName(cacheFiles.length),
         cacheBytes,
-        note: '听过的台词，再听不用重新合成',
+        note: texts.ttsCacheNote(),
       );
     }
 
@@ -680,7 +691,9 @@ class StorageUsageService {
         StorageCategory.attachments,
         originalName ?? baseName,
         bytes,
-        note: originalName == null ? '附件（只有哈希名）' : '聊天附件',
+        note: originalName == null
+            ? texts.attachmentHashOnlyNote()
+            : texts.attachmentChatNote(),
       );
     }
 
@@ -692,7 +705,7 @@ class StorageUsageService {
         StorageCategory.other,
         rel,
         bytes,
-        note: '自动备份（可以自己删）',
+        note: texts.backupsNote(),
       );
     }
 
@@ -707,9 +720,9 @@ class StorageUsageService {
       }
       builder.addFileItem(
         StorageCategory.other,
-        '旧版语音输入模型（已废弃）',
+        texts.legacySttName(),
         legacyBytes,
-        note: '${legacyModels.length} 个文件，可以删',
+        note: texts.legacySttNote(legacyModels.length),
       );
     }
 
@@ -726,9 +739,9 @@ class StorageUsageService {
       } else {
         builder.addFileItem(
           StorageCategory.other,
-          '${_hiveBoxLabel(boxName)}（$boxName.hive）',
+          texts.hiveBoxItemName(_hiveBoxLabel(boxName, texts), boxName),
           bytes,
-          note: '数据库文件',
+          note: texts.dbFileNote(),
         );
       }
     }
@@ -751,12 +764,13 @@ class StorageUsageService {
     _ => null,
   };
 
-  static String _hiveBoxLabel(String boxName) => switch (boxName) {
-    'identities' => '身份数据',
-    'settings' => '设置数据',
-    'attachments' => '附件索引（网页版）',
-    _ => boxName,
-  };
+  static String _hiveBoxLabel(String boxName, StorageTexts texts) =>
+      switch (boxName) {
+        'identities' => texts.identityData(),
+        'settings' => texts.settingsData(),
+        'attachments' => texts.attachmentIndexWeb(),
+        _ => boxName,
+      };
 
   /// 列出一个目录下所有文件的（相对路径, 字节数）。目录不存在返回空。
   Future<List<(String, int)>> _listFiles(String directoryPath) async {
@@ -798,9 +812,10 @@ class StorageUsageService {
 
 /// 扫描过程的累加器：把散落的字节按分类收拢，最后一次性排序 + 截断。
 class _ScanBuilder {
-  _ScanBuilder({required this.itemsPerCategory});
+  _ScanBuilder({required this.itemsPerCategory, required this.texts});
 
   final int itemsPerCategory;
+  final StorageTexts texts;
 
   final Map<StorageCategory, _CategoryDraft> _drafts =
       <StorageCategory, _CategoryDraft>{
@@ -849,7 +864,9 @@ class _ScanBuilder {
         StorageUsageItem(
           name: relativePath,
           bytes: bytes,
-          note: taId == null ? '认不出属于哪个角色' : '找不到对应的角色卡',
+          note: taId == null
+              ? texts.unownedCharacterNote()
+              : texts.missingCharacterNote(),
         ),
       );
       return;
@@ -888,9 +905,9 @@ class _ScanBuilder {
       for (final _CharacterDraft character in _characters.values) {
         items.add(
           StorageUsageItem(
-            name: character.name ?? '未命名角色',
+            name: character.name ?? texts.unnamedCharacter(),
             bytes: character.dataBytes + character.fileBytes,
-            note: character.note,
+            note: character.noteFor(texts),
           ),
         );
       }
@@ -902,9 +919,9 @@ class _ScanBuilder {
     if (overhead > 0) {
       items.add(
         StorageUsageItem(
-          name: '索引与空闲空间（${draft.hiveBoxNames.join(' / ')}.hive）',
+          name: texts.indexOverheadName(draft.hiveBoxNames.join(' / ')),
           bytes: overhead,
-          note: '数据库文件的固定开销，不算在任何一条内容里',
+          note: texts.indexOverheadNote(),
         ),
       );
     }
@@ -954,12 +971,12 @@ class _CharacterDraft {
   int imageCount = 0;
   int musicCount = 0;
 
-  String? get note {
+  String? noteFor(StorageTexts texts) {
     final List<String> parts = <String>[
-      if (imageCount > 0) '图片 $imageCount 张',
-      if (musicCount > 0) '背景音乐 $musicCount 首',
-      if (dataBytes > 0) '资料 ${formatStorageBytes(dataBytes)}',
-      if (imageCount == 0 && musicCount == 0) '没有图片/音乐',
+      if (imageCount > 0) texts.characterNoteImages(imageCount),
+      if (musicCount > 0) texts.characterNoteMusic(musicCount),
+      if (dataBytes > 0) texts.characterNoteData(dataBytes),
+      if (imageCount == 0 && musicCount == 0) texts.characterNoMedia(),
     ];
     return parts.join(' · ');
   }

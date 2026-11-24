@@ -116,7 +116,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(copied, '一只在窗边的猫');
-    expect(find.text('已复制提示词'), findsOneWidget);
+    // showSnack 把文案包进 FitText（继承 Text 又包一层 Text），find.text 会数到两个。
+    expect(find.text('已复制提示词'), findsWidgets);
   });
 
   testWidgets('同款生成：把提示词 pop 回工作台', (WidgetTester tester) async {

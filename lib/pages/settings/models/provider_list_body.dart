@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:dna/models/llm_provider_config.dart';
+import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/services/llm_provider.dart';
 import 'package:dna/state/app_controller.dart';
 import 'package:dna/theme/tokens.dart';
@@ -54,12 +55,7 @@ class ProviderListBody extends StatelessWidget {
     if (confirmed == true) {
       await controller.deleteProviderConfig(provider.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: FitText('已删除服务商【${provider.alias}】'),
-            duration: const Duration(milliseconds: 1500),
-          ),
-        );
+        showSnack(context, '已删除服务商【${provider.alias}】', duration: const Duration(milliseconds: 1500));
       }
     }
   }
@@ -71,7 +67,8 @@ class ProviderListBody extends StatelessWidget {
     final TextTheme ts = theme.textTheme;
 
     return AnimatedBuilder(
-      animation: controller,
+      // 只读 settings.models / settings.providers → 只订阅设置组。
+      animation: controller.settingsChanges,
       builder: (BuildContext context, Widget? _) {
         final List<LlmProviderConfig> providers = controller.settings.providers;
 

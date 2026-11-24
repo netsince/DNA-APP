@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
-import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/utils/post_like_fav.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/teahouse_post_page.dart';
 import 'package:dna/utils/error_display.dart';
-import 'package:dna/island_app/widgets/refreshable.dart';
+import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/island_app/widgets/wide_body.dart';
+import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆话题列表（GET /teahouse/topics）。
@@ -125,7 +125,8 @@ class TeahouseTopicPage extends StatefulWidget {
   State<TeahouseTopicPage> createState() => _TeahouseTopicPageState();
 }
 
-class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
+class _TeahouseTopicPageState extends State<TeahouseTopicPage>
+    with PostLikeFavMixin<TeahouseTopicPage> {
   final ScrollController _scrollController = ScrollController();
 
   /// 分页状态（加载中 / 加载更多 / 有没有下一页 / 页码 / 错误）交给共享
@@ -175,12 +176,6 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
     );
   }
 
-  bool get _loggedIn => AuthSession.instance.isLoggedIn;
-
-  void _snack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
     final int i = _paged.items.indexWhere((TeaPost p) => p.idInt == id);
@@ -192,39 +187,20 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
     });
   }
 
-  Future<void> _toggleLike(int postId) async {
-    if (!_loggedIn) {
-      _snack('请先登录后再点赞');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseLike(postId);
-      if (!mounted) return;
-      _updatePost(
-        postId,
-        (s) => s.copyWith(liked: r.liked, likeCount: r.count),
-      );
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
+  @override
+  void onPostLikeResult(int postId, ({bool liked, int count}) result) {
+    _updatePost(
+      postId,
+      (s) => s.copyWith(liked: result.liked, likeCount: result.count),
+    );
   }
 
-  Future<void> _toggleFavorite(int postId) async {
-    if (!_loggedIn) {
-      _snack('请先登录后再收藏');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseFavorite(postId);
-      if (!mounted) return;
-      _updatePost(
-        postId,
-        (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
-      );
-      _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
+  @override
+  void onPostFavoriteResult(int postId, bool favorited) {
+    _updatePost(
+      postId,
+      (s) => s.copyWith(favorited: favorited, likeCount: s.likeCount),
+    );
   }
 
   @override
@@ -260,8 +236,8 @@ class _TeahouseTopicPageState extends State<TeahouseTopicPage> {
                   return TeahousePostTile(
                     post: post,
                     onTap: () => _openPost(post.idInt),
-                    onLike: () => _toggleLike(post.idInt),
-                    onFavorite: () => _toggleFavorite(post.idInt),
+                    onLike: () => togglePostLike(post.idInt),
+                    onFavorite: () => togglePostFavorite(post.idInt),
                   );
                 },
               ),
