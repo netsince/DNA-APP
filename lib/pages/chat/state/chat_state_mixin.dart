@@ -97,7 +97,7 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
     // 记录当前 accent 设置，用于检测设置页切换后实时刷新聊天页取色。
     _lastAccentMode = widget.controller.settings.accentMode;
     _lastCustomAccentColor = widget.controller.settings.customAccentColor;
-    widget.controller.addListener(_onSettingsChanged);
+    widget.controller.settingsChanges.addListener(_onSettingsChanged);
     // 单聊与群聊一起查：会话类型由数据说了算，不由调用方传进来的 isGroup 猜。
     // 之前只在 widget.isGroup 为真时才查群聊列表，于是「搜索页点进群聊」
     // （不传 isGroup）会查不到，落到下面那个空壳 Conversation 上 —— 而空壳的
@@ -151,7 +151,7 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    widget.controller.removeListener(_onSettingsChanged);
+    widget.controller.settingsChanges.removeListener(_onSettingsChanged);
     _attachmentDraft.dispose();
     _inputController.dispose();
     _inputFocusNode.dispose();

@@ -66,7 +66,8 @@ class ModelListBody extends StatelessWidget {
     final TextTheme ts = theme.textTheme;
 
     return AnimatedBuilder(
-      animation: controller,
+      // 只读 settings.models / settings.providers → 只订阅设置组。
+      animation: controller.settingsChanges,
       builder: (BuildContext context, Widget? _) {
         final List<LlmModelConfig> models = controller.settings.models;
         final String activeId = controller.settings.activeModelId;

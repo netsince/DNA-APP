@@ -67,7 +67,8 @@ class ProviderListBody extends StatelessWidget {
     final TextTheme ts = theme.textTheme;
 
     return AnimatedBuilder(
-      animation: controller,
+      // 只读 settings.models / settings.providers → 只订阅设置组。
+      animation: controller.settingsChanges,
       builder: (BuildContext context, Widget? _) {
         final List<LlmProviderConfig> providers = controller.settings.providers;
 
