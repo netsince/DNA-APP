@@ -120,17 +120,6 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
     return current.taId;
   }
 
-  /// 左列:按「我家」顺序,只保留有非归档 1:1 会话的角色。
-  List<TA> _characters() {
-    final Set<String> withChats = <String>{
-      for (final Conversation conversation in widget.controller.conversations)
-        if (!conversation.isGroup && !conversation.archived) conversation.taId,
-    };
-    return <TA>[
-      for (final TA ta in widget.controller.tas)
-        if (withChats.contains(ta.id)) ta,
-    ];
-  }
 
   /// 右列:该角色的非归档 1:1 会话(排序与文案见
   /// utils/conversation_labels.dart —— 与角色展示页共用同一份)。
@@ -150,7 +139,7 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
   // ---------- 滚动定位 ----------
 
   void _revealCurrent() {
-    final List<TA> characters = _characters();
+    final List<TA> characters = charactersWithChats(widget.controller);
     final String? taId = _effectiveTaId(characters);
     _reveal(
       _characterScroll,
@@ -209,7 +198,7 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
                 child: ListenableBuilder(
                   listenable: widget.controller,
                   builder: (BuildContext context, Widget? _) {
-                    final List<TA> characters = _characters();
+                    final List<TA> characters = charactersWithChats(widget.controller);
                     final String? taId = _effectiveTaId(characters);
                     final List<Conversation> chats = _chatsOf(taId);
                     return Row(
