@@ -248,7 +248,16 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 同步激活模型和服务商至顶层 settings 遗留字段，以保证下游聊天服务透明适配。
+  /// 同步激活模型 / 服务商的**身份字段**到顶层 settings 遗留投影。
+  ///
+  /// 只同步「用哪个服务商 / 哪个模型」这类身份信息（provider / baseUrl /
+  /// apiKey / selectedModel 与两个 deepseek 开关）。
+  ///
+  /// **采样参数（temperature / topP / topK / minP / 两个 penalty / slope /
+  /// frequencyPenalty）刻意不在这里回写。** 它们由 [buildLlmRequest] 在请求
+  /// 时按「模型自定义覆盖全局」解析；一旦回写，模型卡的自定义值就会**覆盖掉
+  /// 用户设置的全局值**，之后所有未开自定义采样的模型都会用被覆盖后的值，
+  /// 且没有任何提示或回滚路径（审计 F-4 实测复现）。
   void _syncActiveModelToLegacyFields() {
     final p = activeProviderConfig;
     final m = activeModel;
@@ -257,34 +266,7 @@ class AppController extends ChangeNotifier {
       baseUrl: p.baseUrl,
       apiKey: p.apiKey,
       selectedModel: m.modelName,
-      temperature: m.customSamplingEnabled && m.temperature != null
-          ? m.temperature
-          : _settings.temperature,
-      frequencyPenalty:
-          m.customSamplingEnabled && m.frequencyPenalty != null
-              ? m.frequencyPenalty
-              : _settings.frequencyPenalty,
-      presencePenalty:
-          m.customSamplingEnabled && m.presencePenalty != null
-              ? m.presencePenalty
-              : _settings.presencePenalty,
-      topP: m.customSamplingEnabled && m.topP != null
-          ? m.topP
-          : _settings.topP,
-      topK: m.customSamplingEnabled && m.topK != null
-          ? m.topK
-          : _settings.topK,
-      minP: m.customSamplingEnabled && m.minP != null
-          ? m.minP
-          : _settings.minP,
-      repetitionPenalty:
-          m.customSamplingEnabled && m.repetitionPenalty != null
-              ? m.repetitionPenalty
-              : _settings.repetitionPenalty,
-      repetitionPenaltySlope:
-          m.customSamplingEnabled && m.repetitionPenaltySlope != null
-              ? m.repetitionPenaltySlope
-              : _settings.repetitionPenaltySlope,
+
       deepseekThinkingEnabled: m.deepseekThinkingEnabled ?? _settings.deepseekThinkingEnabled,
       deepseekThinkingEffort: m.deepseekThinkingEffort ?? _settings.deepseekThinkingEffort,
     );
