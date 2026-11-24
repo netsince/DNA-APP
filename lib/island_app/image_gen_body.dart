@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -554,19 +555,10 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       );
     }
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_error != null && _models.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(_error!),
-            const SizedBox(height: 8),
-            FilledButton(onPressed: _load, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: _error!, onRetry: _load);
     }
     return RefreshIndicator(
       onRefresh: _load,
@@ -1003,18 +995,12 @@ class _ImageGenHistoryPageState extends State<ImageGenHistoryPage> {
 
   Widget _buildBody(BuildContext context) {
     if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_paged.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(Icons.photo_library_outlined, size: 48),
-            const SizedBox(height: 12),
-            const Text('还没有生成记录，去工作台创作第一张吧。'),
-          ],
-        ),
+      return const EmptyState(
+        icon: Icons.photo_library_outlined,
+        title: '还没有生成记录，去工作台创作第一张吧。',
       );
     }
     return RefreshIndicator(

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 
 import 'package:image_picker/image_picker.dart';
 
@@ -559,26 +560,14 @@ class _CommentSectionState extends State<CommentSection> {
 
   /// 评论列表（可滚动）；输入框不随列表滚动，始终固定在底部。
   Widget _buildList(BuildContext context) {
-    final theme = Theme.of(context);
     if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_paged.error != null && _paged.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(_paged.error!, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            FilledButton.tonal(onPressed: _refresh, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: _paged.error!, onRetry: _refresh);
     }
     if (_paged.items.isEmpty) {
-      return Center(
-        child: Text('还没有评论，来抢沙发~', style: theme.textTheme.bodyMedium),
-      );
+      return const EmptyState(title: '还没有评论，来抢沙发~');
     }
     return AppRefreshIndicator(
       onRefresh: _refresh,

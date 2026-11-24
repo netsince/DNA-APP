@@ -361,7 +361,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_error != null) {
       return ErrorState(onRetry: _load);

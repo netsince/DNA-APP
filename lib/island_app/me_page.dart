@@ -539,7 +539,7 @@ class _ProfileViewState extends State<ProfileView> {
   Widget build(BuildContext context) {
     final u = _user;
     if (_cardsPaged.isLoading && u == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     // 主页式布局：身份头卡随内容上滚消失，TabBar 吸顶，内容占满剩余空间。
     return DefaultTabController(
@@ -982,7 +982,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildCardsTab(BuildContext context) {
     if (_cardsPaged.isLoading && _cardsPaged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_cardsPaged.error != null && _cardsPaged.items.isEmpty) {
       return _errorTab(_cardsPaged.error!, () => _cardsPaged.refresh());
@@ -1089,7 +1089,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildWorldsContent(BuildContext context) {
     if (_worldsPaged.isLoading && _worldsPaged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_worldsPaged.error != null && _worldsPaged.items.isEmpty) {
       return _errorTab(_worldsPaged.error!, () => _worldsPaged.refresh());
@@ -1157,7 +1157,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildTeahouseContent(BuildContext context) {
     if (_teahousePaged.isLoading && _teahousePaged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_teahousePaged.error != null && _teahousePaged.items.isEmpty) {
       return _errorTab(_teahousePaged.error!, () => _teahousePaged.refresh());
@@ -1214,7 +1214,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildCommentsContent(BuildContext context) {
     if (_commentsPaged.isLoading && _commentsPaged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_commentsPaged.error != null && _commentsPaged.items.isEmpty) {
       return _errorTab(_commentsPaged.error!, () => _commentsPaged.refresh());
@@ -1400,7 +1400,7 @@ class _FollowListPageState extends State<FollowListPage> {
 
   Widget _buildBody(BuildContext context) {
     if (_paged.isLoading && _paged.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_paged.error != null && _paged.items.isEmpty) {
       return ErrorState(
