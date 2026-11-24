@@ -196,6 +196,7 @@ class StrategyTextFieldRow extends StatelessWidget {
     this.hint,
     this.numeric = false,
     this.maxLines = 1,
+    this.bottomSpacing = 8,
     required this.onSubmitted,
   });
 
@@ -204,12 +205,15 @@ class StrategyTextFieldRow extends StatelessWidget {
   final String? hint;
   final bool numeric;
   final int maxLines;
-  final ValueChanged<String> onSubmitted;
+
+  /// 行与行之间的下边距。默认 8；调用方自己已经用 `AppSpacing` 排布时传 0，
+  /// 避免叠加出一段多余空白。
+  final double bottomSpacing;  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: TextField(
         controller: controller,
         keyboardType: numeric ? TextInputType.number : null,
