@@ -18,6 +18,7 @@ import 'package:dna/theme/font_scale.dart';
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 
+import '../../models/app_settings.dart';
 import '../../services/app_icon_service.dart';
 import '../../state/app_controller.dart';
 import 'app_icon_page.dart';
@@ -230,6 +231,22 @@ final FieldsEntry appearanceEntry = FieldsEntry(
           editor: NumberEditor.slider,
           saveMode: SettingsSaveMode.onRelease,
           labelOf: (int value) => AppFontScale.labelOf(value),
+        ),
+        SettingInt(
+          id: 'appearance.snackDuration',
+          title: '提示条停留时长',
+          hint: '底部提示（例如「已复制」）自动消失的时间。',
+          key: 'snackDurationMs',
+          defaultValue: kDefaultSnackDurationMs,
+          min: 1000,
+          max: 10000,
+          step: 500,
+          unit: '毫秒',
+          editor: NumberEditor.slider,
+          saveMode: SettingsSaveMode.onRelease,
+          // 有副作用：改完要立刻应用到 SnackBar 主题，所以走 writeOverride。
+          writeOverride: (AppController c, int value) =>
+              c.applySnackDuration(value),
         ),
       ],
     ),
