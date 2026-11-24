@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:dna/services/blob_ref.dart';
 
 import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as path;
@@ -77,10 +78,7 @@ class ImageStorage {
     return FileImage(f);
   }
 
-  String _normalizeExt(String? ext) {
-    final String e = (ext == null || ext.isEmpty) ? '.jpg' : ext;
-    return e.startsWith('.') ? e : '.$e';
-  }
+  String _normalizeExt(String? ext) => normalizeImageExt(ext);
 
   Future<Directory> _ensureTaDir() async {
     final Directory doc = await getApplicationDocumentsDirectory();
