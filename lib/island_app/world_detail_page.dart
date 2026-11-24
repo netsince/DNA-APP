@@ -12,6 +12,7 @@ import 'package:dna/island_app/models/world_card.dart';
 import 'package:dna/island_app/server_config.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/utils/time_format.dart';
+import 'package:dna/island_app/utils/async_controller.dart';
 import 'package:dna/utils/error_display.dart';
 import 'package:dna/island_app/widgets/avatar.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
@@ -81,13 +82,19 @@ class WorldDetailPage extends StatefulWidget {
 }
 
 class _WorldDetailPageState extends State<WorldDetailPage> {
-  WorldCardSummary? _detail;
-  bool _loading = true;
+  /// 详情加载统一由 [AsyncController] 托管（保留旧值：刷新时不把页面打回转圈）。
+  /// `_detail` / `_loading` / `_error` 只作为只读 getter 保留，页面里的读取点没改。
+  late final AsyncController<WorldCardSummary> _async =
+      AsyncController<WorldCardSummary>(_fetchDetail);
+
+  WorldCardSummary? get _detail => _async.value;
+  bool get _loading => _async.isInitialLoading;
+  String? get _error => _async.error;
+
   bool _importing = false;
   bool _favoriting = false;
   bool _favorited = false;
   int _favoriteCount = 0;
-  String? _error;
 
   /// 词条本地过滤词（名字 / 触发词）。
   final TextEditingController _entryFilter = TextEditingController();
@@ -96,37 +103,30 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
   @override
   void initState() {
     super.initState();
+    _async.addListener(_onAsyncChanged);
     _load();
+  }
+
+  /// 详情变化时：同步收藏态（它们是从详情里派生的），并重建页面。
+  void _onAsyncChanged() {
+    if (!mounted) return;
+    final WorldCardSummary? v = _async.value;
+    setState(() {
+      if (v != null) {
+        _favorited = v.favorited;
+        _favoriteCount = v.favoriteCount;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _async.dispose();
     _entryFilter.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final WorldCardSummary parsed = await _fetchDetail();
-      if (!mounted) return;
-      setState(() {
-        _detail = parsed;
-        _favorited = parsed.favorited;
-        _favoriteCount = parsed.favoriteCount;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '详情加载失败：${describeError(e)}';
-        _loading = false;
-      });
-    }
-  }
+  Future<void> _load() => _async.load();
 
   Future<WorldCardSummary> _fetchDetail() async {
     final Future<Map<String, dynamic>> Function(String)? loader =
@@ -142,11 +142,8 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
     try {
       final WorldCardSummary parsed = await _fetchDetail();
       if (!mounted) return;
-      setState(() {
-        _detail = parsed;
-        _favorited = parsed.favorited;
-        _favoriteCount = parsed.favoriteCount;
-      });
+      // 走 controller 的 setValue：监听里会同步收藏态并重建，不再手写 setState。
+      _async.setValue(parsed);
     } catch (_) {
       // 刷新失败无所谓：页面上的旧数字仍然是对的（只是少了一次复制）。
     }
