@@ -1007,38 +1007,15 @@ class _ErrorBody extends StatelessWidget {
           surfaceTintColor: scheme.surfaceTint,
           leading: leading,
         ),
-        SliverToBoxAdapter(
+        // 内容块改用共享三态：以前这里手写「图标 + 加载失败 + 原因 + 重试」，
+        // 与全站 ErrorState 平行（图标尺寸、按钮样式各写一遍）。
+        // 说明文字直接用失败原因：『加载失败』做标题、原因做副文案是两层表达，
+        // 而用户真正要看的是原因。
+        SliverFillRemaining(
+          hasScrollBody: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    Icons.cloud_off_outlined,
-                    size: 40,
-                    color: scheme.outline,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('加载失败'),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      error,
-                      textAlign: TextAlign.center,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(onPressed: onRetry, child: const Text('重试')),
-                ],
-              ),
-            ),
+            child: AppErrorState(message: error, onRetry: onRetry),
           ),
         ),
       ],
