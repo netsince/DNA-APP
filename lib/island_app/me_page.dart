@@ -981,15 +981,12 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildCardsTab(BuildContext context) {
-    if (_cardsPaged.isLoading && _cardsPaged.items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_cardsPaged.error != null && _cardsPaged.items.isEmpty) {
-      return _errorTab(_cardsPaged.error!, () => _cardsPaged.refresh());
-    }
-    if (_cardsPaged.items.isEmpty) {
-      return _emptyTab('角色卡', '还没有发布任何角色卡');
-    }
+    final Widget? state = _tabState(
+      _cardsPaged,
+      emptyTitle: '角色卡',
+      emptyMessage: '还没有发布任何角色卡',
+    );
+    if (state != null) return state;
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.pixels >=
@@ -1020,6 +1017,24 @@ class _ProfileViewState extends State<ProfileView> {
         ],
       ),
     );
+  }
+
+  /// 四个 tab 的三态接线：加载中 → 失败 → 空 → null（null 表示渲染内容）。
+  ///
+  /// 以前每个 tab 各写这三道守卫（4 × 3 段）。而且第一个 tab 的空态条件是
+  /// `items.isEmpty`、另外三个是 `items.isEmpty && !isLoading` —— 不一致，但
+  /// 后者里的 `!isLoading` 是多余的：第一道守卫已经拦掉「加载中且空」。
+  Widget? _tabState<T>(
+    PagedController<T> paged, {
+    required String emptyTitle,
+    required String emptyMessage,
+  }) {
+    if (paged.isLoading && paged.items.isEmpty) return const LoadingState();
+    if (paged.error != null && paged.items.isEmpty) {
+      return _errorTab(paged.error!, () => paged.refresh());
+    }
+    if (paged.items.isEmpty) return _emptyTab(emptyTitle, emptyMessage);
+    return null;
   }
 
   Widget _emptyTab(String title, String message) {
@@ -1088,15 +1103,12 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildWorldsContent(BuildContext context) {
-    if (_worldsPaged.isLoading && _worldsPaged.items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_worldsPaged.error != null && _worldsPaged.items.isEmpty) {
-      return _errorTab(_worldsPaged.error!, () => _worldsPaged.refresh());
-    }
-    if (_worldsPaged.items.isEmpty && !_worldsPaged.isLoading) {
-      return _emptyTab('世界', '还没有发布任何世界卡');
-    }
+    final Widget? state = _tabState(
+      _worldsPaged,
+      emptyTitle: '世界',
+      emptyMessage: '还没有发布任何世界卡',
+    );
+    if (state != null) return state;
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.pixels >=
@@ -1156,15 +1168,12 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildTeahouseContent(BuildContext context) {
-    if (_teahousePaged.isLoading && _teahousePaged.items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_teahousePaged.error != null && _teahousePaged.items.isEmpty) {
-      return _errorTab(_teahousePaged.error!, () => _teahousePaged.refresh());
-    }
-    if (_teahousePaged.items.isEmpty && !_teahousePaged.isLoading) {
-      return _emptyTab('茶馆', '还没有发布茶馆帖子');
-    }
+    final Widget? state = _tabState(
+      _teahousePaged,
+      emptyTitle: '茶馆',
+      emptyMessage: '还没有发布茶馆帖子',
+    );
+    if (state != null) return state;
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.pixels >=
@@ -1213,15 +1222,12 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Widget _buildCommentsContent(BuildContext context) {
-    if (_commentsPaged.isLoading && _commentsPaged.items.isEmpty) {
-      return const LoadingState();
-    }
-    if (_commentsPaged.error != null && _commentsPaged.items.isEmpty) {
-      return _errorTab(_commentsPaged.error!, () => _commentsPaged.refresh());
-    }
-    if (_commentsPaged.items.isEmpty && !_commentsPaged.isLoading) {
-      return _emptyTab('评论', '还没有发表评论');
-    }
+    final Widget? state = _tabState(
+      _commentsPaged,
+      emptyTitle: '评论',
+      emptyMessage: '还没有发表评论',
+    );
+    if (state != null) return state;
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.pixels >=
