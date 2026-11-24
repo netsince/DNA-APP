@@ -82,6 +82,7 @@ import 'ui/widgets/chat_app_bar.dart';
 import 'ui/widgets/animated_background.dart';
 import 'ui/widgets/chat_input_bar.dart';
 import 'ui/widgets/chat_message_list.dart';
+import 'ui/widgets/speaker_bar.dart';
 import 'ui/widgets/group_member_picker_sheet.dart';
 import 'package:dna/widgets/fit_text.dart';
 import '../../theme/tokens.dart';
@@ -458,119 +459,6 @@ class _ChatSurfaceState extends State<ChatSurface>
     return ta == null ? null : _avatarForTa(ta);
   }
 
-  Widget _buildSpeakerBar(
-    Color primaryContainer,
-    Color surfaceContainerHighest,
-    TextTheme textTheme,
-  ) {
-    if (!_isGroup) {
-      return const SizedBox.shrink();
-    }
-    final List<TA> tas = _memberTas;
-    if (tas.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      decoration: BoxDecoration(
-        color: surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          const FitText('发言控制'),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              // 60 而不是 56：选中态外圈描边（2 内边距 + 2 描边）会让单项
-              // 高 4px，56 时正好溢出 2px（RenderFlex overflow）。
-              height: 60,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: tas.length,
-                separatorBuilder: (_, int index) => const SizedBox(width: 8),
-                itemBuilder: (BuildContext context, int index) {
-                  final TA ta = tas[index];
-                  final bool active = ta.id == _activeTaId;
-                  final ImageProvider? avatar = _avatarForTa(ta);
-                  // 发言者选择：既是"可点的目标"也是"当前选中的一项"，
-                  // 所以要有涟漪、按钮语义与 selected 语义，且选中态不能只靠
-                  // 底色（审计 4.3「只用颜色表达状态」）。外圈描边是非颜色冗余。
-                  return Semantics(
-                    button: true,
-                    selected: active,
-                    label: ta.name.isNotEmpty ? ta.name : '未命名TA',
-                    hint: active ? '当前发言者' : '点击让它发言',
-                    child: InkWell(
-                      borderRadius: AppRadius.smAll,
-                      onTap: () => _triggerTaReply(ta),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xxs,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: active
-                                  ? BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        width: 2,
-                                      ),
-                                    )
-                                  : null,
-                              child: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: active
-                                    ? primaryContainer
-                                    : surfaceContainerHighest,
-                                foregroundImage: avatar,
-                                child: avatar == null
-                                    ? FitText(
-                                        ta.name.isNotEmpty ? ta.name[0] : '?',
-                                        style: textTheme.labelMedium,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            SizedBox(
-                              width: 56,
-                              child: FitText(
-                                ta.name.isEmpty ? '未命名' : ta.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: textTheme.labelSmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: _showMemberPicker,
-            tooltip: '添加成员',
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-          ),
-        ],
-      ),
-    );
-  }
 
   // 横向拖动只做"转发":跟手平移、下一页预览、提交还是弹回,都由外层
   // (聊天页壳)决定 —— 只有它知道"下一个角色是谁、固定在哪个会话"。
@@ -647,10 +535,17 @@ class _ChatSurfaceState extends State<ChatSurface>
                       curve: Curves.easeOutCubic,
                       child: _immersiveUiHidden
                           ? const SizedBox(width: double.infinity)
-                          : _buildSpeakerBar(
-                              colorScheme.primaryContainer,
-                              colorScheme.surfaceContainerHighest,
-                              textTheme,
+                          : SpeakerBar(
+                              showBar: _isGroup && _memberTas.isNotEmpty,
+                              members: _memberTas,
+                              activeTaId: _activeTaId,
+                              avatarFor: _avatarForTa,
+                              onSpeak: _triggerTaReply,
+                              onAddMember: _showMemberPicker,
+                              primaryContainer: colorScheme.primaryContainer,
+                              surfaceContainerHighest:
+                                  colorScheme.surfaceContainerHighest,
+                              textTheme: textTheme,
                             ),
                     ),
                   ),
