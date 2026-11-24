@@ -281,7 +281,7 @@ class _AiServiceSettingsPageState extends State<AiServiceSettingsPage> {
         ],
       ),
       body: AnimatedBuilder(
-        animation: widget.controller,
+        animation: widget.controller.settingsChanges,
         builder: (BuildContext context, Widget? _) {
           final bool isSimple = widget.controller.settings.simpleModelMode;
 

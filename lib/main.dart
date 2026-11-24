@@ -93,12 +93,12 @@ class _DnaAppState extends State<DnaApp> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onSettingsChanged);
+    widget.controller.settingsChanges.addListener(_onSettingsChanged);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onSettingsChanged);
+    widget.controller.settingsChanges.removeListener(_onSettingsChanged);
     super.dispose();
   }
 
@@ -391,7 +391,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     // 'none' 表示不播。
     _showSplash = !widget.skipSplash &&
         splashAnimationById(widget.controller.settings.splashAnimation).enabled;
-    widget.controller.addListener(_onControllerChanged);
+    widget.controller.settingsChanges.addListener(_onControllerChanged);
     // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
     // 放在首帧之后发起，不阻塞启动。
     StartupUpdateCheck.schedule(context, widget.controller);

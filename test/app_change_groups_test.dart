@@ -50,7 +50,7 @@ void main() {
     return c;
   }
 
-  test('设置变更只打设置组，并保留整体通知（迁移期兼容）', () async {
+  test('设置变更只打设置组，且不再发整体通知', () async {
     final AppController c = await boot();
     int settings = 0, data = 0, chat = 0, all = 0;
     c.settingsChanges.addListener(() => settings++);
@@ -63,7 +63,7 @@ void main() {
     expect(settings, greaterThan(0), reason: '设置组应当被通知');
     expect(data, 0, reason: '设置变更不该惊动数据组');
     expect(chat, 0, reason: '设置变更不该惊动聊天组');
-    expect(all, greaterThan(0), reason: '迁移期仍发整体通知');
+    expect(all, 0, reason: '整体通知已撤，只能走分组');
   });
 
   test('数据变更只打数据组', () async {

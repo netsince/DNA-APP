@@ -71,7 +71,7 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
     // 监听 controller:在「其他」栏切换简易模式后,分栏栏与本页结构
     // 必须**立刻**跟着变,而不是等用户退出去再进来。
     return AnimatedBuilder(
-      animation: widget.controller,
+      animation: widget.controller.settingsChanges,
       builder: (BuildContext context, Widget? _) {
         final int visible = _visibleTabCount;
         _syncTabIndexToMode();
@@ -123,7 +123,7 @@ class _AiServiceMorePageState extends State<AiServiceMorePage>
   /// 「其他」栏:简易模式开关 + 全局采样参数。
   Widget _otherTab() {
     return AnimatedBuilder(
-      animation: widget.controller,
+      animation: widget.controller.settingsChanges,
       builder: (BuildContext context, Widget? _) {
         final bool isSimple = widget.controller.settings.simpleModelMode;
         return AppContentFrame(

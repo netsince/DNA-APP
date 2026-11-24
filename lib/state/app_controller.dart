@@ -88,15 +88,18 @@ class AppController extends ChangeNotifier {
   /// 只关心聊天运行期变化的监听方订阅它。
   Listenable get chatChanges => _chatGroup;
 
-  /// 唯一通知出口：先发对应分组，再发整体。
+  /// 唯一通知出口：只发受到影响的那几组。
   ///
-  /// **迁移期保留整体通知**：已经改成订阅分组的监听方不会重复重建（它们
-  /// 已不监听整体），还没改的照旧工作。等全部改完再去掉 [notifyListeners]。
+  /// **不再发整体通知**：全应用的监听方已逐个迁到分组订阅（动画/监听点
+  /// 全仓已无 `animation: controller` / `listenable: controller` /
+  /// `controller.addListener`）。留一个「都通知」的口子等于让分组白做。
+  ///
+  /// 新增监听方时**必须**订阅具体分组：订阅错组不会崩，只会白重建或页面
+  /// 不刷新（`app_change_groups_test` 锁着这条）。
   void _notify(AppChange change) {
     if (change.affectsSettings) _settingsGroup.notify();
     if (change.affectsData) _dataGroup.notify();
     if (change.affectsChat) _chatGroup.notify();
-    notifyListeners();
   }
 
   @override
