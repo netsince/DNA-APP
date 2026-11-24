@@ -18,25 +18,16 @@ subprojects {
 
 subprojects {
     afterEvaluate {
-        if (project.extensions.findByName("android") != null) {
-            extensions.configure<com.android.build.gradle.BaseExtension> {
-                compileSdkVersion(35)
-            }
+        // AGP 9：给**插件子项目**也钉 compileSdk 36。
+        // 起因：flutter_plugin_android_lifecycle 要求依赖方 compileSdk ≥ 36，而
+        // 若干插件（file_picker 等）默认仍是 34 → checkDebugAarMetadata 会失败。
+        // AGP 9 的 CommonExtension 既不是泛型也没有 compileSdk，要按具体扩展类型分派。
+        when (val androidExt = extensions.findByName("android")) {
+            is com.android.build.api.dsl.ApplicationExtension -> androidExt.compileSdk = 36
+            is com.android.build.api.dsl.LibraryExtension -> androidExt.compileSdk = 36
+            else -> {}
         }
     }
-
-    // 强行把所有想上 36 的 androidx 依赖全部降回 35 兼容版本
-    configurations.all {
-        resolutionStrategy {
-            force("androidx.core:core:1.13.1")
-            force("androidx.core:core-ktx:1.13.1")
-            force("androidx.activity:activity:1.9.3")
-            force("androidx.activity:activity-ktx:1.9.3")
-            force("androidx.navigationevent:navigationevent-android:1.0.0-alpha01")
-            force("androidx.browser:browser:1.8.0")
-        }
-    }
-
 }
 
 subprojects {
