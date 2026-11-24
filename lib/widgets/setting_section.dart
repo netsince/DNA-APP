@@ -45,6 +45,8 @@ class SettingSection extends StatelessWidget {
     this.trailing,
     this.collapsible = true,
     this.initiallyExpanded = true,
+    this.padding,
+    this.margin,
   });
 
   /// 分组图标(使用 [AppSize.iconCard] 尺寸)。
@@ -71,6 +73,15 @@ class SettingSection extends StatelessWidget {
 
   /// 初始是否展开（仅 [collapsible] 为 true 时有意义）。
   final bool initiallyExpanded;
+
+  /// 外层内边距。为 null 时用设置页的默认值（左右 lg、上下 md）。
+  ///
+  /// 给「不在设置页里、但想复用分组头」的页面用（编辑器类的表单页面通常已有
+  /// 自己的 `bodyPadding`，再叠一层就会多出一段横向留白）。
+  final EdgeInsetsGeometry? padding;
+
+  /// 外层外边距。为 null 时用默认值（底部 md 作为组间距）。
+  final EdgeInsetsGeometry? margin;
 
   @override
   Widget build(BuildContext context) {
@@ -104,13 +115,15 @@ class SettingSection extends StatelessWidget {
 
     // 分组 = 一块有底色的区域；组与组之间靠间距分隔（不再靠描边卡片）。
     return AppSurface(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
+      margin: margin ?? const EdgeInsets.only(bottom: AppSpacing.md),
+      padding:
+          padding ??
+          const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
       child: collapsible
             ? _CollapsibleSectionBody(
                 header: header,
