@@ -35,29 +35,33 @@ Requests for reinstatement under Section 6.2 and other notices to the copyright 
 
 1.14 "NOTICE" means a text file named "NOTICE" distributed with the Software that contains attribution notices.
 
+1.15 "Public Release" means making the Source form of the Software, of a Modified Version, or of any part of either available to any person outside Your Legal Entity, other than under an obligation of confidentiality owed to You.
+
 2. GRANT OF COPYRIGHT LICENSE
 
 2.1 Subject to the terms and conditions of this License, each copyright holder hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare Derivative Works of, publicly display, publicly perform, use, copy, modify, merge, publish, Distribute, and/or sell copies of the Software and Derivative Works thereof, and to permit persons to whom the Software is furnished to do so.
 
-2.2 This License grants no right to sublicense. Nothing in this License constitutes a sublicense from You to any third party. Every person or Legal Entity that receives a copy of the Software, a Modified Version, or an Object form receives its rights under this License directly from the copyright holders.
+2.2 This License grants no right to sublicense. Nothing in this License constitutes a sublicense from You to any third party. In respect of a copy that is licensed under this License, every person or Legal Entity that receives that copy receives its rights under this License directly from the copyright holders, and not by way of sublicense from You. A copy that You Distribute under other terms, as permitted by Section 3.3.1, does not become licensed under this License by reason only of that Distribution.
 
 3. CONDITIONS
 
 3.1 Notices. The copyright notice set out above and the full text of this License must be included in all copies of the Software, of Modified Versions, and of Object forms that You Distribute, and must be retained in all Source forms. With respect to Object forms, this Section is satisfied by compliance with Section 3.3.
 
-3.2 Source form. If You Distribute any part of the Source form of the Software or of a Modified Version, that part must be Distributed only under the terms of this License, and must be complete in itself: it must include every file, build script, and configuration file needed to build and use that part, and it must not be made incomplete by deleting any implementation, by replacing any implementation with a placeholder, or by removing any file that part needs. You are not required to Distribute any other part of the Software or of a Modified Version. You may not distribute that part under any other license or terms, and You may not impose any terms on it that restrict the rights granted by this License.
+3.2 Source form. If You Distribute any part of the Source form of the Software or of a Modified Version, that part must be Distributed only under the terms of this License, and must be capable of being built and run by a recipient of that part: it must include every file, build script, and configuration file needed for that purpose. You may delete or omit any feature, module, implementation, or logic, and You may replace any implementation with a placeholder, provided that the part You Distribute can still be built and run. You are not required to Distribute the complete functionality of a Modified Version, or any other part of it. You may not distribute that part under any other license or terms, and You may not impose any terms on it that restrict the rights granted by this License.
 
 3.3 Object form and license display.
 
 3.3.1 Object forms are not required to be licensed under this License, and You may Distribute them under terms of Your choosing, provided that You comply with Sections 3.3.2, 3.4, and 3.7.
 
-3.3.2 Every Object form that You Distribute must make the full text of this License and the copyright notice reachable by an ordinary end user from within the Software itself, without network access, without additional download, without administrator privileges, and without developer or otherwise hidden modes. This requirement is satisfied if at least one of the following is provided:
+3.3.2 Every Object form that You Distribute must make the full text of this License and the copyright notice reachable by an ordinary end user without network access, without additional download, without administrator privileges, and without developer or otherwise hidden modes. This requirement is satisfied if at least one of the following is provided:
 
 (a) a permanently available page, dialog, or menu item within the user interface of the Software (for example, "Settings - About - Licenses") that displays the full text of this License and the copyright notice as plain, scrollable, selectable, and copyable text; or
 
-(b) where the Software has no user interface, or is intended to be used from a command line or by scripts, a dedicated command-line parameter (for example, "--license") that prints the full text of this License and the copyright notice to standard output and exits successfully.
+(b) where the Software has no user interface but has a command-line entry point of its own, a dedicated command-line parameter (for example, "--license") that prints the full text of this License and the copyright notice to standard output and exits successfully; or
 
-3.3.3 The requirement of Section 3.3.2 is not satisfied by placing the text only in a file or archive within the installation directory, by a notification that disappears without user action, or by a link or reference to an external website.
+(c) where the Object form has no user interface, no command-line entry point of its own, and no other interactive surface accessible to an ordinary end user, such as a library, component, SDK, plugin, firmware image, or background service, the full text of this License and the copyright notice are included as a plainly named file in every package, archive, or other distribution medium through which that Object form is delivered, and are reproduced in the documentation delivered with it.
+
+3.3.3 Except where Section 3.3.2(c) applies, the requirement of Section 3.3.2 is not satisfied by placing the text only in a file or archive within the installation directory, by a notification that disappears without user action, or by a link or reference to an external website.
 
 3.3.4 If You receive an Object form from a third party and Distribute it further, the obligations of this Section apply to You.
 
@@ -65,7 +69,19 @@ Requests for reinstatement under Section 6.2 and other notices to the copyright 
 
 3.5 Larger Works. This Section applies only where You have not added to, deleted from, or changed any file of the Software. This License then covers the Software only. If You combine the Software with other material in one or more separate files that contain no part of the Software, the resulting Larger Work may be Distributed under terms of Your choosing, provided that this License is complied with in respect of the Software contained in the Larger Work.
 
-3.6 Modified Versions. Any addition to, deletion from, or change to any file of the Software, including a change of formatting, whitespace, or comments only, makes every file of Your Work a part of a Modified Version under Section 1.7, and every such file is licensed under this License from that point on, whether or not You Distribute anything, and You hereby grant to every recipient of such a file the rights set out in Section 2 in respect of that file. This applies to every file of Your Work, including every file that You add to it and whether or not any such file contains any part of the Software. If You Distribute any part of the Source form of a Modified Version, that part must be provided in accordance with Section 3.2, and You are not required to Distribute any other part of it. This License does not require You to disclose, publish, or otherwise make available the Source form of any Modified Version or of any file of it, and Your failure to do so does not affect the licensing status of any file under this Section. You may supply a Modified Version only in Object form and under terms of Your choosing, as provided in Section 3.3.
+3.6 Modified Versions.
+
+(a) Any addition to, deletion from, or change to any file of the Software, including a change of formatting, whitespace, or comments only, makes Your Work a Modified Version under Section 1.7, and makes every file of Your Work a part of it, including every file that You add and whether or not any such file contains any part of the Software. Making such a change does not, by itself, license any file of Your Work under this License.
+
+(b) If You, or a person acting with Your authorization, makes a Public Release of the Source form of a Modified Version or of any part of it, then from the time of that Public Release every file of Your Work is licensed under this License, and You hereby grant to every recipient of such a file the rights set out in Section 2 in respect of that file.
+
+(c) A Public Release made without Your authorization, including a disclosure of the Source form in breach of an obligation of confidentiality, does not itself trigger paragraph (b).
+
+(d) If You Distribute any part of the Source form of a Modified Version, that part must be provided in accordance with Section 3.2, and You are not required to Distribute any other part of it.
+
+(e) This License does not require You to disclose, publish, or otherwise make available the Source form of any Modified Version or of any file of it, and Your failure to do so does not affect the licensing status of any file under this Section.
+
+(f) You may supply a Modified Version only in Object form and under terms of Your choosing, as provided in Section 3.3.
 
 3.7 Names and marks.
 
