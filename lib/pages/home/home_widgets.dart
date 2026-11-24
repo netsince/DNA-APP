@@ -38,7 +38,7 @@ class ConversationListBody extends StatelessWidget {
 
   Widget _buildBody(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge(<Listenable>[controller.dataChanges, controller.settingsChanges]),
       builder: (BuildContext context, Widget? _) {
         final List<Conversation> conversations = controller.conversations;
         final List<Conversation> visible = conversations

@@ -57,12 +57,16 @@ enum AppChange {
   data,
   /// 聊天运行期（当前会话内容被批量改写：导入提交、附件恢复）。
   chat,
+
+  /// 批量改写会话内容 —— 既是聊天运行期变更，也改了数据（列表要跟着刷新）。
+  chatAndData,
   /// 全都通知（启动、清空数据这类全局动作）。
   all;
 
   bool get affectsSettings => this == settings || this == all;
-  bool get affectsData => this == data || this == all;
-  bool get affectsChat => this == chat || this == all;
+  bool get affectsData =>
+      this == data || this == chatAndData || this == all;
+  bool get affectsChat => this == chat || this == chatAndData || this == all;
 }
 
 /// 可分组通知的 ChangeNotifier（`notifyListeners` 是 protected，包一层）。
@@ -1539,7 +1543,7 @@ class AppController extends ChangeNotifier {
         ..._conversations,
         ..._groupConversations,
       ]);
-      _notify(AppChange.chat);
+      _notify(AppChange.chatAndData);
       return DataImportReport(
         replaced: true,
         tasCount: 0,
@@ -1571,7 +1575,7 @@ class AppController extends ChangeNotifier {
       ..._conversations,
       ..._groupConversations,
     ]);
-    _notify(AppChange.chat);
+    _notify(AppChange.chatAndData);
     return DataImportReport(
       replaced: false,
       tasCount: 0,
@@ -1839,7 +1843,7 @@ class AppController extends ChangeNotifier {
           ..._groupConversations,
         ]);
 
-        _notify(AppChange.chat);
+        _notify(AppChange.chatAndData);
         return ExportImportResult(
           success: true,
           data: DataImportReport(
@@ -1907,7 +1911,7 @@ class AppController extends ChangeNotifier {
         ..._groupConversations,
       ]);
 
-      _notify(AppChange.chat);
+      _notify(AppChange.chatAndData);
       return ExportImportResult(
         success: true,
         data: DataImportReport(

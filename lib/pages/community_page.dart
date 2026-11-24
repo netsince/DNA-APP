@@ -187,7 +187,7 @@ class _CommunityBodyState extends State<CommunityBody> {
       );
     }
     return ListenableBuilder(
-      listenable: widget.controller,
+      listenable: widget.controller.settingsChanges,
       builder: (BuildContext context, Widget? _) => RootShell(
         // 设置里关掉「返回主应用」就传 null：顶栏那个按钮和侧边栏底部的
         // 条目都跟着消失（两处都是 onExitToMainApp != null 才渲染）。

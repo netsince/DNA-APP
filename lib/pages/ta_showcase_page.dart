@@ -77,7 +77,7 @@ class _TaShowcasePageState extends State<TaShowcasePage>
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.controller,
+      listenable: Listenable.merge(<Listenable>[widget.controller.dataChanges, widget.controller.settingsChanges]),
       builder: (BuildContext context, Widget? _) {
         final TA? ta = widget.controller.getTaById(widget.taId);
         if (ta == null) {
