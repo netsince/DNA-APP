@@ -65,47 +65,15 @@ mixin ChatActionsInspiration on ChatStateMixin {
     required String model,
     required String apiKey,
     required String baseUrl,
-  }) async {
-    if (count <= 0) {
-      return <String>[];
-    }
-    if (widget.controller.settings.retrySequential) {
-      final List<String> results = <String>[];
-      for (int i = 0; i < count; i++) {
-        try {
-          final ChatCompletionResult result =
-              await widget.controller.llmProvider.createChatCompletion(
-            widget.controller.buildLlmRequest(messages: payload),
-          );
-          if (result.success && result.content != null) {
-            final String cleaned = stripThoughtTags(result.content!).trim();
-            if (cleaned.isNotEmpty) {
-              results.add(cleaned);
-            }
-          }
-        } catch (_) {
-          // Ignore.
-        }
-      }
-      return results;
-    }
-
-    try {
-      final List<Future<String?>> tasks = List<Future<String?>>.generate(count, (_) async {
-        final ChatCompletionResult result =
-            await widget.controller.llmProvider.createChatCompletion(
-          widget.controller.buildLlmRequest(messages: payload),
-        );
-        if (!result.success || result.content == null) {
-          return null;
-        }
-        return stripThoughtTags(result.content!).trim();
-      });
-      final List<String?> settled = await Future.wait(tasks);
-      return settled.whereType<String>().where((String s) => s.isNotEmpty).toList();
-    } catch (_) {
-      return <String>[];
-    }
+  }) {
+    // 与「重说」共用同一个候选生成器；差别只在清洗方式：灵感要剥思考标签。
+    return generateChatCandidates(
+      controller: widget.controller,
+      payload: payload,
+      sequential: widget.controller.settings.retrySequential,
+      count: count,
+      transform: (String raw) => stripThoughtTags(raw).trim(),
+    );
   }
 }
 

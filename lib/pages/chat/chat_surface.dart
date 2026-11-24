@@ -50,6 +50,7 @@ import '../../utils/message_processor.dart';
 import '../../utils/api_guard.dart';
 import '../../utils/dialogs.dart';
 import '../../utils/ui_feedback.dart';
+import 'builders/chat_candidate_generator.dart';
 import '../../widgets/app_content_frame.dart';
 import '../../models/conversation.dart';
 import '../../models/app_settings.dart';
