@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'widgets/skeleton_card.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/widgets/load_more_list.dart';
@@ -255,53 +256,13 @@ class _ExploreBodyState extends State<ExploreBody> {
                 (_) => SizedBox(
                   width: m.cellWidth,
                   height: m.cellHeight,
-                  child: const _SkeletonCard(),
+                  child: const SkeletonCard(),
                 ),
               ),
             );
           },
         ),
       ),
-    );
-  }
-}
-
-/// 骨架卡片：3:4 封面块 + 两行文字条，用于加载中的占位。
-class _SkeletonCard extends StatelessWidget {
-  const _SkeletonCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final block = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final radius = BorderRadius.circular(AppRadius.sm);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: Container(
-            decoration: BoxDecoration(color: block, borderRadius: radius),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: 96,
-          height: 14,
-          decoration: BoxDecoration(
-            color: block,
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          height: 12,
-          decoration: BoxDecoration(
-            color: block,
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-          ),
-        ),
-      ],
     );
   }
 }

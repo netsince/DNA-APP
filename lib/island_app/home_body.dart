@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/card_detail_page.dart';
@@ -9,6 +7,8 @@ import 'package:dna/island_app/community_preload.dart';
 import 'package:dna/island_app/site_config.dart';
 import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/island_app/utils/external_link.dart';
+import 'package:dna/island_app/widgets/skeleton_card.dart';
+import 'package:dna/island_app/widgets/announcement_sheet.dart';
 import 'package:dna/island_app/widgets/responsive_card_grid.dart';
 import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/shimmer.dart';
@@ -149,7 +149,12 @@ class _HomeBodyState extends State<HomeBody>
         isScrollControlled: true,
         showDragHandle: true,
         builder: (_) =>
-            _AnnouncementSheet(content: cfg.announcementContent, onOpen: _open),
+            AnnouncementSheet(
+              content: cfg.announcementContent,
+              onOpen: _open,
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              maxHeightFraction: 0.7,
+            ),
       );
     });
   }
@@ -319,7 +324,7 @@ class _HomeBodyState extends State<HomeBody>
                   (_) => SizedBox(
                     width: m.cellWidth,
                     height: m.cellHeight,
-                    child: const _SkeletonCard(),
+                    child: const SkeletonCard(),
                   ),
                 ),
               );
@@ -327,46 +332,6 @@ class _HomeBodyState extends State<HomeBody>
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 骨架卡片：3:4 封面块 + 两行文字条，用于加载中的占位。
-class _SkeletonCard extends StatelessWidget {
-  const _SkeletonCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final block = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final radius = BorderRadius.circular(AppRadius.sm);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: Container(
-            decoration: BoxDecoration(color: block, borderRadius: radius),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: 96,
-          height: 14,
-          decoration: BoxDecoration(
-            color: block,
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          height: 12,
-          decoration: BoxDecoration(
-            color: block,
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -433,65 +398,3 @@ class _HeroBanner extends StatelessWidget {
   }
 }
 
-/// 公告底部弹层：模态底部弹窗，可滚动长内容，底部「知道了」关闭。
-class _AnnouncementSheet extends StatelessWidget {
-  const _AnnouncementSheet({required this.content, required this.onOpen});
-
-  final String content;
-  final void Function(String) onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(Icons.campaign_outlined, color: scheme.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '站点公告',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Html(
-                    data: content,
-                    onLinkTap: (href, _, _) {
-                      if (href != null) onOpen(href);
-                    },
-                    extensions: <HtmlExtension>[TableHtmlExtension()],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('知道了'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
