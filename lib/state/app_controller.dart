@@ -9,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
-import '../models/app_settings_patch.dart';
 import '../models/conversation.dart';
 import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
@@ -32,6 +31,7 @@ import '../services/llm_provider.dart';
 import '../services/llm_request.dart';
 import 'identity_store.dart';
 import 'conversation_store.dart';
+import 'settings_store.dart';
 import 'ta_store.dart';
 import 'world_store.dart';
 
@@ -151,6 +151,10 @@ class AppController extends ChangeNotifier {
       hive: _hiveService,
       onChanged: () => _notify(AppChange.data),
     );
+    _settingsStore = SettingsStore(
+      service: _settingsService,
+      onChanged: () => _notify(AppChange.settings),
+    );
   }
 
   final SettingsService _settingsService;
@@ -169,12 +173,20 @@ class AppController extends ChangeNotifier {
   /// 会话域（第四块）：单聊 + 群聊两个列表，连同它们的保护规则。
   late final ConversationStore _convStore;
 
+  /// 设置域（第五块）。
+  late final SettingsStore _settingsStore;
+
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
   final LlmProviderRegistry _providerRegistry;
 
-  AppSettings _settings = AppSettings.empty();
+  /// 设置域（第五块）：值、加载、落盘都在 SettingsStore 里。
+  ///
+  /// 下面这对私有 getter/setter 是**兼容壳**：控制器里 43 处 `_settings = ...`
+  /// 与 69 处 `_settings.xxx` 不需要改，改动只落在 store 里。
+  AppSettings get _settings => _settingsStore.value;
+  set _settings(AppSettings next) => _settingsStore.replace(next);
 
-  AppSettings get settings => _settings;
+  AppSettings get settings => _settingsStore.value;
   OpenAiService get openAiService => _openAiService;
 
   /// 当前是否启用 DeepSeek 思考模式（仅 DeepSeek 服务商返回非空）。
@@ -286,7 +298,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     await _hiveService.init();
-    _settings = await _settingsService.load();
+    await _settingsStore.load();
     // 升级清理：旧版本装的离线语音模型（文档目录下几百 MB）与设置键已无人使用，
     // 首启后台删一次；跑过就只是一次字典查找，不挡启动。
     unawaited(cleanupRemovedSpeechInput());
@@ -366,7 +378,7 @@ class AppController extends ChangeNotifier {
   Future<void> toggleSimpleModelMode(bool enabled) async {
     _settings = _settings.copyWith(simpleModelMode: enabled);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -375,7 +387,7 @@ class AppController extends ChangeNotifier {
     if (!_settings.models.any((m) => m.id == modelId)) return;
     _settings = _settings.copyWith(activeModelId: modelId);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -390,7 +402,7 @@ class AppController extends ChangeNotifier {
     }
     _settings = _settings.copyWith(providers: list);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -413,7 +425,7 @@ class AppController extends ChangeNotifier {
       activeModelId: activeId,
     );
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -428,7 +440,7 @@ class AppController extends ChangeNotifier {
     }
     _settings = _settings.copyWith(models: list);
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -448,7 +460,7 @@ class AppController extends ChangeNotifier {
       activeModelId: activeId,
     );
     _syncActiveModelToLegacyFields();
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -470,7 +482,7 @@ class AppController extends ChangeNotifier {
       );
       _settings = _settings.copyWith(providers: list);
     }
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -484,7 +496,7 @@ class AppController extends ChangeNotifier {
       list[defIdx] = list[defIdx].copyWith(providerType: provider.trim());
       _settings = _settings.copyWith(providers: list);
     }
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -499,12 +511,9 @@ class AppController extends ChangeNotifier {
   /// 需要副作用（重建主题、初始化 TTS、切换模型…）的设置项，在声明里挂
   /// writeOverride，不要往这里塞 if。
   Future<void> patchSettings(String key, Object? value) async {
-    _settings = applySettingsPatch(_settings, key, value);
-    // 只落这一个键：以前是全量 save()（65 次 prefs 调用 + 一次整表序列化），
-    // 改一个开关也要把 78 个字段全写一遍。写成什么值是**改完之后**的设置，
-    // 所以复合对象（模型列表等）也不会写成补丁前的旧值。
-    await _settingsService.saveOne(key, _settings.toJson()[key]);
-    _notify(AppChange.settings);
+    // 算新状态、只落这一个键、通知设置组 —— 全在 SettingsStore.patch 里。
+    // 落盘取的是**改完之后**的值，所以复合对象（模型列表等）不会写成旧值。
+    await _settingsStore.patch(key, value);
   }
 
   /// 应用「提示条停留时长」：写设置并**立刻生效**。
@@ -522,14 +531,14 @@ class AppController extends ChangeNotifier {
   /// 之后整棵树立刻换字体，无需重启。
   Future<void> saveFontFamilyMode(String mode) async {
     _settings = _settings.copyWith(fontFamilyMode: mode.trim());
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存聊天输入栏样式（'capsule' 胶囊 / 'classic' 旧样式）。
   Future<void> saveChatInputStyle(String style) async {
     _settings = _settings.copyWith(chatInputStyle: style.trim());
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -537,7 +546,7 @@ class AppController extends ChangeNotifier {
   /// 也不再做启动预热（见 `CommunityPreload`）。
   Future<void> saveEnableCommunity(bool value) async {
     _settings = _settings.copyWith(enableCommunity: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -547,7 +556,7 @@ class AppController extends ChangeNotifier {
   /// 通知界面重建，不需要再同步第二份状态。
   Future<void> saveFreeImageCrop(bool value) async {
     _settings = _settings.copyWith(freeImageCrop: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -560,13 +569,13 @@ class AppController extends ChangeNotifier {
       list[defIdx] = list[defIdx].copyWith(modelName: model.trim());
       _settings = _settings.copyWith(models: list);
     }
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   Future<void> completeOobe() async {
     _settings = _settings.copyWith(completedOobe: true);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     // 释放内置角色卡。**不设任何"已释放"标记**：
     // 释放本身是幂等的（同 id 跳过、不覆盖用户改动），而 OOBE 正常只走一次，
     // 加标记只会带来「换卡后不再释放」这种自找的麻烦。失败也不阻断引导。
@@ -585,13 +594,13 @@ class AppController extends ChangeNotifier {
 
   Future<void> restartOobe() async {
     _settings = _settings.copyWith(completedOobe: false);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   Future<void> savePromptStrategy(PromptStrategy strategy) async {
     _settings = _settings.copyWith(promptStrategy: strategy);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -600,7 +609,7 @@ class AppController extends ChangeNotifier {
     required bool unlocked,
   }) async {
     _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -610,7 +619,7 @@ class AppController extends ChangeNotifier {
   /// （见 [ResumeService]），只是没有入口消费它。
   Future<void> saveAutoOpenLastChat(bool value) async {
     _settings = _settings.copyWith(autoOpenLastChat: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -620,47 +629,47 @@ class AppController extends ChangeNotifier {
   /// 由整页滚动（见 [ModelPicker]）。
   Future<void> saveUnboundedModelList(bool value) async {
     _settings = _settings.copyWith(unboundedModelList: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
   Future<void> saveChatQuickSidebar(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebar: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
   /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
   Future<void> saveChatQuickSidebarCollapsed(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
   /// 保存「聊天页左右滑动切换角色」开关。
   Future<void> saveChatSwipeSwitch(bool value) async {
     _settings = _settings.copyWith(chatSwipeSwitch: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存正则替换规则列表。
   Future<void> saveRegexRules(List<RegexRule> rules) async {
     _settings = _settings.copyWith(regexRules: rules);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
   Future<void> saveAutoBackup(bool value) async {
     _settings = _settings.copyWith(autoBackup: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -673,14 +682,14 @@ class AppController extends ChangeNotifier {
   Future<void> saveRequestTimeoutSeconds(int seconds) async {
     final int clamped = seconds.clamp(5, 600);
     _settings = _settings.copyWith(requestTimeoutSeconds: clamped);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存快速回复列表。
   Future<void> saveQuickReplies(List<QuickReply> quickReplies) async {
     _settings = _settings.copyWith(quickReplies: quickReplies);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -696,7 +705,7 @@ class AppController extends ChangeNotifier {
           ? effort
           : 'high',
     );
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -711,7 +720,7 @@ class AppController extends ChangeNotifier {
       frequencyPenalty: frequencyPenalty.clamp(0.0, 2.0),
       presencePenalty: presencePenalty.clamp(0.0, 2.0),
     );
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -730,21 +739,21 @@ class AppController extends ChangeNotifier {
       repetitionPenalty: repetitionPenalty.clamp(1.0, 2.0),
       repetitionPenaltySlope: repetitionPenaltySlope.clamp(0.0, 1.0),
     );
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存「端侧语音合成（TTS）」开关。
   Future<void> saveTtsEnabled(bool value) async {
     _settings = _settings.copyWith(ttsEnabled: value);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
   /// 保存全局 TTS seed（角色未设 seed 时兜底）。null 表示未设置。
   Future<void> saveTtsGlobalSeed(int? seed) async {
     _settings = _settings.copyWith(ttsGlobalSeed: seed);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     _notify(AppChange.settings);
   }
 
@@ -752,7 +761,7 @@ class AppController extends ChangeNotifier {
   /// Android：切换启动器图标；Web：切换浏览器标签页图标；其余平台仅保存设置。
   Future<void> saveAppIcon(AppIconOption option) async {
     _settings = _settings.copyWith(appIcon: option.key);
-    await _settingsService.save(_settings);
+    await _settingsStore.persist();
     if (AppIconService.isSupported) {
       try {
         await AppIconService.setIcon(option);
