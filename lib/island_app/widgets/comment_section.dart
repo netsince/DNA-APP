@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 
 import 'package:image_picker/image_picker.dart';
@@ -274,12 +275,7 @@ class _CommentSectionState extends State<CommentSection> {
     if (_pickingImage) return;
     setState(() => _pickingImage = true);
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (picked == null) return;
       if (!mounted) return;
       setState(() => _image = picked);
@@ -294,14 +290,7 @@ class _CommentSectionState extends State<CommentSection> {
   /// 打开评论图片全屏查看（WebP base64 data URL）。
   void _openImage(String? dataUrl) {
     if (dataUrl == null || dataUrl.isEmpty) return;
-    final comma = dataUrl.indexOf(',');
-    final b64 = comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl;
-    Uint8List? bytes;
-    try {
-      bytes = base64Decode(b64);
-    } catch (_) {
-      bytes = null;
-    }
+    final Uint8List? bytes = decodeDataUrl(dataUrl);
     if (bytes == null) return;
     final Uint8List imageBytes = bytes;
     Navigator.of(context).push(

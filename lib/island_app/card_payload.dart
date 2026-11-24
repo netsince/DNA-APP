@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 
 import 'package:dna/models/dialogue_style.dart';
 import 'package:dna/models/prompt_strategy.dart';
@@ -53,7 +54,7 @@ Future<Map<String, String>> taImageDataUrls(TA ta) async {
   for (final MapEntry<String, String> e in ta.images.entries) {
     final Uint8List? bytes = await ImageStorage.instance.readBytes(e.value);
     if (bytes == null || bytes.isEmpty) continue;
-    out[e.key] = 'data:${_mimeOf(e.value)};base64,${base64Encode(bytes)}';
+    out[e.key] = 'data:${mimeForFileName(e.value, fallback: 'image/jpeg')};base64,${base64Encode(bytes)}';
   }
   return out;
 }
@@ -67,7 +68,7 @@ Future<TA> taFromCardDetail(Map<String, dynamic> detail) async {
   if (rawImages is Map) {
     for (final MapEntry<dynamic, dynamic> e in rawImages.entries) {
       final String dataUrl = (e.value ?? '').toString();
-      final Uint8List? bytes = _decodeDataUrl(dataUrl);
+      final Uint8List? bytes = decodeDataUrl(dataUrl);
       if (bytes == null) continue;
       final String slot = e.key.toString();
       images[slot] = await ImageStorage.instance.saveBytes(
@@ -118,14 +119,6 @@ Future<TA> taFromCardDetail(Map<String, dynamic> detail) async {
   );
 }
 
-String _mimeOf(String ref) {
-  final String lower = ref.toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.webp')) return 'image/webp';
-  if (lower.endsWith('.gif')) return 'image/gif';
-  return 'image/jpeg';
-}
-
 String _extOfDataUrl(String url) {
   if (url.startsWith('data:image/png')) return 'png';
   if (url.startsWith('data:image/webp')) return 'webp';
@@ -133,12 +126,3 @@ String _extOfDataUrl(String url) {
   return 'jpg';
 }
 
-Uint8List? _decodeDataUrl(String url) {
-  final int comma = url.indexOf(',');
-  if (comma < 0) return null;
-  try {
-    return base64Decode(url.substring(comma + 1));
-  } catch (_) {
-    return null;
-  }
-}

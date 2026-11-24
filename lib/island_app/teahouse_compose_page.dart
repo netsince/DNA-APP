@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 import '../theme/tokens.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
@@ -73,12 +73,7 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
     if (_pickingImage) return;
     setState(() => _pickingImage = true);
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (!mounted) return;
       setState(() => _image = picked);
     } catch (e) {
@@ -111,28 +106,9 @@ class _TeahouseComposePageState extends State<TeahouseComposePage> {
     try {
       final bytes = await file.readAsBytes();
       // 后端要求 data URL（image/webp 或原格式）。此处按原格式内联，服务端会再压缩为 WebP。
-      final ext = file.name.contains('.')
-          ? file.name.split('.').last.toLowerCase()
-          : 'png';
-      final mime = _mimeOf(ext);
-      return 'data:$mime;base64,${base64Encode(bytes)}';
+      return dataUrlFor(ext: extensionOfFileName(file.name), bytes: bytes);
     } catch (_) {
       return null;
-    }
-  }
-
-  String _mimeOf(String ext) {
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-      default:
-        return 'image/png';
     }
   }
 

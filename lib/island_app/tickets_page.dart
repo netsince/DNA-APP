@@ -1,8 +1,8 @@
-import 'dart:convert';
 import '../widgets/memo_image.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
@@ -301,12 +301,7 @@ class _NewTicketPageState extends State<NewTicketPage> {
 
   Future<void> _pickImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (!mounted) return;
       setState(() => _image = picked);
     } catch (e) {
@@ -315,28 +310,12 @@ class _NewTicketPageState extends State<NewTicketPage> {
     }
   }
 
-  String? _mimeOf(String ext) {
-    switch (ext.toLowerCase()) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-      default:
-        return 'image/png';
-    }
-  }
-
   Future<String?> _readImage() async {
     final file = _image;
     if (file == null) return null;
     try {
       final bytes = await file.readAsBytes();
-      final ext = file.name.contains('.') ? file.name.split('.').last : 'png';
-      return 'data:${_mimeOf(ext)};base64,${base64Encode(bytes)}';
+      return dataUrlFor(ext: extensionOfFileName(file.name), bytes: bytes);
     } catch (_) {
       return null;
     }
@@ -533,12 +512,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   Future<void> _pickImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 82,
-      );
+      final picked = await pickImageFile(_picker);
       if (!mounted) return;
       setState(() => _image = picked);
     } catch (e) {
@@ -547,28 +521,12 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     }
   }
 
-  String? _mimeOf(String ext) {
-    switch (ext.toLowerCase()) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-      default:
-        return 'image/png';
-    }
-  }
-
   Future<String?> _readImage() async {
     final file = _image;
     if (file == null) return null;
     try {
       final bytes = await file.readAsBytes();
-      final ext = file.name.contains('.') ? file.name.split('.').last : 'png';
-      return 'data:${_mimeOf(ext)};base64,${base64Encode(bytes)}';
+      return dataUrlFor(ext: extensionOfFileName(file.name), bytes: bytes);
     } catch (_) {
       return null;
     }
