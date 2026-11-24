@@ -17,6 +17,7 @@ import 'package:dna/island_app/teahouse_compose_page.dart';
 import 'package:dna/island_app/utils/auth_guard.dart';
 import 'package:dna/island_app/widgets/report_sheet.dart';
 import 'package:dna/island_app/utils/external_link.dart';
+import 'package:dna/island_app/utils/count_format.dart';
 import 'package:dna/island_app/widgets/async_action_button.dart';
 import 'package:dna/island_app/widgets/comment_section.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
@@ -1179,12 +1180,6 @@ class _ProfileCard extends StatelessWidget {
   /// 宽屏资料栏中居中堆叠展示。
   final bool centered;
 
-  String _fmtCount(int n) {
-    if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return '$n';
-  }
-
   String _shortDate(String iso) {
     if (iso.length >= 10) return iso.substring(0, 10);
     return iso;
@@ -1268,11 +1263,11 @@ class _ProfileCard extends StatelessWidget {
           color: scheme.onSurfaceVariant,
         ),
         const SizedBox(width: 4),
-        Text(_fmtCount(detail.viewCount), style: metaStyle),
+        Text(formatCount(detail.viewCount), style: metaStyle),
         const SizedBox(width: 20),
         Icon(Icons.content_copy, size: 16, color: scheme.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text(_fmtCount(detail.copyCount), style: metaStyle),
+        Text(formatCount(detail.copyCount), style: metaStyle),
       ],
     );
 
@@ -1387,12 +1382,6 @@ class _AuthorSection extends StatelessWidget {
   /// 点击整个作者板块跳转到作者主页。
   final VoidCallback? onTapAuthor;
 
-  String _fmt(int n) {
-    if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return '$n';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1471,13 +1460,13 @@ class _AuthorSection extends StatelessWidget {
               _AuthorStat(
                 icon: Icons.collections_bookmark_outlined,
                 label: '角色卡',
-                value: cardCount == null ? '…' : _fmt(cardCount!),
+                value: cardCount == null ? '…' : formatCount(cardCount!),
               ),
               const SizedBox(width: 24),
               _AuthorStat(
                 icon: Icons.people_outline,
                 label: '粉丝',
-                value: followerCount == null ? '…' : _fmt(followerCount!),
+                value: followerCount == null ? '…' : formatCount(followerCount!),
               ),
             ],
           ),
