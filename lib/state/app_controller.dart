@@ -30,6 +30,8 @@ import '../services/zhipu_service.dart';
 import '../services/deepseek_service.dart';
 import '../services/llm_provider.dart';
 import '../services/llm_request.dart';
+import 'identity_store.dart';
+import 'ta_store.dart';
 import 'world_store.dart';
 
 import '../services/settings_service.dart';
@@ -136,6 +138,14 @@ class AppController extends ChangeNotifier {
       hive: _hiveService,
       onChanged: () => _notify(AppChange.data),
     );
+    _taStore = TaStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
+    _identityStore = IdentityStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
   }
 
   final SettingsService _settingsService;
@@ -145,12 +155,16 @@ class AppController extends ChangeNotifier {
   /// 世界卡域（拆出 [AppController] 的第一块状态）。
   late final WorldStore _worldStore;
 
+  /// 角色卡域（拆出 [AppController] 的第二块状态）。
+  late final TaStore _taStore;
+
+  /// 身份域（第三块）。
+  late final IdentityStore _identityStore;
+
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
   final LlmProviderRegistry _providerRegistry;
 
   AppSettings _settings = AppSettings.empty();
-  List<TA> _tas = <TA>[];
-  List<UserIdentity> _identities = <UserIdentity>[];
   List<Conversation> _conversations = <Conversation>[];
   List<Conversation> _groupConversations = <Conversation>[];
 
@@ -245,9 +259,9 @@ class AppController extends ChangeNotifier {
   /// 所有已注册的 Provider，供设置页 / OOBE 构建厂商选择列表。
   List<LlmProvider> get llmProviders => _providerRegistry.providers;
 
-  List<TA> get tas => _tas;
-  List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
-  List<UserIdentity> get identities => List<UserIdentity>.unmodifiable(_identities);
+  List<TA> get tas => _taStore.items;
+  List<TA> get activeTas => _taStore.activeItems;
+  List<UserIdentity> get identities => _identityStore.items;
   List<World> get worlds => _worldStore.items;
   List<World> get activeWorlds => _worldStore.activeItems;
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
@@ -257,11 +271,7 @@ class AppController extends ChangeNotifier {
 
   /// 角色 ID -> 角色 映射（用于导出时解析说话人 / 内嵌角色卡）
   Map<String, TA> get tasById {
-    final Map<String, TA> map = <String, TA>{};
-    for (final TA ta in _tas) {
-      map[ta.id] = ta;
-    }
-    return map;
+    return _taStore.byIdMap;
   }
 
   /// 全部对话（单聊 + 群聊）
@@ -311,8 +321,8 @@ class AppController extends ChangeNotifier {
       _hiveService.getWorlds(),
       _hiveService.getConversations(),
     ]);
-    _tas = loaded[0] as List<TA>;
-    _identities = loaded[1] as List<UserIdentity>;
+    _taStore.replaceAll(loaded[0] as List<TA>);
+    _identityStore.replaceAll(loaded[1] as List<UserIdentity>);
     _worldStore.replaceAll(loaded[2] as List<World>);
     final allConversations = loaded[3] as List<Conversation>;
     _conversations = allConversations.where((c) => !c.isGroup).toList();
@@ -751,24 +761,12 @@ class AppController extends ChangeNotifier {
     _notify(AppChange.settings);
   }
 
-  Future<void> upsertTa(TA ta) async {
-    final int index = _tas.indexWhere((TA item) => item.id == ta.id);
-    if (index == -1) {
-      _tas = <TA>[..._tas, ta];
-    } else {
-      final List<TA> updated = <TA>[..._tas];
-      updated[index] = ta;
-      _tas = updated;
-    }
-    await _hiveService.upsertTa(ta);
-    _notify(AppChange.data);
-  }
+  Future<void> upsertTa(TA ta) => _taStore.upsert(ta);
 
   Future<void> deleteTa(String id) async {
-    _tas = _tas.where((TA ta) => ta.id != id).toList();
-    await _hiveService.deleteTa(id);
+    await _taStore.delete(id);
+    // 跨域收尾留在控制器：摘群聊成员属于会话域（见 _pruneTaFromGroups）。
     await _pruneTaFromGroups(id);
-    _notify(AppChange.data);
   }
 
   /// 把被删角色从所有群聊里摘干净。
@@ -1020,21 +1018,7 @@ class AppController extends ChangeNotifier {
   Future<void> setTaArchived({
     required String id,
     required bool archived,
-  }) async {
-    final int index = _tas.indexWhere((TA item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final TA current = _tas[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<TA> updated = <TA>[..._tas];
-    updated[index] = current.copyWith(archived: archived);
-    _tas = updated;
-    await _hiveService.upsertTa(updated[index]);
-    _notify(AppChange.data);
-  }
+  }) => _taStore.setArchived(id: id, archived: archived);
 
   /// 保存 TA 槽位图片字节到平台存储，返回引用（IO: 绝对路径 / Web: 逻辑文件名）。
   Future<String> storeTaImageBytes({
@@ -1051,35 +1035,16 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<void> upsertIdentity(UserIdentity identity) async {
-    final int index = _identities.indexWhere((UserIdentity item) => item.id == identity.id);
-    if (index == -1) {
-      _identities = <UserIdentity>[..._identities, identity];
-    } else {
-      final List<UserIdentity> updated = <UserIdentity>[..._identities];
-      updated[index] = identity;
-      _identities = updated;
-    }
-    await _hiveService.upsertIdentity(identity);
-    _notify(AppChange.data);
-  }
+  Future<void> upsertIdentity(UserIdentity identity) =>
+      _identityStore.upsert(identity);
 
-  Future<void> deleteIdentity(String id) async {
-    _identities = _identities.where((UserIdentity i) => i.id != id).toList();
-    await _hiveService.deleteIdentity(id);
-    _notify(AppChange.data);
-  }
+  Future<void> deleteIdentity(String id) => _identityStore.delete(id);
 
   UserIdentity? getIdentityById(String? id) {
     if (id == null || id.isEmpty) {
       return null;
     }
-    for (final UserIdentity identity in _identities) {
-      if (identity.id == id) {
-        return identity;
-      }
-    }
-    return null;
+    return _identityStore.byId(id);
   }
 
   Future<void> upsertWorld(World world) => _worldStore.upsert(world);
@@ -1390,18 +1355,7 @@ class AppController extends ChangeNotifier {
   /// 的口径），不要在这里再减一 —— 旧代码适配的是已弃用的 `onReorder`，
   /// 它在回调里传的是"移除前"的下标。
   Future<void> reorderTas(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _tas.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex >= _tas.length) {
-      return;
-    }
-    final List<TA> updated = List<TA>.from(_tas);
-    final TA moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _tas = updated;
-    await _hiveService.saveTas(_tas);
-    _notify(AppChange.data);
+    await _taStore.reorder(oldIndex, newIndex);
   }
 
   /// 同 [reorderTas]：下标口径是"移除之后"。
@@ -1418,12 +1372,7 @@ class AppController extends ChangeNotifier {
   }
 
   TA? getTaById(String id) {
-    for (final TA ta in _tas) {
-      if (ta.id == id) {
-        return ta;
-      }
-    }
-    return null;
+    return _taStore.byId(id);
   }
 
   World? getWorldById(String? id) {
@@ -1436,13 +1385,13 @@ class AppController extends ChangeNotifier {
   /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节（Web 使用）
   Future<ExportImportResult<Uint8List>> exportAllData() async {
     return DataBackupService.buildZip(
-      tas: _tas,
+      tas: _taStore.items,
       worlds: _worldStore.items,
       conversations: <Conversation>[
         ..._conversations,
         ..._groupConversations,
       ],
-      identities: _identities,
+      identities: _identityStore.items,
     );
   }
 
@@ -1453,13 +1402,13 @@ class AppController extends ChangeNotifier {
   Future<ExportImportResult<String>> exportAllDataToFile(String zipPath) async {
     return DataBackupService.buildZipToFile(
       zipPath,
-      tas: _tas,
+      tas: _taStore.items,
       worlds: _worldStore.items,
       conversations: <Conversation>[
         ..._conversations,
         ..._groupConversations,
       ],
-      identities: _identities,
+      identities: _identityStore.items,
     );
   }
 
@@ -1795,14 +1744,14 @@ class AppController extends ChangeNotifier {
         final List<TA> resolvedTasWithMusic = await DataBackupService
             .resolveTasMusic(resolvedTas, backup.musicBytes);
 
-        _tas = resolvedTasWithMusic;
+        _taStore.replaceAll(resolvedTasWithMusic);
         _worldStore.replaceAll(backup.worlds);
         _conversations =
             backup.conversations.where((Conversation c) => !c.isGroup).toList();
         _groupConversations =
             backup.conversations.where((Conversation c) => c.isGroup).toList();
 
-        await _hiveService.saveTas(_tas);
+        await _taStore.persist();
         await _worldStore.persist();
         await _hiveService.saveConversations(<Conversation>[
           ..._conversations,
@@ -1814,11 +1763,11 @@ class AppController extends ChangeNotifier {
           success: true,
           data: DataImportReport(
             replaced: true,
-            tasCount: _tas.length,
+            tasCount: _taStore.items.length,
             worldsCount: _worldStore.items.length,
             conversationsCount:
                 _conversations.length + _groupConversations.length,
-            identitiesCount: _identities.length,
+            identitiesCount: _identityStore.items.length,
             backupPath: backupPath,
             backupError: backupError,
           ),
@@ -1826,7 +1775,8 @@ class AppController extends ChangeNotifier {
       }
 
       // 仅追加：跳过已存在的 id
-      final Set<String> existingTaIds = _tas.map((TA t) => t.id).toSet();
+      final Set<String> existingTaIds =
+          _taStore.items.map((TA t) => t.id).toSet();
       final List<TA> newTas =
           backup.tas.where((TA t) => !existingTaIds.contains(t.id)).toList();
       final List<TA> resolvedNewTas = await DataBackupService.resolveTasImages(
@@ -1852,14 +1802,14 @@ class AppController extends ChangeNotifier {
           .toList();
 
       final Set<String> existingIdentityIds =
-          _identities.map((UserIdentity i) => i.id).toSet();
+          _identityStore.items.map((UserIdentity i) => i.id).toSet();
       final List<UserIdentity> newIdentities = backup.identities
           .where((UserIdentity i) => !existingIdentityIds.contains(i.id))
           .toList();
 
-      _tas = <TA>[..._tas, ...resolvedNewTasWithMusic];
+      _taStore.replaceAll(<TA>[..._taStore.items, ...resolvedNewTasWithMusic]);
       _worldStore.replaceAll(<World>[..._worldStore.items, ...newWorlds]);
-      _identities = <UserIdentity>[..._identities, ...newIdentities];
+      _identityStore.replaceAll(<UserIdentity>[..._identityStore.items, ...newIdentities]);
       _conversations = <Conversation>[
         ..._conversations,
         ...newConvs.where((Conversation c) => !c.isGroup),
@@ -1869,9 +1819,9 @@ class AppController extends ChangeNotifier {
         ...newConvs.where((Conversation c) => c.isGroup),
       ];
 
-      await _hiveService.saveTas(_tas);
+      await _taStore.persist();
       await _worldStore.persist();
-      await _hiveService.saveIdentities(_identities);
+      await _identityStore.persist();
       await _hiveService.saveConversations(<Conversation>[
         ..._conversations,
         ..._groupConversations,
@@ -1916,7 +1866,7 @@ class AppController extends ChangeNotifier {
     _settings = AppSettings.empty();
     // 重置后与 AppSettings 的默认值保持一致（审计 3.5：提示不能只停 1 秒）。
     setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
-    _tas = <TA>[];
+    _taStore.replaceAll(const <TA>[]);
     _worldStore.replaceAll(const <World>[]);
     _conversations = <Conversation>[];
     _groupConversations = <Conversation>[];
