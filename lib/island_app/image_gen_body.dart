@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/utils/attachment_intake.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:image_picker/image_picker.dart';
@@ -188,7 +189,7 @@ class _ImageGenBodyState extends State<ImageGenBody> {
             : 'png';
         payload.add(<String, dynamic>{
           'filename': f.name,
-          'mimetype': _mimeOf(ext),
+          'mimetype': mimeForExtension(ext),
           'data_b64': base64Encode(bytes),
         });
       } catch (_) {
@@ -196,21 +197,6 @@ class _ImageGenBodyState extends State<ImageGenBody> {
       }
     }
     return payload;
-  }
-
-  String _mimeOf(String ext) {
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'webp':
-        return 'image/webp';
-      case 'gif':
-        return 'image/gif';
-      case 'png':
-      default:
-        return 'image/png';
-    }
   }
 
   // ---------- 生成 ----------
