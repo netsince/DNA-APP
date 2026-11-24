@@ -45,7 +45,63 @@ import 'package:dna/widgets/card_crop_page.dart' show FreeImageCrop;
 import '../utils/id_utils.dart';
 import '../utils/ui_feedback.dart';
 
+/// 一次状态变更落到哪几组监听方 —— [AppController._notify] 的唯一入参。
+///
+/// 以前只有一种通知：`notifyListeners()` 全量广播。60 处写入口全量一发，
+/// 结果是「聊天流每吐一个字，设置页和首页也跟着重建」。分组之后，
+/// 每个监听方可以只订阅自己关心的那一组。
+enum AppChange {
+  /// 设置 / 模型配置 / TTS / 外观。
+  settings,
+  /// 角色卡 / 身份 / 世界 / 会话（列表数据）。
+  data,
+  /// 聊天运行期（当前会话内容被批量改写：导入提交、附件恢复）。
+  chat,
+  /// 全都通知（启动、清空数据这类全局动作）。
+  all;
+
+  bool get affectsSettings => this == settings || this == all;
+  bool get affectsData => this == data || this == all;
+  bool get affectsChat => this == chat || this == all;
+}
+
+/// 可分组通知的 ChangeNotifier（`notifyListeners` 是 protected，包一层）。
+class _GroupNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
 class AppController extends ChangeNotifier {
+  final _GroupNotifier _settingsGroup = _GroupNotifier();
+  final _GroupNotifier _dataGroup = _GroupNotifier();
+  final _GroupNotifier _chatGroup = _GroupNotifier();
+
+  /// 只关心设置变化的监听方订阅它（设置页、外观预览）。
+  Listenable get settingsChanges => _settingsGroup;
+
+  /// 只关心列表数据变化的监听方订阅它（首页、我的、世界页）。
+  Listenable get dataChanges => _dataGroup;
+
+  /// 只关心聊天运行期变化的监听方订阅它。
+  Listenable get chatChanges => _chatGroup;
+
+  /// 唯一通知出口：先发对应分组，再发整体。
+  ///
+  /// **迁移期保留整体通知**：已经改成订阅分组的监听方不会重复重建（它们
+  /// 已不监听整体），还没改的照旧工作。等全部改完再去掉 [notifyListeners]。
+  void _notify(AppChange change) {
+    if (change.affectsSettings) _settingsGroup.notify();
+    if (change.affectsData) _dataGroup.notify();
+    if (change.affectsChat) _chatGroup.notify();
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _settingsGroup.dispose();
+    _dataGroup.dispose();
+    _chatGroup.dispose();
+    super.dispose();
+  }
   AppController({
     required SettingsService settingsService,
     required OpenAiService openAiService,
@@ -245,7 +301,7 @@ class AppController extends ChangeNotifier {
     final allConversations = loaded[3] as List<Conversation>;
     _conversations = allConversations.where((c) => !c.isGroup).toList();
     _groupConversations = allConversations.where((c) => c.isGroup).toList();
-    notifyListeners();
+    _notify(AppChange.all);
   }
 
   /// 同步激活模型 / 服务商的**身份字段**到顶层 settings 遗留投影。
@@ -277,7 +333,7 @@ class AppController extends ChangeNotifier {
     _settings = _settings.copyWith(simpleModelMode: enabled);
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 切换当前激活生效的模型。
@@ -286,7 +342,7 @@ class AppController extends ChangeNotifier {
     _settings = _settings.copyWith(activeModelId: modelId);
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存服务商配置（新增或编辑）。
@@ -301,7 +357,7 @@ class AppController extends ChangeNotifier {
     _settings = _settings.copyWith(providers: list);
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 删除服务商配置（级联删除归属于该服务商的所有模型）。默认项不可删除。
@@ -324,7 +380,7 @@ class AppController extends ChangeNotifier {
     );
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存模型配置（新增或编辑）。
@@ -339,7 +395,7 @@ class AppController extends ChangeNotifier {
     _settings = _settings.copyWith(models: list);
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 删除模型配置。默认项不可删除。
@@ -359,7 +415,7 @@ class AppController extends ChangeNotifier {
     );
     _syncActiveModelToLegacyFields();
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   Future<void> saveApiConfig({
@@ -381,7 +437,7 @@ class AppController extends ChangeNotifier {
       _settings = _settings.copyWith(providers: list);
     }
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 切换当前使用的大模型厂商。
@@ -395,7 +451,7 @@ class AppController extends ChangeNotifier {
       _settings = _settings.copyWith(providers: list);
     }
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// **配置驱动设置页的唯一写入口。**
@@ -414,7 +470,7 @@ class AppController extends ChangeNotifier {
     // 改一个开关也要把 78 个字段全写一遍。写成什么值是**改完之后**的设置，
     // 所以复合对象（模型列表等）也不会写成补丁前的旧值。
     await _settingsService.saveOne(key, _settings.toJson()[key]);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 应用「提示条停留时长」：写设置并**立刻生效**。
@@ -433,14 +489,14 @@ class AppController extends ChangeNotifier {
   Future<void> saveFontFamilyMode(String mode) async {
     _settings = _settings.copyWith(fontFamilyMode: mode.trim());
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存聊天输入栏样式（'capsule' 胶囊 / 'classic' 旧样式）。
   Future<void> saveChatInputStyle(String style) async {
     _settings = _settings.copyWith(chatInputStyle: style.trim());
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 开关「社区」功能。关闭后底栏/侧边栏/横向滑动顺序都不再出现社区，
@@ -448,7 +504,7 @@ class AppController extends ChangeNotifier {
   Future<void> saveEnableCommunity(bool value) async {
     _settings = _settings.copyWith(enableCommunity: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「自由剪图」开关（高级 → 命令 → `freeimage`）。
@@ -458,7 +514,7 @@ class AppController extends ChangeNotifier {
   Future<void> saveFreeImageCrop(bool value) async {
     _settings = _settings.copyWith(freeImageCrop: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   Future<void> saveSelectedModel(String model) async {
@@ -471,7 +527,7 @@ class AppController extends ChangeNotifier {
       _settings = _settings.copyWith(models: list);
     }
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   Future<void> completeOobe() async {
@@ -490,19 +546,19 @@ class AppController extends ChangeNotifier {
     } catch (e) {
       debugPrint('[preset] 释放异常（不阻断引导）: $e');
     }
-    notifyListeners();
+    _notify(AppChange.all);
   }
 
   Future<void> restartOobe() async {
     _settings = _settings.copyWith(completedOobe: false);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   Future<void> savePromptStrategy(PromptStrategy strategy) async {
     _settings = _settings.copyWith(promptStrategy: strategy);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「开发者选项是否已解锁」（关于页连点版本号 10 次切换）。
@@ -511,7 +567,7 @@ class AppController extends ChangeNotifier {
   }) async {
     _settings = _settings.copyWith(developerOptionsUnlocked: unlocked);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「打开应用时自动回到上次的聊天」开关。
@@ -521,7 +577,7 @@ class AppController extends ChangeNotifier {
   Future<void> saveAutoOpenLastChat(bool value) async {
     _settings = _settings.copyWith(autoOpenLastChat: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「模型列表不限高」开关。
@@ -531,47 +587,47 @@ class AppController extends ChangeNotifier {
   Future<void> saveUnboundedModelList(bool value) async {
     _settings = _settings.copyWith(unboundedModelList: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「主页底部导航栏」开关（主页 / 群聊 / 我家 / 世界 底部显示导航栏）。
   Future<void> saveShowBottomNav(bool value) async {
     _settings = _settings.copyWith(showBottomNav: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「聊天快速切换侧栏」开关（横屏宽窗口下聊天页左侧的快速切换栏）。
   Future<void> saveChatQuickSidebar(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebar: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
   /// 保存「快速切换侧栏是否收起」：记住用户上次的折叠选择。
   Future<void> saveChatQuickSidebarCollapsed(bool value) async {
     _settings = _settings.copyWith(chatQuickSidebarCollapsed: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
   /// 保存「聊天页左右滑动切换角色」开关。
   Future<void> saveChatSwipeSwitch(bool value) async {
     _settings = _settings.copyWith(chatSwipeSwitch: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存正则替换规则列表。
   Future<void> saveRegexRules(List<RegexRule> rules) async {
     _settings = _settings.copyWith(regexRules: rules);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「每日自动备份」开关。关闭后将不再进行静默自动备份。
   Future<void> saveAutoBackup(bool value) async {
     _settings = _settings.copyWith(autoBackup: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
 
@@ -584,14 +640,14 @@ class AppController extends ChangeNotifier {
     final int clamped = seconds.clamp(5, 600);
     _settings = _settings.copyWith(requestTimeoutSeconds: clamped);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存快速回复列表。
   Future<void> saveQuickReplies(List<QuickReply> quickReplies) async {
     _settings = _settings.copyWith(quickReplies: quickReplies);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存 DeepSeek 思考模式配置（开关与强度）。
@@ -607,7 +663,7 @@ class AppController extends ChangeNotifier {
           : 'high',
     );
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存采样参数（温度 / 频率惩罚 / 存在惩罚），用于抑制复读等退化输出。
@@ -622,7 +678,7 @@ class AppController extends ChangeNotifier {
       presencePenalty: presencePenalty.clamp(0.0, 2.0),
     );
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「高级采样参数」（Top-P / Top-K / Min-P / 重复惩罚 / 惩罚斜率）。
@@ -641,21 +697,21 @@ class AppController extends ChangeNotifier {
       repetitionPenaltySlope: repetitionPenaltySlope.clamp(0.0, 1.0),
     );
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存「端侧语音合成（TTS）」开关。
   Future<void> saveTtsEnabled(bool value) async {
     _settings = _settings.copyWith(ttsEnabled: value);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存全局 TTS seed（角色未设 seed 时兜底）。null 表示未设置。
   Future<void> saveTtsGlobalSeed(int? seed) async {
     _settings = _settings.copyWith(ttsGlobalSeed: seed);
     await _settingsService.save(_settings);
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   /// 保存并应用应用图标选择。
@@ -676,7 +732,7 @@ class AppController extends ChangeNotifier {
         debugPrint('切换浏览器图标失败：$e');
       }
     }
-    notifyListeners();
+    _notify(AppChange.settings);
   }
 
   Future<void> upsertTa(TA ta) async {
@@ -689,14 +745,14 @@ class AppController extends ChangeNotifier {
       _tas = updated;
     }
     await _hiveService.upsertTa(ta);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> deleteTa(String id) async {
     _tas = _tas.where((TA ta) => ta.id != id).toList();
     await _hiveService.deleteTa(id);
     await _pruneTaFromGroups(id);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 把被删角色从所有群聊里摘干净。
@@ -961,7 +1017,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(archived: archived);
     _tas = updated;
     await _hiveService.upsertTa(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 保存 TA 槽位图片字节到平台存储，返回引用（IO: 绝对路径 / Web: 逻辑文件名）。
@@ -989,13 +1045,13 @@ class AppController extends ChangeNotifier {
       _identities = updated;
     }
     await _hiveService.upsertIdentity(identity);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> deleteIdentity(String id) async {
     _identities = _identities.where((UserIdentity i) => i.id != id).toList();
     await _hiveService.deleteIdentity(id);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   UserIdentity? getIdentityById(String? id) {
@@ -1020,13 +1076,13 @@ class AppController extends ChangeNotifier {
       _worlds = updated;
     }
     await _hiveService.upsertWorld(world);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> deleteWorld(String id) async {
     _worlds = _worlds.where((World world) => world.id != id).toList();
     await _hiveService.deleteWorld(id);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> setWorldArchived({
@@ -1045,7 +1101,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(archived: archived);
     _worlds = updated;
     await _hiveService.upsertWorld(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 按 id 查会话：单聊与群聊一起查，找不到返回 null。
@@ -1111,7 +1167,7 @@ class AppController extends ChangeNotifier {
       _conversations = updated;
     }
     await _hiveService.upsertConversation(conversation);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> upsertGroupConversation(Conversation conversation) async {
@@ -1128,19 +1184,19 @@ class AppController extends ChangeNotifier {
       _groupConversations = updated;
     }
     await _hiveService.upsertConversation(conversation);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> deleteConversation(String id) async {
     _conversations = _conversations.where((Conversation item) => item.id != id).toList();
     await _hiveService.deleteConversation(id);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> deleteGroupConversation(String id) async {
     _groupConversations = _groupConversations.where((Conversation item) => item.id != id).toList();
     await _hiveService.deleteConversation(id);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> setConversationArchived({
@@ -1159,7 +1215,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(archived: archived);
     _conversations = updated;
     await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 置顶/取消置顶某个会话。
@@ -1179,7 +1235,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(pinned: pinned);
     _conversations = updated;
     await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 复制一个会话：生成全新的会话 ID 与消息 ID，其余配置（TA、世界、身份、
@@ -1255,7 +1311,7 @@ class AppController extends ChangeNotifier {
       _conversations = updated;
     }
     await _hiveService.upsertConversation(copy);
-    notifyListeners();
+    _notify(AppChange.data);
     return newConvId;
   }
 
@@ -1288,7 +1344,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(pinned: pinned);
     _groupConversations = updated;
     await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> setGroupConversationArchived({
@@ -1307,7 +1363,7 @@ class AppController extends ChangeNotifier {
     updated[index] = current.copyWith(archived: archived);
     _groupConversations = updated;
     await _hiveService.upsertConversation(updated[index]);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Future<void> reorderConversationSubset(List<String> orderedIds) async {
@@ -1338,7 +1394,7 @@ class AppController extends ChangeNotifier {
     }
     _conversations = updated;
     await _hiveService.saveConversations(_conversations);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 把 [oldIndex] 的 TA 移到 [newIndex]。
@@ -1358,7 +1414,7 @@ class AppController extends ChangeNotifier {
     updated.insert(newIndex, moved);
     _tas = updated;
     await _hiveService.saveTas(_tas);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   /// 同 [reorderTas]：下标口径是"移除之后"。
@@ -1374,7 +1430,7 @@ class AppController extends ChangeNotifier {
     updated.insert(newIndex, moved);
     _worlds = updated;
     await _hiveService.saveWorlds(_worlds);
-    notifyListeners();
+    _notify(AppChange.data);
   }
 
   Conversation? getGroupById(String id) {
@@ -1483,7 +1539,7 @@ class AppController extends ChangeNotifier {
         ..._conversations,
         ..._groupConversations,
       ]);
-      notifyListeners();
+      _notify(AppChange.chat);
       return DataImportReport(
         replaced: true,
         tasCount: 0,
@@ -1515,7 +1571,7 @@ class AppController extends ChangeNotifier {
       ..._conversations,
       ..._groupConversations,
     ]);
-    notifyListeners();
+    _notify(AppChange.chat);
     return DataImportReport(
       replaced: false,
       tasCount: 0,
@@ -1783,7 +1839,7 @@ class AppController extends ChangeNotifier {
           ..._groupConversations,
         ]);
 
-        notifyListeners();
+        _notify(AppChange.chat);
         return ExportImportResult(
           success: true,
           data: DataImportReport(
@@ -1851,7 +1907,7 @@ class AppController extends ChangeNotifier {
         ..._groupConversations,
       ]);
 
-      notifyListeners();
+      _notify(AppChange.chat);
       return ExportImportResult(
         success: true,
         data: DataImportReport(
@@ -1894,6 +1950,6 @@ class AppController extends ChangeNotifier {
     _worlds = <World>[];
     _conversations = <Conversation>[];
     _groupConversations = <Conversation>[];
-    notifyListeners();
+    _notify(AppChange.all);
   }
 }
