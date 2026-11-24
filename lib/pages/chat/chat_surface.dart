@@ -81,6 +81,7 @@ import 'state/chat_controller.dart';
 import 'ui/widgets/chat_app_bar.dart';
 import 'ui/widgets/animated_background.dart';
 import 'ui/widgets/chat_input_bar.dart';
+import 'ui/widgets/candidate_action_bar.dart';
 import 'ui/widgets/chat_message_list.dart';
 import 'ui/widgets/speaker_bar.dart';
 import 'ui/widgets/group_member_picker_sheet.dart';

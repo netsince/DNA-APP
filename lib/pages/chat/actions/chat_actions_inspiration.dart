@@ -253,46 +253,18 @@ class _InspirationSheetState extends State<_InspirationSheet> {
                         ],
                       ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  8,
-                  16,
-                  16 + MediaQuery.viewPaddingOf(context).bottom,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _loading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: const FitText('关闭'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: (_loading || _lastTopic.isEmpty)
-                            ? null
-                            : _generate,
-                        icon: const Icon(Icons.autorenew),
-                        label: const FitText('再试'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _selectedIndex == null || _loading
-                            ? null
-                            : () => Navigator.of(context).pop(
-                                  _options[_selectedIndex!],
-                                ),
-                        child: const FitText('使用'),
-                      ),
-                    ),
-                  ],
-                ),
+              CandidateActionBar(
+                onCancel: () => Navigator.of(context).pop(),
+                onRegenerate: _generate,
+                onConfirm: _selectedIndex == null
+                    ? null
+                    : () => Navigator.of(context).pop(_options[_selectedIndex!]),
+                cancelLabel: '关闭',
+                regenerateLabel: '再试',
+                busy: _loading,
+                regenerateEnabled: _lastTopic.isNotEmpty,
+                confirmEnabled: _selectedIndex != null,
+                bottomInset: MediaQuery.viewPaddingOf(context).bottom,
               ),
             ],
           ),
