@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import 'package:dna/island_app/api/client.dart';
-import 'package:dna/utils/ui_feedback.dart';
-import 'package:dna/island_app/auth_session.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/teahouse_compose_page.dart';
@@ -14,7 +12,6 @@ import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/teahouse_post_tile.dart';
 import 'package:dna/widgets/wide_body.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
-import 'package:dna/utils/error_display.dart';
 import 'package:dna/widgets/paged_controller.dart';
 
 /// 茶馆 Feed 加载回调（默认走 [ApiClient.getTeahousePosts]）。
@@ -128,10 +125,6 @@ class _TeahouseBodyState extends State<TeahouseBody>
     );
   }
 
-  void _snack(String msg) {
-    if (!mounted) return;
-    showSnack(context, msg);
-  }
 
   /// 在列表里按 id 更新某条帖子的统计。
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
@@ -158,7 +151,6 @@ class _TeahouseBodyState extends State<TeahouseBody>
       postId,
       (s) => s.copyWith(favorited: favorited, likeCount: s.likeCount),
     );
-    _snack(favorited ? '已收藏' : '已取消收藏');
   }
 
   void _openCompose() {
@@ -328,7 +320,8 @@ class TeahouseFavoritesPage extends StatefulWidget {
   State<TeahouseFavoritesPage> createState() => _TeahouseFavoritesPageState();
 }
 
-class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
+class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage>
+    with PostLikeFavMixin<TeahouseFavoritesPage> {
   final ScrollController _scrollController = ScrollController();
 
   /// 收藏页是**另一套独立的分页**（数据源不同），所以另建一个控制器。
@@ -378,12 +371,6 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
     );
   }
 
-  bool get _loggedIn => AuthSession.instance.isLoggedIn;
-
-  void _snack(String msg) {
-    if (!mounted) return;
-    showSnack(context, msg);
-  }
 
   void _updatePost(int id, TeaPostStats Function(TeaPostStats) change) {
     final int i = _paged.items.indexWhere((TeaPost p) => p.idInt == id);
@@ -395,39 +382,20 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
     });
   }
 
-  Future<void> _toggleLike(int postId) async {
-    if (!_loggedIn) {
-      _snack('请先登录后再点赞');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseLike(postId);
-      if (!mounted) return;
-      _updatePost(
-        postId,
-        (s) => s.copyWith(liked: r.liked, likeCount: r.count),
-      );
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
+  @override
+  void onPostLikeResult(int postId, ({bool liked, int count}) result) {
+    _updatePost(
+      postId,
+      (s) => s.copyWith(liked: result.liked, likeCount: result.count),
+    );
   }
 
-  Future<void> _toggleFavorite(int postId) async {
-    if (!_loggedIn) {
-      _snack('请先登录后再收藏');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseFavorite(postId);
-      if (!mounted) return;
-      _updatePost(
-        postId,
-        (s) => s.copyWith(favorited: r.favorited, likeCount: s.likeCount),
-      );
-      _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
+  @override
+  void onPostFavoriteResult(int postId, bool favorited) {
+    _updatePost(
+      postId,
+      (s) => s.copyWith(favorited: favorited, likeCount: s.likeCount),
+    );
   }
 
   @override
@@ -457,8 +425,8 @@ class _TeahouseFavoritesPageState extends State<TeahouseFavoritesPage> {
                   return TeahousePostTile(
                     post: post,
                     onTap: () => _openPost(post.idInt),
-                    onLike: () => _toggleLike(post.idInt),
-                    onFavorite: () => _toggleFavorite(post.idInt),
+                    onLike: () => togglePostLike(post.idInt),
+                    onFavorite: () => togglePostFavorite(post.idInt),
                   );
                 },
               ),
