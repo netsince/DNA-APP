@@ -15,6 +15,8 @@ import '../../../../utils/platform_capabilities.dart';
 import '../../chat_models.dart';
 import 'package:dna/widgets/fit_text.dart';
 
+import 'message_bubbles.dart';
+
 typedef ShowMessageMenu = void Function({
   required Offset position,
   required ConversationMessage message,
@@ -161,86 +163,24 @@ class ChatMessageList extends StatelessWidget {
         final GlobalKey? key = messageKeys[message.id];
 
         if (message.kindEnum == MessageKind.summaryPrompt) {
-          return Align(
+          return SummaryPromptBubble(
             key: key,
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onLongPressStart: (LongPressStartDetails details) =>
-                  _showMenuAt(details.globalPosition, message, index),
-              onSecondaryTapDown: (TapDownDetails details) =>
-                  _showMenuAt(details.globalPosition, message, index),
-              child: _SystemNoticeCard(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(Icons.auto_awesome, size: 18),
-                        SizedBox(width: 4),
-                        FitText('建议生成摘要'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: <Widget>[
-                        FilledButton.tonal(
-                          onPressed: summaryInProgress ? null : () => onStartSummary(message),
-                          child: const FitText('生成摘要'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => onDismissSummary(message.id),
-                          child: const FitText('忽略'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            message: message,
+            index: index,
+            summaryInProgress: summaryInProgress,
+            onStartSummary: onStartSummary,
+            onDismissSummary: onDismissSummary,
+            onShowMessageMenu: onShowMessageMenu,
           );
         }
 
         if (message.kindEnum == MessageKind.summary) {
-          final ConversationSummary? summary = summaryById(message.summaryId);
-          final String raw = summary?.text.trim() ?? '';
-          final String preview =
-              raw.isEmpty ? '摘要为空' : (raw.length > 80 ? '${raw.substring(0, 80)}...' : raw);
-          return Align(
+          return SummaryBubble(
             key: key,
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onLongPressStart: (LongPressStartDetails details) =>
-                  _showMenuAt(details.globalPosition, message, index),
-              onSecondaryTapDown: (TapDownDetails details) =>
-                  _showMenuAt(details.globalPosition, message, index),
-              child: _SystemNoticeCard(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(Icons.article_outlined, size: 18),
-                        SizedBox(width: 4),
-                        FitText('摘要已生成'),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    FitText(preview, style: textTheme.bodySmall),
-                    const SizedBox(height: 4),
-                    FitText(
-                      '长按/右键查看/删除',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: AppAlpha.muted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            message: message,
+            index: index,
+            summaryById: summaryById,
+            onShowMessageMenu: onShowMessageMenu,
           );
         }
 
@@ -1097,28 +1037,4 @@ class _MessageAttachments extends StatelessWidget {
   }
 }
 
-/// 系统提示卡外壳（摘要提示 / 摘要正文共用）。
-///
-/// 两份卡片原本各写一遍同样的 padding / 圆角 / 描边 / 底色，改观感要改两处；
-/// 内容（图标 + 文案 + 按钮）仍由调用方给。
-class _SystemNoticeCard extends StatelessWidget {
-  const _SystemNoticeCard({required this.child});
 
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: AppAlpha.a85),
-        borderRadius: AppRadius.smAll,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: child,
-    );
-  }
-}
