@@ -410,7 +410,10 @@ class AppController extends ChangeNotifier {
   /// writeOverride，不要往这里塞 if。
   Future<void> patchSettings(String key, Object? value) async {
     _settings = applySettingsPatch(_settings, key, value);
-    await _settingsService.save(_settings);
+    // 只落这一个键：以前是全量 save()（65 次 prefs 调用 + 一次整表序列化），
+    // 改一个开关也要把 78 个字段全写一遍。写成什么值是**改完之后**的设置，
+    // 所以复合对象（模型列表等）也不会写成补丁前的旧值。
+    await _settingsService.saveOne(key, _settings.toJson()[key]);
     notifyListeners();
   }
 
