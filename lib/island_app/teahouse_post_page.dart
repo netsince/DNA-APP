@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
+import 'package:dna/island_app/utils/post_like_fav.dart';
 import 'package:dna/island_app/card_detail_page.dart';
 import 'package:dna/island_app/models/teapost.dart';
 import 'package:dna/island_app/server_config.dart';
@@ -29,7 +30,8 @@ class TeahousePostPage extends StatefulWidget {
   State<TeahousePostPage> createState() => _TeahousePostPageState();
 }
 
-class _TeahousePostPageState extends State<TeahousePostPage> {
+class _TeahousePostPageState extends State<TeahousePostPage>
+    with PostLikeFavMixin<TeahousePostPage> {
   TeaPost? _post;
   List<TeaPost> _chain = const <TeaPost>[];
 
@@ -142,46 +144,6 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
     controller.selection = TextSelection.collapsed(
       offset: start + token.length,
     );
-  }
-
-  Future<void> _toggleLike() async {
-    if (!_loggedIn) {
-      _snack('请先登录后再点赞');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseLike(widget.postId);
-      if (!mounted || _post == null) return;
-      setState(() {
-        _post = _post!.copyWith(
-          stats: _post!.stats.copyWith(liked: r.liked, likeCount: r.count),
-        );
-      });
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
-  }
-
-  Future<void> _toggleFavorite() async {
-    if (!_loggedIn) {
-      _snack('请先登录后再收藏');
-      return;
-    }
-    try {
-      final r = await ApiClient.instance.toggleTeahouseFavorite(widget.postId);
-      if (!mounted || _post == null) return;
-      setState(() {
-        _post = _post!.copyWith(
-          stats: _post!.stats.copyWith(
-            favorited: r.favorited,
-            replyCount: _post!.stats.replyCount,
-          ),
-        );
-      });
-      _snack(r.favorited ? '已收藏' : '已取消收藏');
-    } catch (e) {
-      _snack('操作失败：${describeError(e)}');
-    }
   }
 
   /// 按 id 更新回复列表里某条回复的统计。
@@ -520,6 +482,28 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
   }
 
   @override
+  void onPostLikeResult(int postId, ({bool liked, int count}) result) {
+    final TeaPost? post = _post;
+    if (post == null) return;
+    setState(() {
+      _post = post.copyWith(
+        stats: post.stats.copyWith(liked: result.liked, likeCount: result.count),
+      );
+    });
+  }
+
+  @override
+  void onPostFavoriteResult(int postId, bool favorited) {
+    final TeaPost? post = _post;
+    if (post == null) return;
+    setState(() {
+      _post = post.copyWith(
+        stats: post.stats.copyWith(favorited: favorited, replyCount: post.stats.replyCount),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final post = _post;
@@ -585,8 +569,8 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                             onCardTap: post.card != null
                                 ? () => _openCard(post.card!.id)
                                 : null,
-                            onLike: _toggleLike,
-                            onFavorite: _toggleFavorite,
+                            onLike: () => togglePostLike(widget.postId),
+                            onFavorite: () => togglePostFavorite(widget.postId),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -599,7 +583,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                                   label: '${post.stats.likeCount}',
                                   active: post.stats.liked,
                                   activeColor: scheme.error,
-                                  onTap: _toggleLike,
+                                  onTap: () => togglePostLike(widget.postId),
                                 ),
                                 const SizedBox(width: 12),
                                 _ActionButton(
@@ -609,7 +593,7 @@ class _TeahousePostPageState extends State<TeahousePostPage> {
                                   label: '收藏',
                                   active: post.stats.favorited,
                                   activeColor: scheme.tertiary,
-                                  onTap: _toggleFavorite,
+                                  onTap: () => togglePostFavorite(widget.postId),
                                 ),
                               ],
                             ),
