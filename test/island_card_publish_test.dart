@@ -160,7 +160,10 @@ void main() {
     final String body = src.substring(start, start + 1600);
     expect(body.contains('try {'), isTrue, reason: '_save 必须捕获异常');
     expect(body.contains('_errorText(e)'), isTrue, reason: '失败原因要弹给用户看');
-    expect(body.contains('SnackBar('), isTrue, reason: '原因要通过 SnackBar 展示');
+    // 这条守护断言的是「用户能看到失败原因」，不是「必须手写 SnackBar」。
+    // 主程序已统一走 showSnack（见 docs/TESTING_CONVENTIONS.md 第 4 条：
+    // 单源守卫应断言入口，而不是断言实现长什么样）。
+    expect(body.contains('showSnack('), isTrue, reason: '原因要经统一入口 showSnack 展示');
   });
 
   testWidgets('未登录时点发布会被拦住', (WidgetTester tester) async {
