@@ -504,9 +504,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     }
     setState(() {});
     // 重说完成后滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    _scrollToBottom();
   }
 
   Future<void> _editAssistantAt(int index) async {
@@ -666,9 +664,7 @@ mixin ChatUiHelpers on ChatStateMixin {
       _attachmentDraft.replaceAll(restored.attachments);
     }
     // 回溯成功后滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    _scrollToBottom();
   }
 
   /// 「从此处分叉」：以当前会话为基底，保留到该气泡为止的内容，
@@ -734,9 +730,10 @@ mixin ChatUiHelpers on ChatStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         FocusManager.instance.primaryFocus?.unfocus();
-        _scrollToBottom();
       }
     });
+    // 滚动由 ChatController 自己排帧，这里不再套一层。
+    _scrollToBottom();
     Future<void>.delayed(const Duration(milliseconds: 120), () {
       if (mounted) {
         FocusManager.instance.primaryFocus?.unfocus();
