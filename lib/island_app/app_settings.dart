@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dna/island_app/shared_prefs.dart';
+import 'package:dna/services/shared_prefs.dart';
 
 /// 全局外观设置（主题模式 + 强调色），持久化到本地。
 ///

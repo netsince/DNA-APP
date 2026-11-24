@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:dna/services/shared_prefs.dart';
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
@@ -19,7 +20,7 @@ class TaService {
   static const List<String> kMusicAllowedExts = <String>['.mp3', '.m4a', '.aac', '.ogg', '.wav'];
 
   Future<List<TA>> load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     final String? raw = prefs.getString(_tasKey);
     if (raw == null || raw.isEmpty) {
       return <TA>[];
@@ -37,7 +38,7 @@ class TaService {
   }
 
   Future<void> save(List<TA> tas) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     final String raw = jsonEncode(tas.map((TA ta) => ta.toJson()).toList());
     await prefs.setString(_tasKey, raw);
   }

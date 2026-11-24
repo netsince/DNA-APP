@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dna/services/shared_prefs.dart';
 
 import '../models/app_settings.dart';
 import '../models/llm_model_config.dart';
@@ -115,7 +116,7 @@ class SettingsService {
   }
 
   Future<AppSettings> load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     
     PromptStrategy promptStrategy = PromptStrategy.defaults();
     final String? promptStrategyJson = prefs.getString(_promptStrategyKey);
@@ -281,7 +282,7 @@ class SettingsService {
   }
 
   Future<void> save(AppSettings settings) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     await prefs.setString(_providerKey, settings.provider);
     await prefs.setString(_themeModeKey, settings.themeMode);
     await prefs.setString(_fontFamilyModeKey, settings.fontFamilyMode);
@@ -374,13 +375,13 @@ class SettingsService {
 
   /// 读取上次自动备份的日期（格式 YYYY-MM-DD），无记录返回空串。
   Future<String> getLastAutoBackupDate() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     return prefs.getString(_lastAutoBackupDateKey) ?? '';
   }
 
   /// 记录上次自动备份的日期（格式 YYYY-MM-DD）。
   Future<void> saveLastAutoBackupDate(String date) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     await prefs.setString(_lastAutoBackupDateKey, date);
   }
 }

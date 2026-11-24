@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dna/services/shared_prefs.dart';
 
 import '../models/world.dart';
 
@@ -8,7 +9,7 @@ class WorldService {
   static const String _worldsKey = 'worlds_v1';
 
   Future<List<World>> load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     final String? raw = prefs.getString(_worldsKey);
     if (raw == null || raw.isEmpty) {
       return <World>[];
@@ -26,7 +27,7 @@ class WorldService {
   }
 
   Future<void> save(List<World> worlds) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     final String raw = jsonEncode(worlds.map((World world) => world.toJson()).toList());
     await prefs.setString(_worldsKey, raw);
   }

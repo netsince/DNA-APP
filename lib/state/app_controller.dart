@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:dna/services/shared_prefs.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -1884,7 +1885,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> clearAllData() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPrefs.instance;
     await prefs.clear();
     await _hiveService.clearAll();
     try {

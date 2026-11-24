@@ -1,4 +1,4 @@
-import 'package:dna/island_app/shared_prefs.dart';
+import 'package:dna/services/shared_prefs.dart';
 
 /// 服务器地址校验器：返回 null 表示有效，否则返回人类可读错误。
 typedef ServerValidator = Future<String?> Function(String url);
