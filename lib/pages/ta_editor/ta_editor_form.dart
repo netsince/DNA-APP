@@ -457,22 +457,9 @@ class _TaEditorFormState extends State<TaEditorForm> {
 
     if (!mounted) return;
 
-    // 更新当前页面状态
-    setState(() {
-      _taId = finalTA.id;
-      _nameController.text = finalTA.name;
-      _gender = finalTA.gender;
-      _personaController.text = finalTA.persona;
-      _introController.text = finalTA.intro;
-      _openingController.text = finalTA.opening;
-      _tags = List<String>.from(finalTA.tags);
-      _seedController.text = finalTA.voiceSeed?.toString() ?? '';
-      _authorNoteController.text = finalTA.authorNote ?? '';
-      _authorIntervalController.text = finalTA.authorNoteInterval.toString();
-      _images = Map<String, String>.from(finalTA.images);
-      _dialogueStyle = List<DialogueTurn>.from(finalTA.dialogueStyle);
-      _strategyOverride = finalTA.strategyOverride;
-    });
+    // 回填统一走 _applyTa —— 这里原来手抄了一份字段列表，后果已经出现过一次：
+    // 抄的时候漏了 _musicPath，导入带背景音乐的角色卡后音乐不会跟着回填。
+    _applyTa(finalTA);
 
     showSnack(context, '导入成功');
   }
