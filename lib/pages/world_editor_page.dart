@@ -8,6 +8,7 @@ import '../models/world.dart';
 import '../services/world_export_import_service.dart';
 import '../state/app_controller.dart';
 import '../utils/action_table.dart';
+import '../utils/error_display.dart';
 import '../utils/id_utils.dart';
 import '../widgets/app_editor_frame.dart';
 import '../widgets/fit_text.dart';
@@ -70,7 +71,13 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
   /// 「世界名称」的字段级错误（由宿主校验，注入表单显示）。
   String? _nameError;
 
+  /// 保存进行中：防止连点重复写库，失败后复位。
+  bool _saving = false;
+
   Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
     final World world = _form.current();
     // 名称必填由**宿主**决定（表单只交值）；错误跟着字段走，不再弹 snackbar。
     if (world.name.trim().isEmpty) {
@@ -79,10 +86,21 @@ class _WorldEditorPageState extends State<WorldEditorPage> {
     }
     if (_nameError != null) setState(() => _nameError = null);
     final Future<void> Function(World)? onSave = widget.onSave;
-    if (onSave != null) {
-      await onSave(world);
-    } else {
-      await widget.controller!.upsertWorld(world);
+    setState(() => _saving = true);
+    try {
+      if (onSave != null) {
+        await onSave(world);
+      } else {
+        await widget.controller!.upsertWorld(world);
+      }
+    } catch (e) {
+      // 失败必须让用户看见原因，并且**不关闭**页面。
+      // 以前这里没有 try/catch：异常直接冒泡，界面停在原地、什么都不提示，
+      // 连点还会重复写库（角色卡编辑器早就有这段，世界编辑器漏了）。
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showSnack(context, describeError(e));
+      return;
     }
     if (!mounted) return;
     Navigator.of(context).pop();
