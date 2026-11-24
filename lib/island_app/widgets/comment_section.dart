@@ -20,6 +20,7 @@ import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/sticker_text.dart';
 import 'package:dna/utils/action_table.dart';
 import 'package:dna/utils/error_display.dart';
+import 'package:dna/island_app/utils/time_format.dart';
 import 'package:dna/widgets/paged_controller.dart';
 import '../../theme/tokens.dart';
 
@@ -852,7 +853,7 @@ class _CommentSectionState extends State<CommentSection> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        _formatTime(c.createdAt),
+                        formatRelativeTime(c.createdAt),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: scheme.outline,
                         ),
@@ -934,19 +935,6 @@ Widget _tag(String text, Color bg, Color fg) => Container(
     style: TextStyle(fontSize: AppFontSize.tiny, color: fg),
   ),
 );
-
-String _formatTime(String iso) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return '';
-  final diff = DateTime.now().difference(t);
-  if (diff.inMinutes < 1) return '刚刚';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-  if (diff.inHours < 24) return '${diff.inHours}小时前';
-  if (diff.inDays < 30) return '${diff.inDays}天前';
-  final m = t.month.toString().padLeft(2, '0');
-  final d = t.day.toString().padLeft(2, '0');
-  return '${t.year}-$m-$d';
-}
 
 /// 评论图片缩略图（WebP base64 data URL），点按进全屏查看。
 class _CommentImage extends StatelessWidget {

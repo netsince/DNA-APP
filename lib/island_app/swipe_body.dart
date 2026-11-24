@@ -9,6 +9,7 @@ import 'package:dna/widgets/refreshable.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/models/ta_gender.dart';
 import 'package:dna/utils/error_display.dart';
+import 'package:dna/island_app/utils/count_format.dart';
 import '../theme/tokens.dart';
 
 /// 「刷一刷」横向翻页式角色卡浏览。
@@ -375,7 +376,7 @@ class _SwipeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _fmtCount(card['view_count']),
+                          formatCount(card['view_count']),
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(width: 16),
@@ -386,7 +387,7 @@ class _SwipeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _fmtCount(card['copy_count']),
+                          formatCount(card['copy_count']),
                           style: const TextStyle(color: Colors.white70),
                         ),
                         const Spacer(),
@@ -425,10 +426,4 @@ class _SwipeCard extends StatelessWidget {
     return '';
   }
 
-  String _fmtCount(dynamic v) {
-    final n = v is num ? v.toDouble() : 0;
-    if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toStringAsFixed(0);
-  }
 }

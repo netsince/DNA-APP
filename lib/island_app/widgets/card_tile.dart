@@ -4,6 +4,7 @@ import 'package:dna/island_app/server_config.dart';
 import 'package:dna/theme/app_dimensions.dart';
 import 'package:dna/island_app/widgets/fade_in_image.dart';
 import 'package:dna/island_app/widgets/status_badge.dart';
+import 'package:dna/island_app/utils/count_format.dart';
 import 'package:dna/island_app/widgets/user_badge.dart';
 import 'package:dna/models/ta_gender.dart';
 import '../../theme/tokens.dart';
@@ -53,14 +54,6 @@ class CardTile extends StatelessWidget {
   }
 
   String _str(String key) => (card[key] ?? '').toString();
-
-  /// 观看/复制数格式化：≥1 万显示 x.x万，≥1 千显示 x.xk。
-  String _fmtCount(dynamic v) {
-    final n = v is num ? v.toDouble() : 0;
-    if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toStringAsFixed(0);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +157,7 @@ class CardTile extends StatelessWidget {
                 color: scheme.onSurfaceVariant,
               ),
               const SizedBox(width: 3),
-              Text(_fmtCount(card['view_count']), style: metaStyle),
+              Text(formatCount(card['view_count']), style: metaStyle),
               const SizedBox(width: 12),
               Icon(
                 Icons.content_copy,
@@ -172,7 +165,7 @@ class CardTile extends StatelessWidget {
                 color: scheme.onSurfaceVariant,
               ),
               const SizedBox(width: 3),
-              Text(_fmtCount(card['copy_count']), style: metaStyle),
+              Text(formatCount(card['copy_count']), style: metaStyle),
               const Spacer(),
               if (author.isNotEmpty)
                 Flexible(
