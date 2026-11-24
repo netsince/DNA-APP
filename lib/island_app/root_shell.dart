@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter_html_table/flutter_html_table.dart';
+import 'widgets/announcement_sheet.dart';
 import 'package:dna/island_app/app_drawer.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/api/client.dart';
@@ -815,51 +814,3 @@ class _NotificationButtonState extends State<_NotificationButton> {
   }
 }
 
-/// 站点公告弹层（可复用）：侧边栏「公告」与首页首启公告共用。
-class AnnouncementSheet extends StatelessWidget {
-  const AnnouncementSheet({super.key, required this.content});
-
-  final String content;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(Icons.campaign_outlined, color: scheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  '站点公告',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Html(
-                  data: content,
-                  extensions: <HtmlExtension>[TableHtmlExtension()],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('知道了'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
