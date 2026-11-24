@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/utils/ui_feedback.dart';
 import 'package:dna/island_app/auth_session.dart';
@@ -673,21 +674,12 @@ class _SearchPageState extends State<SearchPage>
       );
     }
     if (loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(error, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _search, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: error, onRetry: _search);
     }
-    final Widget content = empty ? Center(child: Text(emptyText)) : body();
+    final Widget content = empty ? EmptyState(title: emptyText) : body();
     if (!withSortBar) {
       return content;
     }

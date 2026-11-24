@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:flutter/services.dart';
 
 import 'package:dna/island_app/api/client.dart';
@@ -384,19 +385,10 @@ class _WorldDetailPageState extends State<WorldDetailPage> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState();
     }
     if (_error != null || _detail == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(_error ?? '世界卡不存在'),
-            AppSpacing.hMd,
-            TextButton(onPressed: _load, child: const Text('重试')),
-          ],
-        ),
-      );
+      return ErrorState(message: _error ?? '世界卡不存在', onRetry: _load);
     }
     final WorldCardSummary d = _detail!;
     final ThemeData theme = Theme.of(context);
