@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/conversation.dart';
+import 'package:dna/services/shared_prefs.dart';
 import '../models/ta.dart';
 
 /// 「上次聊天」指针：让「打开应用直接续玩」知道该回到哪一场会话。
@@ -49,7 +50,7 @@ class ResumeService {
   /// 自动续玩后多久算"这次成功了"。见 [beginAttempt]。
   static const Duration confirmDelay = Duration(seconds: 2);
 
-  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+  Future<SharedPreferences> get _prefs => SharedPrefs.instance;
 
   /// 记下"用户正在这场会话里"。**唯一写入入口**，幂等。
   Future<void> rememberOpened(String conversationId) async {

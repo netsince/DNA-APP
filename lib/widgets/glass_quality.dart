@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:dna/services/shared_prefs.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +58,7 @@ class GlassQualityStore extends ChangeNotifier {
 
   Future<void> load() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPrefs.instance;
       final GlassQuality? stored = GlassQuality.fromKey(
         prefs.getString(prefsKey),
       );
@@ -71,7 +72,7 @@ class GlassQualityStore extends ChangeNotifier {
     _value = q;
     notifyListeners();
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPrefs.instance;
       await prefs.setString(prefsKey, q.key);
     } catch (_) {}
   }

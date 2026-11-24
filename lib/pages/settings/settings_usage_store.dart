@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:dna/services/shared_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 设置项的「使用记录」：搜索页的「常用 / 最近使用」靠它。
@@ -26,7 +27,7 @@ class SettingsUsageStore extends ChangeNotifier {
     if (_loaded) return;
     _loaded = true;
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPrefs.instance;
       final String? raw = prefs.getString(_prefsKey);
       if (raw == null || raw.isEmpty) return;
       final Map<String, dynamic> decoded =
@@ -53,7 +54,7 @@ class SettingsUsageStore extends ChangeNotifier {
 
   Future<void> _save() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await SharedPrefs.instance;
       final Map<String, dynamic> out = <String, dynamic>{};
       for (final MapEntry<String, int> e in _counts.entries) {
         out[e.key] = <String, int>{
