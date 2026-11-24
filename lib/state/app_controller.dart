@@ -414,6 +414,15 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 应用「提示条停留时长」：写设置并**立刻生效**。
+  ///
+  /// 这是 `snackDurationMs` 唯一的可达入口。以前只有已删除的死 setter 能改它，
+  /// 结果是这一项存得进 prefs、也在启动时被读，用户却永远改不动（审计 F-11/F-3）。
+  Future<void> applySnackDuration(int milliseconds) async {
+    await patchSettings('snackDurationMs', milliseconds);
+    setSnackDuration(Duration(milliseconds: milliseconds));
+  }
+
   /// 保存字体模式（'system' 跟随系统 / 'sourcehan' 内置思源黑体）。
   ///
   /// 主题由 [DnaApp] 按 `settings.fontFamilyMode` 重建，`notifyListeners`
