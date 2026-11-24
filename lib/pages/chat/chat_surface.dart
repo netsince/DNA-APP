@@ -83,6 +83,7 @@ import 'ui/widgets/animated_background.dart';
 import 'ui/widgets/chat_input_bar.dart';
 import 'ui/widgets/candidate_action_bar.dart';
 import 'ui/widgets/chat_message_list.dart';
+import 'ui/widgets/immersive_exit_button.dart';
 import 'ui/widgets/speaker_bar.dart';
 import 'ui/widgets/group_member_picker_sheet.dart';
 import 'package:dna/widgets/fit_text.dart';
@@ -779,35 +780,10 @@ class _ChatSurfaceState extends State<ChatSurface>
                 ],
               ),
             ),
-            // 沉浸态的唯一常驻控件：可见的退出入口（原来是从无到有地蹦出来，
-            // 这里改成缩放+淡入，进出沉浸时不再"闪一下"）。
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: !_immersiveUiHidden,
-                child: AnimatedScale(
-                  scale: _immersiveUiHidden ? 1.0 : 0.8,
-                  duration: AppMotion.fast,
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedOpacity(
-                    opacity: _immersiveUiHidden ? 1.0 : 0.0,
-                    duration: AppMotion.fast,
-                    curve: Curves.easeOutCubic,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        child: IconButton.filledTonal(
-                          onPressed: _toggleImmersive,
-                          tooltip: '退出沉浸',
-                          icon: const Icon(Icons.fullscreen_exit),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // 沉浸态的唯一常驻控件：见 ImmersiveExitButton。
+            ImmersiveExitButton(
+              visible: _immersiveUiHidden,
+              onPressed: _toggleImmersive,
             ),
           ],
         ),
