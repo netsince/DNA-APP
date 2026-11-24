@@ -303,42 +303,7 @@ class _ChatPageState extends State<ChatPage>
   Conversation? _conversationById(String id) =>
       widget.controller.getConversationById(id);
 
-  /// 参与左右滑动的角色:与桌面侧栏左列同构 —— 按「我家」顺序,
-  /// 只保留有非归档 1:1 会话的角色(群聊不参与)。
-  List<TA> _swipeCharacters() {
-    final Set<String> withChats = <String>{
-      for (final Conversation conversation in widget.controller.conversations)
-        if (!conversation.isGroup && !conversation.archived) conversation.taId,
-    };
-    return <TA>[
-      for (final TA ta in widget.controller.tas)
-        if (withChats.contains(ta.id)) ta,
-    ];
-  }
 
-  /// 该角色最近活跃的非归档 1:1 会话(只作兜底:没有"固定会话"时用)。
-  ///
-  /// 消息时间用的是真实发送时刻(毫秒);老数据可能缺这个字段而被
-  /// 反序列化成 0,所以这里取"最大值",全为 0 时退化成列表顺序。
-  Conversation? _mostRecentConversationOf(String taId) {
-    Conversation? best;
-    int bestAt = -1;
-    for (final Conversation conversation in widget.controller.conversations) {
-      if (conversation.isGroup ||
-          conversation.archived ||
-          conversation.taId != taId) {
-        continue;
-      }
-      final int at = conversation.messages.isEmpty
-          ? 0
-          : conversation.messages.last.timestamp;
-      if (at > bestAt) {
-        bestAt = at;
-        best = conversation;
-      }
-    }
-    return best;
-  }
 
   /// 该角色"固定"在哪个会话:优先用记住的那个(会话还在且没被归档),
   /// 否则回退到最近活跃的那个。
@@ -350,7 +315,7 @@ class _ChatPageState extends State<ChatPage>
         return fixed;
       }
     }
-    return _mostRecentConversationOf(taId)?.id;
+    return mostRecentConversationOf(widget.controller, taId)?.id;
   }
 
   /// 相对当前角色偏移 [direction] 的目标(1 下一个 / -1 上一个,到头绕回)。
@@ -362,7 +327,7 @@ class _ChatPageState extends State<ChatPage>
     if (current == null || current.isGroup) {
       return null;
     }
-    final List<TA> characters = _swipeCharacters();
+    final List<TA> characters = charactersWithChats(widget.controller);
     if (characters.length < 2) {
       return null;
     }

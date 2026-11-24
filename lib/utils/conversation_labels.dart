@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import '../models/ta.dart';
 
 import 'package:dna/models/conversation.dart';
 import 'package:dna/state/app_controller.dart';
@@ -54,4 +55,47 @@ List<Conversation> conversationsOfTa(AppController controller, String taId) {
     return lastMessageAt(b).compareTo(lastMessageAt(a));
   });
   return chats;
+}
+
+/// 有聊天的角色：按 [AppController.tas] 的顺序，只保留有**非归档 1:1 会话**的角色。
+///
+/// 群聊不算：左右滑动与侧栏左列都只按「角色」组织，群聊另有入口。
+/// 聊天页的左右滑动与侧栏左列原本各写一遍这段（逐字相同）。
+List<TA> charactersWithChats(AppController controller) {
+  final Set<String> withChats = <String>{
+    for (final Conversation conversation in controller.conversations)
+      if (!conversation.isGroup && !conversation.archived) conversation.taId,
+  };
+  return <TA>[
+    for (final TA ta in controller.tas)
+      if (withChats.contains(ta.id)) ta,
+  ];
+}
+
+/// 该角色**时间上最近**的非归档 1:1 会话；没有则 null。
+///
+/// 与 [conversationsOfTa] 的区别（别合并）：那个是「置顶优先 + 最近在前」的
+/// 列表，给侧栏右列用；这里只回答「左右滑动切到这个人时该落到哪个会话」，
+/// 语义是「刚聊完的那个」，所以**不看置顶**。
+///
+/// 消息时间是真实发送时刻（毫秒）；老数据缺字段会被反序列化成 0，
+/// 全为 0 时退化成列表顺序。
+Conversation? mostRecentConversationOf(AppController controller, String taId) {
+  Conversation? best;
+  int bestAt = -1;
+  for (final Conversation conversation in controller.conversations) {
+    if (conversation.isGroup ||
+        conversation.archived ||
+        conversation.taId != taId) {
+      continue;
+    }
+    final int at = conversation.messages.isEmpty
+        ? 0
+        : conversation.messages.last.timestamp;
+    if (at > bestAt) {
+      bestAt = at;
+      best = conversation;
+    }
+  }
+  return best;
 }
