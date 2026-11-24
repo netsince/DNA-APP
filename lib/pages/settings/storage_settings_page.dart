@@ -9,6 +9,7 @@ import 'package:dna/widgets/state_views.dart';
 import '../../services/attachment_gc.dart';
 import '../../services/storage_usage_service.dart';
 import 'storage_labels.dart';
+import 'storage_texts_zh.dart';
 import '../../state/app_controller.dart';
 import '../../utils/ui_feedback.dart';
 
@@ -44,7 +45,8 @@ class StorageSettingsPage extends StatefulWidget {
 
 class _StorageSettingsPageState extends State<StorageSettingsPage> {
   late final StorageUsageService _service =
-      widget.service ?? StorageUsageService();
+      widget.service ??
+      StorageUsageService(texts: const StorageTextsZh());
 
   StorageUsageReport? _report;
   String? _error;
