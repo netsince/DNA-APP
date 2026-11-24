@@ -11,6 +11,7 @@ import '../../utils/id_utils.dart';
 import '../../widgets/adaptive_text_field.dart';
 import '../../widgets/app_editor_frame.dart';
 import '../../widgets/fit_text.dart';
+import '../../widgets/form_dirty_baseline.dart';
 import '../../widgets/form_draft.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/tag_input.dart';
@@ -105,7 +106,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
   StrategyDetails? _strategyOverride;
 
   /// 初始快照：用来回答「有没有未保存的改动」。
-  String? _baseline;
+  final FormDirtyBaseline _dirty = FormDirtyBaseline();
 
   @override
   void initState() {
@@ -131,7 +132,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
         (world?.forbiddenWords ?? <String>[]).join(', ');
     _entries = List<WorldEntry>.from(world?.entries ?? <WorldEntry>[]);
     _strategyOverride = world?.strategyOverride;
-    _baseline = jsonEncode(_buildCurrentWorld().toJson());
+    _dirty.capture(jsonEncode(_buildCurrentWorld().toJson()));
     if (mounted) {
       setState(() {});
     }
@@ -139,8 +140,7 @@ class _WorldEditorFormState extends State<WorldEditorForm> {
 
   /// 是否有未保存改动（外壳用来做「返回时确认」）。
   bool get _isDirty =>
-      _baseline != null &&
-      jsonEncode(_buildCurrentWorld().toJson()) != _baseline;
+      _dirty.hasChanged(jsonEncode(_buildCurrentWorld().toJson()));
 
   @override
   void dispose() {

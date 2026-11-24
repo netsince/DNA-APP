@@ -25,6 +25,7 @@ import 'package:dna/widgets/card_crop_page.dart' show FreeImageCrop;
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/seed_input_field.dart';
 import '../../widgets/app_editor_frame.dart';
+import '../../widgets/form_dirty_baseline.dart';
 
 /// 角色卡表单的句柄：外壳用它取值、判断是否有未保存改动。
 ///
@@ -32,17 +33,17 @@ import '../../widgets/app_editor_frame.dart';
 /// 「怎么存」，只能 current() / isDirty。
 class TaFormController extends ChangeNotifier {
   _TaEditorFormState? _state;
-  String? _baseline;
+  final FormDirtyBaseline _dirty = FormDirtyBaseline();
 
   void _attach(_TaEditorFormState state) {
     _state = state;
-    _baseline = jsonEncode(state._buildCurrentTA().toJson());
+    _dirty.capture(jsonEncode(state._buildCurrentTA().toJson()));
   }
 
   void _detach(_TaEditorFormState state) {
     if (identical(_state, state)) {
       _state = null;
-      _baseline = null;
+      _dirty.clear();
     }
   }
 
@@ -58,8 +59,8 @@ class TaFormController extends ChangeNotifier {
   /// 是否有未保存改动。
   bool get isDirty {
     final _TaEditorFormState? state = _state;
-    if (state == null || _baseline == null) return false;
-    return jsonEncode(state._buildCurrentTA().toJson()) != _baseline;
+    if (state == null) return false;
+    return _dirty.hasChanged(jsonEncode(state._buildCurrentTA().toJson()));
   }
 
   /// 用一份新数据回填表单（切换编辑对象）。基线一并重置，避免刚打开就显示「已修改」。
@@ -67,7 +68,7 @@ class TaFormController extends ChangeNotifier {
     final _TaEditorFormState? state = _state;
     if (state == null) return;
     state._applyTa(ta);
-    _baseline = jsonEncode(state._buildCurrentTA().toJson());
+    _dirty.capture(jsonEncode(state._buildCurrentTA().toJson()));
   }
 
   /// 打开导出对话框（对话框的 UI 仍在表单里，外壳只负责触发）。
