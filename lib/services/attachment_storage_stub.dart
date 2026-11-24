@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:dna/services/attachment_ref.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -26,8 +27,6 @@ class AttachmentStore {
   /// 这里用 `attachments` 单独一个，不跟它们混。
   static const String _boxName = 'attachments';
 
-  /// 合法引用：64 位小写十六进制 sha256 + '.' + 扩展名（与 IO 端同一套规则）。
-  static final RegExp _refPattern = RegExp(r'^[0-9a-f]{64}\.[a-z0-9]+$');
 
   Future<Box<Uint8List>> _box() => Hive.openBox<Uint8List>(_boxName);
 
@@ -118,20 +117,14 @@ class AttachmentStore {
   ///
   /// Web 端字节都在同一个 box 里、没有目录，这里返回同一套前缀，
   /// 只是为了 API 与 IO 端保持一致（两端调用方代码可以完全一样）。
-  String shardOf(String ref) {
-    if (ref.length < 2) return '00';
-    return ref.substring(0, 2);
-  }
+  String shardOf(String ref) => shardOfRef(ref);
 
   /// ext 归一化：小写、只留字母数字（`.PNG`→`png`、`jp!g`→`jpg`），空则 `bin`。
   ///
   /// 两端必须用同一套规则：扩展名会进引用，两边不一致就会把同一份内容
   /// 存成两个引用，去重也就白做了。
-  String normalizeExt(String ext) {
-    final String cleaned = ext.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    return cleaned.isEmpty ? 'bin' : cleaned;
-  }
+  String normalizeExt(String ext) => normalizeAttachmentExt(ext);
 
   /// 引用是否合法。
-  bool isValidRef(String ref) => _refPattern.hasMatch(ref);
+  bool isValidRef(String ref) => isValidAttachmentRef(ref);
 }

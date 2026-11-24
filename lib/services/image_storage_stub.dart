@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:dna/services/blob_ref.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -74,10 +75,7 @@ class ImageStorage {
     return _WebMemoryImage(ref);
   }
 
-  String _normalizeExt(String? ext) {
-    final String e = (ext == null || ext.isEmpty) ? '.jpg' : ext;
-    return e.startsWith('.') ? e : '.$e';
-  }
+  String _normalizeExt(String? ext) => normalizeImageExt(ext);
 }
 
 /// 异步从 IndexedDB 读取图片字节的 ImageProvider（仅 Web 使用）。

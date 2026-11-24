@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:dna/services/attachment_ref.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -29,11 +30,6 @@ class AttachmentStore {
   /// 原子写的临时后缀：先写 `<ref>.<唯一后缀>.part`，flush 后 rename 成正式文件名。
   static const String _partSuffix = '.part';
 
-  /// 合法引用：64 位小写十六进制 sha256 + '.' + 扩展名。
-  ///
-  /// 顺带把路径穿越挡在门外（引用会从消息 JSON / 导入的备份里读回来，
-  /// 不是本机自己产生的也得当不可信数据处理）。
-  static final RegExp _refPattern = RegExp(r'^[0-9a-f]{64}\.[a-z0-9]+$');
 
   /// 保存字节，返回内容寻址引用 `'<sha256>.<ext>'`。
   ///
@@ -176,22 +172,16 @@ class AttachmentStore {
   /// 计算引用落在哪个前缀目录（sha256 前 2 位）。
   ///
   /// 存储页/调试工具要定位文件时用；正常读写走本类即可。
-  String shardOf(String ref) {
-    if (ref.length < 2) return '00';
-    return ref.substring(0, 2);
-  }
+  String shardOf(String ref) => shardOfRef(ref);
 
   /// ext 归一化：小写、只留字母数字（`.PNG`→`png`、`jp!g`→`jpg`），空则 `bin`。
   ///
   /// 扩展名来自用户文件名，必须洗一遍再用进路径（否则 `../`、空格、
   /// 中文标点都会进文件名）。
-  String normalizeExt(String ext) {
-    final String cleaned = ext.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    return cleaned.isEmpty ? 'bin' : cleaned;
-  }
+  String normalizeExt(String ext) => normalizeAttachmentExt(ext);
 
   /// 引用是否合法（同时也是读取/删除前的路径穿越防线）。
-  bool isValidRef(String ref) => _refPattern.hasMatch(ref);
+  bool isValidRef(String ref) => isValidAttachmentRef(ref);
 
   /// 所有正式文件（跳过 `.part` 残片与目录）。
   Future<List<File>> _refFiles() async {
