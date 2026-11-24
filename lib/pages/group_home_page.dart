@@ -89,7 +89,7 @@ class GroupListBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge(<Listenable>[controller.dataChanges, controller.settingsChanges]),
       builder: (BuildContext context, Widget? _) {
         final List<Conversation> visible = controller.groupConversations
             .where((Conversation c) => c.archived == showArchived)

@@ -71,7 +71,7 @@ class IdentityListBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: controller.dataChanges,
       builder: (BuildContext context, Widget? _) {
         final List<UserIdentity> identities = controller.identities;
 

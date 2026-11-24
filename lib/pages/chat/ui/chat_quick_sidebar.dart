@@ -196,7 +196,7 @@ class _ChatQuickSidebarState extends State<ChatQuickSidebar> {
                 minWidth: kChatSidebarFullWidth,
                 maxWidth: kChatSidebarFullWidth,
                 child: ListenableBuilder(
-                  listenable: widget.controller,
+                  listenable: widget.controller.dataChanges,
                   builder: (BuildContext context, Widget? _) {
                     final List<TA> characters = charactersWithChats(widget.controller);
                     final String? taId = _effectiveTaId(characters);
