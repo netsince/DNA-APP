@@ -30,6 +30,7 @@ import '../services/zhipu_service.dart';
 import '../services/deepseek_service.dart';
 import '../services/llm_provider.dart';
 import '../services/llm_request.dart';
+import 'world_store.dart';
 
 import '../services/settings_service.dart';
 import '../services/app_icon_service.dart';
@@ -129,11 +130,20 @@ class AppController extends ChangeNotifier {
     // 「自由剪图」开关：把裁剪层（含内嵌社区）的读取回调指向本控制器的当前设置。
     // 只绑一次、不存副本，所以设置一变裁剪层立刻跟着变（见 FreeImageCrop 的说明）。
     FreeImageCrop.bind(() => _settings.freeImageCrop);
+    // 世界卡这一域已拆到 WorldStore（见 lib/state/world_store.dart）。
+    // 通知仍由本控制器统一发：store 只喊「我变了」，分组归属在这里决定。
+    _worldStore = WorldStore(
+      hive: _hiveService,
+      onChanged: () => _notify(AppChange.data),
+    );
   }
 
   final SettingsService _settingsService;
   final OpenAiService _openAiService;
   final HiveService _hiveService;
+
+  /// 世界卡域（拆出 [AppController] 的第一块状态）。
+  late final WorldStore _worldStore;
 
   /// 已注册的大模型 Provider 集合。新增厂商只需把对应适配器加进来。
   final LlmProviderRegistry _providerRegistry;
@@ -141,7 +151,6 @@ class AppController extends ChangeNotifier {
   AppSettings _settings = AppSettings.empty();
   List<TA> _tas = <TA>[];
   List<UserIdentity> _identities = <UserIdentity>[];
-  List<World> _worlds = <World>[];
   List<Conversation> _conversations = <Conversation>[];
   List<Conversation> _groupConversations = <Conversation>[];
 
@@ -239,8 +248,8 @@ class AppController extends ChangeNotifier {
   List<TA> get tas => _tas;
   List<TA> get activeTas => _tas.where((TA t) => !t.archived).toList();
   List<UserIdentity> get identities => List<UserIdentity>.unmodifiable(_identities);
-  List<World> get worlds => List<World>.unmodifiable(_worlds);
-  List<World> get activeWorlds => _worlds.where((World w) => !w.archived).toList();
+  List<World> get worlds => _worldStore.items;
+  List<World> get activeWorlds => _worldStore.activeItems;
   List<Conversation> get conversations => List<Conversation>.unmodifiable(_conversations);
   List<Conversation> get activeConversations => _conversations.where((Conversation c) => !c.archived).toList();
   List<Conversation> get groupConversations => List<Conversation>.unmodifiable(_groupConversations);
@@ -304,7 +313,7 @@ class AppController extends ChangeNotifier {
     ]);
     _tas = loaded[0] as List<TA>;
     _identities = loaded[1] as List<UserIdentity>;
-    _worlds = loaded[2] as List<World>;
+    _worldStore.replaceAll(loaded[2] as List<World>);
     final allConversations = loaded[3] as List<Conversation>;
     _conversations = allConversations.where((c) => !c.isGroup).toList();
     _groupConversations = allConversations.where((c) => c.isGroup).toList();
@@ -1073,43 +1082,14 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> upsertWorld(World world) async {
-    final int index = _worlds.indexWhere((World item) => item.id == world.id);
-    if (index == -1) {
-      _worlds = <World>[..._worlds, world];
-    } else {
-      final List<World> updated = <World>[..._worlds];
-      updated[index] = world;
-      _worlds = updated;
-    }
-    await _hiveService.upsertWorld(world);
-    _notify(AppChange.data);
-  }
+  Future<void> upsertWorld(World world) => _worldStore.upsert(world);
 
-  Future<void> deleteWorld(String id) async {
-    _worlds = _worlds.where((World world) => world.id != id).toList();
-    await _hiveService.deleteWorld(id);
-    _notify(AppChange.data);
-  }
+  Future<void> deleteWorld(String id) => _worldStore.delete(id);
 
   Future<void> setWorldArchived({
     required String id,
     required bool archived,
-  }) async {
-    final int index = _worlds.indexWhere((World item) => item.id == id);
-    if (index == -1) {
-      return;
-    }
-    final World current = _worlds[index];
-    if (current.archived == archived) {
-      return;
-    }
-    final List<World> updated = <World>[..._worlds];
-    updated[index] = current.copyWith(archived: archived);
-    _worlds = updated;
-    await _hiveService.upsertWorld(updated[index]);
-    _notify(AppChange.data);
-  }
+  }) => _worldStore.setArchived(id: id, archived: archived);
 
   /// 按 id 查会话：单聊与群聊一起查，找不到返回 null。
   ///
@@ -1425,20 +1405,8 @@ class AppController extends ChangeNotifier {
   }
 
   /// 同 [reorderTas]：下标口径是"移除之后"。
-  Future<void> reorderWorlds(int oldIndex, int newIndex) async {
-    if (oldIndex < 0 || oldIndex >= _worlds.length) {
-      return;
-    }
-    if (newIndex < 0 || newIndex >= _worlds.length) {
-      return;
-    }
-    final List<World> updated = List<World>.from(_worlds);
-    final World moved = updated.removeAt(oldIndex);
-    updated.insert(newIndex, moved);
-    _worlds = updated;
-    await _hiveService.saveWorlds(_worlds);
-    _notify(AppChange.data);
-  }
+  Future<void> reorderWorlds(int oldIndex, int newIndex) =>
+      _worldStore.reorder(oldIndex, newIndex);
 
   Conversation? getGroupById(String id) {
     for (final Conversation conversation in _groupConversations) {
@@ -1462,19 +1430,14 @@ class AppController extends ChangeNotifier {
     if (id == null || id.isEmpty) {
       return null;
     }
-    for (final World world in _worlds) {
-      if (world.id == id) {
-        return world;
-      }
-    }
-    return null;
+    return _worldStore.byId(id);
   }
 
   /// 导出全部数据（角色 / 世界 / 对话，不含设置）为 ZIP 字节（Web 使用）
   Future<ExportImportResult<Uint8List>> exportAllData() async {
     return DataBackupService.buildZip(
       tas: _tas,
-      worlds: _worlds,
+      worlds: _worldStore.items,
       conversations: <Conversation>[
         ..._conversations,
         ..._groupConversations,
@@ -1491,7 +1454,7 @@ class AppController extends ChangeNotifier {
     return DataBackupService.buildZipToFile(
       zipPath,
       tas: _tas,
-      worlds: _worlds,
+      worlds: _worldStore.items,
       conversations: <Conversation>[
         ..._conversations,
         ..._groupConversations,
@@ -1833,14 +1796,14 @@ class AppController extends ChangeNotifier {
             .resolveTasMusic(resolvedTas, backup.musicBytes);
 
         _tas = resolvedTasWithMusic;
-        _worlds = backup.worlds;
+        _worldStore.replaceAll(backup.worlds);
         _conversations =
             backup.conversations.where((Conversation c) => !c.isGroup).toList();
         _groupConversations =
             backup.conversations.where((Conversation c) => c.isGroup).toList();
 
         await _hiveService.saveTas(_tas);
-        await _hiveService.saveWorlds(_worlds);
+        await _worldStore.persist();
         await _hiveService.saveConversations(<Conversation>[
           ..._conversations,
           ..._groupConversations,
@@ -1852,7 +1815,7 @@ class AppController extends ChangeNotifier {
           data: DataImportReport(
             replaced: true,
             tasCount: _tas.length,
-            worldsCount: _worlds.length,
+            worldsCount: _worldStore.items.length,
             conversationsCount:
                 _conversations.length + _groupConversations.length,
             identitiesCount: _identities.length,
@@ -1875,7 +1838,7 @@ class AppController extends ChangeNotifier {
           .resolveTasMusic(resolvedNewTas, backup.musicBytes);
 
       final Set<String> existingWorldIds =
-          _worlds.map((World w) => w.id).toSet();
+          _worldStore.items.map((World w) => w.id).toSet();
       final List<World> newWorlds = backup.worlds
           .where((World w) => !existingWorldIds.contains(w.id))
           .toList();
@@ -1895,7 +1858,7 @@ class AppController extends ChangeNotifier {
           .toList();
 
       _tas = <TA>[..._tas, ...resolvedNewTasWithMusic];
-      _worlds = <World>[..._worlds, ...newWorlds];
+      _worldStore.replaceAll(<World>[..._worldStore.items, ...newWorlds]);
       _identities = <UserIdentity>[..._identities, ...newIdentities];
       _conversations = <Conversation>[
         ..._conversations,
@@ -1907,7 +1870,7 @@ class AppController extends ChangeNotifier {
       ];
 
       await _hiveService.saveTas(_tas);
-      await _hiveService.saveWorlds(_worlds);
+      await _worldStore.persist();
       await _hiveService.saveIdentities(_identities);
       await _hiveService.saveConversations(<Conversation>[
         ..._conversations,
@@ -1954,7 +1917,7 @@ class AppController extends ChangeNotifier {
     // 重置后与 AppSettings 的默认值保持一致（审计 3.5：提示不能只停 1 秒）。
     setSnackDuration(const Duration(milliseconds: kDefaultSnackDurationMs));
     _tas = <TA>[];
-    _worlds = <World>[];
+    _worldStore.replaceAll(const <World>[]);
     _conversations = <Conversation>[];
     _groupConversations = <Conversation>[];
     _notify(AppChange.all);
