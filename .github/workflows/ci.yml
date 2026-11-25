@@ -8,9 +8,6 @@ on:
       - dev
       # 版本分支：后续加功能统一在 versionbranch/<版本号> 上做。
       - "versionbranch/**"
-      # 临时：让这条分支在合并前也能跑 CI。push 事件用的是被推 ref 自己的
-      # workflow 文件，所以这样能生效；合并进 main 后可以删掉这一行。
-      - feat/flutter-3.50-update
   pull_request:
     branches:
       - main
