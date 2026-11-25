@@ -129,7 +129,8 @@ class _ConversationItem extends StatelessWidget {
         leading = ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image(
-            image: ResizeImage.resizeIfNeeded(88, 88, provider),
+            // 只限宽度：两边都给会把图拉伸成正方形（同 ta_avatar）。
+          image: ResizeImage.resizeIfNeeded(88, null, provider),
             width: 44,
             height: 44,
             fit: BoxFit.cover,

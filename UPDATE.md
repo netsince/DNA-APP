@@ -56,6 +56,7 @@ v0.4.0 正在制作中。
     - 更改：Flutter SDK 升级至 3.50.1、Dart 升级至 3.14.0、Gradle wrapper 升级至 9.5.0、compileSdk 升级至 36、intl 升级至 0.20.3、local_auth 升级至 3.0.2、local_auth_android 升级至 2.3.0、local_auth_darwin 升级至 2.0.5、local_auth_windows 升级至 2.0.2、decimal 升级至 3.2.7、file_picker 升级至 13.4.1、share_plus 升级至 13.3.1、package_info_plus 升级至 10.2.2、win32 升级至 6.4.0、删 local_auth_ios 1.1.7、新增 material_ui 1.11.1、新增 cupertino_ui 1.1.7、新增 flutter_image_compress_common。
     - 更改：许可证。
 - 修复：
+    - 修复：聊天背景和头像被拉伸变形。
     - 修复：加载失败被显示成「暂无内容」的情况（我的主页、我的收藏、我的卡等）。
     - 修复：聊天生成失败只弹一条短提示且没有重试入口。
     - 修复：底部提示条显示时间过短。

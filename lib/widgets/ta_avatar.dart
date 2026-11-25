@@ -50,7 +50,8 @@ class TaAvatar extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: Image(
-          image: ResizeImage.resizeIfNeeded(pixels, pixels, provider),
+          // 只限宽度：两边都给会把图拉伸成正方形，圆框里的人脸会变胖。
+          image: ResizeImage.resizeIfNeeded(pixels, null, provider),
           width: size,
           height: size,
           fit: BoxFit.cover,

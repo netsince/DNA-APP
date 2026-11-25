@@ -429,7 +429,8 @@ class _ReorderRow extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                   child: Image(
-                    image: ResizeImage.resizeIfNeeded(96, 96, image),
+                    // 只限宽度：两边都给会把图拉伸成正方形。
+        image: ResizeImage.resizeIfNeeded(96, null, image),
                     width: 44,
                     height: 44,
                     fit: BoxFit.cover,

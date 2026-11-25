@@ -43,6 +43,7 @@ import '../../models/attachment_draft.dart';
 import '../../models/message_attachment.dart';
 import '../../services/attachment_image_loader.dart';
 import '../../services/model_vision.dart';
+import '../../utils/image_decode.dart';
 import '../../utils/id_utils.dart';
 import '../../utils/error_display.dart';
 import '../../utils/fork_utils.dart';

@@ -42,10 +42,11 @@ class GroupAvatar extends StatelessWidget {
                 final ImageProvider? provider =
                     ImageStorage.instance.providerFor(ta, 'square');
                 if (provider != null) {
-                  // 使用 ResizeImage 限制图片解码大小（Image widget 本身无 cache 参数）
+                  // 使用 ResizeImage 限制图片解码大小（Image widget 本身无 cache 参数）。
+                  // 只限宽度：两边都传会把图拉伸成正方形。
                   final ImageProvider resized = ResizeImage.resizeIfNeeded(
                     half.toInt() * 2,
-                    half.toInt() * 2,
+                    null,
                     provider,
                   );
                   return Image(

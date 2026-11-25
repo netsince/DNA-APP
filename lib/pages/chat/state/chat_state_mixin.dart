@@ -310,8 +310,11 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   }
 
   /// 限制图片解码尺寸：立绘/头像原图动辄 2000px 以上，按原尺寸解码会吃掉
-  /// 几十 MB 内存与显存。这里统一按「整屏最长边」解码 —— 屏幕外的图再大，
+  /// 几十 MB 内存与显存。这里按「与屏幕同向的那条边」解码 —— 屏幕外的图再大，
   /// 也只按显示需要的尺寸解一次。
+  ///
+  /// 只限一条边是硬要求：两边都给会把**解码结果拉伸**成那个矩形，背景里的人脸
+  /// 会被横向压扁（看着像裁剪坏了）。细节见 utils/image_decode.dart。
   ImageProvider _limitDecodeSize(ImageProvider provider) {
     final views = WidgetsBinding.instance.platformDispatcher.views;
     if (views.isEmpty) {
@@ -322,15 +325,7 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
     if (dpr <= 0) {
       return provider;
     }
-    final Size logical = view.physicalSize / dpr;
-    final double longest =
-        logical.width > logical.height ? logical.width : logical.height;
-    // 窗口尚未布局时 physicalSize 可能是 0 或 NaN：此时不限制，交给默认解码。
-    if (!longest.isFinite || longest <= 0) {
-      return provider;
-    }
-    final int maxEdge = longest.clamp(800, 2560).round();
-    return ResizeImage.resizeIfNeeded(maxEdge, maxEdge, provider);
+    return limitDecode(provider, view.physicalSize / dpr);
   }
 
   Future<void> _ensureGroupDefaults() async {
