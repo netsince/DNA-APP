@@ -52,6 +52,10 @@ dependencies:
   hive_flutter: ^1.1.0
   local_auth: ^3.0.2
   local_auth_android: ^2.3.0
+  # auth_service 直接用它的 IOSAuthMessages 定制弹窗文案，属于直接依赖。
+  local_auth_darwin: ^2.0.5
+  # main.dart 的主题里用 CupertinoPageTransitionsBuilder（Material 拆包后它归 cupertino_ui）。
+  cupertino_ui: ^1.1.7
   url_launcher: ^6.3.1
   uuid: ^4.5.1
   tiktoken: ^1.0.3

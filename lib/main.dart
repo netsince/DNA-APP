@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart'; // ignore: unnecessary_import
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart' as legacy;
 import 'package:material_ui/material_ui.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
@@ -145,7 +144,9 @@ class _DnaAppState extends State<DnaApp> {
       // 用动态配色的 primary 当种子重算一套：Material You 本来就是从种子色
       // 推导整套色板，观感一致；逐字段搬运做不到（material_ui 的构造参数是
       // 私有字段，外部无法按名赋值）。
-      builder: (legacy.ColorScheme? lightDynamic, legacy.ColorScheme? darkDynamic) {
+      // 参数类型由 DynamicColorBuilder 推断（来自 Flutter 自带的 ColorScheme），
+      // 不显式标注就不用 import 那个已弃用的 material.dart。
+      builder: (lightDynamic, darkDynamic) {
         if (lightDynamic != null || darkDynamic != null) {
           final Color dynamicSeed = (lightDynamic ?? darkDynamic)!.primary;
           return _buildMaterialApp(
