@@ -224,12 +224,12 @@ class _TaEditorFormState extends State<TaEditorForm> {
   /// 默认限制 10MB 以内（可在设置中解锁）。背景音乐不会随角色卡导出，
   /// 仅供本地聊天时循环播放。
   Future<void> _pickMusic() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    // file_picker 13：单选走 pickFile（返回可空的 PlatformFile）。
+    final PlatformFile? result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: <String>['mp3', 'm4a', 'aac', 'ogg', 'wav'],
     );
-    if (result == null || result.files.isEmpty) return;
-    final String sourcePath = result.files.single.path ?? '';
+    final String sourcePath = result?.path ?? '';
     if (sourcePath.isEmpty) return;
 
     // 背景音乐只在本地有意义（不随角色卡导出），社区模式下这段 UI 也不会出现。

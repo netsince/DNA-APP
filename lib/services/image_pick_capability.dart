@@ -103,18 +103,17 @@ class DefaultImagePickCapability implements ImagePickCapability {
     BuildContext context, {
     required double? aspect,
   }) async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final PlatformFile? picked = await FilePicker.pickFile(
       type: FileType.image,
-      withData: true,
     );
-    if (result == null || result.files.isEmpty) {
+    if (picked == null) {
       return null;
     }
-    final Uint8List? raw = result.files.single.bytes;
-    if (raw == null || raw.isEmpty) {
+    final Uint8List raw = await picked.readAsBytes();
+    if (raw.isEmpty) {
       return null;
     }
-    final bool isGif = result.files.single.name.toLowerCase().endsWith('.gif');
+    final bool isGif = picked.name.toLowerCase().endsWith('.gif');
     // GIF 不裁剪（会丢帧），原样返回。
     if (isGif) {
       return PickedImage(bytes: raw, extension: '.gif');
