@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../pages/splash/splash_animations.dart';
 import '../models/conversation.dart';
 import '../models/llm_model_config.dart';
 import '../models/llm_provider_config.dart';
@@ -574,7 +575,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> completeOobe() async {
-    _settings = _settings.copyWith(completedOobe: true);
+    // 引导期间启动动画是「液态玻璃」（未完成引导一律用它，见
+    // effectiveSplashAnimation），走完引导换回默认的描边动画 ——
+    // 用户第一次正常启动看到的是正式开场，而不是首次引导的亮相。
+    //
+    // 无条件覆盖：引导期间用户进不了设置页，所以这里的值只可能是引导期的默认值。
+    // 唯一会被覆盖的情况是「重新进入 OOBE」（开发者选项里的调试入口）再走完一次，
+    // 那时也按「重新做了一遍引导」处理，回到默认动画。
+    _settings = _settings.copyWith(
+      completedOobe: true,
+      splashAnimation: kDefaultSplashAnimationId,
+    );
     await _settingsStore.persist();
     // 释放内置角色卡。**不设任何"已释放"标记**：
     // 释放本身是幂等的（同 id 跳过、不覆盖用户改动），而 OOBE 正常只走一次，

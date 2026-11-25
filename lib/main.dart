@@ -373,6 +373,16 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
+  /// 本次启动实际要播的开场动画。
+  ///
+  /// 不是直接读设置里的 id：引导没走完时一律用首次启动的动画
+  /// （见 [effectiveSplashAnimation]）。渲染与「要不要遮挡主界面」都看它，
+  /// 才不会出现「遮罩按设置判断、动画按另一套判断」的错位。
+  SplashAnimationSpec get _splashSpec => effectiveSplashAnimation(
+        storedId: widget.controller.settings.splashAnimation,
+        completedOobe: widget.controller.settings.completedOobe,
+      );
+
   bool _showSplash = true;
   bool _showHome = false;
   bool _requireAuth = false;
@@ -406,8 +416,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         widget.controller.settings.requireAuthForApp;
     // 开场动画：BootstrapApp 已经播过就直接进主界面；否则按设置播。
     // 'none' 表示不播。
-    _showSplash = !widget.skipSplash &&
-        splashAnimationById(widget.controller.settings.splashAnimation).enabled;
+    _showSplash = !widget.skipSplash && _splashSpec.enabled;
     widget.controller.settingsChanges.addListener(_onControllerChanged);
     // 启动后检查一次更新（可在「高级 → setupdatepage」关闭）。
     // 放在首帧之后发起，不阻塞启动。
@@ -681,9 +690,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       child: _showSplash
           ? SplashPage(
               key: const ValueKey<bool>(true),
-              animation: splashAnimationById(
-                widget.controller.settings.splashAnimation,
-              ),
+              animation: _splashSpec,
               onComplete: _onSplashComplete,
             )
           : IndexedStack(

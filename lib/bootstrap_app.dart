@@ -61,7 +61,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
     try {
       final AppSettings settings = await SettingsService().load();
       if (mounted) {
-        setState(() => _spec = splashAnimationById(settings.splashAnimation));
+        setState(
+          () => _spec = effectiveSplashAnimation(
+            storedId: settings.splashAnimation,
+            completedOobe: settings.completedOobe,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('读设置失败，跳过开场动画: $e');

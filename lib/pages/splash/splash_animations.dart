@@ -47,6 +47,40 @@ const String kSplashAnimationOffId = 'none';
 /// 默认动画 id（与老版本行为一致：描边 + 填充 + 冲淡）。
 const String kDefaultSplashAnimationId = 'logoDraw';
 
+/// 首次启动（尚未完成引导）时的开场动画 id。
+///
+/// 新用户第一次打开时还什么都没有，这时候先给一段「液态玻璃」亮相；
+/// 引导走完后由 `completeOobe()` 换成默认的描边动画（见 [kDefaultSplashAnimationId]）。
+///
+/// 注意：这是**派生**用的常量，不会写进设置 —— 是否首次启动只由
+/// `completedOobe` 决定，设置里存的仍是用户自己选的那一段。
+const String kFirstRunSplashAnimationId = 'glassLogo';
+
+/// 本次启动实际该播哪段动画。
+///
+/// 引导没走完 → 一律用 [kFirstRunSplashAnimationId]，不看设置里的值
+///（那时用户还没机会改，设置里的值没有意义）。
+/// 引导走完 → 用设置里存的 id。
+///
+/// 抽成函数是因为有四处要读它（启动外壳、主界面的遮罩判断、以及高级页的预览），
+/// 各自写一遍迟早会不一致。
+String effectiveSplashAnimationId({
+  required String storedId,
+  required bool completedOobe,
+}) =>
+    completedOobe ? storedId : kFirstRunSplashAnimationId;
+
+/// 同 [effectiveSplashAnimationId]，直接给出去查好的 spec。
+SplashAnimationSpec effectiveSplashAnimation({
+  required String storedId,
+  required bool completedOobe,
+}) =>
+    splashAnimationById(
+      effectiveSplashAnimationId(
+        storedId: storedId,
+        completedOobe: completedOobe,
+      ),
+    );
 /// 全部可选的开场动画。新增动画只在这里追加一条：
 /// * 设置页的选项列表由它生成；
 /// * 启动时按 id 取 spec 播放；

@@ -141,7 +141,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 leading: const Icon(Icons.theaters_outlined),
                 title: const FitText('预览开场动画'),
                 subtitle: FitText(
-                  '当前：${splashAnimationById(widget.controller.settings.splashAnimation).label}',
+                  '当前：${_currentSplashAnimation.label}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _previewSplash,
@@ -172,10 +172,16 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     );
   }
 
+  /// 预览要和启动时看到的一致：引导没走完时启动播的是首次启动动画。
+  SplashAnimationSpec get _currentSplashAnimation => effectiveSplashAnimation(
+        storedId: widget.controller.settings.splashAnimation,
+        completedOobe: widget.controller.settings.completedOobe,
+      );
+
   Future<void> _previewSplash() async {
     await showSplashPreviewDialog(
       context,
-      animationId: widget.controller.settings.splashAnimation,
+      animationId: _currentSplashAnimation.id,
     );
   }
 
