@@ -6,11 +6,18 @@ on:
       - main
       - master
       - dev
+      # 版本分支：后续加功能统一在 versionbranch/<版本号> 上做。
+      - "versionbranch/**"
       # 临时：让这条分支在合并前也能跑 CI。push 事件用的是被推 ref 自己的
       # workflow 文件，所以这样能生效；合并进 main 后可以删掉这一行。
       - feat/flutter-3.50-update
   pull_request:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      # 版本分支：允许「功能分支 → versionbranch/<版本号>」的 PR 也跑 CI。
+      # 之前只写 main/master，导致 PR #76、#77 这种合进功能分支的 PR 完全没有检查项。
+      - "versionbranch/**"
   # 手动触发。注意 GitHub 只在默认分支上暴露「Run workflow」按钮，
   # 所以这条分支阶段按不出效果，留给合并之后用。
   workflow_dispatch:
