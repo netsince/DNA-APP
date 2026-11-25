@@ -49,8 +49,8 @@ const List<_Author> _kAuthors = <_Author>[
     role: '软件 LOGO 设计',
   ),
   _Author(
-    name: '张明哲',
-    aliases: <String>['辞安'],
+    name: '辞安',
+    aliases: <String>['张明哲'],
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/辞安',
   ),
