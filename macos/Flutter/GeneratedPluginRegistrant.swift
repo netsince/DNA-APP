@@ -7,7 +7,7 @@ import Foundation
 
 import audioplayers_darwin
 import dynamic_color
-import file_picker
+import file_picker_darwin
 import file_selector_macos
 import flutter_image_compress_macos
 import local_auth_darwin

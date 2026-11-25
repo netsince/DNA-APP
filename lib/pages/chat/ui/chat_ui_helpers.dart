@@ -260,7 +260,7 @@ mixin ChatUiHelpers on ChatStateMixin {
     if (action == 'share') {
       // Web 端走 navigator.share，部分浏览器不支持或用户取消，需容错。
       try {
-        await Share.share(message.text);
+        await SharePlus.instance.share(ShareParams(text: message.text));
       } catch (e) {
         if (mounted) {
           showSnack(

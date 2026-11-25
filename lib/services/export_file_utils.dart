@@ -69,16 +69,18 @@ class ExportFileUtils {
         const Utf8Encoder().convert(content),
       );
 
-      if (kIsWeb) {
-        // Web 无文件系统:交给浏览器触发下载。
-        final String? out = await FilePicker.platform.saveFile(
+      // Web / 桌面:file_picker 13 的 saveFile 自己写盘(必须传 bytes,返回 Uri)。
+      // 文本导出体积小,整份进内存没有问题。
+      if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+        final Uri? out = await FilePicker.saveFile(
           dialogTitle: dialogTitle,
           fileName: fileName,
-          type: FileType.custom,
-          allowedExtensions: <String>[ext],
           bytes: bytes,
         );
-        return ExportImportResult(success: true, data: out);
+        return ExportImportResult(
+          success: true,
+          data: out == null ? null : _displayPath(out),
+        );
       }
 
       // 移动端:先写临时文件,再走系统分享(与 ZIP 导出策略一致)。
@@ -86,37 +88,23 @@ class ExportFileUtils {
         final Directory tmpDir = await getTemporaryDirectory();
         final String tmpPath = '${tmpDir.path}/$fileName';
         await File(tmpPath).writeAsBytes(bytes, flush: true);
-        await Share.shareXFiles(<XFile>[XFile(tmpPath)], subject: dialogTitle);
+        await SharePlus.instance.share(
+          ShareParams(files: <XFile>[XFile(tmpPath)], subject: dialogTitle),
+        );
         return ExportImportResult(success: true, data: tmpPath);
       }
 
-      // 桌面端:选保存路径后系统级复制(避免大文件走 Dart 内存)。
-      final String? out = await FilePicker.platform.saveFile(
-        dialogTitle: dialogTitle,
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: <String>[ext],
-      );
-      if (out == null) {
-        return const ExportImportResult(success: true, data: null);
-      }
-      final String target = out.toLowerCase().endsWith('.${ext.toLowerCase()}')
-          ? out
-          : '$out.$ext';
-      final Directory tmpDir = await getTemporaryDirectory();
-      final String tmpPath = '${tmpDir.path}/$fileName';
-      await File(tmpPath).writeAsBytes(bytes, flush: true);
-      await File(tmpPath).copy(target);
-      try {
-        await File(tmpPath).delete();
-      } catch (_) {
-        // 临时文件清理失败不影响导出结果。
-      }
-      return ExportImportResult(success: true, data: target);
+      // 理论上到此已覆盖所有平台(上面两段分别是「非移动端」与「移动端」),
+      // 兜底返回取消语义,避免新增平台时静默落到旧拷贝逻辑。
+      return const ExportImportResult(success: true, data: null);
     } catch (e) {
       return ExportImportResult(success: false, message: '导出到文件失败: $e');
     }
   }
+
+  /// `saveFile` 返回的是 Uri：本地文件取路径，其它（Web 的 blob / data）保留原样。
+  static String _displayPath(Uri uri) =>
+      uri.scheme == 'file' ? uri.toFilePath() : uri.toString();
 
   /// 移动端放开类型过滤后的软校验。
   ///
@@ -160,17 +148,14 @@ class ExportFileUtils {
       // 桌面 / Web 保持 FileType.custom：那边是按扩展名字符串过滤的，自定义
       // 扩展名工作正常，能保住「只看到该看的文件」这个体验。
       final bool mobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-      final FilePickerResult? picked = await FilePicker.platform.pickFiles(
+      final PlatformFile? f = await FilePicker.pickFile(
         dialogTitle: dialogTitle,
         type: mobile ? FileType.any : FileType.custom,
         allowedExtensions: mobile ? null : exts,
-        withData: true,
       );
-      if (picked == null || picked.files.isEmpty) {
+      if (f == null) {
         return const ExportImportResult(success: true, data: null);
       }
-
-      final PlatformFile f = picked.files.first;
 
       // 移动端放开了类型过滤，这里补一道软校验。
       if (mobile) {
@@ -180,25 +165,19 @@ class ExportFileUtils {
         }
       }
 
-      // Web / 已带字节:直接用内存数据。
-      final Uint8List? bytes = f.bytes;
-      if (bytes != null && bytes.isNotEmpty) {
-        return ExportImportResult(
-          success: true,
-          data: const Utf8Decoder(allowMalformed: true).convert(bytes),
-        );
-      }
-
-      // IO 平台:按路径读取(带 withData 时通常也有 bytes,此处兜底)。
-      final String? path = f.path;
-      if (path == null || path.isEmpty) {
+      // file_picker 13 的 PlatformFile 不再有 bytes 字段,统一按需读取。
+      // 这里都是文本(JSON),整份读入即可。
+      final Uint8List bytes = await f.readAsBytes();
+      if (bytes.isEmpty) {
         return const ExportImportResult(
           success: false,
           message: '无法读取所选文件',
         );
       }
-      final String text = await File(path).readAsString();
-      return ExportImportResult(success: true, data: text);
+      return ExportImportResult(
+        success: true,
+        data: const Utf8Decoder(allowMalformed: true).convert(bytes),
+      );
     } catch (e) {
       return ExportImportResult(success: false, message: '读取文件失败: $e');
     }
