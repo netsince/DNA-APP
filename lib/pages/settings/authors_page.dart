@@ -36,7 +36,7 @@ const List<_Author> _kAuthors = <_Author>[
   _Author(
     name: 'Yang Borui',
     role: '开发 · 社区运营',
-    aliases: <String>['Roko', 'AIXIAOJI'],
+    aliases: <String>['Roko', 'AIXIAOJI', 'Dr. Wise Goat'],
     website: 'roko.nb6.ltd',
   ),
   _Author(
@@ -50,29 +50,32 @@ const List<_Author> _kAuthors = <_Author>[
   ),
   _Author(
     name: '辞安',
-    aliases: <String>['张明哲'],
+    aliases: <String>['张明哲','老色皮','尼古喵喵'],
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/辞安',
   ),
   _Author(
     name: '晨霧',
+    aliases: <String>['大陆兵力'],
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/Chengwu',
   ),
   _Author(
     name: 'Hookfish',
+    aliases: <String>['雁鱼Sama','杂鱼'],
     role: '前期社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/Hookfish',
   ),
   _Author(
     name: '小意',
+    aliases: <String>['小意大利'],
     role: '社区搭建',
     website: 'https://dnaisland.nb6.ltd/user/小黎',
   ),
   _Author(
     name: 'zwqq',
     role: '前期社区搭建',
-    aliases: <String>['byz0225'],
+    aliases: <String>['byz0225','抖M'],
     website: 'https://dnaisland.nb6.ltd/user/byz0225',
   ),
   _Author(
