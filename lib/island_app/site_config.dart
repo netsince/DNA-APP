@@ -1,6 +1,6 @@
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/island_app/server_config.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 站点公开配置（来自 GET /api/v1/site-config），启动后加载一次并缓存。
 class SiteConfig extends ChangeNotifier {

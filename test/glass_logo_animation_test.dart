@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:dna/pages/splash/glass_logo_animation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 液态玻璃开场动画：着色器能编译、组件能跑完、不吞异常。

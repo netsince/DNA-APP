@@ -9,7 +9,7 @@
 library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../splash/splash_animations.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';

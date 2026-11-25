@@ -29,7 +29,7 @@
 /// 声明的范围内，因此走 `patchSettings` 与旧路径落盘结果相同。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/setting_section.dart';
 import 'spec/settings_spec.dart';

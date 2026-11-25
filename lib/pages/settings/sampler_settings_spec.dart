@@ -5,7 +5,7 @@
 /// 不是单个字段能表达的）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/utils/ui_feedback.dart';

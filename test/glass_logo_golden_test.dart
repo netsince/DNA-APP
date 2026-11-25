@@ -1,5 +1,5 @@
 import 'package:dna/pages/splash/glass_logo_animation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 液态玻璃动画的观感截图（三个时刻：刚长开 / 定版前 / 第二滴）。

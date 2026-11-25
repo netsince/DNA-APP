@@ -2,7 +2,7 @@ import 'package:dna/pages/settings/settings_search_page.dart';
 import 'package:dna/pages/settings/settings_search_sections.dart';
 import 'package:dna/pages/settings/settings_usage_store.dart';
 import 'package:dna/pages/settings/spec/settings_spec.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

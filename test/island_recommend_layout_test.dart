@@ -1,6 +1,6 @@
 import 'package:dna/island_app/recommend_page.dart';
 import 'package:dna/island_app/widgets/card_tile.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ///站长推荐页的排布契约。

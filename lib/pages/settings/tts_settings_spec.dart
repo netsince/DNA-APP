@@ -11,7 +11,7 @@
 /// * 语音音频缓存不在这里管：存储空间页的「缓存」分类已经覆盖（同一份 tts_cache 目录）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../services/tts/tts_service.dart';
 import '../../state/app_controller.dart';

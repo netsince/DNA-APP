@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:dna/services/shared_prefs.dart';
 
 /// 全局外观设置（主题模式 + 强调色），持久化到本地。

@@ -12,7 +12,7 @@
 ///   subtitle，超过 20 字，违反设置区文案规矩）。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/setting_section.dart';
 import 'spec/settings_spec.dart';

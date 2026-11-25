@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../pages/settings/update_dialog.dart';
 import '../state/app_controller.dart';

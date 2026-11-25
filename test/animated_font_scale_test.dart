@@ -1,6 +1,6 @@
 import 'package:dna/theme/font_scale.dart';
 import 'package:dna/widgets/animated_font_scale.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 字号切换的过渡动画契约。

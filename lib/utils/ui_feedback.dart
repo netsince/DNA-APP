@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:dna/widgets/fit_text.dart';
 
 /// 底部提示（SnackBar）的兜底显示时长。

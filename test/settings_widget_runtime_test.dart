@@ -2,7 +2,7 @@ import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/fit_text.dart';
 import 'package:dna/widgets/setting_collapsible.dart';
 import 'package:dna/widgets/setting_section.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 折叠组件的**运行时**行为测试。

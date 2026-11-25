@@ -1,7 +1,7 @@
 import 'package:dna/pages/splash/splash_animations.dart';
 import 'package:dna/pages/splash/splash_preview_dialog.dart';
 import 'package:dna/pages/splash_page.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 设置 → 高级 → 预览开场动画：能播、能重播、关掉动画时给说明。
