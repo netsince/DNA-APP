@@ -45,6 +45,13 @@ bool settingsSectionVisible(
   );
 }
 
+/// 项数少于这个值的分组默认展开。
+///
+/// 阈值取 4：项很少的组（1~3 项）点开后看到的也就几行，收起纯属多一次点击
+/// —— 比如「字体」组只有字体来源 / 字号 / 提示条时长三行。真正值得折叠的是
+/// 项多到要滚动的那些组。
+const int kAutoExpandItemThreshold = 4;
+
 /// 由字段声明渲染出的设置页。
 class SettingsFieldsPage extends StatelessWidget {
   const SettingsFieldsPage({
@@ -90,23 +97,35 @@ class SettingsFieldsPage extends StatelessWidget {
           final List<Widget> sections = <Widget>[];
           for (final SettingSectionSpec section in entry.sections) {
             if (!settingsSectionVisible(section, runtime)) continue;
+            final List<SettingItemSpec> visibleItems = <SettingItemSpec>[
+              for (final SettingItemSpec item in section.items)
+                if (settingsItemVisible(item, runtime)) item,
+            ];
             sections.add(
               SettingSection(
                 icon: section.icon,
                 title: section.title,
                 description: section.description,
                 trailing: section.trailing,
+                // 渐进式披露的最后一层：一页七八组时默认收起，只展开第一组。
+                // 两条例外——
+                // * 项很少（< [kAutoExpandItemThreshold]）的组收起来反而多一次点击；
+                // * 从搜索跳进来时，命中的那一组必须展开，否则用户看不到自己搜的项。
+                initiallyExpanded: sections.isEmpty ||
+                    visibleItems.length < kAutoExpandItemThreshold ||
+                    visibleItems.any(
+                      (SettingItemSpec item) => item.id == focusItemId,
+                    ),
                 children: <Widget>[
-                  for (final SettingItemSpec item in section.items)
-                    if (settingsItemVisible(item, runtime))
-                      _SettingItemView(
-                        key: ValueKey<String>(item.id),
-                        item: item,
-                        controller: controller,
-                        runtime: runtime,
-                        json: json,
-                        focusItemId: focusItemId,
-                      ),
+                  for (final SettingItemSpec item in visibleItems)
+                    _SettingItemView(
+                      key: ValueKey<String>(item.id),
+                      item: item,
+                      controller: controller,
+                      runtime: runtime,
+                      json: json,
+                      focusItemId: focusItemId,
+                    ),
                 ],
               ),
             );

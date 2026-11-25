@@ -175,6 +175,25 @@ void main() {
     );
     await tester.pump();
 
+    // 分组默认收起（项数 >= kAutoExpandItemThreshold）：先滚到「启动与导航」
+    // 并展开，否则下面的开关压根没被构建出来。
+    // 按组（SettingSection）定位而不是按文案：FitText 会渲染出多个 Text 节点，
+    // find.text 命中多处，dragUntilVisible 要求唯一匹配。
+    final Finder section = find.byWidgetPredicate(
+      (Widget w) => w is SettingSection && w.title == '启动与导航',
+    );
+    await tester.dragUntilVisible(
+      section,
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+    // 点标题行（组内第一个 InkWell）展开。
+    await tester.tap(
+      find.descendant(of: section, matching: find.byType(InkWell)).first,
+    );
+    await tester.pumpAndSettle();
+
     // 页面是 ListView（懒构建），开关在靠下的「启动与导航」分区里，
     // 所以按 widget 属性找、再滚到可见处 —— 不按文案找（FitText 可能渲染
     // 出多个 Text 节点，find.text 会匹配到多个）。
