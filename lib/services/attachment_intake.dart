@@ -48,15 +48,16 @@ class AttachmentIntake {
 
   /// 从系统文件选择器挑文件（多选，最多 [maxCount] 个）。
   Future<List<AttachmentIntakeResult>> pickFiles({int maxCount = 3}) async {
-    final FilePickerResult? picked = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true,
-    );
-    if (picked == null) return const <AttachmentIntakeResult>[];
+    // file_picker 13：pickFiles 直接返回列表（空列表 = 用户取消），
+    // 不再有 FilePickerResult / withData，字节按需 readAsBytes。
+    final List<PlatformFile> picked = await FilePicker.pickFiles();
+    if (picked.isEmpty) return const <AttachmentIntakeResult>[];
     final List<AttachmentIntakeResult> out = <AttachmentIntakeResult>[];
-    for (final PlatformFile file in picked.files.take(maxCount)) {
-      final Uint8List? bytes = file.bytes;
-      if (bytes == null) {
+    for (final PlatformFile file in picked.take(maxCount)) {
+      Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
         out.add(const AttachmentIntakeResult(
           error: '读不到文件内容（权限不足或文件过大）',
         ));
@@ -65,7 +66,8 @@ class AttachmentIntake {
       out.add(await _ingest(
         bytes: bytes,
         fileName: file.name,
-        declaredSize: file.size,
+        // length() 是「已知就报、不知道返回 null」；读不出来时按已读到的字节数记。
+        declaredSize: await file.length() ?? bytes.length,
         mime: _mimeOfName(file.name),
       ));
     }

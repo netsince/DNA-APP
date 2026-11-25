@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:dna/island_app/widgets/state_views.dart';
 import 'package:dna/island_app/api/client.dart';
 import 'package:dna/utils/ui_feedback.dart';

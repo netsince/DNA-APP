@@ -12,7 +12,7 @@
 /// * 颜色禁止硬编码,一律走 `ColorScheme`;遮罩用 [AppColors]。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 圆角令牌。
 ///

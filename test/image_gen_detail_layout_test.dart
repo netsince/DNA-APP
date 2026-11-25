@@ -1,5 +1,5 @@
 import 'package:dna/island_app/image_gen_detail_page.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ///生图作品详情页的桌面布局契约。

@@ -9,7 +9,7 @@
 /// 结构性重构的目标，见 `spec/settings_spec.dart` 的文件头。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../services/auth_service.dart';
 import '../../state/app_controller.dart';

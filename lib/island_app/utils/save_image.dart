@@ -1,8 +1,7 @@
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:image/image.dart' as img;
 
 import '../../utils/error_display.dart';
@@ -85,30 +84,13 @@ String pngFileName(String baseName) {
 
 /// 弹系统保存对话框并写入字节；用户取消返回 null。
 Future<String?> _savePngBytes(Uint8List bytes, String fileName) async {
-  // 移动端与 Web：必须带 bytes —— file_picker 在 Android/iOS 上要求如此，
-  // 它会弹系统保存对话框（Android 走 SAF，默认落到 Download）并把字节写进去。
-  // 注意顺序：kIsWeb 必须在前，Web 上访问 Platform 会抛异常。
-  if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
-    return FilePicker.platform.saveFile(
-      dialogTitle: '保存图片到…',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: <String>['png'],
-      bytes: bytes,
-    );
-  }
-
-  // 桌面端：先选保存路径，再自己写字节（与项目里导出文件的策略一致）。
-  final String? target = await FilePicker.platform.saveFile(
+  // file_picker 13：saveFile 统一「收字节 + 自己落盘」，移动端/桌面端不再分叉。
+  // 返回的是 Uri，本地文件取路径，其它形式（Web 的 blob）保留原样。
+  final Uri? out = await FilePicker.saveFile(
     dialogTitle: '保存图片到…',
     fileName: fileName,
-    type: FileType.custom,
-    allowedExtensions: <String>['png'],
+    bytes: bytes,
   );
-  if (target == null) return null;
-  final String path = target.toLowerCase().endsWith('.png')
-      ? target
-      : '$target.png';
-  await File(path).writeAsBytes(bytes, flush: true);
-  return path;
+  if (out == null) return null;
+  return out.scheme == 'file' ? out.toFilePath() : out.toString();
 }

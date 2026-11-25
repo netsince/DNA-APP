@@ -1,6 +1,6 @@
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/state_views.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 三态组件的**视觉契约**。

@@ -22,6 +22,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - packages/**
+    # vendored 的第三方包（flutter_image_compress_common 的本地分叉）。
+    # 我们只改了它的 android/build.gradle，Dart 代码一行未动；它自己的
+    # material.dart 弃用不该记在本项目账上。
 
 linter:
   # The lint rules applied to this project can be customized in the
@@ -35,6 +39,12 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
+    # 状态分层的几个 store 用的是「公开命名参数 + 私有字段」：
+    #   WorldStore({required HiveService hive, ...}) : _hive = hive;
+    # 这条 lint 会建议改成 {required this._hive}。Dart 3.14 起私有命名形参确实
+    # 合法，但那样公开参数名就变成 _hive:，所有调用点都得写 _hive:，比现在更差。
+    # 这里按项目关掉。
+    prefer_initializing_formals: false
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

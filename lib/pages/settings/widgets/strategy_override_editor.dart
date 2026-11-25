@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../models/prompt_strategy.dart';
 import 'package:dna/widgets/strategy_rows.dart';

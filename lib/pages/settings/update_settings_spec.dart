@@ -14,7 +14,7 @@
 /// 那句，关闭后的含义改用 hint 常驻说明。
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../services/update_service.dart';
 import '../../utils/ui_feedback.dart';

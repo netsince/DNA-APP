@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 自适应高度的多行输入框：根据内容行数自动调整行数，避免长文本出现内部滚动条。
 class AdaptiveTextField extends StatefulWidget {

@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart'; // ignore: unnecessary_import
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
 import 'pages/auth_page.dart';
@@ -138,19 +138,36 @@ class _DnaAppState extends State<DnaApp> {
 
     // 自动：主界面跟随系统动态取色（Monet），取不到则用默认种子色。
     return DynamicColorBuilder(
-      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        final ColorScheme lightColorScheme =
-            lightDynamic ??
+      // dynamic_color 插件回调给的是 **Flutter 自带**的 ColorScheme，而应用的
+      // Material 来自 material_ui 包（Flutter 3.50 起把 Material 拆成独立包，
+      // 两者的 ColorScheme 是不同的类，不能直接赋值）。
+      // 用动态配色的 primary 当种子重算一套：Material You 本来就是从种子色
+      // 推导整套色板，观感一致；逐字段搬运做不到（material_ui 的构造参数是
+      // 私有字段，外部无法按名赋值）。
+      // 参数类型由 DynamicColorBuilder 推断（来自 Flutter 自带的 ColorScheme），
+      // 不显式标注就不用 import 那个已弃用的 material.dart。
+      builder: (lightDynamic, darkDynamic) {
+        if (lightDynamic != null || darkDynamic != null) {
+          final Color dynamicSeed = (lightDynamic ?? darkDynamic)!.primary;
+          return _buildMaterialApp(
             ColorScheme.fromSeed(
-              seedColor: DnaApp._fallbackSeed,
+              seedColor: dynamicSeed,
               brightness: Brightness.light,
-            );
-        final ColorScheme darkColorScheme =
-            darkDynamic ??
+            ),
             ColorScheme.fromSeed(
-              seedColor: DnaApp._fallbackSeed,
+              seedColor: dynamicSeed,
               brightness: Brightness.dark,
-            );
+            ),
+          );
+        }
+        final ColorScheme lightColorScheme = ColorScheme.fromSeed(
+          seedColor: DnaApp._fallbackSeed,
+          brightness: Brightness.light,
+        );
+        final ColorScheme darkColorScheme = ColorScheme.fromSeed(
+          seedColor: DnaApp._fallbackSeed,
+          brightness: Brightness.dark,
+        );
         return _buildMaterialApp(lightColorScheme, darkColorScheme);
       },
     );

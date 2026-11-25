@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 骨架屏微光扫描（shimmer）效果：在子组件上叠加一条来回扫过的渐变高光。
 ///

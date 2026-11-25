@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:dna/theme/tokens.dart';
 import 'package:dna/widgets/app_content_frame.dart';
@@ -43,6 +43,10 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
     return '${d.year}${p(d.month)}${p(d.day)}_${p(d.hour)}${p(d.minute)}${p(d.second)}';
   }
 
+  /// `saveFile` 返回 Uri：本地文件取路径，其它形式（Web 的 blob）保留原样。
+  String _displayPath(Uri uri) =>
+      uri.scheme == 'file' ? uri.toFilePath() : uri.toString();
+
   // ---- All data export ----
 
   Future<void> _exportAll() async {
@@ -53,12 +57,12 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
         final r = await widget.controller.exportAllData();
         if (!mounted) return;
         if (!r.success || r.data == null) { showSnack(context, r.message ?? '导出失败'); return; }
-        final out = await FilePicker.platform.saveFile(
+        final out = await FilePicker.saveFile(
           dialogTitle: '导出全部数据为 ZIP', fileName: 'DNA_${_ts()}.zip',
-          type: FileType.custom, allowedExtensions: <String>['zip'], bytes: r.data!,
+          bytes: r.data!,
         );
         if (!mounted) return;
-        showSnack(context, out == null ? '已取消导出' : '已导出：$out');
+        showSnack(context, out == null ? '已取消导出' : '已导出：${_displayPath(out)}');
         return;
       }
       // IO 平台：流式写临时 ZIP（内存峰值仅单文件，避免 Android OOM）
@@ -68,16 +72,20 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
       if (!r.success || r.data == null) { showSnack(context, r.message ?? '导出失败'); return; }
       // 移动端：分享临时文件；桌面：选保存路径后系统级复制
       if (Platform.isAndroid || Platform.isIOS) {
-        await Share.shareXFiles(<XFile>[XFile(tmp.path)], subject: 'DNA 全部数据导出');
+        await SharePlus.instance.share(
+          ShareParams(files: <XFile>[XFile(tmp.path)], subject: 'DNA 全部数据导出'),
+        );
         return;
       }
-      final out = await FilePicker.platform.saveFile(
-        dialogTitle: '导出全部数据为 ZIP', fileName: 'DNA_${_ts()}.zip',
-        type: FileType.custom, allowedExtensions: <String>['zip'],
+      // file_picker 13 取消了「只给保存路径」的形式，saveFile 必须收 bytes。
+      // 整份备份可能有几百 MB，读回内存正是当初流式写盘要避开的，所以桌面端
+      // 改为「选目录 + 复制临时文件」：File.copy 是系统级流式复制，不走 Dart 内存。
+      final Uri? dir = await FilePicker.pickDirectory(
+        dialogTitle: '选择导出目录',
       );
-      if (out == null) return;
-      final target = out.endsWith('.zip') ? out : '$out.zip';
-      // File.copy 为系统级流式复制，不走 Dart 内存
+      if (dir == null) return;
+      // 这段只在桌面端执行（移动端上面已经分享走人），本地目录取路径没问题。
+      final String target = path.join(dir.toFilePath(), 'DNA_${_ts()}.zip');
       await File(tmp.path).copy(target);
       if (!mounted) return;
       showSnack(context, '已导出到：$target');
@@ -126,12 +134,11 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   }
 
   Future<void> _importAll() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final f = await FilePicker.pickFile(
       dialogTitle: '选择备份 ZIP', type: FileType.custom,
-      allowedExtensions: <String>['zip'], withData: kIsWeb,
+      allowedExtensions: <String>['zip'],
     );
-    if (picked == null || picked.files.isEmpty) return;
-    final f = picked.files.first;
+    if (f == null) return;
     final replaceAll = await _pickMode(
       desc: '全部替换：清空现有数据后导入；替换前的数据会自动备份为一个 ZIP。\n\n仅追加：只添加新的角色 / 世界 / 对话，已有数据保留。',
     );
@@ -141,8 +148,8 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
       final ExportImportResult<DataImportReport> r;
       if (kIsWeb) {
         // Web 无文件路径，只能读取字节；内部同样走流式解码
-        final bytes = f.bytes;
-        if (bytes == null) { if (mounted) showSnack(context, '无法读取文件内容。'); return; }
+        final bytes = await f.readAsBytes();
+        if (bytes.isEmpty) { if (mounted) showSnack(context, '无法读取文件内容。'); return; }
         r = await widget.controller.importData(bytes, replaceAll: replaceAll);
       } else {
         // IO 平台：直接用文件路径流式导入，避免大 ZIP 整体载入内存（修复 Android OOM）
@@ -203,16 +210,15 @@ class _DataSettingsPageState extends State<DataSettingsPage> {
   }
 
   Future<void> _importConv() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final f = await FilePicker.pickFile(
       dialogTitle: '选择对话 JSON', type: FileType.custom,
-      allowedExtensions: <String>['json'], withData: kIsWeb,
+      allowedExtensions: <String>['json'],
     );
-    if (picked == null || picked.files.isEmpty) return;
-    final f = picked.files.first;
+    if (f == null) return;
     // JSON 解析必须整体读入（jsonDecode 需要完整字符串），但 IO 平台直接
     // readAsString 避免 readAsBytes + utf8.decode 的两次字节拷贝。
     final String? json = kIsWeb
-        ? (f.bytes != null ? utf8.decode(f.bytes!) : null)
+        ? utf8.decode(await f.readAsBytes())
         : (f.path != null ? await File(f.path!).readAsString() : null);
     if (json == null) { if (mounted) showSnack(context, '无法读取文件内容。'); return; }
     final parsed = widget.controller.parseConversationImportJson(json);

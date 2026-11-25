@@ -2,7 +2,7 @@ import 'dart:math' as math;
 // PathMetric 不在 material 的再导出里（Path 在、它不在），要单独拿。
 import 'dart:ui' show PathMetric;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../utils/svg_path.dart';
 import 'brand_paths.dart';

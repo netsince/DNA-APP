@@ -2,9 +2,22 @@ name: CI
 
 on:
   push:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      # 版本分支：后续加功能统一在 versionbranch/<版本号> 上做。
+      - "versionbranch/**"
   pull_request:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      # 版本分支：允许「功能分支 → versionbranch/<版本号>」的 PR 也跑 CI。
+      # 之前只写 main/master，导致 PR #76、#77 这种合进功能分支的 PR 完全没有检查项。
+      - "versionbranch/**"
+  # 手动触发。注意 GitHub 只在默认分支上暴露「Run workflow」按钮，
+  # 所以这条分支阶段按不出效果，留给合并之后用。
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,9 +31,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           # 固定 Flutter 版本：channel: stable 会自动拉到最新 stable，构建环境随之漂移。
-          # 2026-11 的 3.50.0 把最低 Gradle 提到 9.3.1，而本项目是 Gradle 8.14，
-          # 导致 v0.3.6 的 Android 构建直接失败。3.47.8 是 v0.3.5 成功构建的确切版本。
-          flutter-version: '3.47.8'
+          # 3.50 起 Android 最低 Gradle 提到 9.3.1、Material 拆成独立包 material_ui；
+          # 本项目已配套升到 Gradle 9.5.0 / AGP 9.3.1 / Kotlin 2.4.20（AGP 内置 Kotlin），
+          # 因此这里跟本机一致钉在 3.50.1。
+          flutter-version: '3.50.1'
           channel: stable
           cache: true
       - run: flutter --version
@@ -52,9 +66,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           # 固定 Flutter 版本：channel: stable 会自动拉到最新 stable，构建环境随之漂移。
-          # 2026-11 的 3.50.0 把最低 Gradle 提到 9.3.1，而本项目是 Gradle 8.14，
-          # 导致 v0.3.6 的 Android 构建直接失败。3.47.8 是 v0.3.5 成功构建的确切版本。
-          flutter-version: '3.47.8'
+          # 3.50 起 Android 最低 Gradle 提到 9.3.1、Material 拆成独立包 material_ui；
+          # 本项目已配套升到 Gradle 9.5.0 / AGP 9.3.1 / Kotlin 2.4.20（AGP 内置 Kotlin），
+          # 因此这里跟本机一致钉在 3.50.1。
+          flutter-version: '3.50.1'
           channel: stable
           cache: true
 
