@@ -76,12 +76,13 @@ void main() {
     });
 
     test('返回的 spec 与 id 对得上，且引导期那段真能播', () {
+      // 存档里是别的动画（用户改过 / 老存档），引导期仍然走首次启动那段。
       final SplashAnimationSpec firstRun = effectiveSplashAnimation(
-        storedId: kSplashAnimationOffId,
+        storedId: 'fade',
         completedOobe: false,
       );
       expect(firstRun.id, kFirstRunSplashAnimationId);
-      expect(firstRun.enabled, isTrue, reason: '引导期不能是「关闭动画」');
+      expect(firstRun.enabled, isTrue, reason: '引导期那段必须是能播的');
 
       final SplashAnimationSpec after = effectiveSplashAnimation(
         storedId: kSplashAnimationOffId,
@@ -89,6 +90,16 @@ void main() {
       );
       expect(after.id, kSplashAnimationOffId);
       expect(after.enabled, isFalse);
+    });
+
+    test('「关闭」即使在引导期也生效', () {
+      // 启动失败保险会写 none；如果引导期派生把它顶回液态玻璃，禁用就等于没做。
+      final SplashAnimationSpec off = effectiveSplashAnimation(
+        storedId: kSplashAnimationOffId,
+        completedOobe: false,
+      );
+      expect(off.id, kSplashAnimationOffId);
+      expect(off.enabled, isFalse);
     });
 
     test('默认动画就是描边（引导完成后落到的那一段）', () {

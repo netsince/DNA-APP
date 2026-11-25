@@ -10,6 +10,7 @@ import 'pages/splash_page.dart';
 import 'services/app_icon_service.dart';
 import 'services/auto_backup_service.dart';
 import 'services/settings_service.dart';
+import 'services/splash_crash_guard.dart';
 import 'services/web_font_loader.dart';
 import 'services/web_utils.dart';
 import 'state/app_controller.dart';
@@ -40,6 +41,8 @@ class _BootstrapAppState extends State<BootstrapApp> {
   /// 开屏 → 主界面的淡入时长（所有开场动画共用）。
   static const Duration _fadeDuration = Duration(milliseconds: 500);
 
+  final SplashCrashGuard _guard = SplashCrashGuard();
+
   SplashAnimationSpec? _spec;
   bool _splashDone = false;
   bool _initDone = false;
@@ -58,12 +61,14 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
   Future<void> _start() async {
     // 1) 设置先读出来 —— 它决定播哪段动画，而且很快（只读 prefs，不碰数据）。
+    SettingsService service = SettingsService();
+    AppSettings? settings;
     try {
-      final AppSettings settings = await SettingsService().load();
+      settings = await service.load();
       if (mounted) {
         setState(
           () => _spec = effectiveSplashAnimation(
-            storedId: settings.splashAnimation,
+            storedId: settings!.splashAnimation,
             completedOobe: settings.completedOobe,
           ),
         );
@@ -71,7 +76,49 @@ class _BootstrapAppState extends State<BootstrapApp> {
     } catch (e) {
       debugPrint('读设置失败，跳过开场动画: $e');
     }
-    // 2) 数据初始化与动画并行。
+
+    // 2) 启动失败保险：连续崩在启动页上就把动画关掉，别让用户卡死循环。
+    //    记账必须在这里（动画起播前）完成 —— 崩溃时进程直接没了，来不及写任何东西。
+    if (settings != null) {
+      final SplashAnimationSpec spec =
+          _spec ?? effectiveSplashAnimation(
+            storedId: settings.splashAnimation,
+            completedOobe: settings.completedOobe,
+          );
+      if (spec.enabled) {
+        final bool shouldDisable = await _guard.registerAttempt(
+          animationEnabled: true,
+        );
+        if (shouldDisable) {
+          debugPrint(
+            '[splash-guard] 连续 ${SplashCrashGuard.maxConsecutiveFailures} 次'
+            '启动未走完，已自动关闭开场动画',
+          );
+          final AppSettings disabled = settings.copyWith(
+            splashAnimation: kSplashAnimationOffId,
+          );
+          try {
+            await service.save(disabled);
+            settings = disabled;
+          } catch (e) {
+            debugPrint('写回「关闭动画」失败: $e');
+          }
+          if (mounted) {
+            setState(
+              () => _spec = effectiveSplashAnimation(
+                storedId: settings!.splashAnimation,
+                completedOobe: settings.completedOobe,
+              ),
+            );
+          }
+        }
+      } else {
+        // 本来就不播动画：这一轮启动没有可失败的东西，顺手把旧档案清掉。
+        unawaited(_guard.markSucceeded());
+      }
+    }
+
+    // 3) 数据初始化与动画并行。
     unawaited(_initialize());
   }
 
@@ -97,6 +144,8 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 
   void _onSplashDone() {
+    // 动画完整播完 = 这次启动没崩在启动页上，销账。
+    unawaited(_guard.markSucceeded());
     if (mounted) setState(() => _splashDone = true);
   }
 

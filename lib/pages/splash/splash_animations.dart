@@ -60,15 +60,20 @@ const String kFirstRunSplashAnimationId = 'glassLogo';
 ///
 /// 引导没走完 → 一律用 [kFirstRunSplashAnimationId]，不看设置里的值
 ///（那时用户还没机会改，设置里的值没有意义）。
-/// 引导走完 → 用设置里存的 id。
+/// 引导走完 → 用设置里存的 id；'none' 在任何情况下都生效。
 ///
 /// 抽成函数是因为有四处要读它（启动外壳、主界面的遮罩判断、以及高级页的预览），
 /// 各自写一遍迟早会不一致。
 String effectiveSplashAnimationId({
   required String storedId,
   required bool completedOobe,
-}) =>
-    completedOobe ? storedId : kFirstRunSplashAnimationId;
+}) {
+  // 「关闭动画」压过一切：它要么是用户在设置里明确关的，要么是启动失败保险
+  // （SplashCrashGuard）自动关的。两种情况都不该再被「引导期亮点」顶回去 ——
+  // 否则关了就等于没关，用户还会继续卡在崩启动的死循环里。
+  if (storedId == kSplashAnimationOffId) return kSplashAnimationOffId;
+  return completedOobe ? storedId : kFirstRunSplashAnimationId;
+}
 
 /// 同 [effectiveSplashAnimationId]，直接给出去查好的 spec。
 SplashAnimationSpec effectiveSplashAnimation({
