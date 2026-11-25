@@ -383,12 +383,11 @@ packages:
     source: hosted
     version: "2.5.1"
   flutter_image_compress_common:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: flutter_image_compress_common
-      sha256: "76869e4d5f3d65f3431e7edff0b2d8ad1eea68b49c6a37772fdb1ae6016da9ed"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/flutter_image_compress_common"
+      relative: true
+    source: path
     version: "1.1.1"
   flutter_image_compress_macos:
     dependency: transitive

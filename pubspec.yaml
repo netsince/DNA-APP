@@ -182,3 +182,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# 本地分叉（vendored fork）：
+# flutter_image_compress_common 1.1.1 把 `apply plugin: 'kotlin-android'` 放在
+# if 分支里，运行时并不执行，但 Flutter 是按行正则扫脚本文本做「是否仍 apply KGP」
+# 的判断，于是每次构建都误报。详见 packages/flutter_image_compress_common/
+# android/build.gradle 顶部的说明。上游修复后可删掉这段。
+dependency_overrides:
+  flutter_image_compress_common:
+    path: packages/flutter_image_compress_common
