@@ -2,12 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      # 临时：让这条分支在合并前也能跑 CI。push 事件用的是被推 ref 自己的
+      # workflow 文件，所以这样能生效；合并进 main 后可以删掉这一行。
+      - feat/flutter-3.50-update
   pull_request:
     branches: [main, master]
-  # 临时：手动触发。push 只监听 main/master/dev，feat/flutter-3.50-update
-  # 这种分支上的改动不会自动跑，加这个入口好在合并前手动验一次。
-  # 验完可以摘掉。
+  # 手动触发。注意 GitHub 只在默认分支上暴露「Run workflow」按钮，
+  # 所以这条分支阶段按不出效果，留给合并之后用。
   workflow_dispatch:
 
 permissions:
