@@ -58,7 +58,10 @@ jobs:
         if: matrix.platform == 'android'
         with:
           distribution: zulu
-          java-version: '17'
+          # AGP 9.3.1 的 lint（lintVitalAnalyzeRelease）内部用了 Java 21 才有的
+          # List.removeLast()，在 JDK 17 上会 NoSuchMethodError 把 release 构建打挂。
+          # 只有 Android 需要（别的平台用 runner 自带 JDK）。
+          java-version: '21'
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
