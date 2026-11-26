@@ -191,17 +191,20 @@ mixin ChatStateMixin on State<ChatSurface>, WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 应用切后台时暂停背景音乐，回前台恢复（若仍开启且该角色有音乐）。
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      BgmPlayer.instance.pause();
-    } else if (state == AppLifecycleState.resumed) {
-      if (_bgmEnabled && !_isGroup) {
-        final String? musicPath = _ta?.musicPath;
-        if (musicPath != null && musicPath.isNotEmpty) {
-          BgmPlayer.instance.resume();
+    // 策略（失焦即暂停 / 回前台恢复）由 bgmActionForLifecycle 单一处决定，
+    // 这里只做分发 —— 不要在调用点自行判断状态，那条路已经被改错过两次。
+    switch (bgmActionForLifecycle(state)) {
+      case BgmLifecycleAction.pause:
+        BgmPlayer.instance.pause();
+      case BgmLifecycleAction.resume:
+        if (_bgmEnabled && !_isGroup) {
+          final String? musicPath = _ta?.musicPath;
+          if (musicPath != null && musicPath.isNotEmpty) {
+            BgmPlayer.instance.resume();
+          }
         }
-      }
+      case BgmLifecycleAction.nothing:
+        break;
     }
   }
 

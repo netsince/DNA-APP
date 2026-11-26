@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import '../audio_output.dart';
 import '../bgm_player.dart';
 import 'tts_config.dart';
 
@@ -46,7 +47,11 @@ class TtsPlayer {
         BgmPlayer.instance.unduck();
       }
     });
-    await player.play(DeviceFileSource(wav.path), mode: PlayerMode.lowLatency);
+    // 朗读是「长音频」（一句话几秒、一整段几十秒），必须走流式解码；
+    // 焦点策略是「短暂持有 + 允许压低别人」，见 audio_output.dart 里的说明。
+    await player.setPlayerMode(kLongAudioPlayerMode);
+    await player.setAudioContext(buildSpeechAudioContext());
+    await player.play(DeviceFileSource(wav.path));
   }
 
   Future<void> stop() async {
