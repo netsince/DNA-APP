@@ -82,7 +82,20 @@ final Map<String, String> _closeToOpen =
     _openToClose.map((String k, String v) => MapEntry<String, String>(v, k));
 
 class _ChatInputBarState extends State<ChatInputBar> {
+  /// 展开动画时长。收起态是「一行 + 右排按钮」，展开态是「输入框整行 + 按钮另起一行」。
+  static const Duration _expandMotion = Duration(milliseconds: 180);
+
   bool _hasInput = false;
+
+  /// 输入框是否持有焦点。与 [_hasInput] 一起决定要不要展开：
+  /// 空着且没聚焦时保持紧凑（不多占聊天区高度），一旦要输入就把地方让出来。
+  bool _focused = false;
+
+  /// 是否展开成「输入框独占一行 + 按钮在下」。
+  ///
+  /// 不按「行数」判断而是按这两种意图判断：点了输入框（准备打字）或已经有字。
+  /// 发送后文本清空但键盘还在 —— 焦点仍为真，所以不会刚发完就缩回去。
+  bool get _expanded => _focused || _hasInput;
 
   /// 最近一次点击「停止生成」的时刻,用于吞掉停止后同一手势跨重建
   /// 误触到发送键的竞态(见 [_sendSafe] 与 [_buildSendOrStopButton])。
@@ -102,17 +115,25 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _prevSelection = widget.inputController.selection;
     widget.inputController.addListener(_onInputChanged);
     widget.attachments.addListener(_onAttachmentsChanged);
+    widget.inputFocusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     widget.inputController.removeListener(_onInputChanged);
     widget.attachments.removeListener(_onAttachmentsChanged);
+    widget.inputFocusNode.removeListener(_onFocusChanged);
     super.dispose();
   }
 
   void _onAttachmentsChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onFocusChanged() {
+    if (!mounted) return;
+    final bool focused = widget.inputFocusNode.hasFocus;
+    if (focused != _focused) setState(() => _focused = focused);
   }
 
   void _onInputChanged() {
@@ -217,7 +238,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// [capsule] 为真：去掉描边与自定内边距，外观交给外层胶囊容器（输入岛）；
   /// 为假：什么都不指定，走当时的「默认输入框」样式（下划线、无填充），
   /// 即 0.2.0 的旧样式（由 [_buildClassicBar] 摘掉全局输入框样式后生效）。
-  Widget _buildTextField({required bool capsule}) {
+  Widget _buildTextField({required bool capsule, required bool expanded}) {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // 回车 / 小键盘回车（区分是否带 Shift）
@@ -244,8 +265,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: TextField(
           controller: widget.inputController,
           focusNode: widget.inputFocusNode,
-          minLines: 1,
-          maxLines: 4,
+          // 展开态最少两行（写长句不用在框里滚），收起态仍是一行。
+          minLines: expanded ? 2 : 1,
+          maxLines: expanded ? 5 : 4,
           onChanged: _onChanged,
           decoration: capsule
               ? const InputDecoration(
@@ -385,7 +407,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
               _buildAttachmentStrip(cs),
               SizedBox(height: capsule ? 6 : 8),
             ],
-            if (capsule) _buildCapsuleBar(cs) else _buildClassicBar(cs),
+            // 高度从一行变两行时平滑过渡，避免聚焦瞬间把聊天列表弹一下。
+            // alignment 贴底：输入栏在页面底部，应该向上长。
+            AnimatedSize(
+              duration: _expandMotion,
+              curve: Curves.easeOut,
+              alignment: Alignment.bottomCenter,
+              child: capsule ? _buildCapsuleBar(cs) : _buildClassicBar(cs),
+            ),
           ],
         ),
       ),
@@ -394,15 +423,24 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   /// 胶囊样式（默认）：输入框与所有按钮装在同一个圆角容器里（悬浮输入岛）。
   Widget _buildCapsuleBar(ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 3, 6, 3),
+    final bool expanded = _expanded;
+    final Widget field = _buildTextField(capsule: true, expanded: expanded);
+    return AnimatedContainer(
+      duration: _expandMotion,
+      curve: Curves.easeOut,
+      padding: expanded
+          ? const EdgeInsets.fromLTRB(12, 6, 12, 4)
+          : const EdgeInsets.fromLTRB(12, 3, 6, 3),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(
           alpha: widget.halfScreen ? 0.72 : 0.95,
         ),
         // 圆角与阴影都用令牌（审计 4.4）：以前是手写 999 与一条自造阴影。
         // 半透明输入岛的层次由 AppShadows.soft 统一表达。
-        borderRadius: AppRadius.pillAll,
+        // 一行时是药丸；展开成药丸形状会很怪，换回常规圆角。
+        borderRadius: expanded
+            ? BorderRadius.circular(AppRadius.md)
+            : AppRadius.pillAll,
         border: Border.all(
           color: cs.outlineVariant.withValues(
             alpha: widget.halfScreen ? 0.35 : 0.5,
@@ -410,13 +448,29 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
         boxShadow: AppShadows.soft,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Expanded(child: _buildTextField(capsule: true)),
-          _buildTrailingActions(cs, capsule: true),
-        ],
-      ),
+      child: expanded
+          // 展开：输入框独占整行（宽度从「一半屏」回到「近乎满屏」），
+          // 按钮另起一行右对齐。
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                field,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    _buildTrailingActions(cs, capsule: true),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(child: field),
+                _buildTrailingActions(cs, capsule: true),
+              ],
+            ),
     );
   }
 
@@ -430,19 +484,30 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 与胶囊样式的区别只有「外观」：回车/换行策略、语音、灵感、发送与停止
   /// 的行为完全一致（旧版本没有「停止生成」，这里保留）。
   Widget _buildClassicBar(ColorScheme cs) {
+    final bool expanded = _expanded;
+    final Widget field = Theme(
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: const InputDecorationThemeData(filled: false),
+      ),
+      child: _buildTextField(capsule: false, expanded: expanded),
+    );
+    if (expanded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          field,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[_buildTrailingActions(cs, capsule: false)],
+          ),
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
-        Expanded(
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              inputDecorationTheme: const InputDecorationThemeData(
-                filled: false,
-              ),
-            ),
-            child: _buildTextField(capsule: false),
-          ),
-        ),
+        Expanded(child: field),
         _buildTrailingActions(cs, capsule: false),
       ],
     );
