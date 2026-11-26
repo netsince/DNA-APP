@@ -18,8 +18,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 聊天输入栏两种样式的截图（人工看用，不是断言）。
 ///
-/// 跑法：flutter test --update-goldens tool/screenshot_chat_input.dart
-/// 输出：tool/shots/chat_input_<样式>_<空|多行>.png
+/// 跑法：flutter test --update-goldens test/screenshot_chat_input.dart
+/// 输出：test/shots/chat_input_<样式>_<空|多行>.png
+///
+/// 放在 test/ 而不是 tool/：它用到了 SharedPreferences.setMockInitialValues
+/// （@visibleForTesting），而 CI 跑的是**全项目** flutter analyze —— 放在 tool/
+/// 会让 analyze 报 invalid_use_of_visible_for_testing_member。文件名不带 _test
+/// 后缀，所以 flutter test 全量时不会收集它，需要显式指定路径才会跑。
 class _FakeHive extends HiveService {
   @override
   Future<void> init() async {}
