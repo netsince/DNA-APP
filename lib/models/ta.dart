@@ -40,6 +40,20 @@ class TA {
   /// 客户端只存不编，导出时原样透传，UI 不展示，避免溯源信息失真。
   final Map<String, dynamic>? protection;
 
+  /// 这张卡是否带着**外来的溯源包**。
+  ///
+  /// 来源有两类：从社区下载（服务端导出的包），以及从别处导入的 .dnata /
+  /// 剪贴板包。两者都带平台注入的 `_lk` / 图片槽 `fx`、`dataverification`。
+  ///
+  /// 判据只看「有没有这个包」，不看它是从哪个按钮进来的 —— 只看下载动作的话，
+  /// 「社区卡复制到剪贴板 → 再导入」这条路能绕过去。
+  bool get hasForeignProtection =>
+      protection != null && protection!.isNotEmpty;
+
+  /// 能否发布到社区。带着别人的溯源信息的卡一律不能：那等于把别人的卡
+  /// 换个名字再发一遍（客户端侧唯一的兜底，服务端是否校验是另一回事）。
+  bool get canPublishToCommunity => !hasForeignProtection;
+
   /// 该角色绑定的作者注释（Author's Note）。选填：留空则不注入。
   final String? authorNote;
 

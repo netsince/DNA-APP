@@ -272,4 +272,106 @@ void main() {
         File('lib/island_app/card_publish_page.dart').readAsStringSync();
     expect(publish.contains('请填写角色卡名称'), isTrue);
   });
+
+  group('带着外来溯源包的卡不允许再上传', () {
+    TA imported({String id = 'imp', String name = '别人的卡'}) => TA(
+          id: id,
+          name: name,
+          gender: '女',
+          persona: '人设',
+          intro: '简介',
+          opening: '开场白',
+          tags: const <String>['奇幻'],
+          images: const <String, String>{},
+          dialogueStyle: const <DialogueTurn>[],
+          // 社区导出的包里有 _lk / fx / dataverification，这里只要非空即可。
+          protection: <String, dynamic>{'_lk': 'locked'},
+        );
+
+    test('判定只看有没有溯源包（复制到剪贴板那条路也覆盖）', () {
+      expect(imported().canPublishToCommunity, isFalse);
+      expect(_card().canPublishToCommunity, isTrue);
+      // 空 map 不算「带着包」——别把脏数据当成外来卡。
+      expect(
+        _card().copyWith(protection: <String, dynamic>{}).canPublishToCommunity,
+        isTrue,
+      );
+    });
+
+    testWidgets('发布按钮灰掉并说明原因，点了也不会发请求',
+        (WidgetTester tester) async {
+      AuthSession.instance.debugSetSession(
+        token: 'test-token',
+        user: <String, dynamic>{'username': 'tester'},
+      );
+      addTearDown(() => AuthSession.instance.debugSetSession());
+
+      Map<String, dynamic>? sent;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CardPublishBody(
+              source: _FakeSource(<TA>[imported()]),
+              publisher: (Map<String, dynamic> payload) async {
+                sent = payload;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('来自社区，不能再上传'), findsOneWidget);
+      final FilledButton button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '发布'),
+      );
+      expect(button.onPressed, isNull,
+          reason: '灰掉而不是隐藏：隐藏会让人以为卡丢了');
+
+      await tester.tap(
+        find.widgetWithText(FilledButton, '发布'),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(sent, isNull, reason: '禁用态不能被点穿');
+    });
+
+    testWidgets('同列表里的原创卡仍然可发（只挡外来的那张）',
+        (WidgetTester tester) async {
+      AuthSession.instance.debugSetSession(
+        token: 'test-token',
+        user: <String, dynamic>{'username': 'tester'},
+      );
+      addTearDown(() => AuthSession.instance.debugSetSession());
+
+      Map<String, dynamic>? sent;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CardPublishBody(
+              source: _FakeSource(<TA>[
+                imported(),
+                _card(id: 'mine', name: '我写的卡'),
+              ]),
+              publisher: (Map<String, dynamic> payload) async {
+                sent = payload;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 两张卡各一个「发布」，只有原创那张可点。
+      final List<FilledButton> buttons =
+          tester.widgetList<FilledButton>(find.widgetWithText(FilledButton, '发布')).toList();
+      expect(buttons.length, 2);
+      expect(buttons.where((FilledButton b) => b.onPressed == null).length, 1);
+
+      await tester.tap(find.widgetWithText(FilledButton, '发布').last);
+      await tester.pumpAndSettle();
+      expect(sent, isNotNull);
+      expect(sent!['name'], '我写的卡');
+    });
+  });
 }

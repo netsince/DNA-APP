@@ -80,6 +80,11 @@ class _CardPublishBodyState extends State<CardPublishBody> {
   /// 列表行：点一下就发。失败把服务端的原话带回来（图片比例、字段校验等）。
   Future<void> _publishExisting(TA ta) async {
     if (_publishingId != null) return;
+    // UI 已经把按钮灰掉了，这里再挡一次：列表行的状态可能来自缓存。
+    if (!ta.canPublishToCommunity) {
+      _toast('这张卡来自社区，不能再上传');
+      return;
+    }
     if (!AuthSession.instance.isLoggedIn) {
       _toast('请先登录后再发布');
       return;
@@ -313,6 +318,9 @@ class _CardPublishBodyState extends State<CardPublishBody> {
     final ColorScheme cs = theme.colorScheme;
     final bool publishing = _publishingId == ta.id;
     final bool published = _published.contains(ta.id);
+    // 带着外来溯源包的卡（社区下载 / 别处导入）不允许再发布：
+    // 灰掉按钮并说明原因，而不是把它从列表里藏起来 —— 藏起来会让人以为卡丢了。
+    final bool blocked = !ta.canPublishToCommunity;
 
     return ListTile(
       title: Text(
@@ -321,11 +329,13 @@ class _CardPublishBodyState extends State<CardPublishBody> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        <String>[
-          if (ta.tags.isNotEmpty)
-            ta.tags.take(3).map((String t) => '#$t').join(' '),
-          if (ta.intro.isNotEmpty) ta.intro,
-        ].join(' · '),
+        blocked
+            ? '来自社区，不能再上传'
+            : <String>[
+                if (ta.tags.isNotEmpty)
+                  ta.tags.take(3).map((String t) => '#$t').join(' '),
+                if (ta.intro.isNotEmpty) ta.intro,
+              ].join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
@@ -350,7 +360,7 @@ class _CardPublishBodyState extends State<CardPublishBody> {
             Icon(Icons.check, color: cs.primary)
           else
             FilledButton.tonal(
-              onPressed: () => _publishExisting(ta),
+              onPressed: blocked ? null : () => _publishExisting(ta),
               child: const Text('发布'),
             ),
         ],
