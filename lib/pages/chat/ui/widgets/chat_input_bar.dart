@@ -448,29 +448,30 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
         boxShadow: AppShadows.soft,
       ),
-      child: expanded
-          // 展开：输入框独占整行（宽度从「一半屏」回到「近乎满屏」），
-          // 按钮另起一行右对齐。
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                field,
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: <Widget>[
-                    _buildTrailingActions(cs, capsule: true),
-                  ],
-                ),
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Expanded(child: field),
-                _buildTrailingActions(cs, capsule: true),
-              ],
+      // **结构在两种状态下必须一致**：TextField 的祖先链永远是
+      // Column[0] → Row[0] → Expanded[0] → field。
+      //
+      // 之前写成 `expanded ? Column(...) : Row(...)`，一聚焦就把 TextField 的父级
+      // 从 Row 换成 Column —— Element 被卸载重建，焦点/输入法随之中断：
+      // 表现就是「点一下键盘弹出来又缩回去，得再点一次」。
+      // 现在只挪按钮的位置（收起在行内、展开在下一行），不改输入框的挂载位置。
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Expanded(child: field),
+              if (!expanded) _buildTrailingActions(cs, capsule: true),
+            ],
+          ),
+          if (expanded)
+            Align(
+              alignment: Alignment.centerRight,
+              child: _buildTrailingActions(cs, capsule: true),
             ),
+        ],
+      ),
     );
   }
 
@@ -491,24 +492,22 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ),
       child: _buildTextField(capsule: false, expanded: expanded),
     );
-    if (expanded) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          field,
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: <Widget>[_buildTrailingActions(cs, capsule: false)],
-          ),
-        ],
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    // 同胶囊样式：输入框的祖先链保持不变，只挪按钮。
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Expanded(child: field),
-        _buildTrailingActions(cs, capsule: false),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            Expanded(child: field),
+            if (!expanded) _buildTrailingActions(cs, capsule: false),
+          ],
+        ),
+        if (expanded)
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildTrailingActions(cs, capsule: false),
+          ),
       ],
     );
   }

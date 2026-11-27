@@ -124,6 +124,45 @@ void main() {
         reason: '刚发完就缩回去会让下一次输入再弹一次，很难受');
   });
 
+  // 回归：用户反馈「点输入框，键盘弹出来又缩回去，得点第二次」。
+  //
+  // 为什么不能断言 hasFocus：FocusNode 是外部持有并传给 TextField 的，
+  // 即便 TextField 被卸载重建，重建后依然 attach 到同一个 FocusNode，
+  // hasFocus 仍是 true —— 但 EditableText 会重连平台 TextInput，键盘随之收起。
+  // 所以真正要锁的是「输入框有没有被重建」，用 Element 身份来判定。
+  void expectFieldNotRebuilt(WidgetTester tester, Element before, String label) {
+    final Element after = tester.element(find.byType(TextField));
+    expect(
+      identical(before, after),
+      isTrue,
+      reason: '$label：展开时 TextField 被卸载重建了 —— '
+          'EditableText 会重连输入法，键盘弹一下就缩回，用户得点第二次',
+    );
+  }
+
+  testWidgets('展开时输入框不被重建（回归：键盘弹出又缩回）',
+      (WidgetTester tester) async {
+    await pumpBar(tester);
+    final Element before = tester.element(find.byType(TextField));
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump(); // 展开是 setState 触发的，第一帧就要检查
+    expectFieldNotRebuilt(tester, before, '胶囊样式');
+
+    await tester.pumpAndSettle();
+    expect(fieldWidth(tester), greaterThan(300), reason: '展开仍然生效');
+    expect(focus.hasFocus, isTrue, reason: '焦点仍在');
+  });
+
+  testWidgets('经典样式展开时输入框同样不被重建', (WidgetTester tester) async {
+    await pumpBar(tester, style: 'classic');
+    final Element before = tester.element(find.byType(TextField));
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expectFieldNotRebuilt(tester, before, '经典样式');
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('经典 · 空且未聚焦：紧凑', (WidgetTester tester) async {
     await pumpBar(tester, style: 'classic');
     expect(fieldWidth(tester), lessThan(260));
