@@ -93,7 +93,13 @@ class _ProviderConfigFormState extends State<ProviderConfigForm> {
   /// Base URL 的格式错误（失焦时才提示，避免边打字边报红）。
   String? _baseUrlFormatError;
 
-  bool _obscureApiKey = true;
+  /// API Key 输入框是否遮挡。**默认明文**。
+  ///
+  /// 它是「用户自己配置、存在本机、随时可作废」的凭证，不是登录密码：
+  /// 遮起来防的是旁边有人瞄一眼，代价却是必现的——obscureText 会让平台把
+  /// 输入框标记成密码字段，输入法随之切到「安全键盘」，而安全键盘普遍禁用剪贴板，
+  /// 用户就无法把密钥粘进来。需要遮挡时可以点右侧眼睛按钮（那是主动选择）。
+  bool _obscureApiKey = false;
 
   /// 剪贴板里那段「看起来像 Key」的文本；为空表示不提示。
   String? _clipboardKey;
@@ -219,6 +225,9 @@ class _ProviderConfigFormState extends State<ProviderConfigForm> {
           TextField(
             controller: widget.apiKeyController,
             obscureText: _obscureApiKey,
+            // 等宽：密钥是一串随机字符，用户真正要确认的是「有没有复制全、
+            // 首尾对不对」，等宽排版让每个字符对齐，比遮挡有用得多。
+            style: const TextStyle(fontFamily: 'JetBrainsMono'),
             // 关掉自动更正与联想：Key 是一串无意义字符，被键盘「纠正」过就废了。
             autocorrect: false,
             enableSuggestions: false,

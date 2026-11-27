@@ -160,6 +160,13 @@ flutter:
           weight: 400
         - asset: assets/fonts/SourceHanSansSC-Medium.otf
           weight: 500
+    # 等宽字体：只用于需要「一个字符一个位置」的地方（API 密钥、代码类文本）。
+    # 密钥是一串随机字符，用户真正要确认的是「复制全了没有、首尾对不对」，
+    # 等宽比遮挡有用。授权同为 SIL OFL 1.1（见 LICENSE-OFL）。
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
