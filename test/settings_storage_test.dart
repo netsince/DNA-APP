@@ -34,11 +34,34 @@ void main() {
       isEmpty,
       reason: '这些键能被 patch 写入，却没有 pref 存储规格 —— 改了也存不下来: ${missing.join(", ")}',
     );
-    final List<String> extra = <String>[
+    // 表里的键分两类：可 patch 的（settingsKeyKinds），以及**只有专门写入入口**的。
+    // 后者不能 patch（没有 patch 规则），但必须有存储规格，否则 save() 全量落盘时会
+    // 静默跳过 —— API 配置就是这么漏掉的（apiKey/baseUrl/providers/models…）。
+    final Set<String> storageOnly = <String>{
       for (final String key in kPrefSpecs.keys)
         if (!settingsKeyKinds.containsKey(key)) key,
-    ];
-    expect(extra, isEmpty, reason: '表里有 patch 不认识的键: ${extra.join(", ")}');
+    };
+    // 允许清单：有专门写入入口、不需要（也不应该）走 patch 的键。
+    const Set<String> allowedStorageOnly = <String>{
+      'activeModelId',
+      'apiKey',
+      'baseUrl',
+      'models',
+      'provider',
+      'providers',
+      'selectedModel',
+    };
+    expect(
+      storageOnly.difference(allowedStorageOnly),
+      isEmpty,
+      reason: '表里有既不能 patch、又不在「仅存储」允许清单里的键',
+    );
+    // 反向：允许清单里的键必须真的在表里（否则它们又会被 save() 跳过）。
+    expect(
+      allowedStorageOnly.difference(kPrefSpecs.keys.toSet()),
+      isEmpty,
+      reason: '「仅存储」清单里的键缺失了存储规格，save() 会跳过它们',
+    );
   });
 
   test('逐键往返：save() 之后 load() 能读回同一个值', () async {

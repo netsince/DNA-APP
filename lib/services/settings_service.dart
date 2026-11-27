@@ -30,11 +30,16 @@ class PrefSpec {
 /// 往返校验，并且有一条守卫断言「每个可写键都必须在这张表里」。
 const Map<String, PrefSpec> kPrefSpecs = <String, PrefSpec>{
   'accentMode': PrefSpec('accent_mode', SettingsValueKind.text),
+  'activeModelId': PrefSpec('active_model_id', SettingsValueKind.text),
   'allowDeleteMessage': PrefSpec('allow_delete_message', SettingsValueKind.boolean),
+  // 服务商与模型配置：早年是 4 个扁平键（provider/base_url/api_key/selected_model），
+  // 单表化时漏进这张表，导致 save() 只遍历表 → API 配置从未落盘。
+  'apiKey': PrefSpec('api_key', SettingsValueKind.text),
   'appIcon': PrefSpec('app_icon', SettingsValueKind.text),
   'autoBackup': PrefSpec('auto_backup', SettingsValueKind.boolean),
   'autoOpenLastChat': PrefSpec('auto_open_last_chat', SettingsValueKind.boolean),
   'autoSummaryPrompt': PrefSpec('auto_summary_prompt', SettingsValueKind.boolean),
+  'baseUrl': PrefSpec('base_url', SettingsValueKind.text),
   'bgmSizeLimitUnlocked': PrefSpec('bgm_size_limit_unlocked', SettingsValueKind.boolean),
   'bgmVolume': PrefSpec('bgm_volume', SettingsValueKind.integer),
   'chatBubbleOpacity': PrefSpec('chat_bubble_opacity', SettingsValueKind.integer),
@@ -93,6 +98,10 @@ const Map<String, PrefSpec> kPrefSpecs = <String, PrefSpec>{
   'summaryWordThreshold': PrefSpec('summary_word_threshold', SettingsValueKind.integer),
   'temperature': PrefSpec('temperature', SettingsValueKind.decimal),
   'themeMode': PrefSpec('theme_mode', SettingsValueKind.text),
+  'provider': PrefSpec('provider', SettingsValueKind.text),
+  'models': PrefSpec('models', SettingsValueKind.object),
+  'providers': PrefSpec('providers', SettingsValueKind.object),
+  'selectedModel': PrefSpec('selected_model', SettingsValueKind.text),
   'topK': PrefSpec('top_k', SettingsValueKind.decimal),
   'topP': PrefSpec('top_p', SettingsValueKind.decimal),
   'ttsEnabled': PrefSpec('tts_enabled', SettingsValueKind.boolean),
@@ -178,10 +187,12 @@ class SettingsService {
     final String legacyBaseUrl = prefs.getString('base_url') ?? '';
     final String legacyApiKey = prefs.getString('api_key') ?? '';
     final String legacyModel = prefs.getString('selected_model') ?? '';
-    json['provider'] = legacyProvider;
-    json['baseUrl'] = legacyBaseUrl;
-    json['apiKey'] = legacyApiKey;
-    json['selectedModel'] = legacyModel;
+    // 表里有就用表里的（单表化之后的新数据），只有表里没有才回落到 legacy 扁平键。
+    // 以前这里是无条件覆盖：只要 legacy 键有值，就会把表里读到的值盖掉。
+    json['provider'] ??= legacyProvider;
+    json['baseUrl'] ??= legacyBaseUrl;
+    json['apiKey'] ??= legacyApiKey;
+    json['selectedModel'] ??= legacyModel;
 
     List<LlmProviderConfig> providers = _decodeProviders(json['providers']);
     if (providers.isEmpty || !providers.any((LlmProviderConfig p) => p.isDefault)) {
